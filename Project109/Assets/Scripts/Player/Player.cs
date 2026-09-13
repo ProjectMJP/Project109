@@ -14,7 +14,7 @@ public class Player
 
     // 카드 덱 (런 전체에서 유지되는 전체 카드 풀)
     public PlayerDeck deck { get; private set; }
-    public List<Card> masterDeck => deck.GetCards();
+    public IReadOnlyList<Card> masterDeck => deck.GetCards();
 
     // 유물 관리자
     public RelicManager relicManager;

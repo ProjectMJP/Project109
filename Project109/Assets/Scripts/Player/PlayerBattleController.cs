@@ -28,19 +28,39 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
             battleDeck.OnHandChanged -= UpdateHandUI;
         }
 
-        if (UIManager.instance != null && UIManager.instance.battleHandPanel != null)
+        if (battleHandPanel != null)
         {
-            GameObject handObj = UIManager.instance.battleHandPanel.gameObject;
-            UIManager.instance.battleHandPanel = null;
-            UnityEngine.Object.Destroy(handObj);
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.RemoveActiveUIFromStack(battleHandPanel.gameObject);
+            }
+            UnityEngine.Object.Destroy(battleHandPanel.gameObject);
+            battleHandPanel = null;
         }
+    }
+
+    public BattleHandPanel battleHandPanel { get; private set; }
+
+    private BattleHandPanel GetOrSpawnBattleHand()
+    {
+        if (battleHandPanel != null) return battleHandPanel;
+
+        if (UIManager.instance != null)
+        {
+            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Normal, true);
+            if (obj != null)
+            {
+                battleHandPanel = obj.GetComponent<BattleHandPanel>();
+            }
+        }
+        return battleHandPanel;
     }
 
     private void UpdateHandUI()
     {
-        if (UIManager.instance != null && UIManager.instance.battleHandPanel != null)
+        if (battleHandPanel != null)
         {
-            UIManager.instance.battleHandPanel.RefreshHand(battleDeck.hand);
+            battleHandPanel.RefreshHand(battleDeck.hand);
         }
     }
 
@@ -78,41 +98,36 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
     public PlayerBattleController(Player player)
     {
         this.player = player;
-        this._controlledCharacter = player.character;
+        this._controlledCharacter = player?.character;
 
         this.battleDeck = new BattleDeck(this._controlledCharacter);
 
         // PlayerMove 초기화
-        CharacterMove charMove = this._controlledCharacter.characterMove;
-        if (charMove != null)
+        if (this._controlledCharacter != null)
         {
-            playerMove = new PlayerMove(charMove);
-        }
-        else
-        {
-            Debug.LogWarning("PlayerBattleController: CharacterMove 또는 InputController가 없습니다.");
+            CharacterMove charMove = this._controlledCharacter.characterMove;
+            if (charMove != null)
+            {
+                playerMove = new PlayerMove(charMove);
+            }
+            else
+            {
+                Debug.LogWarning("PlayerBattleController: CharacterMove 또는 InputController가 없습니다.");
+            }
         }
     }
 
     public void OnBattleStart()
     {
-        // masterDeck의 카드들을 복제(Clone)하여 전투용 덱 빌드
-        List<Card> clonedDeck = new List<Card>();
-        foreach (var card in player.masterDeck)
-        {
-            clonedDeck.Add(card.Clone(controlledCharacter));
-        }
-        battleDeck.InitDeck(clonedDeck);
+        // BattleDeck.InitDeck 내부에서 전투 전용으로 1회 복제(Clone)하여 drawPile 구성
+        battleDeck.InitDeck(player.masterDeck);
 
-        if (UIManager.instance != null)
+        var handUI = GetOrSpawnBattleHand();
+        if (handUI != null)
         {
-            var handUI = UIManager.instance.GetOrSpawnBattleHand();
-            if (handUI != null)
-            {
-                battleDeck.OnHandChanged -= UpdateHandUI;
-                battleDeck.OnHandChanged += UpdateHandUI;
-                handUI.RefreshHand(battleDeck.hand);
-            }
+            battleDeck.OnHandChanged -= UpdateHandUI;
+            battleDeck.OnHandChanged += UpdateHandUI;
+            handUI.RefreshHand(battleDeck.hand);
         }
     }
 
@@ -125,14 +140,11 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         battleDeck.DrawCards(drawCount);
 
         // 3. UI 갱신
-        if (UIManager.instance != null)
+        var handUI = GetOrSpawnBattleHand();
+        if (handUI != null)
         {
-            var handUI = UIManager.instance.GetOrSpawnBattleHand();
-            if (handUI != null)
-            {
-                handUI.gameObject.SetActive(true);
-                handUI.RefreshHand(battleDeck.hand);
-            }
+            handUI.gameObject.SetActive(true);
+            handUI.RefreshHand(battleDeck.hand);
         }
 
         // 4. 이동 활성화 (이동 상태는 필요할 때 켬)
@@ -158,9 +170,9 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         playerMove?.ClearCanMoveTiles();
 
         // 4. UI 정리
-        if (UIManager.instance != null && UIManager.instance.battleHandPanel != null)
+        if (battleHandPanel != null)
         {
-            UIManager.instance.battleHandPanel.RefreshHand(battleDeck.hand);
+            battleHandPanel.RefreshHand(battleDeck.hand);
         }
 
         // 5. 이벤트 구독 해제
@@ -206,7 +218,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         }
 
         // 사용 시도 이벤트 발동 (IOnTryUseCard)
-        CardInfo tryInfo = new CardInfo(controlledCharacter, new List<Character>(), Vector2Int.zero, card, CardFlag.Normal);
+        CardInfo tryInfo = new CardInfo(controlledCharacter, CardInfo.EmptyTargets, Vector2Int.zero, card, CardFlag.Normal);
         controlledCharacter.eventBus.Invoke<IOnTryUseCard>(c => c.OnTryUseCard(tryInfo));
 
         string typeLower = card.cardData?.targetType?.ToLower() ?? "";
@@ -225,7 +237,6 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         else
         {
             // 즉시 시전 카드 (Self, All 등)
-            List<Character> targets = new();
             Vector2Int casterPos = Vector2Int.zero;
 
             if (controlledCharacter.characterMove != null && controlledCharacter.characterMove.GetCurrentTile() != null)
@@ -233,7 +244,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
                 casterPos = controlledCharacter.characterMove.GetCurrentTile().GetCoord();
             }
 
-            UseCard(card, targets, casterPos);
+            UseCard(card, CardInfo.EmptyTargets, casterPos);
         }
     }
 

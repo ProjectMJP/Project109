@@ -32,140 +32,18 @@ public class UIManager : MonoBehaviour
     public Canvas topUILayer;
     public Canvas popupUILayer;
 
-    //현재 활성화된 Normal UI 목록 (스택 관리 대상)
-    private Stack<GameObject> activeNormalUIStack = new Stack<GameObject>();
-    private Stack<GameObject> tempDeactivatedNormalUIStack = new Stack<GameObject>();
+    // 현재 활성화된 Normal UI 목록 (스택 관리 대상: 열기/닫기/ESC 뒤로가기)
+    private readonly Stack<GameObject> activeNormalUIStack = new Stack<GameObject>();
+    private readonly Stack<GameObject> tempDeactivatedNormalUIStack = new Stack<GameObject>();
 
-    //유물 관련 변수는 TooltipPanel에서 개별 관리하므로 제거되었습니다.
-
-    //카드 상세 확인 관련 변수
-    public CardDetailPanel cardDetailHandler;
-
-    //상단 HUD 관련 변수
-    public TopHUDPanel topHUDPanel;
-    private Player boundPlayer;
-    private ExploreUI exploreMapInstance;
-    public CardDeckViewPanel cardDeckViewPanel;
-    public BattleHandPanel battleHandPanel;
-
-
-    //카드 범위 확인 관련 변수
+    // 카드 범위 확인 관련 변수 (하위 호환 필드)
+    [Header("Effect Area Tiles (Optional)")]
     public EffectAreaManager effectAreaManager;
     public EffectAreaTile effectAreaTile;
     public EffectAreaTile AdditionalEffectAreaTile;
 
-    //캐릭터 상태 바 관련 매니저
-    public CharacterStatusBarManager characterStatusBarManager;
-
-    System.Collections.IEnumerator Start()
+    private void OnDestroy()
     {
-        yield return StartCoroutine(InitializeAddressableUI());
-    }
-
-    private System.Collections.IEnumerator InitializeAddressableUI()
-    {
-        // RunManager와 player가 생성될 때까지 대기
-        while (RunManager.instance == null || RunManager.instance.player == null)
-        {
-            yield return null;
-        }
-
-        // AssetCacheManager 인스턴스가 준비되고 모든 데이터 로드가 완료될 때까지 대기
-        while (AssetCacheManager.instance == null || !AssetCacheManager.instance.isLoadComplete)
-        {
-            yield return null;
-        }
-        GameObject hudPrefab = null;
-        GameObject deckPrefab = null;
-        GameObject checkPrefab = null;
-        // AssetCacheManager가 필요한 프리팹들을 캐시할 때까지 대기
-        while (true)
-        {
-            bool hudReady = AssetCacheManager.instance.TryGetUI("TopHUDPanel", out hudPrefab);
-            bool deckReady = AssetCacheManager.instance.TryGetUI("CardDeckCanvas", out deckPrefab);
-            bool checkReady = AssetCacheManager.instance.TryGetUI("CardDetailUI", out checkPrefab);
-            if (hudReady && deckReady && checkReady)
-            {
-                break;
-            }
-            yield return null;
-        }
-        if (hudPrefab != null)
-        {
-            Transform parentTransform = topUILayer != null ? topUILayer.transform : transform;
-            GameObject inst = Instantiate(hudPrefab, parentTransform, false);
-            inst.name = "TopHUDPanel";
-
-            topHUDPanel = inst.GetComponent<TopHUDPanel>();
-
-            if (topHUDPanel != null)
-            {
-                topHUDPanel.gameObject.SetActive(true);
-                // 이미 RunManager에 player가 생성되어 있다면 즉시 바인딩
-                if (RunManager.instance != null && RunManager.instance.player != null)
-                {
-                    BindPlayerToHUD(RunManager.instance.player);
-                }
-            }
-            Debug.Log("[UIManager] TopHUDPanel UI dynamically initialized via Addressables.");
-        }
-        if (deckPrefab != null)
-        {
-            Transform parentTransform = topUILayer != null ? topUILayer.transform : transform;
-            GameObject inst = Instantiate(deckPrefab, parentTransform, false);
-            inst.name = "CardDeckCanvas";
-
-            cardDeckViewPanel = inst.GetComponent<CardDeckViewPanel>();
-
-            if (cardDeckViewPanel != null)
-            {
-                cardDeckViewPanel.gameObject.SetActive(false);
-            }
-            Debug.Log("[UIManager] CardDeckCanvas UI dynamically initialized via Addressables.");
-        }
-        if (checkPrefab != null)
-        {
-            Transform parentTransform = normalUILayer != null ? normalUILayer.transform : transform;
-            GameObject inst = Instantiate(checkPrefab, parentTransform, false);
-            inst.name = "CardDetailUI";
-
-            RectTransform rect = inst.GetComponent<RectTransform>();
-            if (rect != null)
-            {
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = Vector2.zero;
-                rect.localScale = Vector3.one;
-            }
-
-            cardDetailHandler = inst.GetComponent<CardDetailPanel>();
-
-            if (cardDetailHandler != null)
-            {
-                cardDetailHandler.gameObject.SetActive(false);
-            }
-            Debug.Log("[UIManager] CardDetailUI dynamically initialized via Addressables.");
-        }
-
-        // 어드레서블 초기 로딩이 완료되었으므로, 인게임 탐색에 필요한 지도를 즉각 스폰 및 초기화합니다.
-        GetOrSpawnExploreMap();
-    }
-
-
-    private void Update()
-    {
-        // 유물 툴팁 위치 업데이트는 TooltipPanel 내부에서 처리되므로 UIManager Update에서는 제거되었습니다.
-    }
-
-    void OnDestroy()
-    {
-        if (boundPlayer != null && boundPlayer.playerStat != null)
-        {
-            boundPlayer.playerStat.OnGoldChanged -= OnHUDGoldChanged;
-            boundPlayer.playerStat.OnMemorySharpChanged -= OnHUDMemorySharpChanged;
-        }
-
         if (instance == this)
         {
             instance = null;
@@ -225,45 +103,126 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    #region Character StatusBar Management
+    private readonly List<Component> activeWorldUIs = new List<Component>();
 
-    public CharacterStatusBarManager GetOrSpawnStatusBarManager()
+    #region World UI Factory & Lifecycle
+
+    /// <summary>
+    /// 캐릭터의 머리 위 상태바(CharacterStatusBarUI)를 World UI Layer 하위에 생성하여 반환합니다.
+    /// </summary>
+    public CharacterStatusBarUI CreateStatusBarUI(Transform target, Vector3 offset)
     {
-        if (characterStatusBarManager == null)
+        Transform parentTransform = (worldUILayer != null) ? worldUILayer.transform : transform;
+        GameObject prefab = null;
+
+        if (AssetCacheManager.instance != null)
         {
-            characterStatusBarManager = GetComponentInChildren<CharacterStatusBarManager>();
-            if (characterStatusBarManager == null)
+            AssetCacheManager.instance.TryGetUI(UIConstants.PREFAB_CHARACTER_STATUS_BAR, out prefab);
+        }
+
+        CharacterStatusBarUI statusBarUI = null;
+        if (prefab != null)
+        {
+            GameObject go = Instantiate(prefab, parentTransform);
+            go.name = $"CharacterStatusBar_{target?.name ?? "Target"}";
+            statusBarUI = go.GetComponent<CharacterStatusBarUI>();
+            if (statusBarUI == null) statusBarUI = go.AddComponent<CharacterStatusBarUI>();
+        }
+        else
+        {
+            GameObject go = new GameObject($"CharacterStatusBar_{target?.name ?? "Target"}");
+            go.transform.SetParent(parentTransform, false);
+            statusBarUI = go.AddComponent<CharacterStatusBarUI>();
+        }
+
+        if (statusBarUI != null)
+        {
+            statusBarUI.SetTarget(target, offset);
+            activeWorldUIs.Add(statusBarUI);
+        }
+
+        return statusBarUI;
+    }
+
+    /// <summary>
+    /// 캐릭터의 머리 위 이펙트 목록(CharacterEffectListUI)을 World UI Layer 하위에 생성하여 반환합니다.
+    /// </summary>
+    public CharacterEffectListUI CreateEffectListUI(Transform target, Vector3 offset)
+    {
+        Transform parentTransform = (worldUILayer != null) ? worldUILayer.transform : transform;
+        GameObject prefab = null;
+
+        if (AssetCacheManager.instance != null)
+        {
+            AssetCacheManager.instance.TryGetUI(UIConstants.PREFAB_CHARACTER_EFFECT_LIST, out prefab);
+        }
+
+        CharacterEffectListUI effectListUI = null;
+        if (prefab != null)
+        {
+            GameObject go = Instantiate(prefab, parentTransform);
+            go.name = $"CharacterEffectList_{target?.name ?? "Target"}";
+            effectListUI = go.GetComponent<CharacterEffectListUI>();
+            if (effectListUI == null) effectListUI = go.AddComponent<CharacterEffectListUI>();
+        }
+        else
+        {
+            GameObject go = new GameObject($"CharacterEffectList_{target?.name ?? "Target"}");
+            go.transform.SetParent(parentTransform, false);
+            effectListUI = go.AddComponent<CharacterEffectListUI>();
+        }
+
+        if (effectListUI != null)
+        {
+            effectListUI.SetTarget(target, offset);
+            activeWorldUIs.Add(effectListUI);
+        }
+
+        return effectListUI;
+    }
+
+    /// <summary>
+    /// 지정된 월드 UI 컴포넌트를 관리 목록에서 제거하고 안전하게 파괴합니다.
+    /// </summary>
+    public void ReleaseWorldUI(Component uiComponent)
+    {
+        if (uiComponent == null) return;
+
+        activeWorldUIs.Remove(uiComponent);
+        if (uiComponent.gameObject != null)
+        {
+            Destroy(uiComponent.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// World UI Layer에 생성된 모든 월드 공간 UI 객체를 제거합니다.
+    /// </summary>
+    public void ClearWorldUILayer()
+    {
+        for (int i = activeWorldUIs.Count - 1; i >= 0; i--)
+        {
+            if (activeWorldUIs[i] != null && activeWorldUIs[i].gameObject != null)
             {
-                GameObject go = new GameObject("CharacterStatusBarManager");
-                Transform parent = worldUILayer != null ? worldUILayer.transform : transform;
-                go.transform.SetParent(parent, false);
-                characterStatusBarManager = go.AddComponent<CharacterStatusBarManager>();
+                Destroy(activeWorldUIs[i].gameObject);
             }
         }
-        return characterStatusBarManager;
-    }
+        activeWorldUIs.Clear();
 
-    public CharacterStatusBarUI RegisterCharacterStatusBar(Character character)
-    {
-        var manager = GetOrSpawnStatusBarManager();
-        return manager != null ? manager.RegisterCharacter(character) : null;
-    }
-
-    public void UnregisterCharacterStatusBar(Character character)
-    {
-        if (characterStatusBarManager != null)
+        if (worldUILayer != null)
         {
-            characterStatusBarManager.UnregisterCharacter(character);
+            Transform parent = worldUILayer.transform;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(parent.GetChild(i).gameObject);
+            }
         }
     }
 
-    public void ClearAllCharacterStatusBars()
-    {
-        if (characterStatusBarManager != null)
-        {
-            characterStatusBarManager.ClearAll();
-        }
-    }
+    /// <summary>
+    /// 하위 호환성을 위한 World UI 정리 별칭입니다.
+    /// </summary>
+    public void ClearAllCharacterStatusBars() => ClearWorldUILayer();
 
     #endregion
 
@@ -505,128 +464,29 @@ public class UIManager : MonoBehaviour
 
     #endregion
 
-    #region 상단 HUD 바인딩
+    #region 상단 HUD 및 맵 위임 헬퍼 (하위 호환)
+    /// <summary>
+    /// 하위 호환성을 위한 플레이어 HUD 바인딩 위임 메서드입니다.
+    /// </summary>
     public void BindPlayerToHUD(Player player)
     {
-        if (topHUDPanel == null)
+        if (RunManager.instance != null)
         {
-            Debug.LogWarning("[UIManager] Cannot bind player because topHUDPanel is null.");
-            return;
-        }
-        if (boundPlayer != null && boundPlayer.playerStat != null)
-        {
-            boundPlayer.playerStat.OnGoldChanged -= OnHUDGoldChanged;
-            boundPlayer.playerStat.OnMemorySharpChanged -= OnHUDMemorySharpChanged;
-
-            if (topHUDPanel != null && topHUDPanel.PlayerRelicUI != null)
-            {
-                topHUDPanel.PlayerRelicUI.BindPlayer(null);
-            }
-        }
-
-        boundPlayer = player;
-
-        if (boundPlayer != null && boundPlayer.playerStat != null)
-        {
-            topHUDPanel.UpdateGold(boundPlayer.playerStat.InGameCurrencyGold);
-            topHUDPanel.UpdateSpecialResource(boundPlayer.playerStat.InGameCurrencyMemorySharp);
-
-            boundPlayer.playerStat.OnGoldChanged += OnHUDGoldChanged;
-            boundPlayer.playerStat.OnMemorySharpChanged += OnHUDMemorySharpChanged;
-
-            topHUDPanel.SetupHUD(OnMapButtonClicked, OnDeckButtonClicked);
-
-            if (topHUDPanel.PlayerRelicUI != null)
-            {
-                topHUDPanel.PlayerRelicUI.BindPlayer(boundPlayer);
-            }
-
-            Debug.Log("[UIManager] Successfully bound player stats to TopHUDPanel.");
+            RunManager.instance.InitPlayerHUD();
         }
     }
 
-    private void OnHUDGoldChanged(int newGold)
-    {
-        if (topHUDPanel != null)
-        {
-            topHUDPanel.UpdateGold(newGold);
-        }
-    }
-
-    private void OnHUDMemorySharpChanged(int newMemorySharp)
-    {
-        if (topHUDPanel != null)
-        {
-            topHUDPanel.UpdateSpecialResource(newMemorySharp);
-        }
-    }
-
-    private void OnMapButtonClicked()
-    {
-        Debug.Log("[UIManager] Map Button Clicked");
-
-        ExploreUI exploreUI = GetOrSpawnExploreMap();
-        if (exploreUI != null)
-        {
-            if (exploreUI.gameObject.activeSelf)
-            {
-                exploreUI.UIDeactive();
-            }
-            else
-            {
-                PushActiveUIPanel(exploreUI.gameObject, UILayerType.Top);
-            }
-        }
-    }
-
-    public ExploreUI GetOrSpawnExploreMap()
-    {
-        if (exploreMapInstance == null)
-        {
-            GameObject exploreMapObj = OpenUI("ExploreMap", UILayerType.Top);
-            if (exploreMapObj != null)
-            {
-                exploreMapInstance = exploreMapObj.GetComponent<ExploreUI>();
-                if (exploreMapInstance != null)
-                {
-                    exploreMapInstance.CreateExploreMap(15);
-                }
-            }
-        }
-        return exploreMapInstance;
-    }
-
+    /// <summary>
+    /// 스테이지 리셋 시 활성화된 ExploreMap을 정리합니다.
+    /// </summary>
     public void DestroyExploreMap()
     {
-        if (exploreMapInstance != null)
+        if (RunManager.instance != null && RunManager.instance.currentExploreUI != null)
         {
-            RemoveActiveUIFromStack(exploreMapInstance.gameObject);
-            Destroy(exploreMapInstance.gameObject);
-            exploreMapInstance = null;
-
-            if (RunManager.instance != null)
-            {
-                RunManager.instance.currentExploreUI = null;
-            }
+            RemoveActiveUIFromStack(RunManager.instance.currentExploreUI.gameObject);
+            Destroy(RunManager.instance.currentExploreUI.gameObject);
+            RunManager.instance.currentExploreUI = null;
             Debug.Log("[UIManager] Existing ExploreMap instance destroyed for stage reset.");
-        }
-    }
-
-    private void OnDeckButtonClicked()
-    {
-        Debug.Log("[UIManager] Deck Button Clicked");
-
-        if (cardDeckViewPanel != null)
-        {
-            if (cardDeckViewPanel.gameObject.activeSelf)
-            {
-                RemoveActiveUIFromStack(cardDeckViewPanel.gameObject);
-                cardDeckViewPanel.gameObject.SetActive(false);
-            }
-            else
-            {
-                PushActiveUIPanel(cardDeckViewPanel.gameObject, UILayerType.Normal);
-            }
         }
     }
     #endregion
@@ -686,7 +546,7 @@ public class UIManager : MonoBehaviour
     public void ShowConfirmDialog(string title, string message, Action onConfirm, Action onCancel)
     {
         // 팝업 레이어(popupUILayer)에 띄우도록 설정
-        GameObject dialogObj = OpenUI("ConfirmDialog", UILayerType.Popup, true);
+        GameObject dialogObj = OpenUI(UIConstants.PANEL_CONFIRM_DIALOG, UILayerType.Popup, true);
         if (dialogObj != null)
         {
             UIDialogPanel dialogPanel = dialogObj.GetComponent<UIDialogPanel>();
@@ -708,14 +568,8 @@ public class UIManager : MonoBehaviour
 
     public BattleHandPanel GetOrSpawnBattleHand()
     {
-        if (battleHandPanel != null) return battleHandPanel;
-
-        GameObject spawned = OpenUI("BattleHandPanel", UILayerType.Normal, true);
-        if (spawned != null)
-        {
-            battleHandPanel = spawned.GetComponent<BattleHandPanel>();
-        }
-        return battleHandPanel;
+        GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Normal, true);
+        return spawned != null ? spawned.GetComponent<BattleHandPanel>() : null;
     }
     #endregion
 }

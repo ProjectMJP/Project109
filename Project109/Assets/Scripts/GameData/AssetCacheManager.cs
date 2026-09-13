@@ -268,13 +268,9 @@ public class AssetCacheManager : MonoBehaviour
         // YAML 기반 모드 로드 (이펙트, 유물, 카드 데이터 데이터베이스 구축)
         ModLoader.Instance.LoadAllMods();
 
+        // 데이터 로드가 정상 완료되었음을 상태 변수로 보존합니다.
         Debug.Log("All Data Load is Complete.");
         isLoadComplete = true;
-
-        if (SceneLoadManager.instance != null)
-        {
-            SceneLoadManager.instance.ActiveStartButton();
-        }
     }
 
     public IEnumerator LoadAllAssetsFromBundle(string key, string bundlePath)

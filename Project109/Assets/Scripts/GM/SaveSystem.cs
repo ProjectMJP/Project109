@@ -31,6 +31,8 @@ public class RunSaveData
     public float playerCurHealth;
     public float playerMaxHealth;
 
+    public bool isInDungeon; // 현재 던전 진행 중인지 여부 (은신처/던전 판정용)
+
     public List<CardSaveEntry> playerDeckCards = new List<CardSaveEntry>();
     public List<string> playerRelicNames = new List<string>();
 }
@@ -62,6 +64,7 @@ public static class SaveSystem
             data.currentMapName = runManager.currentMapName;
             data.currentStageLevel = runManager.currentStageLevel;
             data.currentExploreMapFloor = runManager.currentExploreMapFloor;
+            data.isInDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
             
             data.playerGold = runManager.player.playerStat != null ? runManager.player.playerStat.InGameCurrencyGold : 0;
             data.playerMemorySharp = runManager.player.playerStat != null ? runManager.player.playerStat.InGameCurrencyMemorySharp : 0;

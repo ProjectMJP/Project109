@@ -42,21 +42,25 @@ public class PlayerDeck
     /// </summary>
     public void Clear()
     {
-        var existingCards = GetCards();
-        foreach (var card in existingCards)
+        for (int i = cards.Count - 1; i >= 0; i--)
         {
-            RemoveCard(card);
+            RemoveCard(cards[i]);
         }
         sharedMasteryStates.Clear();
     }
 
     /// <summary>
-    /// 현재 덱에 보관된 카드 리스트를 반환합니다.
+    /// 현재 덱에 보관된 카드 리스트를 반환합니다. (불필요한 복사 할당을 방지하기 위해 읽기 전용으로 노출)
     /// </summary>
-    public List<Card> GetCards()
+    public IReadOnlyList<Card> GetCards()
     {
-        return new List<Card>(cards);
+        return cards;
     }
+
+    /// <summary>
+    /// 현재 덱에 보관된 카드 개수
+    /// </summary>
+    public int CardCount => cards.Count;
 
     /// <summary>
     /// 새로운 카드 데이터를 마스터 덱에 추가합니다.

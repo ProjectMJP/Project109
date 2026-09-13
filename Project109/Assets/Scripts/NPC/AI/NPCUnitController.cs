@@ -232,7 +232,7 @@ public class NPCUnitController : ICharacterController
     {
         if (RunManager.instance == null || RunManager.instance.battleManager == null) return null;
         
-        List<ICharacterController> all = RunManager.instance.battleManager.GetAllCombatants();
+        IReadOnlyList<ICharacterController> all = RunManager.instance.battleManager.GetAllCombatants();
         Character closestHostile = null;
         int minDistance = int.MaxValue;
         

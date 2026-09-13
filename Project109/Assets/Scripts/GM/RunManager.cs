@@ -16,6 +16,8 @@ public class RunManager : MonoBehaviour
             // DontDestroyOnLoad(this.gameObject);
             battleManager = new();
             battleManager.Initialize();
+            battleManager.OnBattleWon += HandleBattleWon;
+            battleManager.OnBattleLost += HandleBattleLost;
 
             currentMap = new MapManager();
             currentMap.Initialize();
@@ -26,12 +28,18 @@ public class RunManager : MonoBehaviour
         }
     }
 
+
     [SerializeField]
     private Character _startingCharacter;
 
     [Header("Player")]
-    //플레이어 관리
-    public int currentSaveSlot = 1;
+    //플레이어 관리 (세이브 슬롯은 최상위 GameSceneManager가 소유)
+    private int _internalSaveSlot = 1;
+    public int currentSaveSlot
+    {
+        get => GameSceneManager.instance != null ? GameSceneManager.instance.currentSaveSlot : _internalSaveSlot;
+        set => _internalSaveSlot = value;
+    }
     public Player player;
     public PlayerBattleController playerBattleController;
     public PlayerExploreController playerExploreController;
@@ -153,40 +161,108 @@ public class RunManager : MonoBehaviour
         }
     }
 
-    System.Collections.IEnumerator Start()
+    private void Start()
     {
-        currentMapName = "Temple";
-
-        player = new Player(_startingCharacter);
-        playerBattleController = new PlayerBattleController(player);
-        playerExploreController = new PlayerExploreController(player);
-        _activePlayerController = playerExploreController; // 기본적으로 탐색 컨트롤러가 액티브
-
-        // 데이터 로드가 완료될 때까지 대기하여 카드가 정상 등록되게 함
-        while (AssetCacheManager.instance == null || !AssetCacheManager.instance.isLoadComplete)
+        // 1. 최상위 GameSceneManager에 던전 서브씬 매니저로 등록
+        if (GameSceneManager.instance != null)
         {
-            yield return null;
+            GameSceneManager.instance.RegisterDungeonManager(this);
         }
 
-        // 폴백 시작 장비 적용 (로비를 거치지 않고 바로 시작하는 씬 진입용)
-        ApplyStarterKit(_selectedStarterKitId);
+        // 2. 플레이어 및 컨트롤러 인스턴스 초기화
+        InitializePlayerInstances();
 
-        player.playerStat.InGameCurrencyGold = 100;
-        player.playerStat.InGameCurrencyMemorySharp = 1;
-
+        // 3. UI 및 리워드 매니저 이벤트 바인딩
         if (GameItemRewardManager.instance != null)
         {
             GameItemRewardManager.instance.SubscribeToPlayerEvents();
-            //불러온 아이템들 세분화 진행
             GameItemRewardManager.instance.UpdateItemList();
         }
 
-        // TopHUDPanel에 플레이어 데이터 바인딩 시도 (UIManager 로딩 시점 대비)
-        if (UIManager.instance != null)
+        // 3. UI 및 리워드 매니저 이벤트 바인딩
+        if (GameItemRewardManager.instance != null)
         {
-            UIManager.instance.BindPlayerToHUD(player);
+            GameItemRewardManager.instance.SubscribeToPlayerEvents();
+            GameItemRewardManager.instance.UpdateItemList();
+        }
+
+        InitPlayerHUD();
+
+#if UNITY_EDITOR
+        // 4. [에디터 단독 테스트 전용] 타이틀/은신처 씬을 거치지 않고 에디터에서 GameScene을 직접 재생한 경우
+        //    (세이브 파일도 없고 덱이 비어있을 때만 임시 테스트 세팅 주입)
+        if (player.deck == null || player.deck.CardCount == 0)
+        {
+            StartCoroutine(CoSetupDebugStandalone());
+        }
+#endif
+    }
+
+    private void InitializePlayerInstances()
+    {
+        if (player == null)
+        {
+            player = new Player(_startingCharacter);
+        }
+        playerBattleController = new PlayerBattleController(player);
+        playerExploreController = new PlayerExploreController(player);
+        _activePlayerController = playerExploreController; // 기본적으로 탐색 컨트롤러가 액티브
+    }
+
+    /// <summary>
+    /// 플레이어의 TopHUDPanel을 생성하고 플레이어 스탯 및 유물 데이터를 바인딩합니다.
+    /// </summary>
+    public void InitPlayerHUD()
+    {
+        if (player == null || UIManager.instance == null) return;
+
+        GameObject hudObj = UIManager.instance.OpenUI(UIConstants.PANEL_TOP_HUD, UILayerType.Top, true);
+        if (hudObj != null && hudObj.TryGetComponent<TopHUDPanel>(out var hud))
+        {
+            hud.BindPlayer(player);
         }
     }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// [에디터 단독 테스트 전용] 타이틀을 거치지 않고 GameScene을 직접 켰을 때 카드/스탯을 임시 세팅합니다.
+    /// 릴리즈 빌드 시 컴파일되지 않습니다.
+    /// </summary>
+    private System.Collections.IEnumerator CoSetupDebugStandalone()
+    {
+        float timeout = 5.0f;
+        float elapsed = 0f;
+
+        while ((AssetCacheManager.instance == null || !AssetCacheManager.instance.isLoadComplete) && elapsed < timeout)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (AssetCacheManager.instance == null || !AssetCacheManager.instance.isLoadComplete)
+        {
+            Debug.LogWarning("[RunManager:DevOnly] 에셋 캐시 로딩 타임아웃.");
+        }
+
+        // 이미 세이브 로드 등으로 덱이 채워져 있다면 임시 주입 스킵 (세이브 데이터 덮어쓰기 방지)
+        if (player.deck != null && player.deck.CardCount > 0)
+        {
+            yield break;
+        }
+
+        Debug.LogWarning("[RunManager:DevOnly] 에디터 단독 실행 감지: 테스트용 스타터 킷 및 기본 골드를 임시 세팅합니다.");
+        currentMapName = "Temple";
+        ApplyStarterKit(_selectedStarterKitId);
+
+        if (player.playerStat != null)
+        {
+            player.playerStat.InGameCurrencyGold = 100;
+            player.playerStat.InGameCurrencyMemorySharp = 1;
+        }
+
+        InitPlayerHUD();
+    }
+#endif
 
     private void Update()
     {
@@ -438,14 +514,54 @@ public class RunManager : MonoBehaviour
         }
     }
 
+    #region Battle Event Handlers
+
+    private void HandleBattleWon()
+    {
+        Debug.Log("[RunManager] 전투 승리 이벤트 수신: 맵 상태 복귀 및 보상 처리 시작");
+
+        if (currentMap != null)
+        {
+            currentMap.currentMapState = MapState.None;
+        }
+
+        // 승리 시 플레이어 위치에 보상 상자 스폰
+        if (GameItemRewardManager.instance != null && player != null && player.character != null)
+        {
+            Vector3 spawnPos = player.character.transform.position;
+            GameItemRewardManager.instance.SpawnRewardBox(spawnPos);
+        }
+
+        OnMapStateChanged(MapState.None);
+    }
+
+    private void HandleBattleLost()
+    {
+        Debug.Log("[RunManager] 전투 패배 이벤트 수신");
+        // TODO: 향후 패배 결과창 또는 게임 오버 처리 추가
+    }
+
+    #endregion
+
     void OnDestroy()
     {
         // C# 컨트롤러 및 매니저 생명주기 마무리 (Dispose 일괄 호출)
         playerBattleController?.Dispose();
         playerExploreController?.Dispose();
 
-        battleManager?.Dispose();
+        if (battleManager != null)
+        {
+            battleManager.OnBattleWon -= HandleBattleWon;
+            battleManager.OnBattleLost -= HandleBattleLost;
+            battleManager.Dispose();
+        }
+
         currentMap?.Dispose();
+
+        if (GameSceneManager.instance != null)
+        {
+            GameSceneManager.instance.UnregisterDungeonManager(this);
+        }
 
         if (instance != null)
         {

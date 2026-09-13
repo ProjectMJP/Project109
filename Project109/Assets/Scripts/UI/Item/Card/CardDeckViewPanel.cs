@@ -202,25 +202,25 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
             }
             else
             {
-                if (UIManager.instance.cardDetailHandler == null)
+                if (_cardDetailHandler == null)
                 {
                     CardDetailPanel[] panels = Resources.FindObjectsOfTypeAll<CardDetailPanel>();
                     if (panels != null && panels.Length > 0)
                     {
-                        UIManager.instance.cardDetailHandler = panels[0];
+                        _cardDetailHandler = panels[0];
                     }
-                    if (UIManager.instance.cardDetailHandler == null)
+                    if (_cardDetailHandler == null && UIManager.instance != null)
                     {
-                        GameObject uiObj = UIManager.instance.OpenUI("CardDetailUI", UILayerType.Normal, false);
+                        GameObject uiObj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DETAIL, UILayerType.Normal, false);
                         if (uiObj != null)
                         {
-                            UIManager.instance.cardDetailHandler = uiObj.GetComponent<CardDetailPanel>();
+                            _cardDetailHandler = uiObj.GetComponent<CardDetailPanel>();
                         }
                     }
                 }
-                if (UIManager.instance.cardDetailHandler != null)
+                if (_cardDetailHandler != null)
                 {
-                    UIManager.instance.cardDetailHandler.OnCardCheckUI(card);
+                    _cardDetailHandler.OnCardCheckUI(card);
                 }
                 else
                 {
@@ -229,4 +229,6 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
             }
         }
     }
+
+    private CardDetailPanel _cardDetailHandler;
 }

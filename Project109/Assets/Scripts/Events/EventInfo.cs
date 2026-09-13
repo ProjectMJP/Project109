@@ -142,10 +142,12 @@ namespace EventStructs
 
         public CardFlag cardFlags;
 
+        public static readonly System.Collections.Generic.List<Character> EmptyTargets = new System.Collections.Generic.List<Character>(0);
+
         public CardInfo(Character caster, System.Collections.Generic.List<Character> targets, Vector2Int targetPos, object cardData, CardFlag flags = CardFlag.Normal)
         {
             this.caster = caster;
-            this.targets = targets;
+            this.targets = targets ?? EmptyTargets;
             this.targetPosition = targetPos;
             this.cardData = cardData;
             this.cardFlags = flags;

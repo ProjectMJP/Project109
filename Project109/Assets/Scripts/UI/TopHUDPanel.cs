@@ -46,6 +46,124 @@ public class TopHUDPanel : UIPanelBase
     [SerializeField] private Image mapButtonImage;
     [SerializeField] private Image deckButtonImage;
 
+    private Player _boundPlayer;
+    private CardDeckViewPanel _deckViewPanel;
+
+    /// <summary>
+    /// 플레이어 인스턴스를 HUD에 바인딩하여 재화 및 유물 갱신 이벤트를 직접 수신합니다.
+    /// </summary>
+    public void BindPlayer(Player player)
+    {
+        if (_boundPlayer == player) return;
+
+        UnbindPlayer();
+        _boundPlayer = player;
+
+        if (_boundPlayer != null && _boundPlayer.playerStat != null)
+        {
+            UpdateGold(_boundPlayer.playerStat.InGameCurrencyGold);
+            UpdateSpecialResource(_boundPlayer.playerStat.InGameCurrencyMemorySharp);
+
+            _boundPlayer.playerStat.OnGoldChanged += UpdateGold;
+            _boundPlayer.playerStat.OnMemorySharpChanged += UpdateSpecialResource;
+
+            if (playerRelicUI != null)
+            {
+                playerRelicUI.BindPlayer(_boundPlayer);
+            }
+        }
+
+        // 기본 버튼 클릭 리스너 연결
+        SetupHUD(ToggleExploreMap, ToggleDeckView);
+    }
+
+    /// <summary>
+    /// 등록된 플레이어 스탯 이벤트 구독을 해제합니다.
+    /// </summary>
+    public void UnbindPlayer()
+    {
+        if (_boundPlayer != null && _boundPlayer.playerStat != null)
+        {
+            _boundPlayer.playerStat.OnGoldChanged -= UpdateGold;
+            _boundPlayer.playerStat.OnMemorySharpChanged -= UpdateSpecialResource;
+
+            if (playerRelicUI != null)
+            {
+                playerRelicUI.BindPlayer(null);
+            }
+        }
+        _boundPlayer = null;
+    }
+
+    private void OnDestroy()
+    {
+        UnbindPlayer();
+    }
+
+    /// <summary>
+    /// 전체화면 덱 보기 창을 토글합니다.
+    /// </summary>
+    public void ToggleDeckView()
+    {
+        if (UIManager.instance == null) return;
+
+        if (_deckViewPanel == null)
+        {
+            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, false);
+            if (obj != null)
+            {
+                _deckViewPanel = obj.GetComponent<CardDeckViewPanel>();
+            }
+        }
+
+        if (_deckViewPanel != null)
+        {
+            if (_deckViewPanel.gameObject.activeSelf)
+            {
+                UIManager.instance.RemoveActiveUIFromStack(_deckViewPanel.gameObject);
+                _deckViewPanel.gameObject.SetActive(false);
+            }
+            else
+            {
+                UIManager.instance.PushActiveUIPanel(_deckViewPanel.gameObject, UILayerType.Normal);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 탐색 맵(ExploreMap) 창을 토글합니다.
+    /// </summary>
+    public void ToggleExploreMap()
+    {
+        if (RunManager.instance == null || UIManager.instance == null) return;
+
+        ExploreUI exploreUI = RunManager.instance.currentExploreUI;
+        if (exploreUI == null)
+        {
+            GameObject exploreObj = UIManager.instance.OpenUI(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Top, false);
+            if (exploreObj != null)
+            {
+                exploreUI = exploreObj.GetComponent<ExploreUI>();
+                if (exploreUI != null)
+                {
+                    exploreUI.CreateExploreMap(15);
+                }
+            }
+        }
+
+        if (exploreUI != null)
+        {
+            if (exploreUI.gameObject.activeSelf)
+            {
+                exploreUI.UIDeactive();
+            }
+            else
+            {
+                UIManager.instance.PushActiveUIPanel(exploreUI.gameObject, UILayerType.Top);
+            }
+        }
+    }
+
     public void SetupHUD(Action onMapClicked, Action onDeckClicked)
     {
         if (mapButton != null)
@@ -127,3 +245,4 @@ public class TopHUDPanel : UIPanelBase
         }
     }
 }
+

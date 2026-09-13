@@ -1,7 +1,7 @@
-using UnityEngine;
-using System.Collections;
-using UnityEngine.UI;
 using System;
+using System.Collections;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class FadeManager : MonoBehaviour
 {
@@ -57,7 +57,8 @@ public class FadeManager : MonoBehaviour
         {
             StopCoroutine(fadeCoroutine);
         }
-        fadeCoroutine = StartCoroutine(CoFade(fadeImage.color.a, 0f, duration, () => {
+        fadeCoroutine = StartCoroutine(CoFade(fadeImage.color.a, 0f, duration, () =>
+        {
             fadeImage.gameObject.SetActive(false);
             onComplete?.Invoke();
         }));
