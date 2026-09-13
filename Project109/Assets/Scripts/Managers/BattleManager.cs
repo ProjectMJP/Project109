@@ -11,6 +11,13 @@ public enum BattleState
     BattleEnd,
 }
 
+public enum BattleResultType
+{
+    Victory,
+    Defeat,
+    Escape,
+}
+
 public class BattleManager : IInitializable, IDisposable
 {
     public void Initialize()
@@ -21,26 +28,44 @@ public class BattleManager : IInitializable, IDisposable
     public void Dispose()
     {
         ClearBattle();
+        OnBattleWon = null;
+        OnBattleLost = null;
+        OnBattleEnded = null;
     }
+
+    #region Battle Events
+
+    /// <summary>전투 승리 시 발행되는 이벤트 (상위 시스템에서 보상 및 맵 상태 복귀 처리)</summary>
+    public event Action OnBattleWon;
+
+    /// <summary>전투 패배 시 발행되는 이벤트</summary>
+    public event Action OnBattleLost;
+
+    /// <summary>전투 종료 시 결과 타입과 함께 발행되는 이벤트</summary>
+    public event Action<BattleResultType> OnBattleEnded;
+
+    #endregion
+
     #region Battle State
 
     public BattleState battleState { get; private set; } = BattleState.None;
 
     private List<ICharacterController> playerTeam = new();
     private List<ICharacterController> enemyTeam = new();
+    private readonly List<ICharacterController> allCombatantsCache = new();
     private ICharacterController currentTurnController;
     public float battleTimeScale = 1f;
     public int accumulativeGoldReward { get; set; }
 
     /// <summary>
-    /// 전장의 아군 및 적군 컨트롤러 목록을 합쳐서 반환합니다.
+    /// 전장의 아군 및 적군 컨트롤러 목록을 합쳐서 반환합니다. (내부 캐시 재사용으로 GC 무할당)
     /// </summary>
-    public List<ICharacterController> GetAllCombatants()
+    public IReadOnlyList<ICharacterController> GetAllCombatants()
     {
-        List<ICharacterController> all = new List<ICharacterController>();
-        all.AddRange(playerTeam);
-        all.AddRange(enemyTeam);
-        return all;
+        allCombatantsCache.Clear();
+        allCombatantsCache.AddRange(playerTeam);
+        allCombatantsCache.AddRange(enemyTeam);
+        return allCombatantsCache;
     }
 
     #endregion
@@ -113,14 +138,7 @@ public class BattleManager : IInitializable, IDisposable
     {
         combatant.controlledCharacter.ResetCharacterForBattle();
         combatant.controlledCharacter.OnCharacterDied += OnCharacterDied;
-        if (UIManager.instance != null)
-        {
-            UIManager.instance.RegisterCharacterStatusBar(combatant.controlledCharacter);
-        }
-        else if (CharacterStatusBarManager.Instance != null)
-        {
-            CharacterStatusBarManager.Instance.RegisterCharacter(combatant.controlledCharacter);
-        }
+        combatant.controlledCharacter.GetComponent<CharacterUIController>()?.ShowUI();
     }
 
     public void Update(float dt)
@@ -140,8 +158,7 @@ public class BattleManager : IInitializable, IDisposable
     {
         if (battleState != BattleState.Combat) return;
 
-        ICharacterController controller = playerTeam.Find(c => c.controlledCharacter == character)
-            ?? enemyTeam.Find(c => c.controlledCharacter == character);
+        ICharacterController controller = FindController(character);
 
         if (controller != null)
             StartTurn(controller);
@@ -174,6 +191,48 @@ public class BattleManager : IInitializable, IDisposable
         battleState = BattleState.Combat;
     }
 
+    #region Helper Methods (Zero-Alloc)
+
+    /// <summary>
+    /// 캐릭터에 대응하는 ICharacterController를 무할당(Zero-Alloc)으로 검색합니다.
+    /// </summary>
+    public ICharacterController FindController(Character character)
+    {
+        if (character == null) return null;
+
+        ICharacterController controller = FindControllerInList(playerTeam, character);
+        if (controller != null) return controller;
+
+        return FindControllerInList(enemyTeam, character);
+    }
+
+    private ICharacterController FindControllerInList(List<ICharacterController> list, Character character)
+    {
+        if (character == null || list == null) return null;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (list[i].controlledCharacter == character)
+                return list[i];
+        }
+        return null;
+    }
+
+    private bool RemoveCombatantByCharacter(List<ICharacterController> list, Character character)
+    {
+        if (character == null || list == null) return false;
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (list[i].controlledCharacter == character)
+            {
+                list.RemoveAt(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    #endregion
+
     #endregion
 
     #region Battle End
@@ -191,8 +250,8 @@ public class BattleManager : IInitializable, IDisposable
             }
         }
 
-        playerTeam.RemoveAll(c => c.controlledCharacter == deadCharacter);
-        enemyTeam.RemoveAll(c => c.controlledCharacter == deadCharacter);
+        RemoveCombatantByCharacter(playerTeam, deadCharacter);
+        RemoveCombatantByCharacter(enemyTeam, deadCharacter);
 
         deadCharacter.OnCharacterDied -= OnCharacterDied;
 
@@ -217,24 +276,11 @@ public class BattleManager : IInitializable, IDisposable
             ActionQueueManager.Instance.ClearQueue();
         }
 
-        if (RunManager.instance != null)
-        {
-            if (RunManager.instance.currentMap != null)
-            {
-                RunManager.instance.currentMap.currentMapState = MapState.None;
-            }
-
-            // 승리 시 플레이어 위치에 보상 상자 스폰
-            if (GameItemRewardManager.instance != null && RunManager.instance.player != null && RunManager.instance.player.character != null)
-            {
-                Vector3 spawnPos = RunManager.instance.player.character.transform.position;
-                GameItemRewardManager.instance.SpawnRewardBox(spawnPos);
-            }
-
-            RunManager.instance.OnMapStateChanged(MapState.None);
-        }
-
         CleanupCombatants();
+
+        // 상위 시스템에 전투 승리 알림 (RunManager가 맵 상태 복귀 및 보상 상자 스폰 처리)
+        OnBattleWon?.Invoke();
+        OnBattleEnded?.Invoke(BattleResultType.Victory);
     }
 
     public void LoseBattle()
@@ -247,6 +293,10 @@ public class BattleManager : IInitializable, IDisposable
         }
 
         CleanupCombatants();
+
+        // 상위 시스템에 전투 패배 알림
+        OnBattleLost?.Invoke();
+        OnBattleEnded?.Invoke(BattleResultType.Defeat);
     }
 
     private void CleanupCombatants()
@@ -262,39 +312,22 @@ public class BattleManager : IInitializable, IDisposable
             combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.UnregisterCharacterStatusBar(combatant.controlledCharacter);
-            }
-            else if (CharacterStatusBarManager.Instance != null)
-            {
-                CharacterStatusBarManager.Instance.UnregisterCharacter(combatant.controlledCharacter);
-            }
+            combatant.controlledCharacter.GetComponent<CharacterUIController>()?.HideUI();
         }
         foreach (var combatant in enemyTeam)
         {
             combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.UnregisterCharacterStatusBar(combatant.controlledCharacter);
-            }
-            else if (CharacterStatusBarManager.Instance != null)
-            {
-                CharacterStatusBarManager.Instance.UnregisterCharacter(combatant.controlledCharacter);
-            }
+            combatant.controlledCharacter.GetComponent<CharacterUIController>()?.HideUI();
         }
 
         playerTeam.Clear();
         enemyTeam.Clear();
+        allCombatantsCache.Clear();
         if (UIManager.instance != null)
         {
             UIManager.instance.ClearAllCharacterStatusBars();
-        }
-        else if (CharacterStatusBarManager.Instance != null)
-        {
-            CharacterStatusBarManager.Instance.ClearAll();
         }
     }
 
