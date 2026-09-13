@@ -33,10 +33,10 @@ public class DamageIndicator : MonoBehaviour
         float speed = Random.Range(3.5f, 5.0f);
         _velocity = new Vector3(Mathf.Sin(angle), Mathf.Cos(angle), 0) * speed;
 
-        // 카메라 방향을 바라보도록 설정 (빌보드 효과)
+        // 카메라 방향을 바라보도록 설정 (Ortho 뷰 최적화: 시선 반전)
         if (Camera.main != null)
         {
-            transform.rotation = Camera.main.transform.rotation;
+            transform.forward = -Camera.main.transform.forward;
         }
 
         StartCoroutine(AnimateRoutine());

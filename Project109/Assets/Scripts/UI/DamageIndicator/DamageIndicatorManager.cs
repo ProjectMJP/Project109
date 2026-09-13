@@ -4,7 +4,23 @@ using EventStructs;
 
 public class DamageIndicatorManager : MonoBehaviour
 {
-    public static DamageIndicatorManager Instance { get; private set; }
+    private static DamageIndicatorManager _instance;
+    public static DamageIndicatorManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindFirstObjectByType<DamageIndicatorManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("DamageIndicatorManager");
+                    _instance = go.AddComponent<DamageIndicatorManager>();
+                }
+            }
+            return _instance;
+        }
+    }
 
     [SerializeField] private DamageIndicator _indicatorPrefab;
     [SerializeField] private int _defaultPoolSize = 20;
@@ -14,12 +30,12 @@ public class DamageIndicatorManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null)
+        if (_instance == null)
         {
-            Instance = this;
+            _instance = this;
             InitPool();
         }
-        else
+        else if (_instance != this)
         {
             Destroy(gameObject);
         }
