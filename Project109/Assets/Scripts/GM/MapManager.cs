@@ -1,9 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
-using static UnityEngine.Rendering.DebugUI.Table;
 
 public enum MapState
 {
@@ -99,6 +96,19 @@ public class MapManager : IInitializable, System.IDisposable
 
         currentGameMap.TileCreateByMapData(currentMapData);
 
+        // 파괴 가능한 장애물(DestructibleObject)이 배치된 타일의 상태를 Obstacle로 동기화
+        foreach (GameObject etcObj in currentSpawnEtcList)
+        {
+            if (etcObj != null && etcObj.TryGetComponent<DestructibleObject>(out var _))
+            {
+                Vector2Int cellPos = new Vector2Int(
+                    Mathf.RoundToInt((etcObj.transform.position.x - currentMapData.gridOffset.x) / currentMapData.cellSize),
+                    Mathf.RoundToInt((etcObj.transform.position.z - currentMapData.gridOffset.z) / currentMapData.cellSize)
+                );
+                currentGameMap.SetTileState(cellPos, TileState.Obstacle);
+            }
+        }
+
         if (battleData != null && battleData.monsterNames != null && (incountType == IncountType.Battle || incountType == IncountType.Elite || incountType == IncountType.Boss))
         {
             ShuffleList(spawnEnemyCells);
@@ -149,6 +159,20 @@ public class MapManager : IInitializable, System.IDisposable
 
             spawned.transform.position = worldPos;
             spawned.transform.SetParent(currentGameMap.transform);
+            currentSpawnEtcList.Add(spawned);
+
+            // 파괴 가능한 오브젝트인 경우, 파괴 시 타일을 Empty로 복구하도록 이벤트 구독
+            DestructibleObject destructible = spawned.GetComponent<DestructibleObject>();
+            if (destructible != null)
+            {
+                destructible.OnDestroyed += (obj) =>
+                {
+                    if (currentGameMap != null)
+                    {
+                        currentGameMap.SetTileState(pos, TileState.Empty);
+                    }
+                };
+            }
         }
     }
 

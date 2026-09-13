@@ -86,3 +86,20 @@ public interface ICharacterEvent { }
     public interface IOnAfterRemoveEffect : ICharacterEvent  { void OnAfterRemoveEffect(Effect effect); }
 
 #endregion
+
+#region 피격/생명체 인터페이스 (Damageable Interface)
+
+/// <summary>
+/// 생명체(Character) 및 파괴 가능한 사물(DestructibleObject)이 공통으로 피격을 받을 수 있도록 규정하는 인터페이스.
+/// </summary>
+public interface IDamageable
+{
+    float curHealth { get; }
+    float maxHealth { get; }
+    bool isDead { get; }
+    CharacterFaction faction { get; }
+
+    void TakeDamage(DamageInfo info);
+}
+
+#endregion

@@ -25,6 +25,31 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
+    /// 지정된 격자 좌표의 타일을 반환합니다. 유효하지 않은 범위일 경우 null을 반환합니다.
+    /// </summary>
+    public Tile GetTile(int col, int row)
+    {
+        if (!IsValidCoordinate(col, row) || tileMap == null) return null;
+        return tileMap[col][row];
+    }
+
+    /// <summary>
+    /// 지정된 격자 좌표의 타일을 반환합니다.
+    /// </summary>
+    public Tile GetTile(Vector2Int coord) => GetTile(coord.x, coord.y);
+
+    /// <summary>
+    /// 지정된 격자 좌표 타일의 상태(Empty, Obstacle 등)를 안전하게 변경합니다.
+    /// </summary>
+    public bool SetTileState(Vector2Int coord, TileState state)
+    {
+        Tile tile = GetTile(coord);
+        if (tile == null) return false;
+        tile.tileState = state;
+        return true;
+    }
+
+    /// <summary>
     /// 지정된 타일 좌표가 맵 경계 내부의 유효한 격자 범위인지 확인합니다.
     /// </summary>
     public bool IsValidCoordinate(int col, int row)
