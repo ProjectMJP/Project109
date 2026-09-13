@@ -23,7 +23,7 @@ public class BattleDeck
         this.owner = owner;
     }
 
-    public void InitDeck(List<Card> masterDeck)
+    public void InitDeck(IReadOnlyList<Card> masterDeck)
     {
         drawPile.Clear();
         
@@ -110,7 +110,7 @@ public class BattleDeck
                 initialFlags |= CardFlag.NoDiscard;
             }
 
-            CardInfo info = new CardInfo(owner, new List<Character>(), Vector2Int.zero, card, initialFlags);
+            CardInfo info = new CardInfo(owner, CardInfo.EmptyTargets, Vector2Int.zero, card, initialFlags);
             if (owner != null)
             {
                 owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(info));

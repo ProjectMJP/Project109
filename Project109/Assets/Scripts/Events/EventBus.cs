@@ -17,6 +17,20 @@ public class EventBus<TEventBase>
         return (List<T>)list;
     }
 
+    /// <summary>
+    /// 등록된 리스너가 존재할 경우에만 리스트를 반환합니다. (새로운 List 힙 할당 방지)
+    /// </summary>
+    public bool TryGetListeners<T>(out List<T> listeners) where T : TEventBase
+    {
+        if (_listeners.TryGetValue(typeof(T), out var list))
+        {
+            listeners = (List<T>)list;
+            return listeners.Count > 0;
+        }
+        listeners = null;
+        return false;
+    }
+
     public void Add<T>(T action) where T : TEventBase
     {
         GetListeners<T>().Add(action);

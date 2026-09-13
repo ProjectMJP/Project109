@@ -22,10 +22,11 @@ public enum CharacterFaction
     Neutral
 }
 
-public class Character : MonoBehaviour
+public class Character : MonoBehaviour, IDamageable
 {
     // 캐릭터 진영 소속 정보
     public CharacterFaction faction = CharacterFaction.Enemy;
+    CharacterFaction IDamageable.faction => faction;
 
     /// <summary>
     /// 상대 캐릭터가 나와 적대적인 관계인지 판별합니다.
@@ -131,6 +132,9 @@ public class Character : MonoBehaviour
 
 
     public bool isDead = false;
+    bool IDamageable.isDead => isDead;
+
+    public float maxHealth => curCharacterStat != null ? curCharacterStat.maxHealth : 0f;
 
     [SerializeField]
     private float _curHealth;
@@ -234,11 +238,11 @@ public class Character : MonoBehaviour
 
         // 1. 공격자의 "공격 직전" 발동 (ex. 힘(Strength) 버프를 통해 baseDamageAmount 증가)
         if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
-            info.caster.eventBus?.Invoke<IOnBeforeDealDamage>(l => l.OnBeforeDealDamage(ref info));
+            DispatchBeforeDealDamage(info.caster.eventBus, ref info);
 
         // 2. 피격자의 "방어 직전" 효과 발동 (ex. 데미지 경감, 회피 처리 등)
         if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
-            this.eventBus?.Invoke<IOnBeforeTakeDamage>(l => l.OnBeforeTakeDamage(ref info));
+            DispatchBeforeTakeDamage(this.eventBus, ref info);
 
         // 회피되었는지 체크 (도입 미정으로 주석 처리)
         // if (info.isDodged) return;
@@ -266,10 +270,10 @@ public class Character : MonoBehaviour
 
                     // 실드 파괴 즉시 이벤트 발생
                     if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
-                        info.caster.eventBus?.Invoke<IOnBreakShield>(l => l.OnBreakShield(info));
+                        DispatchBreakShield(info.caster.eventBus, info);
 
                     if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
-                        this.eventBus?.Invoke<IOnShieldBroken>(l => l.OnShieldBroken(info));
+                        DispatchShieldBroken(this.eventBus, info);
                 }
                 finalDamage = Mathf.Max(0f, damageAfterShield);
             }
@@ -300,15 +304,15 @@ public class Character : MonoBehaviour
         // 5. 공격자의 "공격 직후" 발동 (ex. 흡혈, 대상 처치 시 추가 효과 등)
         if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
         {
-            info.caster.eventBus?.Invoke<IOnAfterDealDamage>(l => l.OnAfterDealDamage(info));
+            DispatchAfterDealDamage(info.caster.eventBus, info);
             if (info.isFatal)
-                info.caster.eventBus?.Invoke<IOnKill>(l => l.OnKill(info));
+                DispatchKill(info.caster.eventBus, info);
         }
 
         // 6. 피격자의 "방어 직후" 발동 (ex. 가시 데미지 반사 등)
         if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
         {
-            this.eventBus?.Invoke<IOnAfterTakeDamage>(l => l.OnAfterTakeDamage(info));
+            DispatchAfterTakeDamage(this.eventBus, info);
         }
 
         // 7. 게임 내 사망 확정
@@ -326,8 +330,8 @@ public class Character : MonoBehaviour
 
         // 힐량 증가/감소 등의 처리
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnBeforeGiveHeal>(l => l.OnBeforeGiveHeal(ref info));
-        this.eventBus?.Invoke<IOnBeforeTakeHeal>(l => l.OnBeforeTakeHeal(ref info));
+            DispatchBeforeGiveHeal(info.caster.eventBus, ref info);
+        DispatchBeforeTakeHeal(this.eventBus, ref info);
 
         float healAmount = info.baseHealAmount; // 향후 healMultiplier 등 추가 가능
 
@@ -348,8 +352,8 @@ public class Character : MonoBehaviour
 
         // 회복 직후 처리
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnAfterGiveHeal>(l => l.OnAfterGiveHeal(info));
-        this.eventBus?.Invoke<IOnAfterTakeHeal>(l => l.OnAfterTakeHeal(info));
+            DispatchAfterGiveHeal(info.caster.eventBus, info);
+        DispatchAfterTakeHeal(this.eventBus, info);
     }
 
     public void TakeStamina(StaminaInfo info)
@@ -357,8 +361,8 @@ public class Character : MonoBehaviour
         if (isDead) return;
 
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnBeforeGiveStamina>(l => l.OnBeforeGiveStamina(ref info));
-        this.eventBus?.Invoke<IOnBeforeTakeStamina>(l => l.OnBeforeTakeStamina(ref info));
+            DispatchBeforeGiveStamina(info.caster.eventBus, ref info);
+        DispatchBeforeTakeStamina(this.eventBus, ref info);
 
         float gainAmount = info.baseStaminaAmount * info.staminaMultiplier;
 
@@ -372,20 +376,20 @@ public class Character : MonoBehaviour
         }
 
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnAfterGiveStamina>(l => l.OnAfterGiveStamina(info));
-        this.eventBus?.Invoke<IOnAfterTakeStamina>(l => l.OnAfterTakeStamina(info));
+            DispatchAfterGiveStamina(info.caster.eventBus, info);
+        DispatchAfterTakeStamina(this.eventBus, info);
     }
 
     public void SpendStamina(StaminaInfo info)
     {
         if (isDead) return;
 
-        this.eventBus?.Invoke<IOnBeforeSpendStamina>(l => l.OnBeforeSpendStamina(ref info));
+        DispatchBeforeSpendStamina(this.eventBus, ref info);
 
         float spendAmount = info.baseStaminaAmount * info.staminaMultiplier;
         curStamina = Mathf.Max(0f, curStamina - spendAmount);
 
-        this.eventBus?.Invoke<IOnAfterSpendStamina>(l => l.OnAfterSpendStamina(info));
+        DispatchAfterSpendStamina(this.eventBus, info);
     }
 
     public void TakeShield(ShieldInfo info)
@@ -393,8 +397,8 @@ public class Character : MonoBehaviour
         if (isDead) return;
 
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnBeforeGiveShield>(l => l.OnBeforeGiveShield(ref info));
-        this.eventBus?.Invoke<IOnBeforeTakeShield>(l => l.OnBeforeTakeShield(ref info));
+            DispatchBeforeGiveShield(info.caster.eventBus, ref info);
+        DispatchBeforeTakeShield(this.eventBus, ref info);
 
         float shieldAmount = info.baseShieldAmount * info.shieldMultiplier;
         shield += shieldAmount;
@@ -407,9 +411,202 @@ public class Character : MonoBehaviour
         OnCharacterShieldChanged?.Invoke(this);
 
         if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnAfterGiveShield>(l => l.OnAfterGiveShield(info));
-        this.eventBus?.Invoke<IOnAfterTakeShield>(l => l.OnAfterTakeShield(info));
+            DispatchAfterGiveShield(info.caster.eventBus, info);
+        DispatchAfterTakeShield(this.eventBus, info);
     }
+
+    #region Event Dispatch Helpers (Zero-Alloc)
+
+    private static void DispatchBeforeDealDamage(EventBus<ICharacterEvent> bus, ref DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeDealDamage>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeDealDamage(ref info);
+        }
+    }
+
+    private static void DispatchBeforeTakeDamage(EventBus<ICharacterEvent> bus, ref DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeTakeDamage>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeTakeDamage(ref info);
+        }
+    }
+
+    private static void DispatchAfterDealDamage(EventBus<ICharacterEvent> bus, DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterDealDamage>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterDealDamage(info);
+        }
+    }
+
+    private static void DispatchAfterTakeDamage(EventBus<ICharacterEvent> bus, DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterTakeDamage>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterTakeDamage(info);
+        }
+    }
+
+    private static void DispatchKill(EventBus<ICharacterEvent> bus, DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnKill>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnKill(info);
+        }
+    }
+
+    private static void DispatchBreakShield(EventBus<ICharacterEvent> bus, DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBreakShield>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBreakShield(info);
+        }
+    }
+
+    private static void DispatchShieldBroken(EventBus<ICharacterEvent> bus, DamageInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnShieldBroken>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnShieldBroken(info);
+        }
+    }
+
+    private static void DispatchBeforeGiveHeal(EventBus<ICharacterEvent> bus, ref HealInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeGiveHeal>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeGiveHeal(ref info);
+        }
+    }
+
+    private static void DispatchBeforeTakeHeal(EventBus<ICharacterEvent> bus, ref HealInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeTakeHeal>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeTakeHeal(ref info);
+        }
+    }
+
+    private static void DispatchAfterGiveHeal(EventBus<ICharacterEvent> bus, HealInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterGiveHeal>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterGiveHeal(info);
+        }
+    }
+
+    private static void DispatchAfterTakeHeal(EventBus<ICharacterEvent> bus, HealInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterTakeHeal>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterTakeHeal(info);
+        }
+    }
+
+    private static void DispatchBeforeGiveStamina(EventBus<ICharacterEvent> bus, ref StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeGiveStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeGiveStamina(ref info);
+        }
+    }
+
+    private static void DispatchBeforeTakeStamina(EventBus<ICharacterEvent> bus, ref StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeTakeStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeTakeStamina(ref info);
+        }
+    }
+
+    private static void DispatchAfterGiveStamina(EventBus<ICharacterEvent> bus, StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterGiveStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterGiveStamina(info);
+        }
+    }
+
+    private static void DispatchAfterTakeStamina(EventBus<ICharacterEvent> bus, StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterTakeStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterTakeStamina(info);
+        }
+    }
+
+    private static void DispatchBeforeSpendStamina(EventBus<ICharacterEvent> bus, ref StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeSpendStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeSpendStamina(ref info);
+        }
+    }
+
+    private static void DispatchAfterSpendStamina(EventBus<ICharacterEvent> bus, StaminaInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterSpendStamina>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterSpendStamina(info);
+        }
+    }
+
+    private static void DispatchBeforeGiveShield(EventBus<ICharacterEvent> bus, ref ShieldInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeGiveShield>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeGiveShield(ref info);
+        }
+    }
+
+    private static void DispatchBeforeTakeShield(EventBus<ICharacterEvent> bus, ref ShieldInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeTakeShield>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeTakeShield(ref info);
+        }
+    }
+
+    private static void DispatchAfterGiveShield(EventBus<ICharacterEvent> bus, ShieldInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterGiveShield>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterGiveShield(info);
+        }
+    }
+
+    private static void DispatchAfterTakeShield(EventBus<ICharacterEvent> bus, ShieldInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterTakeShield>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterTakeShield(info);
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// 하위 호환성을 위해 남겨둔 TakeShield 오버로드 데코레이터입니다.

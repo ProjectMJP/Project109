@@ -182,7 +182,7 @@ public class BattleManager : IInitializable, IDisposable
     {
         if (deadCharacter.faction == CharacterFaction.Enemy)
         {
-            ICharacterController controller = enemyTeam.Find(c => c.controlledCharacter == deadCharacter);
+            ICharacterController controller = FindControllerInList(enemyTeam, deadCharacter);
             if (controller is NPCUnitController npcController && npcController.unitData != null)
             {
                 int goldDrop = UnityEngine.Random.Range(npcController.unitData.minDropGoldAmount, npcController.unitData.maxDropGoldAmount + 1);
