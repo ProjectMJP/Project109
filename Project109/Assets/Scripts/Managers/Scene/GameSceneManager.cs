@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -124,6 +125,16 @@ public class GameSceneManager : MonoBehaviour
 
         player = new Player(character);
         Debug.Log("[GameSceneManager] Player Character AssetReference 인스턴스화 및 Player 바인딩 완료.");
+
+        // 세이브 데이터가 있으면 전체 세션 복원, 없으면 신규 플레이어 기본 초기화
+        if (SaveSystem.HasSaveData(currentSaveSlot))
+        {
+            SaveSystem.RestoreSession(currentSaveSlot);
+        }
+        else
+        {
+            SaveSystem.InitializeDefaultPlayer(player);
+        }
     }
 
     /// <summary>

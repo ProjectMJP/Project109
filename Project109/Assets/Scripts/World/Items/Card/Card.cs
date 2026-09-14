@@ -105,7 +105,6 @@ public class Card : IDescribable
     // 이 카드 인스턴스에 장착된 태그(동작 포함) 목록
     public List<CardTag> attachedTags { get; private set; } = new List<CardTag>();
 
-
     #endregion
 
     public readonly LuaTable luaTable;
