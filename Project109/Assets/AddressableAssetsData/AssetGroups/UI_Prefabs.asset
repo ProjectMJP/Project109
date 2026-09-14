@@ -207,6 +207,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f880594dadcdb7d45b6d4c23c1f8aa72
+    m_Address: FadeCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f9c66f3290f371a46add545f87e447f9
     m_Address: CardDeckCanvas
     m_ReadOnly: 0

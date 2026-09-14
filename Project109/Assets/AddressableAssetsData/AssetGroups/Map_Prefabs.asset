@@ -51,6 +51,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a8d7fdb7f6c3f644fbc75c8a70b03a2d
+    m_Address: TempObject
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e4438e61199fcc645b4cb42e5d4124eb
     m_Address: Obstacle_Temple_Pillar
     m_ReadOnly: 0
@@ -59,6 +65,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ec51ced7d35cb094a9764750dd367443
     m_Address: Trap_Temple_Spike
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f6073609bacba804792190f301237aad
+    m_Address: EnteranceObject
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model

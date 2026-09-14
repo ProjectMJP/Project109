@@ -27,6 +27,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Map
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d0fe81d4d71fce449aaafb867f1e7f3
+    m_Address: Map_Hideout
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 47d029a701cdb434ab90ea8fa8e263f3
     m_Address: Map_Temple_Store_1
     m_ReadOnly: 0
