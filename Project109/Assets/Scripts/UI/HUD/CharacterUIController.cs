@@ -5,7 +5,7 @@ using UnityEngine;
 /// UIManager에 요청하여 획득한 2개의 독립 머리 위 뷰(CharacterStatusBarUI, CharacterEffectListUI)에 데이터를 갱신하는 컨트롤러입니다.
 /// (프리팹 소유 및 생성/소멸 관리는 UIManager가 전담합니다.)
 /// </summary>
-public class CharacterUIController : MonoBehaviour
+public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 {
     [Header("Model Reference")]
     [SerializeField] private Character character;
@@ -16,6 +16,7 @@ public class CharacterUIController : MonoBehaviour
 
     private CharacterStatusBarUI statusBarUI;
     private CharacterEffectListUI effectListUI;
+    private bool _isBattleActive = false;
 
     public Character Character => character;
     public CharacterStatusBarUI StatusBarUI => statusBarUI;
@@ -33,7 +34,8 @@ public class CharacterUIController : MonoBehaviour
     {
         RequestViewsFromUIManager();
         RegisterEvents();
-        ShowUI();
+        // 초기 생성 시(은신처 및 필드 탐색)에는 머리 위 UI를 숨겨 시야와 가시성을 확보하고, 전투 시에만 켭니다.
+        HideUI();
     }
 
     private void OnDestroy()
@@ -65,12 +67,19 @@ public class CharacterUIController : MonoBehaviour
             RequestViewsFromUIManager();
             if (statusBarUI != null)
             {
-                ShowUI();
+                if (_isBattleActive)
+                {
+                    ShowUI();
+                }
+                else
+                {
+                    HideUI();
+                }
             }
         }
 
-        // 버프/디버프 쿨다운 게이지 링 갱신
-        if (effectListUI != null)
+        // 버프/디버프 쿨다운 게이지 링 갱신 (전투 활성 상태에서만 갱신)
+        if (effectListUI != null && _isBattleActive)
         {
             effectListUI.RefreshDurations();
         }
@@ -123,6 +132,12 @@ public class CharacterUIController : MonoBehaviour
             character.effectManager.OnEffectRemoved -= OnEffectRemoved;
             character.effectManager.OnEffectRemoved += OnEffectRemoved;
         }
+
+        if (character.eventBus != null)
+        {
+            character.eventBus.Add<IOnBattleStart>(this);
+            character.eventBus.Add<IOnBattleEnd>(this);
+        }
     }
 
     private void UnregisterEvents()
@@ -139,6 +154,12 @@ public class CharacterUIController : MonoBehaviour
             character.effectManager.OnEffectAdded -= OnEffectAdded;
             character.effectManager.OnEffectStacked -= OnEffectStacked;
             character.effectManager.OnEffectRemoved -= OnEffectRemoved;
+        }
+
+        if (character.eventBus != null)
+        {
+            character.eventBus.Remove<IOnBattleStart>(this);
+            character.eventBus.Remove<IOnBattleEnd>(this);
         }
     }
 
@@ -233,8 +254,23 @@ public class CharacterUIController : MonoBehaviour
         }
     }
 
+    #region Battle Lifecycle Events
+
+    public void OnBattleStart()
+    {
+        ShowUI();
+    }
+
+    public void OnBattleEnd()
+    {
+        HideUI();
+    }
+
+    #endregion
+
     public void ShowUI()
     {
+        _isBattleActive = true;
         if (statusBarUI != null) statusBarUI.Show();
         if (effectListUI != null) effectListUI.Show();
         RefreshAll();
@@ -242,6 +278,7 @@ public class CharacterUIController : MonoBehaviour
 
     public void HideUI()
     {
+        _isBattleActive = false;
         if (statusBarUI != null) statusBarUI.Hide();
         if (effectListUI != null) effectListUI.Hide();
     }
