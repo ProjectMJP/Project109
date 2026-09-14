@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 4293377329336961937}
   - component: {fileID: -6600877408232524563}
   m_Layer: 0
-  m_Name: EnteranceObject
+  m_Name: DungeonEnteranceObject
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -124,4 +124,5 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 84f5fb849c1aec2478bd3c16ac6e287d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LobbyDungeonGate
+  m_EditorClassIdentifier: Assembly-CSharp::HideoutDungeonGate
+  _requiresCameraFocus: 0
