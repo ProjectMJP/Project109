@@ -66,12 +66,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 198710355, guid: 151299d45f12df94d9a93568feb59bc8, type: 3}
+  m_Sprite: {fileID: 7482667652216324306, guid: bcd6108cdafe13445b0fe471a8ec7b74, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0.5
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -89,6 +89,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GaugeUI
   gaugeImageFilled: {fileID: 1511286571582566875}
+  gaugeText: {fileID: 0}
 --- !u!1 &2572475536278620847
 GameObject:
   m_ObjectHideFlags: 0
@@ -149,6 +150,96 @@ MonoBehaviour:
   m_Spacing: {x: 2, y: 7}
   m_Constraint: 1
   m_ConstraintCount: 6
+--- !u!1 &3418137098978740592
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7277130973351096563}
+  - component: {fileID: 2910615347347403913}
+  - component: {fileID: 5189344719246811740}
+  - component: {fileID: 1405362699329364584}
+  m_Layer: 0
+  m_Name: HealthBackground
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7277130973351096563
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3418137098978740592}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5368439836111996578}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &2910615347347403913
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3418137098978740592}
+  m_CullTransparentMesh: 1
+--- !u!114 &5189344719246811740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3418137098978740592}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.254717, g: 0.254717, b: 0.254717, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 7482667652216324306, guid: bcd6108cdafe13445b0fe471a8ec7b74, type: 3}
+  m_Type: 3
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 0
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1405362699329364584
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3418137098978740592}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56332a6ba567709498e09106e71d268e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GaugeUI
+  gaugeImageFilled: {fileID: 5189344719246811740}
+  gaugeText: {fileID: 0}
 --- !u!1 &3793722656899983765
 GameObject:
   m_ObjectHideFlags: 0
@@ -177,6 +268,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 6861191021630821567}
   - {fileID: 7633621004401163515}
   - {fileID: 4881926652796791751}
   m_Father: {fileID: 299169539451499545}
@@ -526,12 +618,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 198710355, guid: 151299d45f12df94d9a93568feb59bc8, type: 3}
+  m_Sprite: {fileID: 7482667652216324306, guid: bcd6108cdafe13445b0fe471a8ec7b74, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0.5
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -549,6 +641,97 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GaugeUI
   gaugeImageFilled: {fileID: 4726390686888379108}
+  gaugeText: {fileID: 0}
+--- !u!1 &5610898742207388885
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6861191021630821567}
+  - component: {fileID: 7948157473207692724}
+  - component: {fileID: 4069009583166373748}
+  - component: {fileID: 5349612279575422072}
+  m_Layer: 0
+  m_Name: StaminaBackground
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &6861191021630821567
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5610898742207388885}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3319065543415119392}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7948157473207692724
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5610898742207388885}
+  m_CullTransparentMesh: 1
+--- !u!114 &4069009583166373748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5610898742207388885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.254717, g: 0.254717, b: 0.254717, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 7482667652216324306, guid: bcd6108cdafe13445b0fe471a8ec7b74, type: 3}
+  m_Type: 3
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 0
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &5349612279575422072
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5610898742207388885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56332a6ba567709498e09106e71d268e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GaugeUI
+  gaugeImageFilled: {fileID: 4069009583166373748}
+  gaugeText: {fileID: 0}
 --- !u!1 &6675224241329678401
 GameObject:
   m_ObjectHideFlags: 0
@@ -600,23 +783,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f931790255439c46aeaff8b1f049a9a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterStatusBarUI
-  targetCharacter: {fileID: 0}
+  targetTransform: {fileID: 0}
   worldOffset: {x: 0, y: -2.2, z: 0}
   useBillboard: 1
-  matchOrthographicScale: 1
-  referenceOrthographicSize: 5
-  baseLocalScale: {x: 1, y: 1, z: 1}
   healthGaugeUI: {fileID: 4571081813700426576}
-  healthFillImage: {fileID: 1511286571582566875}
-  healthText: {fileID: 322586646374070660}
   healthColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
   shieldColor: {r: 0.2, g: 0.6, b: 1, a: 1}
-  staminaGaugeUI: {fileID: 7690346550456416004}
-  staminaFillImage: {fileID: 4726390686888379108}
-  staminaText: {fileID: 4149935816814064773}
+  staminaGaugeUI: {fileID: 5349612279575422072}
   staminaColor: {r: 0.2, g: 0.85, b: 0.3, a: 1}
-  effectContainer: {fileID: 6922688162805022703}
-  effectItemPrefab: {fileID: 2042590773478752996, guid: 56e319e4c4cb8714097c59293af8ae52, type: 3}
 --- !u!1 &8962971068529545819
 GameObject:
   m_ObjectHideFlags: 0
@@ -645,6 +819,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 7277130973351096563}
   - {fileID: 5389505996547749579}
   - {fileID: 3658331658371082865}
   m_Father: {fileID: 299169539451499545}

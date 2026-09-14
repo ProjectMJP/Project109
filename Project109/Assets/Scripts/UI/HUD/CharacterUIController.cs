@@ -33,7 +33,7 @@ public class CharacterUIController : MonoBehaviour
     {
         RequestViewsFromUIManager();
         RegisterEvents();
-        RefreshAll();
+        ShowUI();
     }
 
     private void OnDestroy()
@@ -59,6 +59,16 @@ public class CharacterUIController : MonoBehaviour
 
     private void LateUpdate()
     {
+        // UIManager 타이밍 지연 대응: 뷰가 아직 생성되지 않은 경우 재시도
+        if (statusBarUI == null && UIManager.instance != null)
+        {
+            RequestViewsFromUIManager();
+            if (statusBarUI != null)
+            {
+                ShowUI();
+            }
+        }
+
         // 버프/디버프 쿨다운 게이지 링 갱신
         if (effectListUI != null)
         {

@@ -21,6 +21,15 @@ public class GaugeUI : MonoBehaviour
         {
             gaugeImageFilled = GetComponent<Image>();
         }
+
+        if (gaugeText == null)
+        {
+            gaugeText = GetComponentInChildren<TextMeshProUGUI>();
+            if (gaugeText == null && transform.parent != null)
+            {
+                gaugeText = transform.parent.GetComponentInChildren<TextMeshProUGUI>();
+            }
+        }
     }
 
     /// <summary>
@@ -28,6 +37,11 @@ public class GaugeUI : MonoBehaviour
     /// </summary>
     public void Refresh(float fillRate) 
     {
+        if (gaugeImageFilled == null)
+        {
+            gaugeImageFilled = GetComponent<Image>();
+        }
+
         if (Mathf.Abs(fillRate - _lastFillAmount) >= UpdateThreshold || fillRate == 0f || fillRate == 1f)
         {
             _lastFillAmount = fillRate;

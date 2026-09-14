@@ -189,10 +189,10 @@ public class CharacterEffectListUI : MonoBehaviour
         // 1. 타깃 월드 위치 + 오프셋 반영
         transform.position = targetTransform.position + worldOffset;
 
-        // 2. Orthographic 뷰 최적화: 카메라 전방 벡터를 반전하여 UI가 카메라를 정면으로 응시
+        // 2. 카메라의 회전과 완전히 일치시켜 UI가 컬링이나 반전 없이 정면을 바라보도록 유지
         if (useBillboard)
         {
-            transform.forward = -cachedCamera.transform.forward;
+            transform.rotation = cachedCamera.transform.rotation;
         }
     }
 

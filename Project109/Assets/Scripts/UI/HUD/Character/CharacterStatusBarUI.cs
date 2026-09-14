@@ -32,6 +32,25 @@ public class CharacterStatusBarUI : MonoBehaviour
     {
         cachedCamera = Camera.main;
 
+        // 인스펙터 바인딩 누락 대비 자가 복구 (Self-Healing)
+        if (healthGaugeUI == null)
+        {
+            Transform healthGroup = transform.Find("HealthGroup");
+            if (healthGroup != null)
+            {
+                healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
+            }
+        }
+
+        if (staminaGaugeUI == null)
+        {
+            Transform staminaGroup = transform.Find("StaminaGroup");
+            if (staminaGroup != null)
+            {
+                staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
+            }
+        }
+
         if (healthGaugeUI != null) healthGaugeUI.SetGaugeColor(healthColor);
         if (staminaGaugeUI != null) staminaGaugeUI.SetGaugeColor(staminaColor);
     }
@@ -55,7 +74,12 @@ public class CharacterStatusBarUI : MonoBehaviour
     /// </summary>
     public void UpdateHealth(float curHealth, float maxHealth, float shield)
     {
-        if (healthGaugeUI == null) return;
+        if (healthGaugeUI == null)
+        {
+            Transform healthGroup = transform.Find("HealthGroup");
+            if (healthGroup != null) healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
+            if (healthGaugeUI == null) return;
+        }
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
         int curHp = Mathf.CeilToInt(curHealth);
@@ -74,7 +98,12 @@ public class CharacterStatusBarUI : MonoBehaviour
     /// </summary>
     public void UpdateStamina(float curStamina, float maxStamina)
     {
-        if (staminaGaugeUI == null) return;
+        if (staminaGaugeUI == null)
+        {
+            Transform staminaGroup = transform.Find("StaminaGroup");
+            if (staminaGroup != null) staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
+            if (staminaGaugeUI == null) return;
+        }
 
         float rate = (maxStamina > 0f) ? Mathf.Clamp01(curStamina / maxStamina) : 0f;
         string text = $"{Mathf.CeilToInt(curStamina)} / {Mathf.CeilToInt(maxStamina)}";
@@ -103,10 +132,10 @@ public class CharacterStatusBarUI : MonoBehaviour
         // 1. 타깃 월드 위치 + 오프셋 반영
         transform.position = targetTransform.position + worldOffset;
 
-        // 2. Orthographic 뷰 최적화: 카메라의 전방 벡터를 반전하여 UI가 카메라 렌즈를 정면으로 바라보도록 회전
+        // 2. 카메라의 회전과 완전히 일치시켜 UI가 거울 반전이나 컬링 없이 항상 정면으로 보이도록 유지
         if (useBillboard)
         {
-            transform.forward = -cachedCamera.transform.forward;
+            transform.rotation = cachedCamera.transform.rotation;
         }
     }
 

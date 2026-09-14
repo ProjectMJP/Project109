@@ -2636,5 +2636,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterUIController
   character: {fileID: 6573164528713657979}
-  statusBarOffset: {x: 0, y: 11.1, z: 0}
-  effectListOffset: {x: 0, y: 12.1, z: 0}
+  statusBarOffset: {x: 0, y: 1.2, z: 0}
+  effectListOffset: {x: 0, y: 1.5, z: 0}

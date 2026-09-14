@@ -18,6 +18,7 @@ public class UIManager : MonoBehaviour
             instance = this;
 
             // DontDestroyOnLoad(this.gameObject);
+            EnsureCanvases();
         }
         else
         {
@@ -31,6 +32,125 @@ public class UIManager : MonoBehaviour
     public Canvas normalUILayer;
     public Canvas topUILayer;
     public Canvas popupUILayer;
+
+    // 슬더스식 단일 메인 캔버스 기반 하위 레이어 캐시
+    private RectTransform _hudLayerRect;
+    private RectTransform _popupLayerRect;
+    private RectTransform _worldLayerRect;
+
+    /// <summary>
+    /// 인스펙터에 수동 할당되지 않았더라도 메인 스크린 캔버스(HUD, Popup) 및 월드 스페이스 캔버스(WorldUI)를 자동 보장합니다.
+    /// </summary>
+    public void EnsureCanvases()
+    {
+        // 1. 메인 스크린 캔버스 구성 (ScreenSpace - Overlay: HUD 및 Popup 관리)
+        if (normalUILayer == null || topUILayer == null || popupUILayer == null || _hudLayerRect == null || _popupLayerRect == null)
+        {
+            Transform existingMain = transform.Find("MainUICanvas");
+            GameObject mainCanvasGo;
+            Canvas mainCanvas;
+
+            if (existingMain != null)
+            {
+                mainCanvasGo = existingMain.gameObject;
+                mainCanvas = mainCanvasGo.GetComponent<Canvas>();
+            }
+            else
+            {
+                mainCanvasGo = new GameObject("MainUICanvas");
+                mainCanvasGo.transform.SetParent(transform, false);
+
+                mainCanvas = mainCanvasGo.AddComponent<Canvas>();
+                mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                mainCanvas.sortingOrder = 0;
+
+                var scaler = mainCanvasGo.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 0.5f;
+
+                mainCanvasGo.AddComponent<GraphicRaycaster>();
+            }
+
+            // 하위 1: HUDLayer (기본 HUD, 상시 노출: TopHUD, 손패 등)
+            Transform hudTransform = mainCanvasGo.transform.Find("HUDLayer");
+            if (hudTransform == null)
+            {
+                GameObject hudGo = new GameObject("HUDLayer", typeof(RectTransform));
+                hudGo.transform.SetParent(mainCanvasGo.transform, false);
+                _hudLayerRect = hudGo.GetComponent<RectTransform>();
+                SetupStretchRectTransform(_hudLayerRect);
+            }
+            else
+            {
+                _hudLayerRect = hudTransform as RectTransform;
+            }
+
+            // 하위 2: PopupLayer (슬더스식 모달 팝업 스택 창들이 올라가는 곳)
+            Transform popupTransform = mainCanvasGo.transform.Find("PopupLayer");
+            if (popupTransform == null)
+            {
+                GameObject popupGo = new GameObject("PopupLayer", typeof(RectTransform));
+                popupGo.transform.SetParent(mainCanvasGo.transform, false);
+                _popupLayerRect = popupGo.GetComponent<RectTransform>();
+                SetupStretchRectTransform(_popupLayerRect);
+            }
+            else
+            {
+                _popupLayerRect = popupTransform as RectTransform;
+            }
+
+            if (normalUILayer == null) normalUILayer = mainCanvas;
+            if (topUILayer == null) topUILayer = mainCanvas;
+            if (popupUILayer == null) popupUILayer = mainCanvas;
+        }
+
+        // 2. 월드 스페이스 캔버스 구성 (WorldSpace: 캐릭터 머리 위 HP 바 등)
+        if (worldUILayer == null || _worldLayerRect == null)
+        {
+            Transform existingWorld = transform.Find("WorldUICanvas");
+            GameObject worldCanvasGo;
+
+            if (existingWorld != null)
+            {
+                worldCanvasGo = existingWorld.gameObject;
+                worldUILayer = worldCanvasGo.GetComponent<Canvas>();
+            }
+            else
+            {
+                worldCanvasGo = new GameObject("WorldUICanvas");
+                worldCanvasGo.transform.SetParent(transform, false);
+
+                worldUILayer = worldCanvasGo.AddComponent<Canvas>();
+                worldUILayer.renderMode = RenderMode.WorldSpace;
+                worldUILayer.sortingOrder = 10; // 월드 스프라이트보다 전면 렌더링
+
+                var scaler = worldCanvasGo.AddComponent<CanvasScaler>();
+                scaler.dynamicPixelsPerUnit = 1f;
+
+                worldCanvasGo.AddComponent<GraphicRaycaster>();
+
+                // 월드 단위(1 unit = 100px) 스케일 변환 (0.01 배율)
+                worldCanvasGo.transform.localPosition = Vector3.zero;
+                worldCanvasGo.transform.localRotation = Quaternion.identity;
+                worldCanvasGo.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            }
+
+            _worldLayerRect = worldCanvasGo.GetComponent<RectTransform>();
+        }
+    }
+
+    private void SetupStretchRectTransform(RectTransform rt)
+    {
+        if (rt == null) return;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.localScale = Vector3.one;
+    }
 
     // 1. 인스턴스 캐시 풀 (동일 UI 재사용, 무할당 최적화)
     private readonly Dictionary<string, UIPanelBase> _cachedPanels = new Dictionary<string, UIPanelBase>();
@@ -154,13 +274,20 @@ public class UIManager : MonoBehaviour
 
     private RectTransform GetLayerTransform(UILayerType layerType)
     {
+        EnsureCanvases();
+
         switch (layerType)
         {
-            case UILayerType.World: return worldUILayer != null ? worldUILayer.transform as RectTransform : null;
-            case UILayerType.Normal: return normalUILayer != null ? normalUILayer.transform as RectTransform : null;
-            case UILayerType.Top: return topUILayer != null ? topUILayer.transform as RectTransform : null;
-            case UILayerType.Popup: return popupUILayer != null ? popupUILayer.transform as RectTransform : null;
-            default: return null;
+            case UILayerType.World:
+                return _worldLayerRect != null ? _worldLayerRect : (worldUILayer != null ? worldUILayer.transform as RectTransform : null);
+            case UILayerType.Normal:
+                return _hudLayerRect != null ? _hudLayerRect : (normalUILayer != null ? normalUILayer.transform as RectTransform : null);
+            case UILayerType.Top:
+                return _hudLayerRect != null ? _hudLayerRect : (topUILayer != null ? topUILayer.transform as RectTransform : null);
+            case UILayerType.Popup:
+                return _popupLayerRect != null ? _popupLayerRect : (popupUILayer != null ? popupUILayer.transform as RectTransform : null);
+            default:
+                return transform as RectTransform;
         }
     }
 
@@ -173,7 +300,9 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public CharacterStatusBarUI CreateStatusBarUI(Transform target, Vector3 offset)
     {
-        Transform parentTransform = (worldUILayer != null) ? worldUILayer.transform : transform;
+        EnsureCanvases();
+
+        Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
         GameObject prefab = null;
 
         if (AssetCacheManager.instance != null)
@@ -198,6 +327,8 @@ public class UIManager : MonoBehaviour
 
         if (statusBarUI != null)
         {
+            // World Space 캔버스의 scale이 0.01f이므로 자식 UI의 기본 scale을 (1, 1, 1)로 보장합니다.
+            statusBarUI.transform.localScale = Vector3.one;
             statusBarUI.SetTarget(target, offset);
             activeWorldUIs.Add(statusBarUI);
         }
@@ -210,7 +341,9 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public CharacterEffectListUI CreateEffectListUI(Transform target, Vector3 offset)
     {
-        Transform parentTransform = (worldUILayer != null) ? worldUILayer.transform : transform;
+        EnsureCanvases();
+
+        Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
         GameObject prefab = null;
 
         if (AssetCacheManager.instance != null)
@@ -235,6 +368,7 @@ public class UIManager : MonoBehaviour
 
         if (effectListUI != null)
         {
+            effectListUI.transform.localScale = Vector3.one;
             effectListUI.SetTarget(target, offset);
             activeWorldUIs.Add(effectListUI);
         }
