@@ -18,16 +18,24 @@ public class CameraController : MonoBehaviour
 
     private void Start()
     {
-        mainCamera = Camera.main;
+        if (mainCamera == null) mainCamera = Camera.main;
+    }
+
+    private void OnEnable()
+    {
+        if (mainCamera == null) mainCamera = Camera.main;
 
         if (PlayerInputController.instance != null)
         {
+            PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
             PlayerInputController.instance.OnTouchStartEvent += HandleTouchStart;
+
+            PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
             PlayerInputController.instance.OnTouchDragEvent += HandleTouchDrag;
         }
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
         if (PlayerInputController.instance != null)
         {
@@ -71,15 +79,22 @@ public class CameraController : MonoBehaviour
     {
         // 화면 중앙에서 나가는 Ray는 카메라의 위치(targetPos)에서 카메라가 바라보는 방향(forward)으로 나가는 선과 정확히 일치합니다.
         Ray ray = new Ray(targetPos, mainCamera.transform.forward);
-        int layerMask = LayerMask.GetMask("Map");
+        int layerMask = LayerMask.GetMask("Map", "Tile");
 
-        // 카메라가 targetPos로 이동했을 때 Map 레이어의 오브젝트가 화면 중앙에 걸리는지 검사
-        if (Physics.Raycast(ray, out RaycastHit hit, 10000.0f, layerMask))
+        // 1. 카메라가 targetPos로 이동했을 때 Map 또는 Tile 레이어의 오브젝트가 화면 중앙에 걸리는지 검사
+        if (layerMask != 0 && Physics.Raycast(ray, out RaycastHit hit, 10000.0f, layerMask))
         {
-            return targetPos; // Map이 있다면 해당 위치로 이동 허용
+            return targetPos; // Map이나 Tile이 있다면 해당 위치로 이동 허용
         }
-        
-        // Map을 벗어난다면 이동하지 않고 원래 위치(현재 위치) 반환
+
+        // 2. 콜라이더가 없는 경우에도 기본 지면 평면(Y=0)과 교차하는 경우 이동 허용 (드래그 먹통 방지)
+        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+        if (groundPlane.Raycast(ray, out float enter))
+        {
+            return targetPos;
+        }
+
+        // 완전히 허공을 벗어난다면 원래 위치 유지
         return mainCamera.transform.position; 
     }
 
