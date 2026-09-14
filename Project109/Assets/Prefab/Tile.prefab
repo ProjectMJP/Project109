@@ -172,20 +172,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3d19bb09feaebf149a1e7d98ff6e5e92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  coord:
-    column: 0
-    row: 0
-  position: {x: 0, y: 0}
-  tileState: 0
+  coord: {x: 0, y: 0}
+  _tileState: 0
   canMoveAreaTextureObject: {fileID: 706309089273740916}
-  centerTileTextureObject: {fileID: 0}
-  tileBaseTextureObjects:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  tileObjectPrefab: {fileID: 3814301597127161750, guid: 5f50a2989c00f834880ee66529a80f6e, type: 3}
-  crackTileObjectPrefab: {fileID: 5600220611332961023, guid: 81a86bf29e2d37547bece81e45ad5549, type: 3}
 --- !u!65 &2618950749125746048
 BoxCollider:
   m_ObjectHideFlags: 0
