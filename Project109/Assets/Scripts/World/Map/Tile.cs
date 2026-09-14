@@ -13,6 +13,20 @@ public class Tile : MonoBehaviour
     [SerializeField]
     private Vector2Int coord;
 
+    private GameMap _ownerMap;
+    public GameMap ownerMap
+    {
+        get
+        {
+            if (_ownerMap == null)
+            {
+                _ownerMap = GetComponentInParent<GameMap>() ?? GameMap.current;
+            }
+            return _ownerMap;
+        }
+        set => _ownerMap = value;
+    }
+
     [SerializeField]
     private TileState _tileState;
     public TileState tileState

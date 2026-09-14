@@ -14,6 +14,40 @@ public class GameMap : MonoBehaviour
     public int mapColumn;
     public int mapRow;
 
+    /// <summary>
+    /// 현재 활성화된 씬의 GameMap 인스턴스 (단일 접근 창구)
+    /// </summary>
+    public static GameMap current { get; private set; }
+
+    /// <summary>
+    /// 맵 내부 A* 경로 탐색 인스턴스
+    /// </summary>
+    private RoutePathfinding _routePathfinding;
+    public RoutePathfinding routePathfinding
+    {
+        get
+        {
+            if (_routePathfinding == null)
+            {
+                _routePathfinding = new RoutePathfinding();
+            }
+            return _routePathfinding;
+        }
+    }
+
+    private void Awake()
+    {
+        current = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (current == this)
+        {
+            current = null;
+        }
+    }
+
     public List<List<Tile>> GetTileMap()
     {
         return tileMap;
@@ -120,11 +154,19 @@ public class GameMap : MonoBehaviour
             for (int rowIndex = 0; rowIndex < mapData.height; rowIndex++)
             {
                 Tile tile = Instantiate(prefabTile, transform).GetComponent<Tile>();
-                tile.transform.localPosition = transform.position +
-                                               new Vector3(startX + (columnIndex) * mapData.cellSize,
-                                                        0.01f,
-                                                        startZ + (rowIndex) * mapData.cellSize);
+                tile.transform.localPosition = new Vector3(startX + (columnIndex) * mapData.cellSize,
+                                                         0.01f,
+                                                         startZ + (rowIndex) * mapData.cellSize);
+
+                // 타일의 콜라이더 크기를 현재 맵의 cellSize에 맞춰 동기화 (콜라이더 중첩 방지)
+                BoxCollider col = tile.GetComponent<BoxCollider>();
+                if (col != null)
+                {
+                    col.size = new Vector3(mapData.cellSize, col.size.y, mapData.cellSize);
+                }
+
                 tile.SetCoord(columnIndex, rowIndex);
+                tile.ownerMap = this;
                 tileMap[columnIndex].Add(tile);
             }
         }
@@ -173,54 +215,87 @@ public class GameMap : MonoBehaviour
         }
     }
 
-    // //이동할 수 있는 타일들의 외각을 표시해주는 함수
-    // public void SetMapOutsideLine()
-    // {
-    //     //현재 외각선 초기화
-    //     for (int columnIndex = 0; columnIndex < mapColumn; columnIndex++)
-    //     {
-    //         for (int rowIndex = 0; rowIndex < mapRow; rowIndex++)
-    //         {
-    //             foreach (GameObject obj in tileMap[columnIndex][rowIndex].tileBaseTextureObjects)
-    //             {
-    //                 obj.SetActive(false);
-    //             }
-    //         }
-    //     }
+    #region Pathfinding & Spatial Queries (맵 공간 연산 단일 창구)
 
-    //     //이후 장애물과 맵의 끝 부분을 탐색하여 외각선 생성
-    //     for (int columnIndex = 0; columnIndex < mapColumn; columnIndex++)
-    //     {
-    //         for (int rowIndex = 0; rowIndex < mapRow; rowIndex++)
-    //         {
-    //             //현재 위치가 비어있을 경우
-    //             if (tileMap[columnIndex][rowIndex].tileState == TileState.Empty || tileMap[columnIndex][rowIndex].tileState == TileState.Trap)
-    //             {
-    //                 //상,하,좌,우 순으로 탐색
-    //                 int[] dirX = { 0, 0, 1, -1 };
-    //                 int[] dirY = { -1, 1, 0, 0 };
+    /// <summary>
+    /// 지정된 시작 타일에서 목표 타일까지의 경로를 A* 알고리즘으로 탐색합니다.
+    /// </summary>
+    public List<Tile> FindPath(Tile start, Tile target, MoverCapability capabilities = MoverCapability.None)
+    {
+        if (start == null || target == null || tileMap == null) return null;
+        return routePathfinding.TilePathfinding(start, target, tileMap, capabilities);
+    }
 
-    //                 for (int i = 0; i < 4; i++)
-    //                 {
-    //                     int x = columnIndex + dirX[i];
-    //                     int y = rowIndex + dirY[i];
+    /// <summary>
+    /// 특정 타일에서 이동 능력치(거리, 이동 특성)에 따라 도달 가능한 모든 타일 목록을 BFS로 탐색합니다.
+    /// </summary>
+    public List<Tile> GetReachableTiles(Tile moveStart, int canMoveDistance, CharacterMove mover)
+    {
+        List<Tile> checkList = new List<Tile>();
+        if (mover == null || moveStart == null || tileMap == null) return checkList;
 
-    //                     //맵의 범위 내에 있는 경우
-    //                     if (x < mapColumn && x >= 0 && y < mapRow && y >= 0)
-    //                     {
-    //                         //탐색된 위치가 이동 불가능한 위치일 때
-    //                         if (tileMap[x][y].tileState == TileState.Full || tileMap[x][y].tileState == TileState.Obstacle)
-    //                         {
-    //                             tileMap[columnIndex][rowIndex].tileBaseTextureObjects[i].SetActive(true);
-    //                         }
-    //                     }
-    //                     else
-    //                     {
-    //                         tileMap[columnIndex][rowIndex].tileBaseTextureObjects[i].SetActive(true);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+        Queue<Tile> checkNextTiles = new Queue<Tile>();
+        Queue<Tile> checkCurrentTiles = new Queue<Tile>();
+        checkCurrentTiles.Enqueue(moveStart);
+
+        int column = mapColumn;
+        int row = mapRow;
+
+        HashSet<Tile> visited = new HashSet<Tile>();
+        visited.Add(moveStart);
+
+        for (int currentDistance = 0; currentDistance < canMoveDistance; currentDistance++)
+        {
+            while (checkCurrentTiles.Count != 0)
+            {
+                Tile t = checkCurrentTiles.Dequeue();
+
+                // 상,하,좌,우 순으로 탐색
+                int[] dirX = { 0, 0, 1, -1 };
+                int[] dirY = { 1, -1, 0, 0 };
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int x = t.GetCoord().x + dirX[i];
+                    int y = t.GetCoord().y + dirY[i];
+
+                    // 맵 범위 검사
+                    if (!IsValidCoordinate(x, y)) continue;
+
+                    Tile nextTile = tileMap[x][y];
+                    if (nextTile == null || visited.Contains(nextTile)) continue;
+
+                    // 시작 위치 제외
+                    if (nextTile.GetCoord() == moveStart.GetCoord()) continue;
+
+                    // 이동 및 전파 가능 여부 판단
+                    if (nextTile.tileState == TileState.Full)
+                    {
+                        if (!mover.capabilities.HasFlag(MoverCapability.PassWalls)) continue;
+                    }
+                    else if (nextTile.tileState == TileState.Obstacle)
+                    {
+                        if (!mover.capabilities.HasFlag(MoverCapability.PassObstacles)) continue;
+                    }
+
+                    visited.Add(nextTile);
+                    checkNextTiles.Enqueue(nextTile);
+
+                    // 멈춰설 수 있는 타일만 최종 이동 범위에 추가하고 visual indicator 활성화
+                    if (nextTile.CanEnter(mover))
+                    {
+                        nextTile.SetMoveIndicator(true);
+                        checkList.Add(nextTile);
+                    }
+                }
+            }
+
+            checkCurrentTiles = new Queue<Tile>(checkNextTiles);
+            checkNextTiles.Clear();
+        }
+
+        return checkList;
+    }
+
+    #endregion
 }

@@ -53,9 +53,6 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         // 마우스 포인터가 UI 위에 있는 경우 인풋 관통 방지를 위해 조작 무시
         if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
-        // 현재 전투 맵 상태가 Battle인 경우 탐색 조작은 동작하지 않음
-        if (RunManager.instance == null || RunManager.instance.currentMap == null || RunManager.instance.currentMap.currentMapState == MapState.Battle) return;
-
         // 플레이어 캐릭터 상태가 Idle 또는 Move(이동 중 경로 변경 허용)가 아니면 조작 무시
         if (controlledCharacter == null || (controlledCharacter.currentState != CharacterState.Idle && controlledCharacter.currentState != CharacterState.Move)) return;
 
@@ -109,11 +106,12 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         Tile startTile = characterMove.GetCurrentTile();
         if (startTile == null || startTile == targetTile) return;
 
-        var tileMap = RunManager.instance.currentMap?.currentGameMap?.GetTileMap();
-        if (tileMap == null) return;
+        GameMap gameMap = targetTile.ownerMap ?? startTile.ownerMap ?? GameMap.current;
+        if (gameMap == null) return;
 
-        // 자유 길찾기 수행
-        List<Tile> movePath = FindPathFree(startTile, targetTile, tileMap);
+        // GameMap 단일 창구를 통한 자유 길찾기 수행
+        MoverCapability caps = characterMove.capabilities;
+        List<Tile> movePath = gameMap.FindPath(startTile, targetTile, caps);
         if (movePath != null && movePath.Count > 0)
         {
             characterMove.MoveAlongPath(movePath, targetTile);
@@ -138,7 +136,10 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         Tile startTile = characterMove.GetCurrentTile();
         if (startTile == null) return;
 
-        var tileMap = RunManager.instance.currentMap?.currentGameMap?.GetTileMap();
+        GameMap gameMap = startTile.ownerMap ?? GameMap.current;
+        if (gameMap == null) return;
+
+        var tileMap = gameMap.GetTileMap();
         if (tileMap == null) return;
 
         // 상호작용 대상과 가장 가까운 타일을 NPC가 위치한 타일로 간주
@@ -168,10 +169,11 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         // 가장 가까운 인접 타일과 경로 탐색
         Tile bestTargetTile = null;
         List<Tile> shortestPath = null;
+        MoverCapability caps = characterMove.capabilities;
 
         foreach (var adjTile in adjacentWalkableTiles)
         {
-            List<Tile> path = FindPathFree(startTile, adjTile, tileMap);
+            List<Tile> path = gameMap.FindPath(startTile, adjTile, caps);
             if (path != null && path.Count > 0)
             {
                 if (shortestPath == null || path.Count < shortestPath.Count)
@@ -209,20 +211,6 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
             }
             interactable.OnInteract();
         }
-    }
-
-    private List<Tile> FindPathFree(Tile startTile, Tile targetTile, List<List<Tile>> tileMap)
-    {
-        if (startTile == null || targetTile == null || tileMap == null) return null;
-
-        RoutePathfinding pathfinder = (RunManager.instance != null && RunManager.instance.currentMap != null) ? RunManager.instance.currentMap.routePathfinding : null;
-        if (pathfinder != null)
-        {
-            MoverCapability caps = characterMove != null ? characterMove.capabilities : MoverCapability.None;
-            return pathfinder.TilePathfinding(startTile, targetTile, tileMap, caps);
-        }
-
-        return null;
     }
 
     private Tile FindTileNearPosition(Vector3 position, List<List<Tile>> tileMap)
