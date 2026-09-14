@@ -21,12 +21,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 32cef3d2fb7dc1840ad7e20040685778
-    m_Address: DungeonEntrance
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 332f1c148c6f40d44b1e69a0bbe5d127
     m_Address: MapSpawnRoot
     m_ReadOnly: 0
@@ -70,7 +64,7 @@ MonoBehaviour:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f6073609bacba804792190f301237aad
-    m_Address: EnteranceObject
+    m_Address: DungeonEnteranceObject
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model
