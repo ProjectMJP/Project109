@@ -365,9 +365,9 @@ public class SimpleCharacterTest : MonoBehaviour
         }
 
         // 캐릭터의 이동 능력(capabilities)을 넘겨서 해당 능력에 맞춰 탐색된 타일 범위를 수집
-        debugCanMoveTiles = RunManager.instance.currentMap.CheckPlayerMoveTiles(startTile, maxMoveDist, playerCharacter.characterMove);
+        debugCanMoveTiles = gameMap.GetReachableTiles(startTile, maxMoveDist, playerCharacter.characterMove);
 
-        Debug.Log($"[SimpleCharacterTest] CheckPlayerMoveTiles 완료. 탐색된 이동 범위 타일 수: {debugCanMoveTiles.Count}");
+        Debug.Log($"[SimpleCharacterTest] GetReachableTiles 완료. 탐색된 이동 범위 타일 수: {debugCanMoveTiles.Count}");
 
         // 맵 오버레이 평면 활성화 및 그리기
         var indicator = gameMap.GetMoveRangeIndicator();

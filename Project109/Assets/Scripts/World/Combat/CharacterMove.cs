@@ -24,7 +24,7 @@ public class CharacterMove
     public Character character { private set; get; }
 
     protected Tile currentTile;
-    public float moveSpeed = 50f;
+    public float moveSpeed = 5f;
     public float turnSpeed = 600f;
     public MoverCapability capabilities = MoverCapability.None;
 
@@ -124,11 +124,6 @@ public class CharacterMove
         {
             onComplete?.Invoke();
             return;
-        }
-
-        if (RunManager.instance != null && RunManager.instance.currentMap != null && RunManager.instance.currentMap.currentMapState == MapState.Battle)
-        {
-            this.character.curMoveCount--;
         }
 
         activeMoveCoroutine = this.character.StartCoroutine(StartMoveCoroutine(movePath, destinationTile, onComplete));

@@ -83,7 +83,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
     [SerializeField]
     private SOCharacterStatData playerStatDataSO;
 
-    private readonly PlayerMove playerMove;
+    private readonly PlayerBattleMove playerMove;
 
     #endregion
 
@@ -102,13 +102,13 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
         this.battleDeck = new BattleDeck(this._controlledCharacter);
 
-        // PlayerMove 초기화
+        // PlayerBattleMove 초기화
         if (this._controlledCharacter != null)
         {
             CharacterMove charMove = this._controlledCharacter.characterMove;
             if (charMove != null)
             {
-                playerMove = new PlayerMove(charMove);
+                playerMove = new PlayerBattleMove(charMove);
             }
             else
             {

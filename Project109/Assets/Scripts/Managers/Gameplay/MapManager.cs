@@ -31,7 +31,6 @@ public class MapManager : IInitializable, System.IDisposable
     {
         ClearStage();
     }
-    public RoutePathfinding routePathfinding = new();
 
     public MapDataSO currentMapData;
     public MapState currentMapState;
@@ -574,82 +573,5 @@ public class MapManager : IInitializable, System.IDisposable
             list[i] = list[randomIndex];
             list[randomIndex] = temp;
         }
-    }
-
-    public List<Tile> CheckPlayerMoveTiles(Tile moveStart, int canMoveDistance, CharacterMove mover)
-    {
-        List<Tile> checkList = new List<Tile>();
-        if (mover == null) return checkList;
-
-        Queue<Tile> checkNextTiles = new Queue<Tile>();
-        Queue<Tile> checkCurrentTiles = new Queue<Tile>();
-        checkCurrentTiles.Enqueue(moveStart);
-
-        List<List<Tile>> map = currentGameMap.GetTileMap();
-
-        int column = map.Count;
-        int row = map[0].Count;
-
-        HashSet<Tile> visited = new HashSet<Tile>();
-        visited.Add(moveStart);
-
-        for (int currentDistance = 0; currentDistance < canMoveDistance; currentDistance++)
-        {
-            while (checkCurrentTiles.Count != 0)
-            {
-                Tile t = checkCurrentTiles.Dequeue();
-
-                //상,하,좌,우 순으로 탐색
-                int[] dirX = { 0, 0, 1, -1 };
-                int[] dirY = { 1, -1, 0, 0 };
-
-                for (int i = 0; i < 4; i++)
-                {
-                    int x = t.GetCoord().x + dirX[i];
-                    int y = t.GetCoord().y + dirY[i];
-
-                    //맵을 넘어가는 경우 제외
-                    if (x >= column || y >= row || x < 0 || y < 0)
-                        continue;
-
-                    Tile nextTile = map[x][y];
-                    if (visited.Contains(nextTile))
-                        continue;
-
-                    //플레이어 위치 제외
-                    if (nextTile.GetCoord() == moveStart.GetCoord())
-                        continue;
-
-                    // 이동 및 전파 가능 여부 판단
-                    if (nextTile.tileState == TileState.Full)
-                    {
-                        if (!mover.capabilities.HasFlag(MoverCapability.PassWalls))
-                            continue;
-                    }
-                    else if (nextTile.tileState == TileState.Obstacle)
-                    {
-                        if (!mover.capabilities.HasFlag(MoverCapability.PassObstacles))
-                            continue;
-                    }
-
-                    // 탐색 전파 등록
-                    visited.Add(nextTile);
-                    checkNextTiles.Enqueue(nextTile);
-
-                    // 멈춰설 수 있는 타일만 최종 이동 범위에 추가하고 visual indicator 활성화
-                    if (nextTile.CanEnter(mover))
-                    {
-                        nextTile.SetMoveIndicator(true);
-                        checkList.Add(nextTile);
-                    }
-                }
-            }
-
-            checkCurrentTiles = new Queue<Tile>(checkNextTiles);
-            //Debug.Log("현재 계산해야 할 타일 갯수 : " + checkCurrentTiles.Count);
-            checkNextTiles.Clear();
-        }
-
-        return checkList;
     }
 }

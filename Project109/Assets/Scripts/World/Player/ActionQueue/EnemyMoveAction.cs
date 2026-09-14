@@ -27,20 +27,16 @@ public class EnemyMoveAction : BattleAction
         caster.currentState = CharacterState.Move;
 
         // 2. 경로 탐색 및 이동 실행
-        var currentMap = RunManager.instance?.currentMap;
-        if (currentMap != null && currentMap.currentGameMap != null && currentMap.routePathfinding != null)
+        Tile startTile = caster.characterMove.GetCurrentTile();
+        GameMap gameMap = TargetTile.ownerMap ?? startTile?.ownerMap ?? GameMap.current;
+        if (gameMap != null)
         {
-            var tileMap = currentMap.currentGameMap.GetTileMap();
-            MoverCapability caps = (caster != null && caster.characterMove != null) ? caster.characterMove.capabilities : MoverCapability.None;
-            List<Tile> movePath = currentMap.routePathfinding.TilePathfinding(
-                caster.characterMove.GetCurrentTile(), 
-                TargetTile, 
-                tileMap,
-                caps
-            );
+            MoverCapability caps = caster.characterMove.capabilities;
+            List<Tile> movePath = gameMap.FindPath(startTile, TargetTile, caps);
 
             if (movePath != null && movePath.Count > 0)
             {
+                caster.curMoveCount--;
                 caster.characterMove.MoveAlongPath(movePath, TargetTile);
                 
                 // 3. 이동 완료(캐릭터 상태가 Idle로 복구)될 때까지 대기
