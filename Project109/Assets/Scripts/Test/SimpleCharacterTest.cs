@@ -50,8 +50,8 @@ public class SimpleCharacterTest : MonoBehaviour
             return;
         }
 
-        // 1. RunManager를 통해 런타임에 초기화된 플레이어 캐릭터 탐색
-        playerCharacter = RunManager.instance.player?.character;
+        // 1. GameSceneManager를 통해 런타임에 초기화된 플레이어 캐릭터 탐색
+        playerCharacter = GameSceneManager.instance?.player?.character;
 
         if (playerCharacter != null)
         {
@@ -87,14 +87,17 @@ public class SimpleCharacterTest : MonoBehaviour
                 playerCharacter.InitializeStat(tempStat);
                 playerCharacter.faction = CharacterFaction.Player;
 
-                // RunManager의 플레이어 인스턴스에 강제 바인딩
-                if (RunManager.instance.player != null)
+                // GameSceneManager의 플레이어 인스턴스에 바인딩
+                if (GameSceneManager.instance != null)
                 {
-                    RunManager.instance.player.character = playerCharacter;
-                }
-                else
-                {
-                    RunManager.instance.player = new Player(playerCharacter);
+                    if (GameSceneManager.instance.player != null)
+                    {
+                        GameSceneManager.instance.player.character = playerCharacter;
+                    }
+                    else
+                    {
+                        GameSceneManager.instance.player = new Player(playerCharacter);
+                    }
                 }
             }
             else
