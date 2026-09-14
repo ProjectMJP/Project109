@@ -173,4 +173,52 @@ public static class SaveSystem
             }
         }
     }
+
+    /// <summary>
+    /// 저장소의 모든 세이브 슬롯 파일을 일괄 삭제합니다.
+    /// </summary>
+    public static void DeleteAllSaveFiles()
+    {
+        try
+        {
+            string saveDir = Application.persistentDataPath;
+            string[] saveFiles = Directory.GetFiles(saveDir, "save_*.json");
+            foreach (var file in saveFiles)
+            {
+                File.Delete(file);
+                Debug.Log($"[SaveSystem] 세이브 파일 삭제됨: {file}");
+            }
+            Debug.Log("[SaveSystem] 모든 세이브 데이터가 성공적으로 초기화되었습니다.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[SaveSystem] 전체 세이브 파일 삭제 중 예외 발생: {e.Message}");
+        }
+    }
+
+#if UNITY_EDITOR
+    [UnityEditor.MenuItem("Tools/Save Data/Clear All Save Data", priority = 100)]
+    public static void EditorClearAllSaveData()
+    {
+        if (UnityEditor.EditorUtility.DisplayDialog("세이브 데이터 전체 삭제", "모든 세이브 슬롯의 데이터를 영구적으로 삭제하시겠습니까?", "삭제", "취소"))
+        {
+            DeleteAllSaveFiles();
+        }
+    }
+
+    [UnityEditor.MenuItem("Tools/Save Data/Delete Slot 1", priority = 101)]
+    public static void EditorDeleteSlot1() => DeleteSaveFile(1);
+
+    [UnityEditor.MenuItem("Tools/Save Data/Delete Slot 2", priority = 102)]
+    public static void EditorDeleteSlot2() => DeleteSaveFile(2);
+
+    [UnityEditor.MenuItem("Tools/Save Data/Delete Slot 3", priority = 103)]
+    public static void EditorDeleteSlot3() => DeleteSaveFile(3);
+
+    [UnityEditor.MenuItem("Tools/Save Data/Open Save Folder in Explorer", priority = 120)]
+    public static void EditorOpenSaveFolder()
+    {
+        UnityEditor.EditorUtility.RevealInFinder(Application.persistentDataPath);
+    }
+#endif
 }

@@ -154,6 +154,16 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 특정 슬롯의 세이브 데이터를 삭제하고 슬롯 UI 텍스트를 갱신합니다.
+    /// </summary>
+    public void OnDeleteSlotClicked(int slotIndex)
+    {
+        Debug.Log($"[MainMenuController] 슬롯 {slotIndex} 삭제 요청.");
+        SaveSystem.DeleteSaveFile(slotIndex);
+        RefreshSlotUI();
+    }
+
     private void OnCloseButtonClicked()
     {
         Debug.Log("[MainMenuController] 닫기 버튼 클릭됨. 슬롯 선택 패널을 비활성화합니다.");
