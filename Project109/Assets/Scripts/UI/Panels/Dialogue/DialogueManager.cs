@@ -12,6 +12,9 @@ using XLua;
 public delegate bool CanSelectDialogueChoice(DialogueManager dm);
 
 [CSharpCallLua]
+public delegate bool IsDialogueChoiceVisible(DialogueManager dm);
+
+[CSharpCallLua]
 public delegate void ExecuteDialogueChoice(DialogueManager dm);
 
 [CSharpCallLua]
@@ -21,6 +24,11 @@ public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager Instance { get; private set; }
     public bool IsDialogueActive => activeDialogue != null;
+
+    /// <summary>
+    /// 외부 시스템(유물, 퀘스트, 상태 효과 등)에서 다이얼로그 선택지를 동적으로 추가할 수 있는 이벤트 훅입니다.
+    /// </summary>
+    public static event Action<DialogueNode, List<ChoiceData>> OnPopulateChoices;
 
     public GameObject dialogueUICanvasPrefab;
     private EventDescriptionScript dialogueUI; // 기존 UI 제어 클래스 재활용
@@ -170,7 +178,16 @@ public class DialogueManager : MonoBehaviour
     {
         dialogueUI.ClearChoiceButton();
 
-        if (currentNode.choices == null || currentNode.choices.Count == 0)
+        List<ChoiceData> choicesToDisplay = new List<ChoiceData>();
+        if (currentNode.choices != null)
+        {
+            choicesToDisplay.AddRange(currentNode.choices);
+        }
+
+        // 외부 훅에서 선택지 추가 기회 제공 (유물 등)
+        OnPopulateChoices?.Invoke(currentNode, choicesToDisplay);
+
+        if (choicesToDisplay.Count == 0)
         {
             // 대화 분기나 선택지가 없다면 대화 종료
             Button closeBtn = dialogueUI.CreateChoiceButton("대화를 끝마친다.");
@@ -178,7 +195,7 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
-        foreach (var choice in currentNode.choices)
+        foreach (var choice in choicesToDisplay)
         {
             string finalDescription = choice.description;
             bool isSelectable = true;
@@ -186,7 +203,12 @@ public class DialogueManager : MonoBehaviour
             // Lua 스크립트 기반 조건 및 설명 오버라이드
             if (!string.IsNullOrEmpty(choice.luaScript))
             {
-                LoadAndExecuteLua(choice.luaScript, out var canSelect, out var getDesc, out _);
+                LoadAndExecuteLua(choice.luaScript, out var canSelect, out var getDesc, out _, out var isVisible);
+                if (isVisible != null && !isVisible(this))
+                {
+                    // 조건에 맞지 않아 표시되지 않는 선택지 건너뜀
+                    continue;
+                }
                 if (getDesc != null)
                 {
                     string extraDesc = getDesc(this);
@@ -260,7 +282,7 @@ public class DialogueManager : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(choice.luaScript))
         {
-            LoadAndExecuteLua(choice.luaScript, out _, out _, out var execute);
+            LoadAndExecuteLua(choice.luaScript, out _, out _, out var execute, out _);
             execute?.Invoke(this);
         }
 
@@ -308,11 +330,12 @@ public class DialogueManager : MonoBehaviour
     /// <summary>
     /// 개별 Lua 스크립트를 로드하여 델리게이트에 바인딩합니다.
     /// </summary>
-    private void LoadAndExecuteLua(string luaScriptName, out CanSelectDialogueChoice canSelect, out GetDialogueChoiceDescription getDesc, out ExecuteDialogueChoice execute)
+    private void LoadAndExecuteLua(string luaScriptName, out CanSelectDialogueChoice canSelect, out GetDialogueChoiceDescription getDesc, out ExecuteDialogueChoice execute, out IsDialogueChoiceVisible isVisible)
     {
         canSelect = null;
         getDesc = null;
         execute = null;
+        isVisible = null;
 
         string path = $"Assets/Scripts/Lua/Choice/{luaScriptName}.lua";
         if (!File.Exists(path))
@@ -328,6 +351,7 @@ public class DialogueManager : MonoBehaviour
             canSelect = luaEnv.Global.Get<CanSelectDialogueChoice>("CanSelect");
             getDesc = luaEnv.Global.Get<GetDialogueChoiceDescription>("GetDescription");
             execute = luaEnv.Global.Get<ExecuteDialogueChoice>("ExecuteChoice");
+            isVisible = luaEnv.Global.Get<IsDialogueChoiceVisible>("IsVisible");
         }
         catch (Exception e)
         {
@@ -455,6 +479,22 @@ public class DialogueManager : MonoBehaviour
             p.RemoveRelic(relicName);
             Debug.Log($"[DialogueManager] 유물 '{relicName}'이 제거되었습니다.");
         }
+    }
+
+    public bool HasRelic(string relicName)
+    {
+        var p = GetPlayer();
+        if (p != null && p.relicManager != null)
+        {
+            foreach (var relic in p.relicManager.GetRelics())
+            {
+                if (relic != null && relic.Data != null && relic.Data.relicName == relicName)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // 4. 플레이어 체력 제어 API
@@ -658,6 +698,14 @@ public class DialogueManager : MonoBehaviour
         else
         {
             Debug.LogWarning("[DialogueManager] ActiveInteractable이 RestoreBonfire가 아닙니다.");
+        }
+    }
+
+    public void MarkActiveInteractableUsed()
+    {
+        if (ActiveInteractable is RestoreBonfire restoreBonfire)
+        {
+            restoreBonfire.MarkAsUsed();
         }
     }
 

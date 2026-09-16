@@ -31,8 +31,16 @@ public class InteractableObject : MonoBehaviour, IInteractable
                 Debug.LogWarning("[InteractableObject] Failed to Instantiate Model!");
                 return;
             }
+            
             model.tag = "EventNPC";
             ChangeAllLayer(model, LayerMask.NameToLayer("NPC"));
+
+            // TODO: EventObject 프리팹의 임시 플레이스홀더 Cube가 모델과 겹칠 경우 사용하거나 프리팹에서 직접 정리 후 제거 가능
+            Transform placeholder = transform.Find("Cube");
+            if (placeholder != null)
+            {
+                placeholder.gameObject.SetActive(false);
+            }
         }
         else
         {

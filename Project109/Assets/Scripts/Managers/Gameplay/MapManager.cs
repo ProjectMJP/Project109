@@ -124,6 +124,13 @@ public class MapManager : IInitializable, System.IDisposable
             {
                 eventData = secretEventData;
             }
+            else if (incountType == IncountType.Restore)
+            {
+                if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Restore_Bonfire_Data", out var restoreData))
+                {
+                    eventData = restoreData;
+                }
+            }
             GenerateNPC(currentMapData, incountType, prefabs, eventData);
         }
 
@@ -375,6 +382,10 @@ public class MapManager : IInitializable, System.IDisposable
                 if (eventData != null)
                 {
                     restore.SetInteractableData(eventData);
+                }
+                else if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Restore_Bonfire_Data", out var fallbackData))
+                {
+                    restore.SetInteractableData(fallbackData);
                 }
                 restore.CreateRestoreUI();
                 uiObj = restore.GetRestoreUI() != null ? restore.GetRestoreUI().gameObject : null;
