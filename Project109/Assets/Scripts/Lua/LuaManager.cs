@@ -3,17 +3,26 @@ using XLua;
 using System.IO;
 using System.Collections.Generic;
 
-public class LuaManager
+public class LuaManager : MonoBehaviour
 {
-    // 순수 C# 싱글톤 인스턴스 (Lazy Initialization)
     private static LuaManager _instance;
+    private static bool _isShuttingDown = false;
+
     public static LuaManager Instance 
     { 
         get 
         { 
+            if (_isShuttingDown) return null;
+
             if (_instance == null)
             {
-                _instance = new LuaManager();
+                _instance = FindFirstObjectByType<LuaManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("[LuaManager]");
+                    _instance = go.AddComponent<LuaManager>();
+                    DontDestroyOnLoad(go);
+                }
             }
             return _instance; 
         } 
@@ -27,13 +36,47 @@ public class LuaManager
     // Key: tagName, Value: 프로토타입 LuaTable
     private Dictionary<string, LuaTable> cardTagPrototypes = new Dictionary<string, LuaTable>();
 
-    // 생성자 (접근 제어자를 private으로 막아 외부 생성을 방지)
-    private LuaManager()
-    {
-        InitLuaEnv();
+    // NewInstance 델리게이트 캐싱 (반복 호출 시 GC Alloc 방지)
+    private System.Func<LuaTable, LuaTable> _cachedNewInstance;
 
-        // 순수 C# 객체는 Unity의 생명주기를 따르지 않으므로, 앱 종료 이벤트를 직접 구독하여 해제
-        Application.quitting += Dispose;
+    private void Awake()
+    {
+        if (_instance == null)
+        {
+            _instance = this;
+            if (transform.parent == null)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
+
+            if (luaEnv == null)
+            {
+                InitLuaEnv();
+            }
+        }
+        else if (_instance != this)
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    private void Update()
+    {
+        Tick();
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isShuttingDown = true;
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            Dispose();
+            _instance = null;
+        }
     }
 
     private void InitLuaEnv()
@@ -165,18 +208,93 @@ public class LuaManager
     }
 
     /// <summary>
+    /// 프로토타입 LuaTable로부터 독립된 런타임 인스턴스 LuaTable을 생성합니다.
+    /// NewInstance 델리게이트를 캐싱하여 GC Alloc을 최소화합니다.
+    /// </summary>
+    public LuaTable NewInstance(LuaTable proto)
+    {
+        if (proto == null || luaEnv == null) return null;
+
+        try
+        {
+            _cachedNewInstance ??= luaEnv.Global.Get<System.Func<LuaTable, LuaTable>>("NewInstance");
+            return _cachedNewInstance?.Invoke(proto);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[LuaManager] NewInstance 호출 실패:\n{e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 카드 태그 루아 스크립트 파일을 읽어 프로토타입으로 컴파일 및 캐시합니다.
+    /// </summary>
+    public LuaTable LoadCardTagScript(string filePath)
+    {
+        if (!File.Exists(filePath) || luaEnv == null) return null;
+
+        string tagName = Path.GetFileNameWithoutExtension(filePath);
+        try
+        {
+            byte[] scriptBytes = File.ReadAllBytes(filePath);
+            object[] results = luaEnv.DoString(scriptBytes, tagName);
+            LuaTable resultProto = null;
+            if (results != null && results.Length > 0)
+            {
+                resultProto = results[0] as LuaTable;
+            }
+
+            if (resultProto == null)
+            {
+                resultProto = luaEnv.Global.Get<LuaTable>(tagName);
+            }
+
+            if (resultProto != null)
+            {
+                cardTagPrototypes[tagName] = resultProto;
+            }
+            else
+            {
+                Debug.LogError($"[LuaManager] 카드 태그 {tagName} 로드 실패: 리턴된 루아 테이블이 없습니다 ({filePath}).");
+            }
+
+            // 글로벌 네임스페이스 오염 방지
+            luaEnv.Global.Set<string, object>(tagName, null);
+            return resultProto;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[LuaManager] 카드 태그 {tagName} 루아 컴파일 오류 ({filePath}):\n{e.Message}");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 외부에서 카드 태그 프로토타입을 직접 등록합니다.
+    /// </summary>
+    public void RegisterCardTagPrototype(string tagName, LuaTable proto)
+    {
+        if (string.IsNullOrEmpty(tagName) || proto == null) return;
+        cardTagPrototypes[tagName] = proto;
+    }
+
+    /// <summary>
     /// 모드가 등록한 경로들에서 카드 태그 스크립트(CardTags/{tagName}.lua)를 검색하여 캐싱 및 반환합니다.
+    /// 사전 로드된 태그가 있을 경우 딕셔너리에서 O(1)로 즉시 반환합니다.
     /// </summary>
     public LuaTable GetCardTagPrototype(string tagName)
     {
+        if (string.IsNullOrEmpty(tagName)) return null;
+
         if (cardTagPrototypes.TryGetValue(tagName, out var proto))
         {
             return proto;
         }
 
+        // 사전 등록되지 않은 태그에 대한 런타임 온디맨드 검색 (폴백)
         string scriptFileName = tagName + ".lua";
-        byte[] scriptBytes = null;
-
         foreach (string searchPath in searchPaths)
         {
             if (Directory.Exists(searchPath))
@@ -184,65 +302,23 @@ public class LuaManager
                 string[] files = Directory.GetFiles(searchPath, scriptFileName, SearchOption.AllDirectories);
                 if (files.Length > 0)
                 {
-                    try
-                    {
-                        scriptBytes = File.ReadAllBytes(files[0]);
-                        break;
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogError($"[LuaManager] 카드 태그 파일 읽기 실패 ({files[0]}): {ex.Message}");
-                    }
+                    return LoadCardTagScript(files[0]);
                 }
             }
         }
 
-        if (scriptBytes != null)
-        {
-            try
-            {
-                object[] results = luaEnv.DoString(scriptBytes, tagName);
-                LuaTable resultProto = null;
-                if (results != null && results.Length > 0)
-                {
-                    resultProto = results[0] as LuaTable;
-                }
-
-                if (resultProto == null)
-                {
-                    resultProto = luaEnv.Global.Get<LuaTable>(tagName);
-                }
-
-                if (resultProto != null)
-                {
-                    cardTagPrototypes[tagName] = resultProto;
-                    return resultProto;
-                }
-                else
-                {
-                    Debug.LogError($"[LuaManager] 카드 태그 {tagName} 로드 실패: 리턴된 루아 테이블이 없습니다.");
-                }
-
-                luaEnv.Global.Set<string, object>(tagName, null);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[LuaManager] 카드 태그 {tagName} 루아 컴파일 구문 오류:\n{e.Message}");
-            }
-        }
-        else
-        {
-            Debug.LogError($"[LuaManager] 카드 태그 {tagName}.lua 파일을 찾을 수 없습니다.");
-        }
-
+        Debug.LogError($"[LuaManager] 카드 태그 {tagName}.lua 파일을 찾을 수 없습니다.");
         return null;
     }
 
     /// <summary>
-    /// 게임 종료 시 호출되어 XLua 환경을 안전하게 파괴합니다.
+    /// XLua 환경 및 내부 캐시를 안전하게 파괴합니다.
     /// </summary>
-    private void Dispose()
+    public void Dispose()
     {
+        _cachedNewInstance = null;
+        cardTagPrototypes.Clear();
+
         if (luaEnv != null)
         {
             luaEnv.Dispose();

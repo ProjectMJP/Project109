@@ -99,6 +99,14 @@ public class ModLoader
             LuaManager.Instance.AddSearchPath(scriptsPath);
         }
 
+        // [카드 태그(CardTag) 로딩]
+        // 모드 폴더 하위의 "Scripts/CardTags" 폴더 내 모든 루아 스크립트를 사전 컴파일 및 등록합니다.
+        string cardTagsPath = Path.Combine(modDir, "Scripts", "CardTags");
+        if (Directory.Exists(cardTagsPath))
+        {
+            LoadCardTagsFromPath(cardTagsPath);
+        }
+
         // [이펙트(Effect) 로딩]
         // 모드 폴더 하위의 "YAML/Effects" 폴더만 특정하여 로드합니다.
         string effectsPath = Path.Combine(modDir, "YAML", "Effects");
@@ -411,6 +419,15 @@ public class ModLoader
             {
                 Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
             }
+        }
+    }
+
+    private void LoadCardTagsFromPath(string cardTagsPath)
+    {
+        string[] luaFiles = Directory.GetFiles(cardTagsPath, "*.lua", SearchOption.AllDirectories);
+        foreach (string file in luaFiles)
+        {
+            LuaManager.Instance?.LoadCardTagScript(file);
         }
     }
 
