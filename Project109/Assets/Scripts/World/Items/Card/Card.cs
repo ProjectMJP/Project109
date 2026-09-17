@@ -179,18 +179,7 @@ public class Card : IDescribable
         LuaTable luaInstance = null;
         if (cardData != null && cardData.luaPrototype != null)
         {
-            try
-            {
-                var newInstanceFunc = LuaManager.Instance?.luaEnv.Global.Get<Func<LuaTable, LuaTable>>("NewInstance");
-                if (newInstanceFunc != null)
-                {
-                    luaInstance = newInstanceFunc(cardData.luaPrototype);
-                }
-            }
-            catch (System.Exception e)
-            {
-                UnityEngine.Debug.LogError($"[Card.Clone] '{cardData.cardName}' Lua 인스턴스 생성 실패:\n{e.Message}");
-            }
+            luaInstance = LuaManager.Instance?.NewInstance(cardData.luaPrototype);
         }
 
         // 2. Card 인스턴스 생성 (식별자 충돌 방지를 위해 newRuntimeID가 지정되지 않으면 음수 전역 고유 시퀀스 ID 자동 순차 발급)
@@ -485,8 +474,7 @@ public class Card : IDescribable
         if (proto == null) return;
 
         // NewInstance 헬퍼를 통해 인스턴스화
-        var newInstanceFunc = LuaManager.Instance.luaEnv.Global.Get<Func<LuaTable, LuaTable>>("NewInstance");
-        LuaTable luaInstance = newInstanceFunc?.Invoke(proto);
+        LuaTable luaInstance = LuaManager.Instance.NewInstance(proto);
 
         if (luaInstance != null)
         {

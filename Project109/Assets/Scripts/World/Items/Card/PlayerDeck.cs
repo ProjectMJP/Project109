@@ -225,18 +225,7 @@ public class PlayerDeck
         LuaTable luaInstance = null;
         if (cardData.luaPrototype != null)
         {
-            try
-            {
-                var newInstanceFunc = LuaManager.Instance.luaEnv.Global.Get<System.Func<LuaTable, LuaTable>>("NewInstance");
-                if (newInstanceFunc != null)
-                {
-                    luaInstance = newInstanceFunc(cardData.luaPrototype);
-                }
-            }
-            catch (System.Exception e)
-            {
-                UnityEngine.Debug.LogError($"[PlayerDeck] '{cardData.cardName}' Lua 인스턴스 생성 실패:\n{e.Message}");
-            }
+            luaInstance = LuaManager.Instance?.NewInstance(cardData.luaPrototype);
         }
 
         int id = customRuntimeID ?? nextRuntimeID++;

@@ -23,18 +23,7 @@ public static class ModObjectFactory
         LuaTable luaInstance = null;
         if (data.luaPrototype != null)
         {
-            try
-            {
-                var newInstanceFunc = LuaManager.Instance.luaEnv.Global.Get<System.Func<LuaTable, LuaTable>>("NewInstance");
-                if (newInstanceFunc != null)
-                {
-                    luaInstance = newInstanceFunc(data.luaPrototype);
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModObjectFactory] '{data.effectName}' Lua 인스턴스 생성 실패:\n{e.Message}");
-            }
+            luaInstance = LuaManager.Instance?.NewInstance(data.luaPrototype);
         }
 
         // 3. 인스턴스 조립 및 반환
@@ -58,18 +47,7 @@ public static class ModObjectFactory
         LuaTable luaInstance = null;
         if (data.luaPrototype != null)
         {
-            try
-            {
-                var newInstanceFunc = LuaManager.Instance.luaEnv.Global.Get<System.Func<LuaTable, LuaTable>>("NewInstance");
-                if (newInstanceFunc != null)
-                {
-                    luaInstance = newInstanceFunc(data.luaPrototype);
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModObjectFactory] '{data.relicName}' Lua 인스턴스 생성 실패:\n{e.Message}");
-            }
+            luaInstance = LuaManager.Instance?.NewInstance(data.luaPrototype);
         }
 
         // 3. 인스턴스 조립 및 반환 (Relic는 owner를 받음)

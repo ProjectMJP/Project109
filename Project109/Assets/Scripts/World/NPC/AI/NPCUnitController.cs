@@ -22,19 +22,18 @@ public class NPCUnitController : ICharacterController
         // 루아 테이블 복제 및 바인딩
         if (_unitData != null && _unitData.luaPrototype != null)
         {
-            try
+            _luaTable = LuaManager.Instance?.NewInstance(_unitData.luaPrototype);
+            if (_luaTable != null)
             {
-                var newInstanceFunc = LuaManager.Instance?.luaEnv.Global.Get<Func<XLua.LuaTable, XLua.LuaTable>>("NewInstance");
-                if (newInstanceFunc != null)
+                try
                 {
-                    _luaTable = newInstanceFunc.Invoke(_unitData.luaPrototype);
-                    var luaOnInit = _luaTable?.Get<Action<XLua.LuaTable, Character, NPCUnitController>>("OnInit");
+                    var luaOnInit = _luaTable.Get<Action<XLua.LuaTable, Character, NPCUnitController>>("OnInit");
                     luaOnInit?.Invoke(_luaTable, controlledCharacter, this);
                 }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[NPCUnitController] 루아 이펙트 초기화 오류: {e.Message}");
+                catch (Exception e)
+                {
+                    Debug.LogError($"[NPCUnitController] 루아 OnInit 실행 오류: {e.Message}");
+                }
             }
         }
 
