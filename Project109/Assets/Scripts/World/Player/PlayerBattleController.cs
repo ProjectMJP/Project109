@@ -80,9 +80,6 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     private readonly Player player;
 
-    [SerializeField]
-    private SOCharacterStatData playerStatDataSO;
-
     private readonly PlayerBattleMove playerMove;
 
     #endregion

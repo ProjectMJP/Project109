@@ -183,12 +183,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d9cff19d3ae716f4ba606d54c30ad96a
-    m_Address: InsightUICanvas
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - UI
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d9dbc46413b1d774f8363c14e432c236
     m_Address: ExtraInfomationBox
     m_ReadOnly: 0

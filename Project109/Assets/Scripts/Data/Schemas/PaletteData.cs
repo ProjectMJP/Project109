@@ -1,7 +1,5 @@
 using UnityEngine;
-using UnityEditor;
 using System.Collections.Generic;
-using System.IO;
 
 [System.Serializable]
 public class PaletteData
