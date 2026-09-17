@@ -35,6 +35,12 @@ public class PlayerInputController : MonoBehaviour
     public event Action<Vector2> OnTouchClickEvent;
     public event Action OnCancelEvent; // 우클릭 및 ESC 취소 이벤트
 
+    /// <summary>
+    /// UI 팝업 등으로 인해 월드 상호작용 입력(터치/드래그/클릭)이 차단되어야 하는지 여부입니다.
+    /// UIManager.IsWorldInputBlocked 상태와 동기화됩니다.
+    /// </summary>
+    public bool IsWorldInputBlocked { get; set; } = false;
+
     private Vector2 startTouchPos;
     private Vector2 lastTouchPos;
     private bool isClickPending;
@@ -46,17 +52,23 @@ public class PlayerInputController : MonoBehaviour
         if (isClickPending)
         {
             isClickPending = false;
-            OnTouchClickEvent?.Invoke(pendingClickPos);
+            if (!IsWorldInputBlocked)
+            {
+                OnTouchClickEvent?.Invoke(pendingClickPos);
+            }
         }
 
-        // 마우스 우클릭 혹은 ESC(취소) 입력 감지
-        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        // 마우스 우클릭 혹은 ESC(취소) 입력 감지 (월드 조작 취소)
+        if (!IsWorldInputBlocked)
         {
-            OnCancelEvent?.Invoke();
-        }
-        else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
-            OnCancelEvent?.Invoke();
+            if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+            {
+                OnCancelEvent?.Invoke();
+            }
+            else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                OnCancelEvent?.Invoke();
+            }
         }
     }
 
@@ -123,25 +135,22 @@ public class PlayerInputController : MonoBehaviour
         playerInputAction?.Disable();
     }
 
-    public void EnableObjectInteractionInput()
-    {
-        playerInputAction?.Enable();
-    }
-
-    public void DisableObjectInteractionInput()
-    {
-        playerInputAction?.Disable();
-    }
 
     private void OnTouchStart(InputAction.CallbackContext context)
     {
         startTouchPos = context.ReadValue<Vector2>();
+
+        if (IsWorldInputBlocked) return;
+
         OnTouchStartEvent?.Invoke(startTouchPos);
     }
 
     private void OnDrag(InputAction.CallbackContext context)
     {
         lastTouchPos = context.ReadValue<Vector2>();
+
+        if (IsWorldInputBlocked) return;
+
         OnTouchDragEvent?.Invoke(lastTouchPos);
     }
 
@@ -150,6 +159,8 @@ public class PlayerInputController : MonoBehaviour
         // 클릭과 드래그 판정 로직
         if (Vector2.Distance(startTouchPos, lastTouchPos) <= 20.0f)
         {
+            if (IsWorldInputBlocked) return;
+
             isClickPending = true;
             pendingClickPos = lastTouchPos;
         }

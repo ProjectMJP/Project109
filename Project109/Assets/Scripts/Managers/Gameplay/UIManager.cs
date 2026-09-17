@@ -158,10 +158,12 @@ public class UIManager : MonoBehaviour
     // 2. 현재 화면에 떠 있는 모달 팝업 스택 (LIFO)
     private readonly Stack<UIPanelBase> _popupStack = new Stack<UIPanelBase>();
 
+    private int _asyncLoadLockCount = 0;
+
     /// <summary>
-    /// 모달 팝업 스택에 창이 1개라도 떠 있어서 배경 월드 입력이 차단되어야 하는지 여부입니다.
+    /// 모달 팝업 스택에 창이 1개라도 떠 있거나 비동기 UI 로딩 중이어서 배경 월드 입력이 차단되어야 하는지 여부입니다.
     /// </summary>
-    public bool IsWorldInputBlocked => _popupStack.Count > 0;
+    public bool IsWorldInputBlocked => _popupStack.Count > 0 || _asyncLoadLockCount > 0;
 
     // 카드 범위 확인 관련 변수 (하위 호환 필드)
     [Header("Effect Area Tiles (Optional)")]
@@ -552,14 +554,7 @@ public class UIManager : MonoBehaviour
     {
         if (PlayerInputController.instance != null)
         {
-            if (IsWorldInputBlocked)
-            {
-                PlayerInputController.instance.DisableObjectInteractionInput();
-            }
-            else
-            {
-                PlayerInputController.instance.EnableObjectInteractionInput();
-            }
+            PlayerInputController.instance.IsWorldInputBlocked = IsWorldInputBlocked;
         }
     }
 
@@ -664,10 +659,11 @@ public class UIManager : MonoBehaviour
         bool acquiredPreLock = false;
 
         // 1. 에셋 비동기 로딩을 시작하기 전에 '선제적'으로 터치 입력 차단
-        if (blockWorldInput && UIInputManager.instance != null)
+        if (blockWorldInput)
         {
-            UIInputManager.instance.AcquireUILock();
+            _asyncLoadLockCount++;
             acquiredPreLock = true;
+            EvaluateWorldInputLock();
         }
 
         // 2. 비동기 에셋 캐시 획득 및 인스턴스화
@@ -677,9 +673,10 @@ public class UIManager : MonoBehaviour
         if (prefab == null)
         {
             Debug.LogError($"[UIManager] Failed to load UI async: {uiName}");
-            if (acquiredPreLock && UIInputManager.instance != null)
+            if (acquiredPreLock)
             {
-                UIInputManager.instance.ReleaseUILock();
+                _asyncLoadLockCount = Mathf.Max(0, _asyncLoadLockCount - 1);
+                EvaluateWorldInputLock();
             }
             onComplete?.Invoke(null);
             yield break;
@@ -702,9 +699,10 @@ public class UIManager : MonoBehaviour
         }
 
         // 선제 락을 해제합니다.
-        if (acquiredPreLock && UIInputManager.instance != null)
+        if (acquiredPreLock)
         {
-            UIInputManager.instance.ReleaseUILock();
+            _asyncLoadLockCount = Mathf.Max(0, _asyncLoadLockCount - 1);
+            EvaluateWorldInputLock();
         }
 
         onComplete?.Invoke(panel);
