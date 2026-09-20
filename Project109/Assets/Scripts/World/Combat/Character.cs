@@ -76,6 +76,11 @@ public class Character : MonoBehaviour, IDamageable
         characterMove = new CharacterMove(this);
     }
 
+    private void OnDestroy()
+    {
+        effectManager?.Dispose();
+    }
+
     public void InitializeStat(CharacterStat characterStat)
     {
         if (characterStat != null)

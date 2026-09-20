@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public class EffectManager
+public class EffectManager : IDisposable
 {
     public event Action<Effect> OnEffectAdded;
     public event Action<Effect> OnEffectStacked;
@@ -95,5 +95,13 @@ public class EffectManager
                 }
             }
         }
+    }
+
+    public void Dispose()
+    {
+        ClearAllEffects(true);
+        OnEffectAdded = null;
+        OnEffectStacked = null;
+        OnEffectRemoved = null;
     }
 }

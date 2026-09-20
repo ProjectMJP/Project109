@@ -5,7 +5,7 @@ using System;
 /// 플레이어의 영속 데이터를 관리하는 클래스.
 /// 던전 진입부터 게임 오버까지 유지된다.
 /// </summary>
-public class Player
+public class Player : IDisposable
 {
     public Character character;
     public PlayerStat playerStat;
@@ -68,5 +68,10 @@ public class Player
     public Relic GetSpecificRelic(string relicId)
     {
         return relicManager.GetSpecificRelic(relicId);
+    }
+
+    public void Dispose()
+    {
+        relicManager?.Dispose();
     }
 }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public class RelicManager
+public class RelicManager : IDisposable
 {
     public event Action<Relic> OnRelicAddedEvent;
     public event Action<Relic> OnRelicRemovedEvent;
@@ -69,5 +69,12 @@ public class RelicManager
             }
         }
         relics.Clear();
+    }
+
+    public void Dispose()
+    {
+        ClearRelics();
+        OnRelicAddedEvent = null;
+        OnRelicRemovedEvent = null;
     }
 }
