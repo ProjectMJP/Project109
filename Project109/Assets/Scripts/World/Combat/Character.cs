@@ -171,7 +171,7 @@ public class Character : MonoBehaviour, IDamageable
     /// <summary>
     /// BattleManager에서 매 프레임 호출. 배속을 적용해 dt를 받는다.
     /// </summary>
-    public void BattleTick(float dt)
+    public bool BattleTick(float dt)
     {
         // 스태미나 회복
         curStamina += curCharacterStat.staminaRegenPerSecond * dt;
@@ -179,10 +179,7 @@ public class Character : MonoBehaviour, IDamageable
         // 이펙트 틱
         effectManager.Tick(dt);
 
-        if (curStamina >= curCharacterStat.maxStamina)
-        {
-            RunManager.instance.battleManager.RequestTurnStart(this);
-        }
+        return curStamina >= curCharacterStat.maxStamina;
     }
 
     /// <summary>

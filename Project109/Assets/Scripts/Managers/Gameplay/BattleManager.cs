@@ -149,9 +149,22 @@ public class BattleManager : IInitializable, IDisposable
 
         // 플레이어 팀 먼저 틱 (동시 MAX 시 플레이어 우선)
         foreach (var combatant in playerTeam)
-            combatant.controlledCharacter.BattleTick(scaledDt);
+        {
+            if (combatant.controlledCharacter.BattleTick(scaledDt))
+            {
+                RequestTurnStart(combatant.controlledCharacter);
+                return; // 한 프레임에 한 명만 턴 시작 (동시 턴 시작 방지)
+            }
+        }
+        
         foreach (var combatant in enemyTeam)
-            combatant.controlledCharacter.BattleTick(scaledDt);
+        {
+            if (combatant.controlledCharacter.BattleTick(scaledDt))
+            {
+                RequestTurnStart(combatant.controlledCharacter);
+                return; // 한 프레임에 한 명만 턴 시작
+            }
+        }
     }
 
     public void RequestTurnStart(Character character)
