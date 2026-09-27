@@ -3,10 +3,12 @@ using UnityEngine;
 using XLua;
 using YamlDotNet.Serialization;
 
-public class EffectData : IModAssetResolver
+public class EffectData : IModAssetResolver, IIdentifiable
 {
     // effectName이 고유 식별자(ID) 역할을 겸합니다.
     public string effectName { get; set; }
+
+    public string ID => effectName;
 
     public string displayName { get; set; }
     // 효과에 대한 기계적 설명 (예: "적에게 {stacks}의 피해를 입힙니다.")

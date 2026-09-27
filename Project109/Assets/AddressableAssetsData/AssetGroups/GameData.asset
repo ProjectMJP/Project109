@@ -135,12 +135,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Card
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b91b96796a4f84c4e8e1e6a95ba61aa8
-    m_Address: Map_Temple_Info
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - MapInfo
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cf6b90681cc7f0043b48b55054d27fe4
     m_Address: Card_FinishingBlow+
     m_ReadOnly: 0

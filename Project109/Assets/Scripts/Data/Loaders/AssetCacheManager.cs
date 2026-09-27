@@ -43,34 +43,18 @@ public class AssetCacheManager : MonoBehaviour
     public string cardKey = "Card";
     public string eventKey = "Event";
     public string battleKey = "Battle";
-    public string monsterKey = "Monster";
-
-    public string characterKey = "Character";
     public string mapKey = "Map";
-    public string mapInfoKey = "MapInfo";
     public string modelKey = "Model";
     public string textureKey = "Texture";
-    public string obstacleKey = "Obstacle";
-    public string trapKey = "Trap";
     public string uiKey = "UI";
     public string interactableKey = "Interactable";
+
     public IList<BattleData> battleList;
     private Dictionary<string, BattleData> battleDict = new Dictionary<string, BattleData>();
-
-    public IList<MonsterData> monsterList;
-    private Dictionary<string, MonsterData> monsterDict = new Dictionary<string, MonsterData>();
-
-
-
-    public IList<CharacterData> characterList;
-    private Dictionary<string, CharacterData> characterDict = new Dictionary<string, CharacterData>();
 
     public IList<MapDataSO> mapList;
     private Dictionary<string, MapDataSO> mapDict = new Dictionary<string, MapDataSO>();
     private Dictionary<string, StageMapDataBundle> stageMapDataDict = new Dictionary<string, StageMapDataBundle>();
-
-    public IList<MapDataInfo> mapInfoList;
-    private Dictionary<string, MapDataInfo> mapInfoDict = new Dictionary<string, MapDataInfo>();
 
     public IList<GameObject> modelList;
     private Dictionary<string, GameObject> modelDict = new Dictionary<string, GameObject>();
@@ -78,28 +62,15 @@ public class AssetCacheManager : MonoBehaviour
     public IList<Sprite> textureList;
     private Dictionary<string, Sprite> textureDict = new Dictionary<string, Sprite>();
 
-
-
-    public IList<ObstacleData> obstacleList;
-    private Dictionary<string, ObstacleData> obstacleDict = new Dictionary<string, ObstacleData>();
-
-    public IList<TrapData> trapList;
-    private Dictionary<string, TrapData> trapDict = new Dictionary<string, TrapData>();
-
     public IList<GameObject> uiList;
     private Dictionary<string, GameObject> uiDict = new Dictionary<string, GameObject>();
 
     private IEnumerator Start()
     {
         bool isBattleLoaded = false;
-        bool isMonsterLoaded = false;
-        bool isCharacterLoaded = false;
         bool isMapLoaded = false;
-        bool isMapInfoLoaded = false;
         bool isModelLoaded = false;
         bool isTextureLoaded = false;
-        bool isObstacleLoaded = false;
-        bool isTrapLoaded = false;
         bool isUiLoaded = false;
 
         // 3. 전투 데이터 할당 시작
@@ -108,22 +79,6 @@ public class AssetCacheManager : MonoBehaviour
             battleList = list;
             battleDict = dict;
             isBattleLoaded = true;
-        }));
-
-        // 4. 몬스터 데이터 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<MonsterData>(monsterKey, (list, dict) =>
-        {
-            monsterList = list;
-            monsterDict = dict;
-            isMonsterLoaded = true;
-        }));
-
-        // 5. 캐릭터 데이터 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<CharacterData>(characterKey, (list, dict) =>
-        {
-            characterList = list;
-            characterDict = dict;
-            isCharacterLoaded = true;
         }));
 
         // 6. 맵 데이터 할당 시작
@@ -150,37 +105,29 @@ public class AssetCacheManager : MonoBehaviour
                         restoreMapDataList = new List<MapDataSO>()
                     };
                 }
-                switch (mapData.incountType)
+                switch (mapData.EncountType)
                 {
-                    case IncountType.Battle:
+                    case EncountType.Battle:
                         stageMapDataDict[mapData.locationType.ToString()].battleMapDataList.Add(mapData);
                         break;
-                    case IncountType.Elite:
+                    case EncountType.Elite:
                         stageMapDataDict[mapData.locationType.ToString()].eliteMapDataList.Add(mapData);
                         break;
-                    case IncountType.Boss:
+                    case EncountType.Boss:
                         stageMapDataDict[mapData.locationType.ToString()].bossMapDataList.Add(mapData);
                         break;
-                    case IncountType.Secret:
+                    case EncountType.Secret:
                         stageMapDataDict[mapData.locationType.ToString()].secretMapDataList.Add(mapData);
                         break;
-                    case IncountType.Store:
+                    case EncountType.Store:
                         stageMapDataDict[mapData.locationType.ToString()].storeMapDataList.Add(mapData);
                         break;
-                    case IncountType.Restore:
+                    case EncountType.Restore:
                         stageMapDataDict[mapData.locationType.ToString()].restoreMapDataList.Add(mapData);
                         break;
                 }
             }
             isMapLoaded = true;
-        }));
-
-        // 7. 맵 정보 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<MapDataInfo>(mapInfoKey, (list, dict) =>
-        {
-            mapInfoList = list;
-            mapInfoDict = dict;
-            isMapInfoLoaded = true;
         }));
 
         // 8. 모델링 및 오브젝트 데이터 할당 시작
@@ -199,22 +146,6 @@ public class AssetCacheManager : MonoBehaviour
             isTextureLoaded = true;
         }));
 
-        // 10. 장애물 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<ObstacleData>(obstacleKey, (list, dict) =>
-        {
-            obstacleList = list;
-            obstacleDict = dict;
-            isObstacleLoaded = true;
-        }));
-
-        // 11. 함정 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<TrapData>(trapKey, (list, dict) =>
-        {
-            trapList = list;
-            trapDict = dict;
-            isTrapLoaded = true;
-        }));
-
         // 12. UI 데이터 할당 시작
         StartCoroutine(LoadAndCacheGameObjectFromAddressableData(uiKey, (list, dict) =>
         {
@@ -226,14 +157,9 @@ public class AssetCacheManager : MonoBehaviour
         // 모든 비동기 작업이 병렬 완료될 때까지 대기
         float waitTimer = 0f;
         while (!(isBattleLoaded &&
-                 isMonsterLoaded &&
-                 isCharacterLoaded &&
                  isMapLoaded &&
-                 isMapInfoLoaded &&
                  isModelLoaded &&
                  isTextureLoaded &&
-                 isObstacleLoaded &&
-                 isTrapLoaded &&
                  isUiLoaded))
         {
             waitTimer += Time.deltaTime;
@@ -241,14 +167,9 @@ public class AssetCacheManager : MonoBehaviour
             {
                 Debug.Log($"[AssetCacheManager] Waiting for flags: " +
                     $"Battle={isBattleLoaded}, " +
-                    $"Monster={isMonsterLoaded}, " +
-                    $"Character={isCharacterLoaded}, " +
                     $"Map={isMapLoaded}, " +
-                    $"MapInfo={isMapInfoLoaded}, " +
                     $"Model={isModelLoaded}, " +
                     $"Texture={isTextureLoaded}, " +
-                    $"Obstacle={isObstacleLoaded}, " +
-                    $"Trap={isTrapLoaded}, " +
                     $"UI={isUiLoaded}");
                 waitTimer = 0f;
             }
@@ -437,17 +358,11 @@ public class AssetCacheManager : MonoBehaviour
     }
 
 
-    public bool TryGetMonster(string name, out MonsterData monster) => monsterDict.TryGetValue(name, out monster);
-
     public bool TryGetBattle(string name, out BattleData battle) => battleDict.TryGetValue(name, out battle);
-    public bool TryGetCharacter(string name, out CharacterData character) => characterDict.TryGetValue(name, out character);
     public bool TryGetMap(string name, out MapDataSO mapData) => mapDict.TryGetValue(name, out mapData);
-    public bool TryGetMapInfo(string name, out MapDataInfo mapDataInfo) => mapInfoDict.TryGetValue(name, out mapDataInfo);
     public bool TryGetStageMapData(string name, out StageMapDataBundle stageMapData) => stageMapDataDict.TryGetValue(name, out stageMapData);
     public bool TryGetModel(string name, out GameObject model) => modelDict.TryGetValue(name, out model);
     public bool TryGetTexture(string name, out Sprite texture) => textureDict.TryGetValue(name, out texture);
-    public bool TryGetObstacle(string name, out ObstacleData obstacle) => obstacleDict.TryGetValue(name, out obstacle);
-    public bool TryGetTrap(string name, out TrapData trap) => trapDict.TryGetValue(name, out trap);
     public bool TryGetUI(string name, out GameObject uiPrefab) => uiDict.TryGetValue(name, out uiPrefab);
 
     public System.Collections.IEnumerator GetUIAsyncCoroutine(string addressableKey, Action<GameObject> onLoaded)

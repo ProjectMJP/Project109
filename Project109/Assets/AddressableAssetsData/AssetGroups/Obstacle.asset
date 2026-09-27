@@ -14,13 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
   m_GroupName: Obstacle
   m_GUID: 4f32a71eb3ff7d94da7d75035f743e4e
-  m_SerializeEntries:
-  - m_GUID: d056f9b73ad4679459ba7771f8f0f698
-    m_Address: Obstacle_Temple_Pillar_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Obstacle
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
   m_SchemaSet:

@@ -21,23 +21,11 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 5fcacb5a64e2e084ba636361b57f7abd
-    m_Address: Monster_test1Monster_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Monster
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b168582a37275ca49a1b771a2fd18484
     m_Address: Monster_testMonster_Prefab
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ebb30cf53c9cfd94988d996ef25284f8
-    m_Address: Monster_testMonster_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Monster
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}

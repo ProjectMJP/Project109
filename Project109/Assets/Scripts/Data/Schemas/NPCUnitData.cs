@@ -3,13 +3,16 @@ using System.IO;
 using XLua;
 using YamlDotNet.Serialization;
 
-public class NPCUnitData : IModAssetResolver
+public class NPCUnitData : IModAssetResolver, IIdentifiable
 {
     // 유닛 고유 식별 ID (기존 enemyId에서 변경)
     public string unitId { get; set; }
+    public string prefabAddress { get; set; }  // Addressables 모델 프리팹 주소 (미지정 시 unitId 사용)
     public string className { get; set; }
     public string monsterType { get; set; }
     public int appearLevel { get; set; }
+    
+    public string ID => unitId;
     
     // 캐릭터 기본 스탯 정보
     public CharacterStat characterStat { get; set; }

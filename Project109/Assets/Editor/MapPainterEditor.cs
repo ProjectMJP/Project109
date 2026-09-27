@@ -506,10 +506,10 @@ public class MapPainterEditor : EditorWindow
 
     public class RootPaletteData
     {
-        public List<PaletteEntry> paletteCollection { get; set; }
+        public List<PaletteData> paletteCollection { get; set; }
     }
 
-    public class PaletteEntry
+    public class PaletteData
     {
         public List<string> terrainIDs { get; set; }
         public List<string> objectIDs { get; set; }

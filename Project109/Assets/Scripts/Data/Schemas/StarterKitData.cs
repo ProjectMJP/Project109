@@ -13,10 +13,12 @@ public class StartEffectInfo
 /// <summary>
 /// 캐릭터 클래스 및 챌린지 시작 시 부여되는 카드, 유물, 골드 및 스탯 보너스를 정의하는 YAML 매핑 데이터 모델입니다.
 /// </summary>
-public class StarterKitData : IModAssetResolver
+public class StarterKitData : IModAssetResolver, IIdentifiable
 {
     // 시작 키트 고유 ID
     public string loadoutId { get; set; }
+    
+    public string ID => loadoutId;
     
     // 인게임 표시용 이름
     public string displayName { get; set; }

@@ -1,4 +1,3 @@
-using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
 using NUnit.Framework;
 using System.Collections;
@@ -35,7 +34,7 @@ public class ModManager : MonoBehaviour
         {
             Debug.Log($"Load {path}");
 
-            if(File.Exists(path))
+            if (File.Exists(path))
             {
                 //문자열 변환
                 string yamlContent = File.ReadAllText(path);
@@ -44,7 +43,7 @@ public class ModManager : MonoBehaviour
                 var deserializer = new DeserializerBuilder()
                     .WithNamingConvention(CamelCaseNamingConvention.Instance)
                     .Build();
-                
+
                 //역직렬화 진행
                 ModData catalog = deserializer.Deserialize<ModData>(yamlContent);
 
@@ -55,7 +54,7 @@ public class ModManager : MonoBehaviour
                     yield return AssetCacheManager.instance.LoadAllAssetsFromBundle(data.key, currentBundlePath);
                 }
             }
-            
+
             Debug.Log($"Load complete {path}");
         }
 

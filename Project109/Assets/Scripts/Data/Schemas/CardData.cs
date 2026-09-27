@@ -6,10 +6,12 @@ using UnityEngine;
 using XLua;
 using YamlDotNet.Serialization;
 
-public class CardData : IModAssetResolver
+public class CardData : IModAssetResolver, IIdentifiable
 {
     // cardName이 고유 식별자(ID) 역할을 겸합니다.
     public string cardName { get; set; }
+
+    public string ID => cardName;
 
     // 카드가 속한 영웅 클래스 (공용 카드일 경우 비어있거나 "All")
     public List<string> classTypes { get; set; } = new List<string>();

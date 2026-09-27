@@ -14,13 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
   m_GroupName: Trap
   m_GUID: 1b638e2fea517d849941b1d6acec25a2
-  m_SerializeEntries:
-  - m_GUID: fb5c39f0a0ae01b409f01f40bebe8055
-    m_Address: Trap_Temple_Spike_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Trap
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
   m_SchemaSet:

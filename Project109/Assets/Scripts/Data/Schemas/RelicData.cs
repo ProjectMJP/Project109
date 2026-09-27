@@ -4,10 +4,12 @@ using UnityEngine;
 using XLua;
 using YamlDotNet.Serialization;
 
-public class RelicData : IModAssetResolver
+public class RelicData : IModAssetResolver, IIdentifiable
 {
     // relicName이 고유 식별자(ID) 역할을 겸합니다.
     public string relicName { get; set; }
+
+    public string ID => relicName;
 
     // 등장 가능한 캐릭터 클래스 목록.
     // 비어있거나 "All" 또는 "None" 포함 시 공용 유물로 취급됩니다.

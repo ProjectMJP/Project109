@@ -849,7 +849,7 @@ public class GameItemRewardManager : MonoBehaviour, IOnAddRelic, IOnRemoveRelic
 
     public void SpawnRewardBox(Vector3 spawnPosition)
     {
-        if (RunManager.instance.currentIncountNode == null)
+        if (RunManager.instance.currentExploreNode == null)
         {
             return;
         }
