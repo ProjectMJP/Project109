@@ -5,7 +5,7 @@ end
 
 function ExecuteChoice(dm)
     dm:ConsumeGold(100)
-    dm:OpenAllExploreNodes()
+    dm:RevealAllNodes()
 end
 
 function GetDescription(dm)

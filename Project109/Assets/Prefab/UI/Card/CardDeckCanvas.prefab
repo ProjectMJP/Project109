@@ -52,6 +52,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiLayerType: 1
+  blockWorldInput: 1
   contentTransform: {fileID: 7045555817398906721}
 --- !u!1 &2172932305740490572
 GameObject:
@@ -176,7 +177,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 3309036432460441409}
         m_TargetAssemblyTypeName: CardDeckViewPanel, Assembly-CSharp
-        m_MethodName: UIDeactive
+        m_MethodName: Close
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

@@ -25,6 +25,15 @@ public class RunSaveData
     public string currentMapName;
     public int currentStageLevel;
     public int currentExploreMapFloor;
+    
+    // 현재 및 이전 노드 위치 좌표 (인덱스)
+    public int currentExploreNodeFloor = -1;
+    public int currentExploreNodeIndex = -1;
+    public int beforeExploreNodeFloor = -1;
+    public int beforeExploreNodeIndex = -1;
+    
+    public ExploreMapData exploreMapData; // 신규 맵 데이터 구조 저장용
+
     public int playerGold;
     public int playerMemorySharp;
     
@@ -66,6 +75,24 @@ public static class SaveSystem
             data.currentMapName = runManager != null ? runManager.currentMapName : "Temple";
             data.currentStageLevel = runManager != null ? runManager.currentStageLevel : 1;
             data.currentExploreMapFloor = runManager != null ? runManager.currentExploreMapFloor : 1;
+            
+            if (runManager != null && runManager.exploreMapManager != null)
+            {
+                data.exploreMapData = runManager.exploreMapManager.MapData;
+                
+                if (runManager.currentExploreNode != null)
+                {
+                    data.currentExploreNodeFloor = runManager.currentExploreNode.floor;
+                    data.currentExploreNodeIndex = runManager.currentExploreNode.index;
+                }
+                
+                if (runManager.beforeExploreNode != null)
+                {
+                    data.beforeExploreNodeFloor = runManager.beforeExploreNode.floor;
+                    data.beforeExploreNodeIndex = runManager.beforeExploreNode.index;
+                }
+            }
+            
             data.isInDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
             
             data.playerGold = player.playerStat != null ? player.playerStat.InGameCurrencyGold : 0;
@@ -320,6 +347,29 @@ public static class SaveSystem
         runManager.currentMapName = data.currentMapName;
         runManager.currentStageLevel = data.currentStageLevel;
         runManager.currentExploreMapFloor = data.currentExploreMapFloor;
+
+        if (runManager.exploreMapManager != null)
+        {
+            runManager.exploreMapManager.GetType().GetProperty("MapData").SetValue(runManager.exploreMapManager, data.exploreMapData);
+
+            if (data.exploreMapData != null && data.currentExploreNodeFloor >= 0 && data.currentExploreNodeIndex >= 0)
+            {
+                if (data.currentExploreNodeFloor < data.exploreMapData.mapNodes.Count && 
+                    data.currentExploreNodeIndex < data.exploreMapData.mapNodes[data.currentExploreNodeFloor].Count)
+                {
+                    runManager.currentExploreNode = data.exploreMapData.mapNodes[data.currentExploreNodeFloor][data.currentExploreNodeIndex];
+                }
+            }
+
+            if (data.exploreMapData != null && data.beforeExploreNodeFloor >= 0 && data.beforeExploreNodeIndex >= 0)
+            {
+                if (data.beforeExploreNodeFloor < data.exploreMapData.mapNodes.Count && 
+                    data.beforeExploreNodeIndex < data.exploreMapData.mapNodes[data.beforeExploreNodeFloor].Count)
+                {
+                    runManager.beforeExploreNode = data.exploreMapData.mapNodes[data.beforeExploreNodeFloor][data.beforeExploreNodeIndex];
+                }
+            }
+        }
 
         Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={data.currentMapName}, Stage={data.currentStageLevel}, Floor={data.currentExploreMapFloor}");
     }

@@ -1,10 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NextEntranceHandler : MonoBehaviour, IInteractable
 {
-    private IncountNode currentNode;
+    private ExploreNodeUI currentNode;
 
-    public void SetCurrentNode(IncountNode node)
+    public void SetCurrentNode(ExploreNodeUI node)
     {
         currentNode = node;
     }
@@ -14,7 +14,7 @@ public class NextEntranceHandler : MonoBehaviour, IInteractable
         if (currentNode == null)
             return;
 
-        currentNode.LoadMapDataFromIncountNode();
+        currentNode.LoadMapDataFromExploreNodeUI();
     }
 
     public bool RequiresCameraFocus => false;

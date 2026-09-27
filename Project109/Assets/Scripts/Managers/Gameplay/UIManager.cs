@@ -274,6 +274,47 @@ public class UIManager : MonoBehaviour
         return obj != null ? obj.GetComponent<T>() : null;
     }
 
+    /// <summary>
+    /// 지정된 UI 패널이 열려있으면 닫고, 닫혀있거나 생성되지 않았으면 엽니다.
+    /// </summary>
+    public T ToggleUI<T>(string uiName, UILayerType layerType = UILayerType.Normal, Action<T> onFirstCreated = null) where T : UIPanelBase
+    {
+        // 1. 이미 캐시된 인스턴스가 있는지 확인
+        if (_cachedPanels.TryGetValue(uiName, out UIPanelBase cachedPanel) && cachedPanel != null)
+        {
+            if (cachedPanel.gameObject.activeSelf)
+            {
+                CloseUI(cachedPanel);
+                return cachedPanel as T;
+            }
+            else
+            {
+                PushActiveUIPanel(cachedPanel);
+                return cachedPanel as T;
+            }
+        }
+
+        // 2. 캐시에 없으면 새로 생성하여 열기
+        T newPanel = OpenUI<T>(uiName, layerType, true);
+        if (newPanel != null && onFirstCreated != null)
+        {
+            onFirstCreated.Invoke(newPanel);
+        }
+        return newPanel;
+    }
+
+    /// <summary>
+    /// 현재 캐시되어 있는 지정된 UI 패널을 가져옵니다.
+    /// </summary>
+    public T GetUI<T>(string uiName) where T : UIPanelBase
+    {
+        if (_cachedPanels.TryGetValue(uiName, out UIPanelBase panel) && panel != null)
+        {
+            return panel as T;
+        }
+        return null;
+    }
+
     private RectTransform GetLayerTransform(UILayerType layerType)
     {
         EnsureCanvases();
@@ -509,6 +550,36 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// UI 이름으로 패널을 찾아 닫습니다.
+    /// </summary>
+    public void CloseUI(string uiName)
+    {
+        if (_cachedPanels.TryGetValue(uiName, out UIPanelBase panel) && panel != null)
+        {
+            CloseUI(panel);
+        }
+    }
+
+    /// <summary>
+    /// 특정 패널을 모달 스택 및 캐시 풀에서 완전히 제거하고 파괴합니다.
+    /// </summary>
+    public void DestroyUI(string uiName)
+    {
+        if (_cachedPanels.TryGetValue(uiName, out UIPanelBase panel))
+        {
+            _cachedPanels.Remove(uiName);
+            if (panel != null)
+            {
+                RemovePanelFromStack(panel);
+                if (panel.gameObject != null)
+                {
+                    Destroy(panel.gameObject);
+                }
+            }
+        }
+    }
+
     public void RemoveActiveUIFromStack(GameObject targetObject)
     {
         if (targetObject != null && targetObject.TryGetComponent<UIPanelBase>(out var panel))
@@ -644,13 +715,8 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void DestroyExploreMap()
     {
-        if (RunManager.instance != null && RunManager.instance.currentExploreUI != null)
-        {
-            RemoveActiveUIFromStack(RunManager.instance.currentExploreUI.gameObject);
-            Destroy(RunManager.instance.currentExploreUI.gameObject);
-            RunManager.instance.currentExploreUI = null;
-            Debug.Log("[UIManager] Existing ExploreMap instance destroyed for stage reset.");
-        }
+        DestroyUI(UIConstants.PANEL_EXPLORE_MAP);
+        Debug.Log("[UIManager] Existing ExploreMap instance destroyed for stage reset.");
     }
 
     #region Async UI & Dialog Support

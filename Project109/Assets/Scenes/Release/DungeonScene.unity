@@ -119,66 +119,91 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1001 &179488054
-PrefabInstance:
+--- !u!1 &274046366
+GameObject:
   m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 274046367}
+  - component: {fileID: 274046368}
+  m_Layer: 0
+  m_Name: RunManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &274046367
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 274046366}
   serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1523703071106812780, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_Name
-      value: MapSpawnRoot
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7227837302081123518, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 2250207390320938103, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &274046368
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 274046366}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3e082b331e21db478642ad5238ba2b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RunManager
+  mapPrefabs:
+    mapSpawnRootPrefab: {fileID: 0}
+    eventObjectPrefab: {fileID: 0}
+    shopObjectPrefab: {fileID: 0}
+    restoreObjectPrefab: {fileID: 0}
+    insightObjectPrefab: {fileID: 0}
+    rewardMapObjectPrefab: {fileID: 0}
+  currentMapName: 
+  currentStageLevel: 0
+  currentExploreMapFloor: 0
+  currentExploreNode:
+    floor: 0
+    index: 0
+    encounterData:
+      locationType: 2
+      encountType: 0
+      extraEncountType: 0
+      battleExtraRewardType: 0
+      mapDataId: 
+      interactableDataId: 
+      battleDataId: 
+    nextNodeIndices: 
+    isNodeChanged: 0
+    isRevealed: 0
+  beforeExploreNode:
+    floor: 0
+    index: 0
+    encounterData:
+      locationType: 2
+      encountType: 0
+      extraEncountType: 0
+      battleExtraRewardType: 0
+      mapDataId: 
+      interactableDataId: 
+      battleDataId: 
+    nextNodeIndices: 
+    isNodeChanged: 0
+    isRevealed: 0
+  currentExploreUI: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 179488054}
+  - {fileID: 274046367}

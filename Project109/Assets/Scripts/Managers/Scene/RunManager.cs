@@ -20,7 +20,9 @@ public class RunManager : MonoBehaviour
             battleManager.OnBattleLost += HandleBattleLost;
 
             currentMap = new MapManager();
-            currentMap.Initialize();
+            currentMap.Initialize(mapPrefabs);
+
+            exploreMapManager = new ExploreMapManager();
         }
         else
         {
@@ -45,10 +47,12 @@ public class RunManager : MonoBehaviour
     public string currentMapName;
     public int currentStageLevel = 0;
     public int currentExploreMapFloor = 0;
-    public IncountNode currentIncountNode;
-    public IncountNode beforeIncountNode;
-    public MapManager currentMap = new();
-    public ExploreUI currentExploreUI;
+    public ExploreNode currentExploreNode;
+    public ExploreNode beforeExploreNode;
+
+    public MapManager currentMap;
+    public ExploreMapManager exploreMapManager;
+    public ExploreMapUI currentExploreUI;
 
     private void Start()
     {
@@ -246,9 +250,9 @@ public class RunManager : MonoBehaviour
         }
     }
 
-    public void MoveToNode(IncountNode nextNode)
+    public void MoveToNode(ExploreNodeUI nextNodeUI)
     {
-        if (nextNode == null) return;
+        if (nextNodeUI == null || nextNodeUI.NodeData == null) return;
 
         if (UIManager.instance != null)
         {
@@ -256,25 +260,23 @@ public class RunManager : MonoBehaviour
         }
 
         // 이전의 노드를 저장 후 다음 노드로 변경
-        beforeIncountNode = currentIncountNode;
-        if (currentIncountNode != null)
-        {
-            var prevNodeComponent = currentIncountNode.transform.GetComponent<IncountNode>();
-            if (prevNodeComponent != null && prevNodeComponent.IncountNodeCurrentHighlightCircleObject != null)
-            {
-                prevNodeComponent.IncountNodeCurrentHighlightCircleObject.SetActive(false);
-            }
-        }
-
-        currentIncountNode = nextNode; // 다음 맵 로딩을 위해 이동할 노드 정보를 저장
+        beforeExploreNode = currentExploreNode;
+        currentExploreNode = nextNodeUI != null ? nextNodeUI.NodeData : null;
         currentExploreMapFloor += 1;
 
-        if (nextNode.exploreUI != null)
+        // 다음 층으로 이동했으므로 플레이어 시야 범위 내의 노드 데이터 공개 상태 갱신
+        if (exploreMapManager != null)
         {
-            if (nextNode.IncountNodeCurrentHighlightCircleObject != null)
-            {
-                nextNode.IncountNodeCurrentHighlightCircleObject.SetActive(true);
-            }
+            int checkLength = GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null
+                ? GameSceneManager.instance.player.playerStat.MapFloorCheckLength
+                : 3;
+            exploreMapManager.RevealNodesByFloor(currentExploreMapFloor, checkLength);
+        }
+
+        // 이동 시작 시 화면에 열려있는 ExploreMap 창 닫기 요청
+        if (UIManager.instance != null)
+        {
+            UIManager.instance.CloseUI(UIConstants.PANEL_EXPLORE_MAP);
         }
 
         if (SceneLoadManager.instance != null)
@@ -292,73 +294,30 @@ public class RunManager : MonoBehaviour
 
     private void LoadCurrentNodeDataInMap()
     {
-        // 다음 노드로 이동하였으니 다음 노드들의 가려진 부분들 중 일부가 보이도록 ExploreMap 업데이트
-        if (currentExploreUI != null)
+        Debug.Log("currentExploreNode = " + (currentExploreNode != null ? currentExploreNode.encounterData.encountType.ToString() : "null"));
+
+        if (currentExploreNode != null && currentMap != null)
         {
-            currentExploreUI.OpenExploreMapNodesBasedOnFloorLength();
-            // 이전에 이동한 노드를 제외한 나머지 노드 가리기
-            currentExploreUI.CloseBeforeNodes();
-            currentExploreUI.Close();
-        }
+            currentMap.GenerateStage(currentExploreNode);
 
-        Debug.Log("currentIncountNode = " + currentIncountNode.incountType.ToString());
-
-        IncountNode newIncountNode = currentIncountNode;
-        if (newIncountNode != null)
-        {
-            var mapManager = currentMap;
-            var playerChar = GameSceneManager.instance != null && GameSceneManager.instance.player != null
-                ? GameSceneManager.instance.player.character
-                : null;
-
-            switch (newIncountNode.incountType)
+            switch (currentExploreNode.encounterData.extraEncountType)
             {
-                case IncountType.None:
+                case ExtraEncountType.None:
                     break;
-                case IncountType.Battle:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.Battle, playerChar, MapPrefabs, null, newIncountNode.battleNodeData);
-                    break;
-                case IncountType.Elite:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.Elite, playerChar, MapPrefabs, null, newIncountNode.battleNodeData);
-                    break;
-                case IncountType.Boss:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.Boss, playerChar, MapPrefabs, null, newIncountNode.battleNodeData);
-                    break;
-                case IncountType.Restore:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.Restore, playerChar, MapPrefabs);
-                    break;
-                case IncountType.Store:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.Store, playerChar, MapPrefabs);
-                    break;
-                case IncountType.SecretBox:
-                    mapManager.GenerateStage(LocationType.Temple, IncountType.SecretBox, playerChar, MapPrefabs);
-                    break;
-                case IncountType.Secret:
-                    if (newIncountNode.eventNodeData != null)
+                case ExtraEncountType.Insight:
+                    if (!string.IsNullOrEmpty(currentExploreNode.encounterData.interactableDataId) &&
+                        ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null &&
+                        ModLoader.Instance.InteractableDatabase.TryGetValue(currentExploreNode.encounterData.interactableDataId, out var interactableData))
                     {
-                        mapManager.GenerateStage(LocationType.Temple, IncountType.Secret, playerChar, MapPrefabs, newIncountNode.eventNodeData);
+                        currentMap.GenerateNPC(currentMap.currentMapData, EncountType.Secret, MapPrefabs, interactableData);
                     }
                     break;
-                default:
-                    break;
-            }
-
-            switch (newIncountNode.extraIncountType)
-            {
-                case ExtraIncountType.None:
-                    break;
-                case ExtraIncountType.Insight:
-                    if (newIncountNode.eventNodeData != null)
-                    {
-                        mapManager.GenerateNPC(mapManager.currentMapData, IncountType.Secret, MapPrefabs, newIncountNode.eventNodeData);
-                    }
-                    break;
-                case ExtraIncountType.ShineWell:
+                case ExtraEncountType.ShineWell:
                     break;
             }
 
             // 맵 생성이 끝난 후 RunManager에게 상태 전이 알림
-            OnMapStateChanged(mapManager.currentMapState);
+            OnMapStateChanged(currentMap.currentMapState);
         }
 
         if (SceneLoadManager.instance != null)

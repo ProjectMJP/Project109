@@ -116,7 +116,7 @@ public class RewardChest : InteractableObject
                 }
             }
         }
-        else if (rewardListUI != null && activeRewardData == null && RunManager.instance != null && RunManager.instance.currentIncountNode != null)
+        else if (rewardListUI != null && activeRewardData == null && RunManager.instance != null && RunManager.instance.currentExploreNode != null)
         {
             // Fallback: 기존 하드코딩 전투 노드 보상 정보
             int totalGold = 0;
@@ -124,32 +124,32 @@ public class RewardChest : InteractableObject
             int baseCardCount = 0;
             int baseRelicCount = 0;
 
-            switch (RunManager.instance.currentIncountNode.incountType)
+            switch (RunManager.instance.currentExploreNode.encounterData.encountType)
             {
-                case IncountType.Battle:
+                case EncountType.Battle:
                     totalGold = 60;
                     baseMemorySharp = 2;
                     baseCardCount = 1;
-                    if (RunManager.instance.currentIncountNode.battleExtraRewardType == BattleExtraRewardType.Card)
+                    if (RunManager.instance.currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Card)
                     {
                         rewardListUI.AddRewardItem(ItemRewardUIType.Card, "Rare_Card_Table", 1);
                     }
-                    else if (RunManager.instance.currentIncountNode.battleExtraRewardType == BattleExtraRewardType.Relic)
+                    else if (RunManager.instance.currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Relic)
                     {
                         rewardListUI.AddRewardItem(ItemRewardUIType.Relic, "Default_Relic_Table", 1);
                     }
-                    else if (RunManager.instance.currentIncountNode.battleExtraRewardType == BattleExtraRewardType.Gold)
+                    else if (RunManager.instance.currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Gold)
                     {
                         totalGold += UnityEngine.Random.Range(100, 151);
                     }
                     break;
-                case IncountType.Elite:
+                case EncountType.Elite:
                     totalGold = 80;
                     baseMemorySharp = 5;
                     baseCardCount = 1;
                     baseRelicCount = 1;
                     break;
-                case IncountType.Boss:
+                case EncountType.Boss:
                     totalGold = 150;
                     baseMemorySharp = 10;
                     baseCardCount = 1;

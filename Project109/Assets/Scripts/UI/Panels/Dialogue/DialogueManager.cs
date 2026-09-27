@@ -547,13 +547,28 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    public void OpenAllExploreNodes()
+    /// <summary>
+    /// 맵의 모든 노드를 공개(Reveal)합니다.
+    /// </summary>
+    public void RevealAllNodes()
     {
-        if (RunManager.instance != null && RunManager.instance.currentExploreUI != null)
+        if (RunManager.instance != null && RunManager.instance.exploreMapManager != null)
         {
-            RunManager.instance.currentExploreUI.OpenAllExploreMapNodes();
+            RunManager.instance.exploreMapManager.RevealAllNodes();
+        }
+
+        if (UIManager.instance != null)
+        {
+            ExploreMapUI mapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
+            if (mapUI != null && mapUI.gameObject.activeSelf)
+            {
+                mapUI.RefreshMapVisuals();
+            }
         }
     }
+
+    [System.Obsolete("Use RevealAllNodes instead")]
+    public void OpenAllExploreNodes() => RevealAllNodes();
 
     public void SpawnReward(string rewardTypeStr, string rarityStr)
     {

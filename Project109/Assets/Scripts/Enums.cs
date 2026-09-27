@@ -70,7 +70,7 @@ namespace GameItem.Types
 
 namespace CardTypes
 {
-    public enum EffectType  //효과 타입
+    public enum CardType  //효과 타입
     {
         None,
         Damage,
