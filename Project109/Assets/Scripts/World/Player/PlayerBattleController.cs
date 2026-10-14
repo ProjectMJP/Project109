@@ -23,45 +23,6 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
         }
-        if (battleDeck != null)
-        {
-            battleDeck.OnHandChanged -= UpdateHandUI;
-        }
-
-        if (battleHandPanel != null)
-        {
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.RemoveActiveUIFromStack(battleHandPanel.gameObject);
-            }
-            UnityEngine.Object.Destroy(battleHandPanel.gameObject);
-            battleHandPanel = null;
-        }
-    }
-
-    public BattleHandPanel battleHandPanel { get; private set; }
-
-    private BattleHandPanel GetOrSpawnBattleHand()
-    {
-        if (battleHandPanel != null) return battleHandPanel;
-
-        if (UIManager.instance != null)
-        {
-            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Normal, true);
-            if (obj != null)
-            {
-                battleHandPanel = obj.GetComponent<BattleHandPanel>();
-            }
-        }
-        return battleHandPanel;
-    }
-
-    private void UpdateHandUI()
-    {
-        if (battleHandPanel != null)
-        {
-            battleHandPanel.RefreshHand(battleDeck.hand);
-        }
     }
 
     #region ICharacterController
@@ -86,9 +47,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     #region Battle Deck (전투 중 카드 덱 관리)
 
-    public BattleDeck battleDeck { get; private set; }
-
-    [SerializeField] private int drawCount = 5;
+    public BattleDeck battleDeck => player?.battleDeck;
 
     #endregion
 
@@ -96,8 +55,6 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
     {
         this.player = player;
         this._controlledCharacter = player?.character;
-
-        this.battleDeck = new BattleDeck(this._controlledCharacter);
 
         // PlayerBattleMove 초기화
         if (this._controlledCharacter != null)
@@ -116,37 +73,53 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     public void OnBattleStart()
     {
-        // BattleDeck.InitDeck 내부에서 전투 전용으로 1회 복제(Clone)하여 drawPile 구성
-        battleDeck.InitDeck(player.masterDeck);
+        player?.InitBattleDeck();
 
-        var handUI = GetOrSpawnBattleHand();
-        if (handUI != null)
+        if (UIManager.instance != null)
         {
-            battleDeck.OnHandChanged -= UpdateHandUI;
-            battleDeck.OnHandChanged += UpdateHandUI;
-            handUI.RefreshHand(battleDeck.hand);
+            var handUI = UIManager.instance.GetOrSpawnBattleHand();
+            if (handUI != null && battleDeck != null)
+            {
+                handUI.BindBattleDeck(battleDeck);
+            }
         }
+    }
+
+    /// <summary>
+    /// 이번 턴에만 임시로 적용되는 드로우 보너스/패널티 (버프, 유물 등이 설정 가능)
+    /// </summary>
+    public int bonusDrawThisTurn { get; set; } = 0;
+
+    /// <summary>
+    /// 이번 턴 드로우 보너스/패널티를 가산합니다.
+    /// </summary>
+    public void AddBonusDrawThisTurn(int count)
+    {
+        bonusDrawThisTurn += count;
+    }
+
+    /// <summary>
+    /// 이번 턴에 드로우할 카드 장수를 계산하여 반환합니다.
+    /// (PlayerStat의 BaseDrawCount 기본값 + 이번 턴 임시 보너스 합산)
+    /// </summary>
+    public int GetTurnDrawCount()
+    {
+        int baseCount = player?.playerStat != null ? player.playerStat.BaseDrawCount : 5;
+        return Mathf.Max(0, baseCount + bonusDrawThisTurn);
     }
 
     public void OnTurnStart()
     {
-        // 1. 이벤트 버스 — 등록된 IOnTurnStart들 호출 (버프, 유물 등)
+        // 1. 이벤트 버스 — 등록된 IOnTurnStart들 호출 (버프, 유물 등에서 AddBonusDrawThisTurn 호출 가능)
         controlledCharacter.eventBus.Invoke<IOnTurnStart>(a => a.OnTurnStart());
 
-        // 2. 카드 드로우
-        battleDeck.DrawCards(drawCount);
+        // 2. 카드 드로우 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
+        battleDeck.DrawCards(GetTurnDrawCount());
 
-        // 3. UI 갱신
-        var handUI = GetOrSpawnBattleHand();
-        if (handUI != null)
-        {
-            handUI.gameObject.SetActive(true);
-            handUI.RefreshHand(battleDeck.hand);
-        }
+        // 3. 이번 턴 보정치 리셋 (다음 턴에는 기본값으로 자동 원복)
+        bonusDrawThisTurn = 0;
 
-        // 4. 이동 활성화 (이동 상태는 필요할 때 켬)
-
-        // 5. 전역 클릭 및 취소 이벤트 구독
+        // 4. 전역 클릭 및 취소 이벤트 구독
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent += HandleGlobalClick;
@@ -160,25 +133,20 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         // 1. 이벤트 버스 — 등록된 IOnTurnEnd들 호출
         controlledCharacter.eventBus.Invoke<IOnTurnEnd>(a => a.OnTurnEnd());
 
-        // 2. 손패 → 묘지 이동
+        // 2. 손패 → 묘지 이동 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
         battleDeck.DiscardHand();
 
         // 3. 이동 비활성화
         playerMove?.ClearCanMoveTiles();
 
-        // 4. UI 정리
-        if (battleHandPanel != null)
-        {
-            battleHandPanel.RefreshHand(battleDeck.hand);
-        }
-
-        // 5. 이벤트 구독 해제
+        // 4. 이벤트 구독 해제
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
         }
         controlState = PlayerControlState.Normal;
+        bonusDrawThisTurn = 0;
     }
 
     #region Card Operations
@@ -215,7 +183,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         }
 
         // 사용 시도 이벤트 발동 (IOnTryUseCard)
-        CardInfo tryInfo = new CardInfo(controlledCharacter, CardInfo.EmptyTargets, Vector2Int.zero, card, CardFlag.Normal);
+        CardInfo tryInfo = new CardInfo(controlledCharacter, card, CardFlag.Normal);
         controlledCharacter.eventBus.Invoke<IOnTryUseCard>(c => c.OnTryUseCard(tryInfo));
 
         string typeLower = card.cardData?.targetType?.ToLower() ?? "";
@@ -284,28 +252,86 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     private void HandleGlobalClick(Vector2 pos)
     {
+        // UI 요소 클릭 시 월드 조작 무시
+        if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
         if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle || ActionQueueManager.Instance.IsBusy)
         {
             return;
         }
 
-        Ray ray = Camera.main.ScreenPointToRay(pos);
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            if (!hit.transform.TryGetComponent<Tile>(out var targetTile))
-            {
-                targetTile = hit.transform.root.GetComponentInChildren<Tile>();
-            }
+        if (Camera.main == null) return;
 
-            if (targetTile != null)
+        Ray ray = Camera.main.ScreenPointToRay(pos);
+        Tile targetTile = null;
+        string hitObjectName = "None";
+        Vector3 hitPoint = Vector3.zero;
+
+        // 1. Tile 레이어 우선 레이캐스트
+        int tileMask = LayerMask.GetMask("Tile");
+        if (tileMask != 0 && Physics.Raycast(ray, out RaycastHit tileHit, 10000.0f, tileMask))
+        {
+            hitObjectName = tileHit.collider.gameObject.name;
+            hitPoint = tileHit.point;
+            targetTile = tileHit.collider.GetComponentInParent<Tile>();
+        }
+
+        // 2. Tile 레이어 히트 실패 시, 전체 레이캐스트 수행 후 히트 지점 월드 좌표로 가장 가까운 타일 탐색
+        if (targetTile == null && Physics.Raycast(ray, out RaycastHit generalHit, 10000.0f))
+        {
+            hitObjectName = generalHit.collider.gameObject.name;
+            hitPoint = generalHit.point;
+            targetTile = generalHit.collider.GetComponentInParent<Tile>();
+
+            if (targetTile == null && GameMap.current != null)
             {
-                switch (controlState)
+                targetTile = GameMap.current.GetTileAtWorldPosition(hitPoint);
+            }
+        }
+
+        // 3. 레이캐스트가 아무 콜라이더에도 닿지 않았을 경우, 지면 평면(Y=0)과의 교차점으로 타일 탐색
+        if (targetTile == null)
+        {
+            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+            if (groundPlane.Raycast(ray, out float enter))
+            {
+                hitPoint = ray.GetPoint(enter);
+                hitObjectName = "GroundPlane(Y=0)";
+                if (GameMap.current != null)
                 {
-                    case PlayerControlState.Normal:
-                        // 일반 모드: 클릭 시 해당 타일 방향으로 회전
-                        controlledCharacter.characterMove?.LookAtTile(targetTile);
-                        Debug.Log("바라보기 회전: " + controlledCharacter.characterMove?.facingDirection);
-                        break;
+                    targetTile = GameMap.current.GetTileAtWorldPosition(hitPoint);
+                }
+            }
+        }
+
+        // 상세 디버그 로그 출력
+        Tile playerTile = controlledCharacter.characterMove?.GetCurrentTile();
+        Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : new Vector2Int(-1, -1);
+        Vector2Int targetCoord = targetTile != null ? targetTile.GetCoord() : new Vector2Int(-1, -1);
+        Vector3 playerWorldPos = controlledCharacter.transform.position;
+        Vector3 targetWorldPos = targetTile != null ? targetTile.transform.position : Vector3.zero;
+
+        Debug.Log($"[PlayerBattleController] 화면 클릭 감지!\n" +
+                  $"▶ 스크린 좌표: ({pos.x:F1}, {pos.y:F1})\n" +
+                  $"▶ 히트 오브젝트: '{hitObjectName}', 히트 월드 좌표: ({hitPoint.x:F2}, {hitPoint.y:F2}, {hitPoint.z:F2})\n" +
+                  $"▶ 플레이어 현재 위치: {playerCoord} ({playerWorldPos.x:F2}, {playerWorldPos.y:F2}, {playerWorldPos.z:F2})\n" +
+                  $"▶ 클릭된 대상 타일: {targetCoord} ({targetWorldPos.x:F2}, {targetWorldPos.y:F2}, {targetWorldPos.z:F2})\n" +
+                  $"▶ 현재 조작 상태: {controlState}");
+
+        if (targetTile != null)
+        {
+            switch (controlState)
+            {
+                case PlayerControlState.Normal:
+                    // 일반 모드: 클릭 시 해당 타일 방향으로 회전
+                    Vector3 diff = targetTile.transform.position - controlledCharacter.transform.position;
+                    LookDirection targetDir = CharacterMove.GetDirectionFromVector(diff);
+                    controlledCharacter.characterMove?.LookAtTile(targetTile);
+                    Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
+                    break;
 
                     case PlayerControlState.Move:
                         // 이동 모드: playerMove에게 이동 지시
@@ -324,7 +350,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
                             Tile currentTile = controlledCharacter.characterMove?.GetCurrentTile();
                             if (currentTile != null)
                             {
-                                int distance = GetDistanceBetweenTiles(currentTile, targetTile);
+                                int distance = Tile.GetDistance(currentTile, targetTile);
                                 int minDistance = activeCardForTargeting.cardData.targetMinDistance;
                                 int maxDistance = activeCardForTargeting.cardData.targetMaxDistance;
 
@@ -350,16 +376,7 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
                         }
                         break;
                 }
-            }
         }
-    }
-
-    private int GetDistanceBetweenTiles(Tile t1, Tile t2)
-    {
-        if (t1 == null || t2 == null) return int.MaxValue;
-        var coord1 = t1.GetCoord();
-        var coord2 = t2.GetCoord();
-        return Mathf.Abs(coord1.x - coord2.x) + Mathf.Abs(coord1.y - coord2.y);
     }
 
     #endregion

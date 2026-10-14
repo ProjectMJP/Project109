@@ -45,25 +45,20 @@ public class CardPlayAction : BattleAction
         // 5. 사용 카드 손패에서 무덤으로 이동 처리 (플레이어의 경우에만)
         if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && caster.Equals(GameSceneManager.instance.player.character))
         {
-            if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+            var battleDeck = GameSceneManager.instance.player.battleDeck;
+            if (battleDeck != null)
             {
-                var battleDeck = RunManager.instance.playerBattleController.battleDeck;
-                if (battleDeck != null)
+                if (!info.cardFlags.HasFlag(CardFlag.NoDiscard))
                 {
-                    battleDeck.RemoveFromHand(card);
+                    bool isExhaustCard = card != null && (card.HasTag("Destroy") || card.HasTag("Single_use"));
 
-                    if (!info.cardFlags.HasFlag(CardFlag.NoDiscard))
+                    if (!info.cardFlags.HasFlag(CardFlag.NoExhaust) && isExhaustCard)
                     {
-                        bool isExhaustCard = card != null && (card.HasTag("Destroy") || card.HasTag("Single_use"));
-
-                        if (!info.cardFlags.HasFlag(CardFlag.NoExhaust) && isExhaustCard)
-                        {
-                            battleDeck.ExhaustCard(card, info);
-                        }
-                        else
-                        {
-                            battleDeck.DiscardCard(card, info);
-                        }
+                        battleDeck.ExhaustCard(card, info);
+                    }
+                    else
+                    {
+                        battleDeck.DiscardCard(card, info);
                     }
                 }
             }

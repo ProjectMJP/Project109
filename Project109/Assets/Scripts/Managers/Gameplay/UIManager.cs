@@ -161,9 +161,27 @@ public class UIManager : MonoBehaviour
     private int _asyncLoadLockCount = 0;
 
     /// <summary>
-    /// 모달 팝업 스택에 창이 1개라도 떠 있거나 비동기 UI 로딩 중이어서 배경 월드 입력이 차단되어야 하는지 여부입니다.
+    /// 모달 팝업 스택에 입력을 차단하는 창(blockWorldInput == true)이 떠 있거나 비동기 UI 로딩 중이어서 배경 월드 입력이 차단되어야 하는지 여부입니다.
     /// </summary>
-    public bool IsWorldInputBlocked => _popupStack.Count > 0 || _asyncLoadLockCount > 0;
+    public bool IsWorldInputBlocked
+    {
+        get
+        {
+            if (_asyncLoadLockCount > 0) return true;
+
+            if (_popupStack.Count > 0)
+            {
+                foreach (var panel in _popupStack)
+                {
+                    if (panel != null && panel.blockWorldInput && panel.gameObject.activeInHierarchy)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
 
     // 카드 범위 확인 관련 변수 (하위 호환 필드)
     [Header("Effect Area Tiles (Optional)")]

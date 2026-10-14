@@ -417,6 +417,25 @@ public class Character : MonoBehaviour, IDamageable
         DispatchAfterTakeShield(this.eventBus, info);
     }
 
+    #region Combat Pipeline Convenience Overloads
+
+    public void TakeDamage(float amount, Character caster = null, DamageFlag flags = DamageFlag.Normal)
+        => TakeDamage(new DamageInfo(caster, this, amount, flags));
+
+    public void TakeHeal(float amount, Character caster = null, HealFlag flags = HealFlag.Normal)
+        => TakeHeal(new HealInfo(caster, this, amount, flags));
+
+    public void TakeShield(float amount, Character caster = null, int durationTurns = 1, ShieldFlag flags = ShieldFlag.Normal)
+        => TakeShield(new ShieldInfo(caster, this, amount, durationTurns, flags));
+
+    public void TakeStamina(float amount, Character caster = null, StaminaFlag flags = StaminaFlag.Normal)
+        => TakeStamina(new StaminaInfo(caster, this, amount, flags));
+
+    public void SpendStamina(float amount, StaminaFlag flags = StaminaFlag.Normal)
+        => SpendStamina(new StaminaInfo(this, this, amount, flags));
+
+    #endregion
+
     #region Event Dispatch Helpers (Zero-Alloc)
 
     private static void DispatchBeforeDealDamage(EventBus<ICharacterEvent> bus, ref DamageInfo info)
@@ -649,14 +668,6 @@ public class Character : MonoBehaviour, IDamageable
     public void TakeStamina(Character caster, float baseStaminaAmount, StaminaFlag flags = StaminaFlag.Normal)
     {
         TakeStamina(new StaminaInfo(caster, this, baseStaminaAmount, flags));
-    }
-
-    /// <summary>
-    /// 본인의 스태미나를 스스로 소모하거나 적에 의해 차감됩니다. (편의성 오버로드)
-    /// </summary>
-    public void SpendStamina(float baseStaminaAmount, StaminaFlag flags = StaminaFlag.Normal)
-    {
-        SpendStamina(new StaminaInfo(null, this, baseStaminaAmount, flags));
     }
 
     /// <summary>

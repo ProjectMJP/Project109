@@ -620,43 +620,34 @@ public class DialogueManager : MonoBehaviour
 
         if (UIManager.instance != null)
         {
-            GameObject eraseUI = UIManager.instance.OpenUI("EraseCardDeckCanvas", UILayerType.Normal, true);
-            if (eraseUI != null)
+            var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+            if (deckPanel != null)
             {
-                var panel = eraseUI.GetComponent<EraseCardDeckPanel>();
-                if (panel != null)
+                var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+                var cards = (player != null && player.deck != null) ? player.deck.GetCards() : null;
+                if (cards != null)
                 {
-                    panel.SetEraseCardCount(count);
-                }
-            }
-            else
-            {
-                Addressables.InstantiateAsync("EraseCardDeckCanvas").Completed += handle =>
-                {
-                    if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
-                    {
-                        var panel = handle.Result.GetComponent<EraseCardDeckPanel>();
-                        if (panel != null)
+                    deckPanel.Open("제거할 카드를 선택하세요", cards, CardViewMode.SingleSelect, count,
+                        onConfirm: (selectedCards) =>
                         {
-                            panel.SetEraseCardCount(count);
-                        }
-                    }
-                };
-            }
-        }
-        else
-        {
-            Addressables.InstantiateAsync("EraseCardDeckCanvas").Completed += handle =>
-            {
-                if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
-                {
-                    var panel = handle.Result.GetComponent<EraseCardDeckPanel>();
-                    if (panel != null)
-                    {
-                        panel.SetEraseCardCount(count);
-                    }
+                            if (player != null && player.deck != null && selectedCards != null)
+                            {
+                                for (int i = 0; i < selectedCards.Count; i++)
+                                {
+                                    if (selectedCards[i] != null)
+                                    {
+                                        player.deck.RemoveCard(selectedCards[i].runtimeID);
+                                    }
+                                }
+                            }
+                            ResumeDialogue();
+                        },
+                        onCancel: () =>
+                        {
+                            ResumeDialogue();
+                        });
                 }
-            };
+            }
         }
     }
 
@@ -666,15 +657,7 @@ public class DialogueManager : MonoBehaviour
 
         if (UIManager.instance != null)
         {
-            GameObject upgradeUI = UIManager.instance.OpenUI("UpgradeCardDeckCanvas", UILayerType.Normal, true);
-            if (upgradeUI == null)
-            {
-                Addressables.InstantiateAsync("UpgradeCardDeckCanvas");
-            }
-        }
-        else
-        {
-            Addressables.InstantiateAsync("UpgradeCardDeckCanvas");
+            UIManager.instance.OpenUI(UIConstants.PANEL_UPGRADE_CARD_DECK, UILayerType.Normal, true);
         }
     }
 

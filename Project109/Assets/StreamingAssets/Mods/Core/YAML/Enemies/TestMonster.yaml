@@ -1,4 +1,5 @@
 unitId: "TestMonster"
+prefabAddress: "Monster_testMonster_Prefab"
 className: "Goblin"
 monsterType: "Normal"
 appearLevel: 1

@@ -117,6 +117,7 @@ public class AssetCacheManager : MonoBehaviour
                         stageMapDataDict[mapData.locationType.ToString()].bossMapDataList.Add(mapData);
                         break;
                     case EncountType.Secret:
+                    case EncountType.SecretBox:
                         stageMapDataDict[mapData.locationType.ToString()].secretMapDataList.Add(mapData);
                         break;
                     case EncountType.Store:
@@ -124,6 +125,10 @@ public class AssetCacheManager : MonoBehaviour
                         break;
                     case EncountType.Restore:
                         stageMapDataDict[mapData.locationType.ToString()].restoreMapDataList.Add(mapData);
+                        break;
+                    default:
+                        // 미분류 맵 데이터는 기본 전투 맵 풀에 추가하여 누락 방지
+                        stageMapDataDict[mapData.locationType.ToString()].battleMapDataList.Add(mapData);
                         break;
                 }
             }

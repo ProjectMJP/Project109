@@ -137,20 +137,26 @@ namespace EventStructs
         public System.Collections.Generic.List<Character> targets;
         public Vector2Int targetPosition;
 
-
-        public object cardData;
+        public Card card;
+        [System.Obsolete("cardData 대신 card를 사용하세요")]
+        public object cardData => card;
 
         public CardFlag cardFlags;
 
         public static readonly System.Collections.Generic.List<Character> EmptyTargets = new System.Collections.Generic.List<Character>(0);
 
-        public CardInfo(Character caster, System.Collections.Generic.List<Character> targets, Vector2Int targetPos, object cardData, CardFlag flags = CardFlag.Normal)
+        public CardInfo(Character caster, System.Collections.Generic.List<Character> targets, Vector2Int targetPos, Card card, CardFlag flags = CardFlag.Normal)
         {
             this.caster = caster;
             this.targets = targets ?? EmptyTargets;
             this.targetPosition = targetPos;
-            this.cardData = cardData;
+            this.card = card;
             this.cardFlags = flags;
+        }
+
+        public CardInfo(Character caster, Card card, CardFlag flags = CardFlag.Normal)
+            : this(caster, EmptyTargets, Vector2Int.zero, card, flags)
+        {
         }
 
         public void AddFlag(CardFlag flag)

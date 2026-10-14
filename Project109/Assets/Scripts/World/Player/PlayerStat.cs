@@ -35,4 +35,5 @@ public class PlayerStat
     public int RewardRelicCount { get; set; }
     public int MasteryChoiceCount { get; set; }
     public int UpgradeMasteryPointValue { get; set; }
+    public int BaseDrawCount { get; set; } = 5;
 }

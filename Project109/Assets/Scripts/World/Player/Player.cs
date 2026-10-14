@@ -16,6 +16,18 @@ public class Player : IDisposable
     public PlayerDeck deck { get; private set; }
     public IReadOnlyList<Card> masterDeck => deck.GetCards();
 
+    // 전투 전용 카드 덱 (드로우더미, 손패, 버림패, 소멸패)
+    public BattleDeck battleDeck { get; private set; }
+
+    public void InitBattleDeck()
+    {
+        if (battleDeck == null)
+        {
+            battleDeck = new BattleDeck(character);
+        }
+        battleDeck.InitDeck(masterDeck);
+    }
+
     // 유물 관리자
     public RelicManager relicManager;
 
@@ -35,6 +47,7 @@ public class Player : IDisposable
         this.playerStat.RewardCardCount = 3;
         this.playerStat.RewardRelicCount = 3;
         this.playerStat.MasteryChoiceCount = 3;
+        this.playerStat.BaseDrawCount = 5;
 
         this.relicManager = new RelicManager(this);
     }

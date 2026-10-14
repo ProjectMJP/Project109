@@ -1,7 +1,7 @@
+using EventStructs;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using EventStructs;
 
 /// <summary>
 /// 전투 중 플레이어의 카드 덱 상태 및 동작을 전담하는 클래스.
@@ -10,7 +10,12 @@ using EventStructs;
 public class BattleDeck
 {
     private readonly Character owner;
+
+    // 더미별 변경 이벤트
     public event Action OnHandChanged;
+    public event Action OnDrawPileChanged;
+    public event Action OnDiscardPileChanged;
+    public event Action OnExhaustPileChanged;
 
     // 전투 중 카드 더미
     public List<Card> drawPile { get; } = new();
@@ -18,9 +23,24 @@ public class BattleDeck
     public List<Card> discardPile { get; } = new();
     public List<Card> exhaustPile { get; } = new();
 
+    // 읽기 전용 컬렉션 접근자
+    public IReadOnlyList<Card> drawPileList => drawPile;
+    public IReadOnlyList<Card> handList => hand;
+    public IReadOnlyList<Card> discardPileList => discardPile;
+    public IReadOnlyList<Card> exhaustPileList => exhaustPile;
+
     public BattleDeck(Character owner)
     {
         this.owner = owner;
+    }
+
+    /// <summary>
+    /// CardInfo가 주어지지 않았을 때 이벤트용 기본 CardInfo를 생성합니다.
+    /// </summary>
+    private CardInfo EnsureCardInfo(Card card, CardInfo info, CardFlag defaultFlags = CardFlag.Normal)
+    {
+        if (info != null) return info;
+        return new CardInfo(owner, card, defaultFlags);
     }
 
     public void InitDeck(IReadOnlyList<Card> masterDeck)
@@ -40,12 +60,16 @@ public class BattleDeck
             }
         }
         
-        ShuffleDrawPile();
+        ShuffleDrawPile(suppressEvent: true);
 
         hand.Clear();
         discardPile.Clear();
         exhaustPile.Clear();
+
         OnHandChanged?.Invoke();
+        OnDrawPileChanged?.Invoke();
+        OnDiscardPileChanged?.Invoke();
+        OnExhaustPileChanged?.Invoke();
     }
 
     /// <summary>
@@ -53,15 +77,17 @@ public class BattleDeck
     /// </summary>
     public void DrawCards(int count)
     {
+        bool reshuffled = false;
         for (int i = 0; i < count; i++)
         {
             if (drawPile.Count == 0)
             {
                 // 뽑을 카드가 없으면 묘지(버림패) -> 드로우 파일로 셔플
-                if (discardPile.Count == 0) return;
+                if (discardPile.Count == 0) break;
                 drawPile.AddRange(discardPile);
                 discardPile.Clear();
-                ShuffleDrawPile();
+                reshuffled = true;
+                ShuffleDrawPile(suppressEvent: true);
             }
 
             var card = drawPile[0];
@@ -74,13 +100,19 @@ public class BattleDeck
 
             hand.Add(card);
         }
+
         OnHandChanged?.Invoke();
+        OnDrawPileChanged?.Invoke();
+        if (reshuffled)
+        {
+            OnDiscardPileChanged?.Invoke();
+        }
     }
 
     /// <summary>
     /// 드로우 더미를 셔플합니다.
     /// </summary>
-    public void ShuffleDrawPile()
+    public void ShuffleDrawPile(bool suppressEvent = false)
     {
         if (owner != null)
         {
@@ -92,6 +124,11 @@ public class BattleDeck
             int j = UnityEngine.Random.Range(0, i + 1);
             (drawPile[i], drawPile[j]) = (drawPile[j], drawPile[i]);
         }
+
+        if (!suppressEvent)
+        {
+            OnDrawPileChanged?.Invoke();
+        }
     }
 
     /// <summary>
@@ -99,6 +136,7 @@ public class BattleDeck
     /// </summary>
     public void DiscardHand()
     {
+        bool hasDiscarded = false;
         for (int i = hand.Count - 1; i >= 0; i--)
         {
             var card = hand[i];
@@ -110,7 +148,7 @@ public class BattleDeck
                 initialFlags |= CardFlag.NoDiscard;
             }
 
-            CardInfo info = new CardInfo(owner, CardInfo.EmptyTargets, Vector2Int.zero, card, initialFlags);
+            CardInfo info = EnsureCardInfo(card, null, initialFlags);
             if (owner != null)
             {
                 owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(info));
@@ -124,8 +162,14 @@ public class BattleDeck
 
             discardPile.Add(card);
             hand.RemoveAt(i);
+            hasDiscarded = true;
         }
-        OnHandChanged?.Invoke();
+
+        if (hasDiscarded)
+        {
+            OnHandChanged?.Invoke();
+            OnDiscardPileChanged?.Invoke();
+        }
     }
 
     /// <summary>
@@ -134,48 +178,65 @@ public class BattleDeck
     public bool RemoveFromHand(Card card)
     {
         bool removed = hand.Remove(card);
-        OnHandChanged?.Invoke();
+        if (removed)
+        {
+            OnHandChanged?.Invoke();
+        }
         return removed;
     }
 
     /// <summary>
-    /// 특정 카드를 소거(Erase)하여 손패에서 제거하고 이벤트를 발생시킵니다.
+    /// 특정 카드를 소거(Erase)하여 손패에서 영구 제거하고 이벤트를 발생시킵니다.
     /// </summary>
-    public void EraseCard(Card card, CardInfo info)
+    public void EraseCard(Card card, CardInfo info = null)
     {
+        if (card == null) return;
+
+        CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnEraseCard>(c => c.OnEraseCard(info));
+            owner.eventBus.Invoke<IOnEraseCard>(c => c.OnEraseCard(finalInfo));
         }
+
         hand.Remove(card);
         OnHandChanged?.Invoke();
     }
 
     /// <summary>
-    /// 특정 카드를 버림패 더미에 추가합니다.
+    /// 특정 카드를 버림패(묘지) 더미에 추가합니다.
     /// </summary>
-    public void DiscardCard(Card card, CardInfo info)
+    public void DiscardCard(Card card, CardInfo info = null)
     {
+        if (card == null) return;
+
+        CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(info));
+            owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(finalInfo));
         }
+
         discardPile.Add(card);
         hand.Remove(card);
         OnHandChanged?.Invoke();
+        OnDiscardPileChanged?.Invoke();
     }
 
     /// <summary>
-    /// 특정 카드를 소멸패 더미에 추가합니다.
+    /// 특정 카드를 소멸패(제외) 더미에 추가합니다.
     /// </summary>
-    public void ExhaustCard(Card card, CardInfo info)
+    public void ExhaustCard(Card card, CardInfo info = null)
     {
+        if (card == null) return;
+
+        CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnExhaustCard>(c => c.OnExhaustCard(info));
+            owner.eventBus.Invoke<IOnExhaustCard>(c => c.OnExhaustCard(finalInfo));
         }
+
         exhaustPile.Add(card);
         hand.Remove(card);
         OnHandChanged?.Invoke();
+        OnExhaustPileChanged?.Invoke();
     }
 }

@@ -29,6 +29,9 @@ public class StarterKitData : IModAssetResolver, IIdentifiable
     // 시작 골드량
     public int startGold { get; set; }
     
+    // 시작 기본 드로우 수 (기본 5장)
+    public int baseDrawCount { get; set; } = 5;
+
     // 시작 키트(무기)가 제공하는 기본 전투 스탯
     public CharacterStat characterStat { get; set; }
 
