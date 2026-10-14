@@ -73,6 +73,40 @@ public class GameMap : MonoBehaviour
     public Tile GetTile(Vector2Int coord) => GetTile(coord.x, coord.y);
 
     /// <summary>
+    /// 월드 3D 좌표에 가장 가까운 타일을 검색하여 반환합니다.
+    /// </summary>
+    public Tile GetTileAtWorldPosition(Vector3 worldPos)
+    {
+        if (tileMap == null || tileMap.Count == 0) return null;
+
+        Tile closestTile = null;
+        float minDistanceSqr = float.MaxValue;
+
+        for (int col = 0; col < tileMap.Count; col++)
+        {
+            if (tileMap[col] == null) continue;
+            for (int row = 0; row < tileMap[col].Count; row++)
+            {
+                Tile t = tileMap[col][row];
+                if (t != null)
+                {
+                    float dx = t.transform.position.x - worldPos.x;
+                    float dz = t.transform.position.z - worldPos.z;
+                    float distSqr = dx * dx + dz * dz;
+
+                    if (distSqr < minDistanceSqr)
+                    {
+                        minDistanceSqr = distSqr;
+                        closestTile = t;
+                    }
+                }
+            }
+        }
+
+        return closestTile;
+    }
+
+    /// <summary>
     /// 지정된 격자 좌표 타일의 상태(Empty, Obstacle 등)를 안전하게 변경합니다.
     /// </summary>
     public bool SetTileState(Vector2Int coord, TileState state)
@@ -142,8 +176,59 @@ public class GameMap : MonoBehaviour
         return isCollided;
     }
 
+    /// <summary>
+    /// 현재 맵에 생성된 모든 타일과 이동 인디케이터를 파괴하고 데이터를 초기화합니다.
+    /// 스테이지 전환 시 GameMap 인스턴스를 재사용하기 위해 호출됩니다.
+    /// </summary>
+    public void ClearTiles()
+    {
+        // 1. 기존 타일 오브젝트 파괴
+        if (tileMap != null)
+        {
+            for (int col = 0; col < tileMap.Count; col++)
+            {
+                if (tileMap[col] == null) continue;
+                for (int row = 0; row < tileMap[col].Count; row++)
+                {
+                    Tile tile = tileMap[col][row];
+                    if (tile != null)
+                    {
+                        Destroy(tile.gameObject);
+                    }
+                }
+                tileMap[col].Clear();
+            }
+            tileMap.Clear();
+            tileMap = null;
+        }
+
+        // 2. 이동 인디케이터 오브젝트 파괴
+        if (moveRangeIndicator != null)
+        {
+            Destroy(moveRangeIndicator.gameObject);
+            moveRangeIndicator = null;
+        }
+
+        // 3. 자식 오브젝트 중 혹시 남아있는 타일이나 인디케이터가 있다면 안전하게 정리
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
+            if (child != null)
+            {
+                Destroy(child.gameObject);
+            }
+        }
+
+        // 4. 경로 탐색 인스턴스 및 맵 크기 초기화
+        _routePathfinding = null;
+        mapColumn = 0;
+        mapRow = 0;
+    }
+
     public void TileCreateByMapData(MapDataSO mapData)
     {
+        ClearTiles();
+
         float startX = mapData.gridOffset.x;
         float startZ = mapData.gridOffset.z;
 

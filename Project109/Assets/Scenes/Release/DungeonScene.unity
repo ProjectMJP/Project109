@@ -163,47 +163,62 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3e082b331e21db478642ad5238ba2b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunManager
-  mapPrefabs:
-    mapSpawnRootPrefab: {fileID: 0}
-    eventObjectPrefab: {fileID: 0}
-    shopObjectPrefab: {fileID: 0}
-    restoreObjectPrefab: {fileID: 0}
-    insightObjectPrefab: {fileID: 0}
-    rewardMapObjectPrefab: {fileID: 0}
+  sceneGameMap: {fileID: 1021946279}
   currentMapName: 
   currentStageLevel: 0
   currentExploreMapFloor: 0
-  currentExploreNode:
-    floor: 0
-    index: 0
-    encounterData:
-      locationType: 2
-      encountType: 0
-      extraEncountType: 0
-      battleExtraRewardType: 0
-      mapDataId: 
-      interactableDataId: 
-      battleDataId: 
-    nextNodeIndices: 
-    isNodeChanged: 0
-    isRevealed: 0
-  beforeExploreNode:
-    floor: 0
-    index: 0
-    encounterData:
-      locationType: 2
-      encountType: 0
-      extraEncountType: 0
-      battleExtraRewardType: 0
-      mapDataId: 
-      interactableDataId: 
-      battleDataId: 
-    nextNodeIndices: 
-    isNodeChanged: 0
-    isRevealed: 0
   currentExploreUI: {fileID: 0}
+--- !u!1 &1021946278
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1021946280}
+  - component: {fileID: 1021946279}
+  m_Layer: 0
+  m_Name: GameMapRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1021946279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1021946278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db4a2d365de48e64abc8b0aef18f36a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameMap
+  prefabTile: {fileID: 9030737010763321247, guid: 8a634b971f20e384c8b4097adceb9201, type: 3}
+  moveRangeIndicatorPrefab: {fileID: 6644166298111380199, guid: 29804a41504e1b744958695df356bf1e, type: 3}
+  mapColumn: 0
+  mapRow: 0
+--- !u!4 &1021946280
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1021946278}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 274046367}
+  - {fileID: 1021946280}

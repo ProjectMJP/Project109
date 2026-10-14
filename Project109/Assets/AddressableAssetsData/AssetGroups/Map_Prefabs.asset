@@ -45,6 +45,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a634b971f20e384c8b4097adceb9201
+    m_Address: Tile
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a8d7fdb7f6c3f644fbc75c8a70b03a2d
     m_Address: TempObject
     m_ReadOnly: 0

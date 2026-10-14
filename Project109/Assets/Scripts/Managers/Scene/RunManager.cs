@@ -7,6 +7,10 @@ public class RunManager : MonoBehaviour
 
     public BattleManager battleManager { get; private set; }
 
+    [Header("Scene References")]
+    [SerializeField] private GameMap sceneGameMap;
+    public GameMap SceneGameMap => sceneGameMap;
+
     private void Awake()
     {
         if (instance == null)
@@ -19,8 +23,14 @@ public class RunManager : MonoBehaviour
             battleManager.OnBattleWon += HandleBattleWon;
             battleManager.OnBattleLost += HandleBattleLost;
 
+            // 씬에 배치된 GameMap이 인스펙터에 미할당된 경우 자동 탐색
+            if (sceneGameMap == null)
+            {
+                sceneGameMap = GameMap.current != null ? GameMap.current : UnityEngine.Object.FindFirstObjectByType<GameMap>();
+            }
+
             currentMap = new MapManager();
-            currentMap.Initialize(mapPrefabs);
+            currentMap.Initialize(sceneGameMap);
 
             exploreMapManager = new ExploreMapManager();
         }
@@ -38,17 +48,13 @@ public class RunManager : MonoBehaviour
     private ICharacterController _activePlayerController;
     public ICharacterController activePlayerController => _activePlayerController;
 
-    [Header("Map Settings")]
-    [SerializeField] private MapPrefabs mapPrefabs;
-    public MapPrefabs MapPrefabs => mapPrefabs;
-
     [Header("Map")]
     //맵 관련 변수
     public string currentMapName;
     public int currentStageLevel = 0;
     public int currentExploreMapFloor = 0;
-    public ExploreNode currentExploreNode;
-    public ExploreNode beforeExploreNode;
+    [System.NonSerialized] public ExploreNode currentExploreNode;
+    [System.NonSerialized] public ExploreNode beforeExploreNode;
 
     public MapManager currentMap;
     public ExploreMapManager exploreMapManager;
@@ -309,7 +315,7 @@ public class RunManager : MonoBehaviour
                         ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null &&
                         ModLoader.Instance.InteractableDatabase.TryGetValue(currentExploreNode.encounterData.interactableDataId, out var interactableData))
                     {
-                        currentMap.GenerateNPC(currentMap.currentMapData, EncountType.Secret, MapPrefabs, interactableData);
+                        currentMap.GenerateNPC(currentMap.currentMapData, EncountType.Secret, interactableData);
                     }
                     break;
                 case ExtraEncountType.ShineWell:

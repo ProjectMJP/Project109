@@ -165,13 +165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HideoutManager
   dungeonSceneName: Assets/Scenes/Release/DungeonScene.unity
   _hideoutMapData: {fileID: 11400000, guid: 2d0fe81d4d71fce449aaafb867f1e7f3, type: 2}
-  _mapPrefabs:
-    mapSpawnRootPrefab: {fileID: 1523703071106812780, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
-    eventObjectPrefab: {fileID: 0}
-    shopObjectPrefab: {fileID: 0}
-    restoreObjectPrefab: {fileID: 0}
-    insightObjectPrefab: {fileID: 0}
-    rewardMapObjectPrefab: {fileID: 0}
+  _mapSpawnRootPrefab: {fileID: 1523703071106812780, guid: 332f1c148c6f40d44b1e69a0bbe5d127, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

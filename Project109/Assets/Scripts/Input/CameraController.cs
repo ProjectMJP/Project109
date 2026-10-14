@@ -19,6 +19,15 @@ public class CameraController : MonoBehaviour
     private void Start()
     {
         if (mainCamera == null) mainCamera = Camera.main;
+
+        if (PlayerInputController.instance != null)
+        {
+            PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
+            PlayerInputController.instance.OnTouchStartEvent += HandleTouchStart;
+
+            PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
+            PlayerInputController.instance.OnTouchDragEvent += HandleTouchDrag;
+        }
     }
 
     private void OnEnable()

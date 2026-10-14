@@ -9,34 +9,27 @@ public enum MapState
     Secret
 }
 
-[System.Serializable]
-public struct MapPrefabs
-{
-    public GameObject mapSpawnRootPrefab;
-    public GameObject eventObjectPrefab;
-    public GameObject shopObjectPrefab;
-    public GameObject restoreObjectPrefab;
-    public GameObject insightObjectPrefab;
-    public GameObject rewardMapObjectPrefab;
-}
-
 public class MapManager : IInitializable, System.IDisposable
 {
-    public MapPrefabs mapPrefabs;
-
     public void Initialize()
     {
         // 초기화가 필요한 멤버 변수가 있다면 여기서 처리
     }
 
-    public void Initialize(MapPrefabs prefabs)
+    public void Initialize(GameMap gameMap = null)
     {
-        this.mapPrefabs = prefabs;
+        this.currentGameMap = gameMap;
     }
 
     public void Dispose()
     {
         ClearStage();
+
+        if (currentGameMap != null)
+        {
+            currentGameMap.ClearTiles();
+            currentGameMap = null;
+        }
     }
 
     public MapDataSO currentMapData;
@@ -104,15 +97,12 @@ public class MapManager : IInitializable, System.IDisposable
             : null;
 
         // 4. 스테이지 생성 실행
-        GenerateStage(enc.locationType, enc.encountType, playerChar, this.mapPrefabs, eventData, battleData);
+        GenerateStage(enc.locationType, enc.encountType, playerChar, eventData, battleData);
     }
 
     // 이 함수는 노드에 진입할 때 호출됩니다.
-    public void GenerateStage(LocationType mapLocation, EncountType EncountType, Character playerCharacter = null, MapPrefabs prefabs = default, InteractableData secretEventData = null, BattleData battleData = null)
+    public void GenerateStage(LocationType mapLocation, EncountType EncountType, Character playerCharacter = null, InteractableData secretEventData = null, BattleData battleData = null)
     {
-        // 프리팹이 기본값이면 멤버 변수 mapPrefabs 사용
-        MapPrefabs targetPrefabs = prefabs.mapSpawnRootPrefab != null ? prefabs : this.mapPrefabs;
-
         // 플레이어 캐릭터가 인자로 오지 않은 경우 GameSceneManager에서 자동 조회
         Character targetPlayer = playerCharacter != null ? playerCharacter
             : (GameSceneManager.instance != null && GameSceneManager.instance.player != null ? GameSceneManager.instance.player.character : null);
@@ -122,12 +112,33 @@ public class MapManager : IInitializable, System.IDisposable
         //이전의 맵 타일 및 생성된 오브젝트 제거 후 새롭게 맵 데이터 업데이트 및 타일 생성하도록 코딩 진행
         UpdateMapData(mapLocation.ToString(), EncountType);
 
-        currentGameMap = UnityEngine.Object.Instantiate(targetPrefabs.mapSpawnRootPrefab).GetComponent<GameMap>();
+        // 1. 이미 존재하는 currentGameMap 인스턴스가 있다면 재사용
+        if (currentGameMap == null)
+        {
+            // 2. 씬에 이미 배치된 GameMap이 있다면 우선 탐색하여 바인딩
+            currentGameMap = GameMap.current != null ? GameMap.current : UnityEngine.Object.FindFirstObjectByType<GameMap>();
+
+            if (currentGameMap == null)
+            {
+                Debug.LogError("[MapManager] 씬에서 GameMap을 찾을 수 없습니다! GameMap을 씬에 배치해주세요.");
+                return;
+            }
+        }
+
+        if (currentMapData == null || currentMapData.cells == null)
+        {
+            Debug.LogError($"[MapManager] 스테이지 생성 중단: currentMapData 또는 cells가 null입니다! (Location: {mapLocation}, Encount: {EncountType})");
+            return;
+        }
+
+        // 1. 바닥 타일 및 이동 인디케이터 생성 (기존 타일/자식 정리 후 새로 생성)
+        currentGameMap.TileCreateByMapData(currentMapData);
 
         spawnEnemyCells.Clear();
         spawnPlayerCells.Clear();
         spawnNPCCells.Clear();
 
+        // 2. 타일 생성 후 지형(Terrain_Temple_Floor 등) 및 오브젝트 스폰
         foreach (var cell in currentMapData.cells)
         {
             if (cell.terrainID != "Empty")
@@ -153,8 +164,6 @@ public class MapManager : IInitializable, System.IDisposable
                     break;
             }
         }
-
-        currentGameMap.TileCreateByMapData(currentMapData);
 
         // 파괴 가능한 장애물(DestructibleObject)이 배치된 타일의 상태를 Obstacle로 동기화
         foreach (GameObject etcObj in currentSpawnEtcList)
@@ -188,7 +197,7 @@ public class MapManager : IInitializable, System.IDisposable
                     eventData = restoreData;
                 }
             }
-            GenerateNPC(currentMapData, EncountType, targetPrefabs, eventData);
+            GenerateNPC(currentMapData, EncountType, eventData);
         }
 
         // 맵 상태 설정 자동화
@@ -252,7 +261,36 @@ public class MapManager : IInitializable, System.IDisposable
             NPCUnitData aiData = null;
             if (ModLoader.Instance != null && ModLoader.Instance.NPCUnitDatabase != null)
             {
-                ModLoader.Instance.NPCUnitDatabase.TryGetValue(monsterId, out aiData);
+                if (!ModLoader.Instance.NPCUnitDatabase.TryGetValue(monsterId, out aiData))
+                {
+                    // Fallback 1: "_Data" 접미사 제거 후 탐색
+                    if (monsterId.EndsWith("_Data"))
+                    {
+                        string stripped = monsterId.Substring(0, monsterId.Length - 5);
+                        ModLoader.Instance.NPCUnitDatabase.TryGetValue(stripped, out aiData);
+                    }
+
+                    // Fallback 2: "Monster_" 접두사 제거 후 탐색
+                    if (aiData == null && monsterId.StartsWith("Monster_"))
+                    {
+                        string stripped = monsterId.Substring("Monster_".Length);
+                        ModLoader.Instance.NPCUnitDatabase.TryGetValue(stripped, out aiData);
+                    }
+
+                    // Fallback 3: 데이터베이스 내 유닛 ID와의 부분 일치 탐색
+                    if (aiData == null)
+                    {
+                        foreach (var pair in ModLoader.Instance.NPCUnitDatabase)
+                        {
+                            if (monsterId.Contains(pair.Key, System.StringComparison.OrdinalIgnoreCase) ||
+                                pair.Key.Contains(monsterId, System.StringComparison.OrdinalIgnoreCase))
+                            {
+                                aiData = pair.Value;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             // 2. 모델 프리팹 주소 결정 (지정된 prefabAddress 또는 monsterId 자체를 키로 사용)
@@ -260,10 +298,57 @@ public class MapManager : IInitializable, System.IDisposable
                 ? aiData.prefabAddress
                 : monsterId;
 
-            // 3. 몬스터 프리팹 탐색 및 스폰
-            if (AssetCacheManager.instance.TryGetModel(modelAddress, out var monsterPrefab))
+            // 3. 몬스터 프리팹 탐색 (정확한 주소 -> _Data를 _Prefab으로 치환 -> 부분 일치 -> Fallback)
+            GameObject monsterPrefab = null;
+            if (AssetCacheManager.instance != null)
             {
-                Debug.Log($"Monster prefab {modelAddress} Load Success.");
+                if (!AssetCacheManager.instance.TryGetModel(modelAddress, out monsterPrefab))
+                {
+                    // "_Data" 접미사를 "_Prefab"으로 치환하여 탐색
+                    if (modelAddress.EndsWith("_Data"))
+                    {
+                        string prefabCandidate = modelAddress.Substring(0, modelAddress.Length - 5) + "_Prefab";
+                        AssetCacheManager.instance.TryGetModel(prefabCandidate, out monsterPrefab);
+                    }
+
+                    // "_Data" 접미사를 제거하여 탐색
+                    if (monsterPrefab == null && modelAddress.EndsWith("_Data"))
+                    {
+                        string candidate = modelAddress.Substring(0, modelAddress.Length - 5);
+                        AssetCacheManager.instance.TryGetModel(candidate, out monsterPrefab);
+                    }
+
+                    // 캐시된 모델 목록에서 이름 유사도 검색
+                    if (monsterPrefab == null && AssetCacheManager.instance.modelList != null)
+                    {
+                        foreach (var m in AssetCacheManager.instance.modelList)
+                        {
+                            if (m != null && (m.name.Contains(modelAddress) || modelAddress.Contains(m.name)))
+                            {
+                                monsterPrefab = m;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 최후 Fallback: 모델 목록 중 Monster 키워드를 포함하는 프리팹 탐색
+                    if (monsterPrefab == null && AssetCacheManager.instance.modelList != null)
+                    {
+                        foreach (var m in AssetCacheManager.instance.modelList)
+                        {
+                            if (m != null && m.name.ToLower().Contains("monster"))
+                            {
+                                monsterPrefab = m;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (monsterPrefab != null)
+            {
+                Debug.Log($"Monster prefab {monsterPrefab.name} (키: {modelAddress}) Load Success.");
 
                 // 셀의 그리드 좌표를 실제 월드 좌표로 변환 (셀 크기 및 오프셋 적용)
                 Vector3 worldPos = new Vector3(
@@ -335,7 +420,7 @@ public class MapManager : IInitializable, System.IDisposable
         }
     }
 
-    public void GenerateNPC(MapDataSO mapData, EncountType EncountType, MapPrefabs prefabs, InteractableData eventData = null)
+    public void GenerateNPC(MapDataSO mapData, EncountType EncountType, InteractableData eventData = null)
     {
         if (spawnNPCCells.Count == 0)
         {
@@ -358,8 +443,8 @@ public class MapManager : IInitializable, System.IDisposable
         // [단일 베이스 프리팹 사용]
         // 모든 NPC는 "EventObject" 프리팹을 공통 기반으로 생성하며, 
         // 런타임에 필요한 컴포넌트를 추가하여 역할을 분화합니다.
-        GameObject basePrefab = prefabs.eventObjectPrefab;
-        if (basePrefab == null)
+        GameObject basePrefab = null;
+        if (AssetCacheManager.instance != null)
         {
             AssetCacheManager.instance.TryGetModel("EventObject", out basePrefab);
         }
@@ -367,7 +452,7 @@ public class MapManager : IInitializable, System.IDisposable
         if (basePrefab != null)
         {
             GameObject spawned = UnityEngine.Object.Instantiate(basePrefab, worldPos, Quaternion.identity);
-            
+
             // 기존 프리팹에 이미 부착되어 있을 수 있는 기본 InteractableObject 컴포넌트 제거
             var existing = spawned.GetComponent<InteractableObject>();
             if (existing != null)
@@ -376,7 +461,7 @@ public class MapManager : IInitializable, System.IDisposable
             }
 
             InteractableObject newNPC = null;
-            
+
             // EncountType 및 eventData에 맞춰 알맞은 컴포넌트 타입 판단
             bool isRestore = (EncountType == EncountType.Restore);
             bool isShop = (EncountType == EncountType.Store);
@@ -457,7 +542,7 @@ public class MapManager : IInitializable, System.IDisposable
         }
         else
         {
-            Debug.LogError("[MapManager] EventObject 프리팹을 MapPrefabs 또는 Addressables 캐시에서 찾을 수 없습니다!");
+            Debug.LogError("[MapManager] EventObject 프리팹을 Addressables 캐시에서 찾을 수 없습니다!");
         }
 
         if (npcObj != null)
@@ -494,76 +579,91 @@ public class MapManager : IInitializable, System.IDisposable
         {
             playerCharacter.characterMove.SetCurrentTile(currentGameMap.GetTileMap()[spawnPlayerCells[0].position.x][spawnPlayerCells[0].position.y]);
         }
+
+        // 카메라를 새로운 스테이지의 플레이어 위치로 이동/포커싱
+        if (CameraController.instance != null)
+        {
+            CameraController.instance.CameraFocusToTarget(worldPos);
+        }
+        else if (Camera.main != null)
+        {
+            Vector3 camPos = Camera.main.transform.position;
+            Camera.main.transform.position = new Vector3(worldPos.x, camPos.y, worldPos.z - 7f);
+        }
     }
 
     void UpdateMapData(string stageName, EncountType EncountType)
     {
-        //맵 데이터에서 기본 베이스와 추가 바리에이션을 찾아서 등록 진행
-        if (AssetCacheManager.instance.TryGetStageMapData(stageName, out StageMapDataBundle stageMapData))
-        {
+        currentMapData = null;
 
-            // Fallback: 기본적으로 전투 맵을 할당해두어 에셋이 없는 경우에 대비합니다.
-            if (stageMapData.battleMapDataList != null && stageMapData.battleMapDataList.Count > 0)
-            {
-                currentMapData = stageMapData.battleMapDataList[0];
-            }
+        // 1. 스테이지 번들에서 해당 EncountType 맵 조회
+        if (AssetCacheManager.instance != null && AssetCacheManager.instance.TryGetStageMapData(stageName, out StageMapDataBundle stageMapData))
+        {
+            List<MapDataSO> targetList = null;
 
             switch (EncountType)
             {
                 case EncountType.Battle:
-                    if (stageMapData.battleMapDataList != null && stageMapData.battleMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.battleMapDataList[Random.Range(0, stageMapData.battleMapDataList.Count)];
-                        Debug.Log($"ChooseBattleMapData: {currentMapData.stageName}");
-                    }
+                case EncountType.None:
+                    targetList = stageMapData.battleMapDataList;
                     break;
                 case EncountType.Elite:
-                    if (stageMapData.eliteMapDataList != null && stageMapData.eliteMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.eliteMapDataList[Random.Range(0, stageMapData.eliteMapDataList.Count)];
-                        Debug.Log($"ChooseEliteMapData: {currentMapData.stageName}");
-                    }
+                    targetList = stageMapData.eliteMapDataList;
                     break;
                 case EncountType.Boss:
-                    if (stageMapData.bossMapDataList != null && stageMapData.bossMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.bossMapDataList[Random.Range(0, stageMapData.bossMapDataList.Count)];
-                        Debug.Log($"ChooseBossMapData: {currentMapData.stageName}");
-                    }
+                    targetList = stageMapData.bossMapDataList;
                     break;
                 case EncountType.Secret:
-                    if (stageMapData.secretMapDataList != null && stageMapData.secretMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.secretMapDataList[Random.Range(0, stageMapData.secretMapDataList.Count)];
-                        Debug.Log($"ChooseSecretMapData: {currentMapData.stageName}");
-                    }
+                case EncountType.SecretBox:
+                    targetList = stageMapData.secretMapDataList;
                     break;
                 case EncountType.Store:
-                    if (stageMapData.storeMapDataList != null && stageMapData.storeMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.storeMapDataList[Random.Range(0, stageMapData.storeMapDataList.Count)];
-                        Debug.Log($"ChooseStoreMapData: {currentMapData.stageName}");
-                    }
+                    targetList = stageMapData.storeMapDataList;
                     break;
                 case EncountType.Restore:
-                    if (stageMapData.restoreMapDataList != null && stageMapData.restoreMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.restoreMapDataList[Random.Range(0, stageMapData.restoreMapDataList.Count)];
-                        Debug.Log($"ChooseRestoreMapData: {currentMapData.stageName}");
-                    }
-                    break;
-                case EncountType.SecretBox:
-                    if (stageMapData.secretMapDataList != null && stageMapData.secretMapDataList.Count > 0)
-                    {
-                        currentMapData = stageMapData.secretMapDataList[Random.Range(0, stageMapData.secretMapDataList.Count)];
-                        Debug.Log($"ChooseSecretBoxMapData (using Secret): {currentMapData.stageName}");
-                    }
+                    targetList = stageMapData.restoreMapDataList;
                     break;
             }
+
+            if (targetList != null && targetList.Count > 0)
+            {
+                currentMapData = targetList[Random.Range(0, targetList.Count)];
+            }
+            else if (stageMapData.battleMapDataList != null && stageMapData.battleMapDataList.Count > 0)
+            {
+                // 요청한 타입의 맵이 없으면 기본 전투 맵으로 Fallback
+                currentMapData = stageMapData.battleMapDataList[0];
+                Debug.LogWarning($"[MapManager] {EncountType} 맵이 없어 기본 전투 맵({currentMapData.stageName})으로 Fallback합니다.");
+            }
+        }
+
+        // 2. 번들에서 찾지 못했을 경우 전체 mapList에서 동일 locationType 또는 아무 맵이라도 Fallback
+        if (currentMapData == null && AssetCacheManager.instance != null && AssetCacheManager.instance.mapList != null && AssetCacheManager.instance.mapList.Count > 0)
+        {
+            foreach (var m in AssetCacheManager.instance.mapList)
+            {
+                if (m != null && m.locationType.ToString() == stageName)
+                {
+                    currentMapData = m;
+                    break;
+                }
+            }
+
+            if (currentMapData == null)
+            {
+                currentMapData = AssetCacheManager.instance.mapList[0];
+            }
+
+            Debug.LogWarning($"[MapManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({currentMapData?.stageName})에서 Fallback했습니다.");
+        }
+
+        if (currentMapData != null)
+        {
+            Debug.Log($"[MapManager] Selected MapData: {currentMapData.stageName} (Location: {stageName}, Encount: {EncountType})");
         }
         else
         {
-            Debug.LogWarning($"Failed to Find MapData");
+            Debug.LogError($"[MapManager] MapData를 전혀 찾을 수 없습니다! (Location: {stageName}, Encount: {EncountType})");
         }
     }
 
@@ -607,10 +707,10 @@ public class MapManager : IInitializable, System.IDisposable
         }
         currentSpawnEtcList.Clear();
 
+        // GameMap 게임오브젝트를 파괴하지 않고 타일들만 정리하여 인스턴스를 재사용합니다.
         if (currentGameMap != null)
         {
-            UnityEngine.Object.Destroy(currentGameMap.gameObject);
-            currentGameMap = null;
+            currentGameMap.ClearTiles();
         }
     }
 

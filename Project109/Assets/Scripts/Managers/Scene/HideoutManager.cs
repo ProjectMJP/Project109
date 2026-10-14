@@ -14,7 +14,7 @@ public class HideoutManager : MonoBehaviour
 
     [Header("Hideout Map Settings")]
     [SerializeField] private MapDataSO _hideoutMapData;
-    [SerializeField] private MapPrefabs _mapPrefabs;
+    [SerializeField] private GameObject _mapSpawnRootPrefab;
 
     public GameMap currentGameMap { get; private set; }
     public PlayerExploreController playerExploreController { get; private set; }
@@ -59,14 +59,14 @@ public class HideoutManager : MonoBehaviour
             return;
         }
 
-        if (_mapPrefabs.mapSpawnRootPrefab == null)
+        if (_mapSpawnRootPrefab == null)
         {
             Debug.LogWarning("[HideoutManager] MapSpawnRootPrefab이 지정되지 않았습니다.");
             return;
         }
 
         // 1. GameMap 루트 생성
-        GameObject mapRootObj = Instantiate(_mapPrefabs.mapSpawnRootPrefab, transform);
+        GameObject mapRootObj = Instantiate(_mapSpawnRootPrefab, transform);
         currentGameMap = mapRootObj.GetComponent<GameMap>();
         if (currentGameMap == null)
         {
