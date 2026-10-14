@@ -51,49 +51,49 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
         if (NodeData == null) return;
         
-        string textureName = "ExploreNodeUITexture";
+        string textureName = "IncountNodeTexture";
         switch (NodeData.encounterData.encountType)
         {
             case EncountType.None:
-                textureName = "ExploreNodeUITexture";
+                textureName = "IncountNodeTexture";
                 break;
             case EncountType.Battle:
                 switch (NodeData.encounterData.battleExtraRewardType)
                 {
                     case BattleExtraRewardType.Card:
-                        textureName = "ExploreNodeUIBattleCardTexture";
+                        textureName = "IncountNodeBattleCardTexture";
                         break;
                     case BattleExtraRewardType.Relic:
-                        textureName = "ExploreNodeUIBattleRelicTexture";
+                        textureName = "IncountNodeBattleRelicTexture";
                         break;
                     case BattleExtraRewardType.Gold:
-                        textureName = "ExploreNodeUIBattleGoldTexture";
+                        textureName = "IncountNodeBattleGoldTexture";
                         break;
                     default:
-                        textureName = "ExploreNodeUIBattleTexture";
+                        textureName = "IncountNodeBattleTexture";
                         break;
                 }
                 break;
             case EncountType.Elite:
-                textureName = "ExploreNodeUIEliteEnemyTexture";
+                textureName = "IncountNodeEliteEnemyTexture";
                 break;
             case EncountType.Boss:
-                textureName = "ExploreNodeUIBossTexture";
+                textureName = "IncountNodeBossTexture";
                 break;
             case EncountType.Restore:
-                textureName = "ExploreNodeUIRestoreTexture";
+                textureName = "IncountNodeRestoreTexture";
                 break;
             case EncountType.Store:
-                textureName = "ExploreNodeUIStoreTexture";
+                textureName = "IncountNodeStoreTexture";
                 break;
             case EncountType.SecretBox:
-                textureName = "ExploreNodeUISecretBoxTexture";
+                textureName = "IncountNodeSecretBoxTexture";
                 break;
             case EncountType.Secret:
-                textureName = "ExploreNodeUISecretTexture";
+                textureName = "IncountNodeSecretTexture";
                 break;
             default:
-                textureName = "ExploreNodeUITexture";
+                textureName = "IncountNodeTexture";
                 break;
         }
 
@@ -118,20 +118,20 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
         if (NodeData == null) return;
         
-        string textureName = "ExploreNodeUITexture"; // default/none
+        string textureName = "IncountNodeTexture"; // default/none
         switch (NodeData.encounterData.extraEncountType)
         {
             case ExtraEncountType.None:
-                textureName = "ExploreNodeUITexture";
+                textureName = "IncountNodeTexture";
                 break;
             case ExtraEncountType.Insight:
-                textureName = "ExploreNodeUIInsightTexture";
+                textureName = "IncountNodeInsightTexture";
                 break;
             case ExtraEncountType.ShineWell:
-                textureName = "ExploreNodeUIInsightTexture";
+                textureName = "IncountNodeInsightTexture";
                 break;
             default:
-                textureName = "ExploreNodeUITexture";
+                textureName = "IncountNodeTexture";
                 break;
         }
 
@@ -206,16 +206,40 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             Debug.Log("[ExploreNodeUI] NPC 대화 중에는 맵 노드를 이동할 수 없습니다.");
             return;
         }
-        if (RunManager.instance.currentExploreNode != null && NodeData != null)
+
+        if (RunManager.instance == null) return;
+        var cur = RunManager.instance.currentExploreNode;
+
+        if (cur != null && NodeData != null)
         {
-            if (RunManager.instance.currentExploreNode.nextNodeIndices.Contains(NodeData.index) && 
-                RunManager.instance.currentExploreNode.floor + 1 == NodeData.floor)
+            bool isNextFloor = (cur.floor + 1 == NodeData.floor);
+            bool isConnected = cur.nextNodeIndices.Contains(NodeData.index);
+
+            if (isNextFloor && isConnected)
             {
                 RunManager.instance.MoveToNode(this);
             }
             else
             {
-                Debug.Log("This node is not connected to the current node.");
+                string reason;
+                if (cur.floor == NodeData.floor)
+                {
+                    reason = $"같은 층(Floor {NodeData.floor}) 노드로는 이동할 수 없습니다 (다음 층으로만 전진 가능)";
+                }
+                else if (cur.floor > NodeData.floor)
+                {
+                    reason = $"이미 지나온 이전 층(Floor {NodeData.floor}) 노드로는 되돌아갈 수 없습니다";
+                }
+                else if (cur.floor + 1 < NodeData.floor)
+                {
+                    reason = $"바로 다음 층이 아닙니다 (현재: Floor {cur.floor} -> 목표: Floor {NodeData.floor})";
+                }
+                else
+                {
+                    reason = $"화살표(선)로 연결되어 있지 않은 노드입니다 (이동 가능한 노드 인덱스: [{string.Join(", ", cur.nextNodeIndices)}])";
+                }
+
+                Debug.Log($"[ExploreNodeUI] 노드 이동 불가: {reason} | 현재 위치: (Floor {cur.floor}, Index {cur.index}) -> 클릭한 노드: (Floor {NodeData.floor}, Index {NodeData.index})");
             }
         }
     }
