@@ -12,8 +12,6 @@ public enum RestoreUICategory
 
 public class RestoreUIHandler : UIPanelBase
 {
-    public GameObject eraseCardUIPrefab;
-
     public TextMeshProUGUI description;
 
     public Button restoreButton;
@@ -29,11 +27,30 @@ public class RestoreUIHandler : UIPanelBase
 
     public void EnableUpgradeUI()
     {
-        if (eraseCardUIPrefab == null)
-            return;
+        if (UIManager.instance == null) return;
 
-        EraseCardDeckPanel eraseCardDeckPanel = Instantiate(eraseCardUIPrefab).GetComponent<EraseCardDeckPanel>();
-        eraseCardDeckPanel.SetEraseCardCount(1);
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        if (deckPanel == null) return;
+
+        var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        var cards = (player != null && player.deck != null) ? player.deck.GetCards() : null;
+        if (cards == null) return;
+
+        deckPanel.Open("제거할 카드를 선택하세요", cards, CardViewMode.SingleSelect, 1,
+            onConfirm: (selectedCards) =>
+            {
+                if (player != null && player.deck != null && selectedCards != null)
+                {
+                    for (int i = 0; i < selectedCards.Count; i++)
+                    {
+                        if (selectedCards[i] != null)
+                        {
+                            player.deck.RemoveCard(selectedCards[i].runtimeID);
+                        }
+                    }
+                }
+            });
+
         gameObject.SetActive(false);
     }
 

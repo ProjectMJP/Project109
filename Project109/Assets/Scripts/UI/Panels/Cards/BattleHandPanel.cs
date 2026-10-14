@@ -8,7 +8,76 @@ public class BattleHandPanel : UIPanelBase
     public float maxPanelWidth = 900f;
     public float defaultCardSpacing = 160f;
 
-    private List<GameObject> activeCardUIs = new List<GameObject>();
+    private readonly List<GameObject> activeCardUIs = new List<GameObject>();
+    private BattleDeck _boundDeck;
+
+    private void Awake()
+    {
+        uiLayerType = UILayerType.Top;
+        blockWorldInput = false;
+    }
+
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+
+        // 바인딩된 덱이 없으면 현재 플레이어의 전투 덱 자동 바인딩 시도
+        if (_boundDeck == null && GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            BindBattleDeck(GameSceneManager.instance.player.battleDeck);
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        base.OnDisable();
+        UnbindBattleDeck();
+    }
+
+    /// <summary>
+    /// 플레이어의 전투 덱을 바인딩하여 손패 변경(OnHandChanged) 이벤트를 수신합니다.
+    /// </summary>
+    public void BindPlayer(Player player)
+    {
+        BindBattleDeck(player != null ? player.battleDeck : null);
+    }
+
+    /// <summary>
+    /// 전투 덱을 바인딩하고 손패 UI를 즉시 갱신합니다.
+    /// </summary>
+    public void BindBattleDeck(BattleDeck deck)
+    {
+        if (_boundDeck == deck) return;
+
+        UnbindBattleDeck();
+        _boundDeck = deck;
+
+        if (_boundDeck != null)
+        {
+            _boundDeck.OnHandChanged += HandleHandChanged;
+            RefreshHand(_boundDeck.hand);
+        }
+    }
+
+    /// <summary>
+    /// 등록된 전투 덱 이벤트 구독을 해제합니다.
+    /// </summary>
+    public void UnbindBattleDeck()
+    {
+        if (_boundDeck != null)
+        {
+            _boundDeck.OnHandChanged -= HandleHandChanged;
+            _boundDeck = null;
+        }
+    }
+
+    private void HandleHandChanged()
+    {
+        if (_boundDeck != null)
+        {
+            RefreshHand(_boundDeck.hand);
+        }
+    }
 
     /// <summary>
     /// 플레이어의 손패 카드를 UI에 반영하고 가로로 정렬합니다.
@@ -29,6 +98,8 @@ public class BattleHandPanel : UIPanelBase
         for (int i = 0; i < count; i++)
         {
             Card card = handCards[i];
+            if (card == null) continue;
+
             GameObject cardObj = ObjectPoolManager.instance.GetCardUI(contentTransform);
             if (cardObj != null)
             {
@@ -83,6 +154,8 @@ public class BattleHandPanel : UIPanelBase
         for (int i = 0; i < count; i++)
         {
             GameObject cardObj = activeCardUIs[i];
+            if (cardObj == null) continue;
+
             RectTransform rect = cardObj.GetComponent<RectTransform>();
             if (rect != null)
             {
@@ -95,10 +168,18 @@ public class BattleHandPanel : UIPanelBase
 
     private void ClearHandUI()
     {
-        foreach (GameObject cardObj in activeCardUIs)
+        for (int i = 0; i < activeCardUIs.Count; i++)
         {
+            GameObject cardObj = activeCardUIs[i];
             if (cardObj != null)
             {
+                CardUI cardUI = cardObj.GetComponent<CardUI>();
+                if (cardUI != null)
+                {
+                    cardUI.OffSelectHighlight();
+                    cardUI.bIsCardHighlight = false;
+                }
+
                 if (ObjectPoolManager.instance != null)
                 {
                     ObjectPoolManager.instance.ReturnCardUI(cardObj);
@@ -114,6 +195,7 @@ public class BattleHandPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        UnbindBattleDeck();
         ClearHandUI();
     }
 }

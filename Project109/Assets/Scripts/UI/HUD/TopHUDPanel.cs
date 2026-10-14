@@ -47,6 +47,7 @@ public class TopHUDPanel : UIPanelBase
     [SerializeField] private Image deckButtonImage;
 
     private Player _boundPlayer;
+    private CardDeckViewPanel _deckViewPanel;
 
     /// <summary>
     /// 플레이어 인스턴스를 HUD에 바인딩하여 재화 및 유물 갱신 이벤트를 직접 수신합니다.
@@ -104,9 +105,28 @@ public class TopHUDPanel : UIPanelBase
     /// </summary>
     public void ToggleDeckView()
     {
-        if (UIManager.instance != null)
+        if (UIManager.instance == null) return;
+
+        if (_deckViewPanel == null)
         {
-            UIManager.instance.ToggleUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal);
+            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, false);
+            if (obj != null)
+            {
+                _deckViewPanel = obj.GetComponent<CardDeckViewPanel>();
+            }
+        }
+
+        if (_deckViewPanel != null)
+        {
+            if (_deckViewPanel.gameObject.activeSelf)
+            {
+                _deckViewPanel.Close();
+            }
+            else
+            {
+                UIManager.instance.PushActiveUIPanel(_deckViewPanel.gameObject, UILayerType.Normal);
+                _deckViewPanel.OpenMasterDeck();
+            }
         }
     }
 
@@ -115,15 +135,30 @@ public class TopHUDPanel : UIPanelBase
     /// </summary>
     public void ToggleExploreMap()
     {
-        if (UIManager.instance != null)
+        if (UIManager.instance == null) return;
+
+        ExploreMapUI exploreMapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
+        if (exploreMapUI == null)
         {
-            UIManager.instance.ToggleUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Top, (exploreMapUI) =>
+            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Top, true);
+            if (exploreMapUI != null)
             {
-                if (exploreMapUI != null)
+                if (RunManager.instance != null)
                 {
-                    exploreMapUI.CreateExploreMap(15);
+                    RunManager.instance.currentExploreUI = exploreMapUI;
                 }
-            });
+                exploreMapUI.CreateExploreMap(15);
+            }
+            return;
+        }
+
+        if (exploreMapUI.gameObject.activeSelf)
+        {
+            exploreMapUI.Close();
+        }
+        else
+        {
+            UIManager.instance.PushActiveUIPanel(exploreMapUI.gameObject, UILayerType.Top);
         }
     }
 
