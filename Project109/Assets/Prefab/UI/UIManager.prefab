@@ -113,7 +113,7 @@ GameObject:
   - component: {fileID: 6657107537594674438}
   - component: {fileID: 696839886395356700}
   - component: {fileID: 4455433081537653432}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: WorldUILayer
   m_TagString: Untagged
   m_Icon: {fileID: 0}

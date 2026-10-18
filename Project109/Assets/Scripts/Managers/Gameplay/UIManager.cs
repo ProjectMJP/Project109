@@ -54,14 +54,7 @@ public class UIManager : MonoBehaviour
         if (popupUILayer != null) _popupLayerRect = popupUILayer.transform as RectTransform;
         else Debug.LogError("[UIManager] popupUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
 
-        if (worldUILayer != null)
-        {
-            _worldLayerRect = worldUILayer.transform as RectTransform;
-            if (worldUILayer.renderMode == RenderMode.WorldSpace && worldUILayer.worldCamera == null)
-            {
-                worldUILayer.worldCamera = Camera.main;
-            }
-        }
+        if (worldUILayer != null) _worldLayerRect = worldUILayer.transform as RectTransform;
         else Debug.LogError("[UIManager] worldUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
     }
 
@@ -130,6 +123,8 @@ public class UIManager : MonoBehaviour
             topPanel.OnCancelInput();
         }
     }
+
+
 
     #region UI Stack & Caching Lifecycle
 
@@ -269,6 +264,19 @@ public class UIManager : MonoBehaviour
 
     #region World UI Factory & Lifecycle
 
+    public static void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        if (obj == null || newLayer < 0) return;
+        obj.layer = newLayer;
+        foreach (Transform child in obj.transform)
+        {
+            if (child != null)
+            {
+                SetLayerRecursively(child.gameObject, newLayer);
+            }
+        }
+    }
+
     /// <summary>
     /// 캐릭터의 머리 위 상태바(CharacterStatusBarUI)를 World UI Layer 하위에 생성하여 반환합니다.
     /// </summary>
@@ -289,6 +297,7 @@ public class UIManager : MonoBehaviour
         {
             GameObject go = Instantiate(prefab, parentTransform);
             go.name = $"CharacterStatusBar_{target?.name ?? "Target"}";
+            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             statusBarUI = go.GetComponent<CharacterStatusBarUI>();
             if (statusBarUI == null) statusBarUI = go.AddComponent<CharacterStatusBarUI>();
         }
@@ -296,6 +305,7 @@ public class UIManager : MonoBehaviour
         {
             GameObject go = new GameObject($"CharacterStatusBar_{target?.name ?? "Target"}");
             go.transform.SetParent(parentTransform, false);
+            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             statusBarUI = go.AddComponent<CharacterStatusBarUI>();
         }
 
@@ -330,6 +340,7 @@ public class UIManager : MonoBehaviour
         {
             GameObject go = Instantiate(prefab, parentTransform);
             go.name = $"CharacterEffectList_{target?.name ?? "Target"}";
+            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             effectListUI = go.GetComponent<CharacterEffectListUI>();
             if (effectListUI == null) effectListUI = go.AddComponent<CharacterEffectListUI>();
         }
@@ -337,6 +348,7 @@ public class UIManager : MonoBehaviour
         {
             GameObject go = new GameObject($"CharacterEffectList_{target?.name ?? "Target"}");
             go.transform.SetParent(parentTransform, false);
+            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             effectListUI = go.AddComponent<CharacterEffectListUI>();
         }
 

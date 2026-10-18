@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4714866392019635947}
   - component: {fileID: 4185962067579214790}
   - component: {fileID: 3754567771735982656}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: IconOutline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -86,7 +86,7 @@ GameObject:
   - component: {fileID: 7790789073100938056}
   - component: {fileID: 2279545940284168453}
   - component: {fileID: 2042590773478752996}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: CharacterEffectItemUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -156,7 +156,7 @@ GameObject:
   - component: {fileID: 2239271902441838209}
   - component: {fileID: 9060206098836413803}
   - component: {fileID: 2594135608706140552}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Stack
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -293,7 +293,7 @@ GameObject:
   - component: {fileID: 546975556076194798}
   - component: {fileID: 1792043904882313252}
   - component: {fileID: 7654342799762028458}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Icon
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1700993845913266045}
   - component: {fileID: 1958439750202262461}
   - component: {fileID: 6250169982118274846}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: CharacterEffectListUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
