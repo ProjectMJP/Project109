@@ -35,12 +35,13 @@ public class UIManager : MonoBehaviour
 
     // 슬더스식 단일 메인 캔버스 기반 하위 레이어 캐시
     private RectTransform _hudLayerRect;
+    private RectTransform _topLayerRect;
     private RectTransform _popupLayerRect;
     private RectTransform _worldLayerRect;
 
     /// <summary>
-    /// 인스펙터에 할당된 캔버스 레이어를 캐싱하며, 미할당 시 자식 오브젝트로부터 탐색하여 보장합니다.
-    /// 프리팹/씬에 구성된 캔버스 레이아웃 설정을 존중합니다.
+    /// 인스펙터에 할당된 캔버스 레이어를 캐싱하며, 미할당 시 자식 오브젝트로부터 탐색합니다.
+    /// 만약 어떤 씬에서도 캔버스 레이어가 설정되어 있지 않다면(예: Release/GameScene) 안전한 기본 캔버스 계층을 구성하여 UI 표시를 보장합니다.
     /// </summary>
     public void EnsureCanvases()
     {
@@ -69,15 +70,50 @@ public class UIManager : MonoBehaviour
             if (child != null) worldUILayer = child.GetComponent<Canvas>();
         }
 
-        // 2. RectTransform 캐싱
+        // 2. 씬에 캔버스 레이어가 전혀 없는 경우를 위한 안전한 기본 레이어 생성 폴백 (Release/GameScene 등 대비)
+        if (normalUILayer == null)
+            CreateFallbackLayer("NormalUILayer", 200, out normalUILayer, out _hudLayerRect);
+
+        if (topUILayer == null)
+            CreateFallbackLayer("TopUILayer", 300, out topUILayer, out _topLayerRect);
+
+        if (popupUILayer == null)
+            CreateFallbackLayer("PopupUILayer", 400, out popupUILayer, out _popupLayerRect);
+
+        if (worldUILayer == null)
+            CreateFallbackLayer("WorldUILayer", 100, out worldUILayer, out _worldLayerRect);
+
+        // 3. RectTransform 캐싱
         if (normalUILayer != null && _hudLayerRect == null)
             _hudLayerRect = normalUILayer.transform as RectTransform;
+
+        if (topUILayer != null && _topLayerRect == null)
+            _topLayerRect = topUILayer.transform as RectTransform;
 
         if (popupUILayer != null && _popupLayerRect == null)
             _popupLayerRect = popupUILayer.transform as RectTransform;
 
         if (worldUILayer != null && _worldLayerRect == null)
             _worldLayerRect = worldUILayer.transform as RectTransform;
+    }
+
+    private void CreateFallbackLayer(string layerName, int sortingOrder, out Canvas canvas, out RectTransform rect)
+    {
+        GameObject go = new GameObject(layerName);
+        go.transform.SetParent(transform, false);
+
+        canvas = go.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = sortingOrder;
+
+        var scaler = go.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
+
+        go.AddComponent<GraphicRaycaster>();
+        rect = go.GetComponent<RectTransform>();
     }
 
     // 1. 인스턴스 캐시 풀 (동일 UI 재사용, 무할당 최적화)
@@ -272,7 +308,7 @@ public class UIManager : MonoBehaviour
             case UILayerType.Normal:
                 return _hudLayerRect != null ? _hudLayerRect : (normalUILayer != null ? normalUILayer.transform as RectTransform : null);
             case UILayerType.Top:
-                return _hudLayerRect != null ? _hudLayerRect : (topUILayer != null ? topUILayer.transform as RectTransform : null);
+                return _topLayerRect != null ? _topLayerRect : (topUILayer != null ? topUILayer.transform as RectTransform : null);
             case UILayerType.Popup:
                 return _popupLayerRect != null ? _popupLayerRect : (popupUILayer != null ? popupUILayer.transform as RectTransform : null);
             default:
