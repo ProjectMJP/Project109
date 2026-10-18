@@ -13,9 +13,6 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     [SerializeField] private CardData cardData;
     private Card cardInstance;
 
-    //private CardEffect currentCardEffect;   //현재 카드효과
-    [SerializeField] private CardDescriptionHandler cardDescriptionHandler;
-
     public TextMeshProUGUI cardName;
     public TextMeshProUGUI cardDescription;
     public TextMeshProUGUI useStamina;
@@ -132,7 +129,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (masteryUpgradeAvailableUI != null)
         {
-            bool canUpgrade = cardInstance.hasMastery && 
+            bool canUpgrade = cardInstance.hasMastery &&
                               (cardInstance.currentMasteryXP >= cardInstance.maxMasteryXP) &&
                               (cardInstance.GetRandomMasteryOption(1).Count > 0);
             masteryUpgradeAvailableUI.SetActive(canUpgrade);

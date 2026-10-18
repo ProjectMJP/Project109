@@ -59,10 +59,10 @@
 
 | 서브디렉터리 | 책임 |
 |---|---|
-| `Schemas/` | YAML 파싱 데이터 모델 (`CardData`, `RelicData`, `EffectData`, `NPCUnitData`, `DropTableData`, `DialogueData`, `InteractableData`, `StarterKitData` — 모두 `IIdentifiable` 구현) |
+| `Schemas/` | YAML 파싱 데이터 모델 (`CardData`, `RelicData`, `EffectData`, `NPCUnitData`, `DropTableData`, `DialogueData`, `InteractableData`, `StarterKitData`, `CurrencyType` 등) |
 | `ExploreMap/` | 탐험 맵 데이터 모델 (`ExploreMapData`, `ExploreNode`, `EncounterData`, `LocationType`) |
 | `Loaders/` | `AssetCacheManager` (Addressable 에셋 캐시), `BundleLoader`, `RandomItemPicker` |
-| `Map/` | `MapDataSO` (ScriptableObject 타일맵 데이터), `CellData`, `EntityData` |
+| `Map/` | `MapDataSO` (ScriptableObject 타일맵 데이터), `CellData` |
 
 #### [L2] World (`Scripts/World/`)
 
@@ -89,7 +89,7 @@
 | 서브디렉터리 | 책임 |
 |---|---|
 | `Framework/` | `UIPanelBase` (모달 베이스), `UIConstants`, `UIDialogPanel`, `UILayerType`, `UIBattleNotice` |
-| `HUD/` | `TopHUDPanel`, `CharacterUIController`, `PlayerUIController`, `GaugeUI`, `DamageIndicator/` |
+| `HUD/` | `TopHUDPanel`, `CharacterUIController`, `GaugeUI`, `DamageIndicator/` |
 | `Panels/` | 기능별 패널: `Battle/` (`BattleUIPanel`, `BattleMovePanel`), `Cards/` (`BattleHandPanel`, `CardDeckViewPanel` 등), `Currency/`, `Dialogue/`, `ExploreMap/` (`ExploreMapUI`, `ExploreNodeUI`), `GameOver/` (`GameOverPanel`), `Relic/`, `Restore/`, `Reward/`, `Shop/`, `Title/` |
 | `Tooltip/` | `TooltipManager`, `TooltipPanel`, `TooltipTrigger` |
 
