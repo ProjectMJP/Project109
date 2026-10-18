@@ -1,4 +1,6 @@
 using EventStructs;
+using GameItem.Types;
+using CardTypes;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -251,8 +253,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         CardInfo tryInfo = new CardInfo(controlledCharacter, card, CardFlag.Normal);
         controlledCharacter.eventBus.Invoke<IOnTryUseCard>(c => c.OnTryUseCard(tryInfo));
 
-        string typeLower = card.cardData?.targetType?.ToLower() ?? "";
-        if (typeLower == "target" || typeLower == "area" || typeLower == "tile")
+        TargetType parsedTargetType = GameMap.ParseTargetType(card.cardData != null ? card.cardData.targetType : null);
+        if (parsedTargetType == TargetType.Target || parsedTargetType == TargetType.Area)
         {
             controlState = PlayerControlState.TargetSelection;
             activeCardForTargeting = card;
@@ -517,7 +519,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                         // 타겟팅 모드: 사거리 유효성 검사 후 최종 시전
                         if (activeCardForTargeting != null)
                         {
-                            Tile currentTile = controlledCharacter.characterMove?.GetCurrentTile();
+                            Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                                ? controlledCharacter.characterMove.GetCurrentTile()
+                                : null;
                             if (currentTile != null)
                             {
                                 int distance = Tile.GetDistance(currentTile, targetTile);

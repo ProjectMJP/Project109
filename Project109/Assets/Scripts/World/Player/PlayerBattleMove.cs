@@ -26,7 +26,7 @@ public class PlayerBattleMove
         Tile currentTile = characterMove.GetCurrentTile();
         if (currentTile == null) return;
 
-        GameMap gameMap = currentTile.ownerMap ?? GameMap.current;
+        GameMap gameMap = currentTile.ownerMap != null ? currentTile.ownerMap : GameMap.current;
         if (gameMap == null) return;
 
         int maxDistance = characterMove.character?.curCharacterStat?.maxTilesPerMove ?? 0;
@@ -54,9 +54,14 @@ public class PlayerBattleMove
         }
         canMoveTiles.Clear();
 
-        Tile currentTile = characterMove?.GetCurrentTile();
-        GameMap gameMap = currentTile?.ownerMap ?? GameMap.current;
-        var indicator = gameMap?.GetMoveRangeIndicator();
+        Tile currentTile = (characterMove != null) ? characterMove.GetCurrentTile() : null;
+        GameMap gameMap = (currentTile != null) ? currentTile.ownerMap : null;
+        if (gameMap == null)
+        {
+            gameMap = GameMap.current;
+        }
+
+        var indicator = (gameMap != null) ? gameMap.GetMoveRangeIndicator() : null;
         if (indicator != null)
         {
             indicator.ClearAllTiles(gameMap.GetTileMap());

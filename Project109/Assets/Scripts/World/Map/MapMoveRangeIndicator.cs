@@ -132,6 +132,11 @@ public class MapMoveRangeIndicator : MonoBehaviour
     {
         if (texture == null || tileMap == null) return;
 
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
         // 1. R, G 하이라이트 리셋 및 B 채널 유지
         for (int col = 0; col < gridColumns; col++)
         {
@@ -166,6 +171,11 @@ public class MapMoveRangeIndicator : MonoBehaviour
     public void ShowCardAoETiles(List<Vector2Int> rangeCoords, List<Vector2Int> aoeCoords, List<List<Tile>> tileMap)
     {
         if (texture == null || tileMap == null) return;
+
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
 
         // 1. 전체 리셋 후 B 채널 유지
         for (int col = 0; col < gridColumns; col++)

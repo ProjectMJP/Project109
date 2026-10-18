@@ -421,6 +421,30 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
+    /// 카드 데이터의 문자열 형태 targetType을 TargetType enum으로 안전하게 변환합니다.
+    /// "Enemy", "Single", "Target" 등의 동의어를 TargetType.Target으로 정규화합니다.
+    /// </summary>
+    public static TargetType ParseTargetType(string targetTypeStr)
+    {
+        if (string.IsNullOrEmpty(targetTypeStr)) return TargetType.Target;
+        string lower = targetTypeStr.Trim().ToLowerInvariant();
+        switch (lower)
+        {
+            case "self":
+                return TargetType.Self;
+            case "area":
+                return TargetType.Area;
+            case "all":
+                return TargetType.All;
+            case "enemy":
+            case "single":
+            case "target":
+            default:
+                return TargetType.Target;
+        }
+    }
+
+    /// <summary>
     /// 현재 활성 플레이어의 타일 그리드 좌표를 가져옵니다.
     /// </summary>
     public Vector2Int GetPlayerCoordinate()
@@ -428,9 +452,19 @@ public class GameMap : MonoBehaviour
         if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
         {
             var pChar = GameSceneManager.instance.player.character;
-            if (pChar != null && pChar.characterMove != null && pChar.characterMove.GetCurrentTile() != null)
+            if (pChar != null)
             {
-                return pChar.characterMove.GetCurrentTile().GetCoord();
+                if (pChar.characterMove != null && pChar.characterMove.GetCurrentTile() != null)
+                {
+                    return pChar.characterMove.GetCurrentTile().GetCoord();
+                }
+
+                // 폴백: 월드 좌표로부터 현재 타일 탐색
+                Tile tileAtPos = GetTileAtWorldPosition(pChar.transform.position);
+                if (tileAtPos != null)
+                {
+                    return tileAtPos.GetCoord();
+                }
             }
         }
         return Vector2Int.zero;
@@ -443,13 +477,9 @@ public class GameMap : MonoBehaviour
     {
         if (cardData == null) return new List<Vector2Int>();
 
-        if (System.Enum.TryParse(cardData.targetType, true, out TargetType parsedTargetType))
-        {
-            GridAreaSearch search = new GridAreaSearch();
-            return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance);
-        }
-
-        return new List<Vector2Int>();
+        TargetType parsedTargetType = ParseTargetType(cardData.targetType);
+        GridAreaSearch search = new GridAreaSearch();
+        return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance);
     }
 
     /// <summary>
@@ -494,6 +524,10 @@ public class GameMap : MonoBehaviour
     public void ShowCardRange(Vector2Int originCoord, CardData cardData)
     {
         if (cardData == null || moveRangeIndicator == null) return;
+        if (!moveRangeIndicator.gameObject.activeSelf)
+        {
+            moveRangeIndicator.gameObject.SetActive(true);
+        }
         List<Vector2Int> rangeCoords = CalculateCardRangeCoords(originCoord, cardData);
         moveRangeIndicator.ShowCardRangeTiles(rangeCoords, tileMap);
     }
@@ -504,6 +538,10 @@ public class GameMap : MonoBehaviour
     public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData)
     {
         if (cardData == null || moveRangeIndicator == null) return;
+        if (!moveRangeIndicator.gameObject.activeSelf)
+        {
+            moveRangeIndicator.gameObject.SetActive(true);
+        }
         List<Vector2Int> rangeCoords = CalculateCardRangeCoords(originCoord, cardData);
         List<Vector2Int> aoeCoords = CalculateCardAoECoords(targetCoord, cardData);
         moveRangeIndicator.ShowCardAoETiles(rangeCoords, aoeCoords, tileMap);
@@ -592,14 +630,8 @@ public class GameMap : MonoBehaviour
         EnsureEffectAreaTiles();
         if (effectAreaTile == null) return;
 
-        if (System.Enum.TryParse(cardTargetType, out TargetType parsedTargetType))
-        {
-            effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
-        }
-        else
-        {
-            Debug.LogWarning($"[GameMap] Invalid TargetType string: {cardTargetType}");
-        }
+        TargetType parsedTargetType = ParseTargetType(cardTargetType);
+        effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
     }
 
     public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
