@@ -101,11 +101,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // 카드 범위 확인 관련 변수 (하위 호환 필드)
-    [Header("Effect Area Tiles (Optional)")]
-    public EffectAreaManager effectAreaManager;
-    public EffectAreaTile effectAreaTile;
-    public EffectAreaTile AdditionalEffectAreaTile;
 
     private void OnDestroy()
     {
@@ -583,32 +578,13 @@ public class UIManager : MonoBehaviour
     #region 카드 범위확인 UI (GameMap으로 위임)
 
     /// <summary>
-    /// 카드 데이터의 효과 범위를 표시합니다. 실제 로직은 월드 계층인 GameMap.current가 전담합니다.
+    /// 카드 데이터의 효과 범위를 표시합니다. 실제 타일맵 제어는 World 계층인 GameMap.current가 전담합니다.
     /// </summary>
     public void UpdateEffectAreaUI(CardData newCardData)
     {
         if (GameMap.current != null)
         {
             GameMap.current.UpdateEffectArea(newCardData);
-            return;
-        }
-
-        // GameMap이 없는 씬을 위한 레거시 폴백
-        ClearEffectAreaTiles();
-        SetEffectAreaFromTargetDistance(newCardData.targetType,
-                                           newCardData.targetMinDistance,
-                                           newCardData.targetMaxDistance,
-                                           TileType.TargetTile);
-
-        if (newCardData.additionalEffectAreaList != null)
-        {
-            foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
-            {
-                SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
-                                                   Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
-                                                   additionalEffectArea.distance,
-                                                   TileType.AdditionalEffectTile);
-            }
         }
     }
 
@@ -617,10 +593,8 @@ public class UIManager : MonoBehaviour
         if (GameMap.current != null)
         {
             GameMap.current.UpdateEffectArea(card);
-            return;
         }
-
-        if (card != null && card.cardData != null)
+        else if (card != null && card.cardData != null)
         {
             UpdateEffectAreaUI(card.cardData);
         }
@@ -631,48 +605,7 @@ public class UIManager : MonoBehaviour
         if (GameMap.current != null)
         {
             GameMap.current.ClearEffectAreaTiles();
-            return;
         }
-
-        if (effectAreaTile != null)
-            effectAreaTile.ClearAllTiles();
-        if (AdditionalEffectAreaTile != null)
-            AdditionalEffectAreaTile.ClearAllTiles();
-    }
-
-    public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, TileType type)
-    {
-        if (GameMap.current != null)
-        {
-            GameMap.current.SetEffectAreaFromTargetDistance(cardTargetType, minDistance, maxDistance, type);
-            return;
-        }
-
-        if (effectAreaTile == null)
-            return;
-
-        if (Enum.TryParse(cardTargetType, out TargetType parsedTargetType))
-        {
-            effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
-        }
-        else
-        {
-            Debug.LogWarning($"[UIManager] Invalid TargetType string: {cardTargetType}");
-        }
-    }
-
-    public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
-    {
-        if (GameMap.current != null)
-        {
-            GameMap.current.SetEffectAreaFromShapeGenerator(shapeName, shapeLength, radius, type);
-            return;
-        }
-
-        if (AdditionalEffectAreaTile == null)
-            return;
-
-        AdditionalEffectAreaTile.SetTileFromShapeGenerator(shapeName, shapeLength, radius, type);
     }
 
     #endregion

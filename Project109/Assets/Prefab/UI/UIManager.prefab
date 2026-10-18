@@ -526,10 +526,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b95d795d28533345b18a4a6f4f300ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  worldUILayer: {fileID: 6657107537594674438}
-  normalUILayer: {fileID: 1659524492197346889}
-  topUILayer: {fileID: 2498578549985606336}
-  popupUILayer: {fileID: 5575081832045305857}
-  effectAreaManager: {fileID: 0}
-  effectAreaTile: {fileID: 0}
-  AdditionalEffectAreaTile: {fileID: 0}
+  worldUILayer: {fileID: 696839886395356700}
+  normalUILayer: {fileID: 346853303712543422}
+  topUILayer: {fileID: 7527832347922171908}
+  popupUILayer: {fileID: 6098506069153966637}

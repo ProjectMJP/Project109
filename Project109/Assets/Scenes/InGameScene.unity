@@ -5955,9 +5955,6 @@ MonoBehaviour:
   normalUILayer: {fileID: 1791120030}
   topUILayer: {fileID: 1197279975}
   popupUILayer: {fileID: 955001881}
-  effectAreaManager: {fileID: 0}
-  effectAreaTile: {fileID: 788475941}
-  AdditionalEffectAreaTile: {fileID: 43106747}
 --- !u!1 &947176725
 GameObject:
   m_ObjectHideFlags: 0
