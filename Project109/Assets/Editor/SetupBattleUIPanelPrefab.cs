@@ -117,11 +117,11 @@ public static class SetupBattleUIPanelPrefab
 
         RectTransform mbRect = moveBtnObj.GetComponent<RectTransform>();
         if (mbRect == null) mbRect = moveBtnObj.AddComponent<RectTransform>();
-        mbRect.anchorMin = new Vector2(1f, 0f);
-        mbRect.anchorMax = new Vector2(1f, 0f);
-        mbRect.pivot = new Vector2(1f, 0f);
-        mbRect.anchoredPosition = new Vector2(-20f, 130f);
-        mbRect.sizeDelta = new Vector2(130f, 50f);
+        mbRect.anchorMin = new Vector2(0f, 0f);
+        mbRect.anchorMax = new Vector2(0f, 0f);
+        mbRect.pivot = new Vector2(0.5f, 0.5f);
+        mbRect.anchoredPosition = new Vector2(75f, 155f);
+        mbRect.sizeDelta = new Vector2(110f, 45f);
 
         Image mbImage = moveBtnObj.GetComponent<Image>();
         if (mbImage == null) mbImage = moveBtnObj.AddComponent<Image>();
@@ -165,6 +165,7 @@ public static class SetupBattleUIPanelPrefab
         serializedHand.FindProperty("usedPileButton").objectReferenceValue = usedBtn;
         serializedHand.FindProperty("usedCountText").objectReferenceValue = usedTmp;
         serializedHand.FindProperty("switchToMoveModeButton").objectReferenceValue = mbButton;
+        serializedHand.FindProperty("modeSwitchButtonText").objectReferenceValue = mbTmp;
         serializedHand.ApplyModifiedPropertiesWithoutUndo();
 
         // 3. BattleMovePanel 자식 오브젝트 구성
@@ -330,9 +331,9 @@ public static class SetupBattleUIPanelPrefab
         if (etRect == null) etRect = endTurnObj.AddComponent<RectTransform>();
         etRect.anchorMin = new Vector2(1f, 0f);
         etRect.anchorMax = new Vector2(1f, 0f);
-        etRect.pivot = new Vector2(1f, 0f);
-        etRect.anchoredPosition = new Vector2(-20f, 60f);
-        etRect.sizeDelta = new Vector2(130f, 55f);
+        etRect.pivot = new Vector2(0.5f, 0.5f);
+        etRect.anchoredPosition = new Vector2(-75f, 155f);
+        etRect.sizeDelta = new Vector2(110f, 45f);
 
         Image etImage = endTurnObj.GetComponent<Image>();
         if (etImage == null) etImage = endTurnObj.AddComponent<Image>();

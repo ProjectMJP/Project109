@@ -104,7 +104,7 @@ public class BattleHandPanel : UIPanelBase
         // 2. 모드 전환 버튼 텍스트 변경
         if (modeSwitchButtonText != null)
         {
-            modeSwitchButtonText.text = isMoveMode ? "전투" : "이동";
+            modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
         }
 
         // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 횟수, 카드 모드: 드로우 덱 수)
