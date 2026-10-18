@@ -138,7 +138,11 @@ public class BattleManager : IInitializable, IDisposable
     {
         combatant.controlledCharacter.ResetCharacterForBattle();
         combatant.controlledCharacter.OnCharacterDied += OnCharacterDied;
-        combatant.controlledCharacter.GetComponent<CharacterUIController>()?.ShowUI();
+        var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
+        if (uiCtrl != null)
+        {
+            uiCtrl.ShowUI();
+        }
     }
 
     public void Update(float dt)
@@ -334,14 +338,22 @@ public class BattleManager : IInitializable, IDisposable
             combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            combatant.controlledCharacter.GetComponent<CharacterUIController>()?.HideUI();
+            var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
+            if (uiCtrl != null)
+            {
+                uiCtrl.HideUI();
+            }
         }
         foreach (var combatant in enemyTeam)
         {
             combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            combatant.controlledCharacter.GetComponent<CharacterUIController>()?.HideUI();
+            var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
+            if (uiCtrl != null)
+            {
+                uiCtrl.HideUI();
+            }
         }
 
         playerTeam.Clear();

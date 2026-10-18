@@ -38,7 +38,7 @@ public class MasteryChoiceItem : MonoBehaviour, IPointerEnterHandler, IPointerEx
     public void StartMasteryUpgradeCard()
     {
         // 직접 호출 대신 PlayerDeck.ApplyMastery()를 경유해야 IOnCardMasteryUpgrade 이벤트가 발행됩니다.
-        if (GameSceneManager.instance?.player?.deck != null)
+        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.deck != null)
         {
             GameSceneManager.instance.player.deck.ApplyMastery(selectedCard, selectedMasteryPath);
         }

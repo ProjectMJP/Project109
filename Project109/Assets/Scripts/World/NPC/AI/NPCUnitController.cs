@@ -20,9 +20,9 @@ public class NPCUnitController : ICharacterController
         _unitData = unitData;
 
         // 루아 테이블 복제 및 바인딩
-        if (_unitData != null && _unitData.luaPrototype != null)
+        if (_unitData != null && _unitData.luaPrototype != null && LuaManager.Instance != null)
         {
-            _luaTable = LuaManager.Instance?.NewInstance(_unitData.luaPrototype);
+            _luaTable = LuaManager.Instance.NewInstance(_unitData.luaPrototype);
             if (_luaTable != null)
             {
                 try
@@ -89,7 +89,7 @@ public class NPCUnitController : ICharacterController
             }
 
             // [실시간 사거리 및 이동 계획 계산]
-            var currentMap = RunManager.instance?.currentMap;
+            var currentMap = (RunManager.instance != null) ? RunManager.instance.currentMap : null;
             if (hostileTarget != null && currentMap != null && currentMap.currentGameMap != null)
             {
                 // 카드의 사거리를 만족할 수 있는 최적의 목적지 타일 계산
@@ -109,7 +109,9 @@ public class NPCUnitController : ICharacterController
                         currentMap.currentGameMap
                     );
 
-                    Tile currentTile = controlledCharacter.characterMove?.GetCurrentTile();
+                    Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                        ? controlledCharacter.characterMove.GetCurrentTile()
+                        : null;
                     // 실제로 움직여야 하는 경우, 이동 액션을 큐에 먼저 적재
                     if (moveTarget != null && moveTarget != currentTile)
                     {

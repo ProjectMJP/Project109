@@ -21,9 +21,9 @@ public static class ModObjectFactory
 
         // 2. Lua 로직 테이블 인스턴스화 (NewInstance 사용)
         LuaTable luaInstance = null;
-        if (data.luaPrototype != null)
+        if (data.luaPrototype != null && LuaManager.Instance != null)
         {
-            luaInstance = LuaManager.Instance?.NewInstance(data.luaPrototype);
+            luaInstance = LuaManager.Instance.NewInstance(data.luaPrototype);
         }
 
         // 3. 인스턴스 조립 및 반환
@@ -45,9 +45,9 @@ public static class ModObjectFactory
 
         // 2. Lua 로직 테이블 인스턴스화 (NewInstance 사용)
         LuaTable luaInstance = null;
-        if (data.luaPrototype != null)
+        if (data.luaPrototype != null && LuaManager.Instance != null)
         {
-            luaInstance = LuaManager.Instance?.NewInstance(data.luaPrototype);
+            luaInstance = LuaManager.Instance.NewInstance(data.luaPrototype);
         }
 
         // 3. 인스턴스 조립 및 반환 (Relic는 owner를 받음)

@@ -28,7 +28,10 @@ public class EnemyMoveAction : BattleAction
 
         // 2. 경로 탐색 및 이동 실행
         Tile startTile = caster.characterMove.GetCurrentTile();
-        GameMap gameMap = TargetTile.ownerMap ?? startTile?.ownerMap ?? GameMap.current;
+        GameMap gameMap = null;
+        if (TargetTile != null && TargetTile.ownerMap != null) gameMap = TargetTile.ownerMap;
+        else if (startTile != null && startTile.ownerMap != null) gameMap = startTile.ownerMap;
+        else gameMap = GameMap.current;
         if (gameMap != null)
         {
             MoverCapability caps = caster.characterMove.capabilities;

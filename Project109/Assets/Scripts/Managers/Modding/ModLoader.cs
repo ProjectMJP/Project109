@@ -206,9 +206,12 @@ public class ModLoader
     private void LoadCardTagsFromPath(string cardTagsPath)
     {
         string[] luaFiles = Directory.GetFiles(cardTagsPath, "*.lua", SearchOption.AllDirectories);
-        foreach (string file in luaFiles)
+        if (LuaManager.Instance != null)
         {
-            LuaManager.Instance?.LoadCardTagScript(file);
+            foreach (string file in luaFiles)
+            {
+                LuaManager.Instance.LoadCardTagScript(file);
+            }
         }
     }
 

@@ -476,7 +476,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         Vector3 hitPoint = targetTile != null ? targetTile.transform.position : Vector3.zero;
 
         // 상세 디버그 로그 출력
-        Tile playerTile = controlledCharacter.characterMove?.GetCurrentTile();
+        Tile playerTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+            ? controlledCharacter.characterMove.GetCurrentTile()
+            : null;
         Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : new Vector2Int(-1, -1);
         Vector2Int targetCoord = targetTile != null ? targetTile.GetCoord() : new Vector2Int(-1, -1);
         Vector3 playerWorldPos = controlledCharacter.transform.position;
@@ -497,7 +499,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                     // 일반 모드: 클릭 시 해당 타일 방향으로 회전
                     Vector3 diff = targetTile.transform.position - controlledCharacter.transform.position;
                     LookDirection targetDir = CharacterMove.GetDirectionFromVector(diff);
-                    controlledCharacter.characterMove?.LookAtTile(targetTile);
+                    if (controlledCharacter != null && controlledCharacter.characterMove != null)
+                    {
+                        controlledCharacter.characterMove.LookAtTile(targetTile);
+                    }
                     Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
                     break;
 

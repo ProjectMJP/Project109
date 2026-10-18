@@ -14,8 +14,8 @@ public static class AIPositionPlanner
     {
         if (caster == null || target == null || card == null || gameMap == null) return null;
 
-        Tile casterTile = caster.characterMove?.GetCurrentTile();
-        Tile targetTile = target.characterMove?.GetCurrentTile();
+        Tile casterTile = (caster.characterMove != null) ? caster.characterMove.GetCurrentTile() : null;
+        Tile targetTile = (target.characterMove != null) ? target.characterMove.GetCurrentTile() : null;
         if (casterTile == null || targetTile == null) return null;
 
         int minRange = card.cardData != null ? card.cardData.targetMinDistance : 0;
@@ -110,7 +110,7 @@ public static class AIPositionPlanner
     {
         if (caster == null || finalDestination == null || gameMap == null) return null;
 
-        Tile currentTile = caster.characterMove?.GetCurrentTile();
+        Tile currentTile = (caster.characterMove != null) ? caster.characterMove.GetCurrentTile() : null;
         if (currentTile == null || currentTile == finalDestination) return currentTile;
 
         // 최대 이동 횟수 * 1회당 이동 제한

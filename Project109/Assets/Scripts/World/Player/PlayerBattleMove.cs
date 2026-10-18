@@ -29,7 +29,9 @@ public class PlayerBattleMove
         GameMap gameMap = currentTile.ownerMap != null ? currentTile.ownerMap : GameMap.current;
         if (gameMap == null) return;
 
-        int maxDistance = characterMove.character?.curCharacterStat?.maxTilesPerMove ?? 0;
+        int maxDistance = (characterMove.character != null && characterMove.character.curCharacterStat != null)
+            ? characterMove.character.curCharacterStat.maxTilesPerMove
+            : 0;
         canMoveTiles = gameMap.GetReachableTiles(currentTile, maxDistance, characterMove);
 
         var indicator = gameMap.GetMoveRangeIndicator();
@@ -97,7 +99,10 @@ public class PlayerBattleMove
 
             // 2. 경로 탐색 및 실제 이동 명령
             Tile startTile = characterMove.GetCurrentTile();
-            GameMap gameMap = targetTile.ownerMap ?? startTile?.ownerMap ?? GameMap.current;
+            GameMap gameMap = null;
+            if (targetTile != null && targetTile.ownerMap != null) gameMap = targetTile.ownerMap;
+            else if (startTile != null && startTile.ownerMap != null) gameMap = startTile.ownerMap;
+            else gameMap = GameMap.current;
             if (gameMap != null)
             {
                 MoverCapability caps = characterMove.capabilities;

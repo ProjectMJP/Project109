@@ -15,12 +15,12 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
     private readonly Player player;
     private readonly CharacterMove characterMove;
 
-    public Character controlledCharacter => player?.character;
+    public Character controlledCharacter => (player != null && player.character != null) ? player.character : null;
 
     public PlayerExploreController(Player player)
     {
         this.player = player;
-        this.characterMove = player?.character?.characterMove;
+        this.characterMove = (player != null && player.character != null) ? player.character.characterMove : null;
     }
 
     public void OnTurnStart() { }
