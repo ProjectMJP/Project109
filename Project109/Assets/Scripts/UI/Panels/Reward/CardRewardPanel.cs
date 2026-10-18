@@ -18,8 +18,6 @@ public class CardRewardPanel : UIPanelBase
 
     public void SettingCards(string dropTableID, int rewardCardCount)
     {
-        GameItemRewardManager.instance.ResetCardLists();
-
         List<CardData> selectedCards = new List<CardData>();
 
         for (int count = 0; count < rewardCardCount; count++)

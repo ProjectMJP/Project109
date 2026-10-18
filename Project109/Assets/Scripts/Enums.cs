@@ -43,29 +43,6 @@ namespace GameItem.Types
         Potion,         // 포션 획득
         Heal            // 체력 회복
     }
-
-    [System.Obsolete("Use DropTableData and RewardType instead")]
-    public enum RandomCardPickupType
-    {
-        Common,
-        Uncommon,
-        Rare,
-        Unique,
-        CommonToUncommon,
-        RareToUnique
-    }
-
-    [System.Obsolete("Use DropTableData and RewardType instead")]
-    public enum RandomRelicPickupType
-    {
-        Common,
-        Rare,
-        Unique,
-        CommonToUnique,
-        CommonToRare,
-        RareToUnique,
-        Boss
-    }
 }
 
 namespace CardTypes

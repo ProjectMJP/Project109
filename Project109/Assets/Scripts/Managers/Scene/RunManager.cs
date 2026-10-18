@@ -65,10 +65,9 @@ public class RunManager : MonoBehaviour
         // 1. 플레이어 컨트롤러 인스턴스 초기화 (Player 자체는 GameSceneManager가 소유)
         InitializePlayerInstances();
 
-        // 2. UI 및 리워드 매니저 이벤트 바인딩
+        // 2. 리워드 매니저 아이템 목록 동기화
         if (GameItemRewardManager.instance != null)
         {
-            GameItemRewardManager.instance.SubscribeToPlayerEvents();
             GameItemRewardManager.instance.UpdateItemList();
         }
     }
