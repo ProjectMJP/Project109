@@ -93,6 +93,11 @@
 | `Panels/` | 기능별 패널: `Battle/` (`BattleUIPanel`, `BattleMovePanel`), `Cards/` (`BattleHandPanel`, `CardDeckViewPanel` 등), `Currency/`, `Dialogue/`, `ExploreMap/` (`ExploreMapUI`, `ExploreNodeUI`), `GameOver/` (`GameOverPanel`), `Relic/`, `Restore/`, `Reward/`, `Shop/`, `Title/` |
 | `Tooltip/` | `TooltipManager`, `TooltipPanel`, `TooltipTrigger` |
 
+##### UI 렌더링 파이프라인 (WorldUI & URP Camera Stack)
+- **WorldUI 전용 레이어 (Layer 11)**: 캐릭터 머리 위 상태바(`CharacterStatusBarUI`), 버프 아이콘 등 3D 월드 공간 UI가 기둥·벽 등 월드 지형물에 가려지지 않도록 전용 레이어 분리.
+- **URP 카메라 스택 구조**: 각 씬의 `Main Camera`(Base)는 `WorldUI`를 컬링 마스크에서 제외하고, 자식으로 정적 배치된 `WorldUICamera`(Overlay, Culling Mask = `WorldUI`)를 `cameraStack`에 등록하여 3D 배경 위에 WorldUI를 항상 최상단 렌더링.
+- **UIManager 무결성**: 런타임 동적 생성/폴백 땜질 없이, 사전 구성된 `UIManager.prefab` 및 씬의 카메라 스택을 기반으로 작동(Fail-Fast).
+
 #### [L5] Input (`Scripts/Input/`)
 
 - `PlayerInputController` — Unity Input System 래퍼, 터치/드래그/클릭/취소 이벤트 발행

@@ -63,6 +63,24 @@ trigger: always_on
 ### 2.7 이벤트 구조체(struct) payload 수정 규칙
 - 전투/이동/이펙트 파이프라인에서 `DamageInfo`, `MoveInfo`, `EffectInfo` 등 struct 페이로드의 값을 리스너가 수정해야 하는 Before 계열 이벤트(`IOnBefore...`)는 반드시 인터페이스 메서드 시그니처에 `ref`를 붙이고, 호출 시 클로저 할당이 없는 `TryGetListeners` 역순 루프 패턴을 사용하라.
 
+### 2.8 씬·에셋 정적 배치 우선 및 런타임 폴백 땜질 금지 (Asset-First & No Runtime Fallback Hack)
+- 카메라, 캔버스 레이어, URP 카메라 스택, 고정 UI 인프라 등 씬이나 프리팹 에셋 차원에서 정적으로 구성 가능한 요소는 C# 런타임 코드에서 `new GameObject()`, `AddComponent()`, `FindObjectOfType()`으로 동적 생성하거나 임의의 폴백(`fallback`)을 두어 땜질하지 마라.
+  - 반드시 유니티 에디터(씬/프리팹)에 사전 정적 배치하고, 직렬화 필드(`[SerializeField]`) 또는 URP 카메라 스택에 등록하여 관리하라.
+- 런타임 C# 코드에서 직접 접근하거나 제어할 필요가 없는 참조(예: 단순 렌더링용 프로퍼티 등)를 억지로 코드로 주입/바인딩하는 불필요한 보일러플레이트를 작성하지 마라.
+- 필수 에셋 또는 컴포넌트 바인딩 누락 시 임의의 기본값으로 조용히 폴백하여 비정상 상태를 유지하지 말고, 초기화 시점에 `Debug.LogError`를 출력하여 문제를 즉시 노출하는 **Fail-Fast 원칙**을 준수하라.
+
+### 2.9 에디터 프리팹 빌더/셋업 스크립트 동기화 규칙 (Editor Prefab Setup Script Sync)
+- 프로젝트 내에 프리팹을 프로그래밍 방식으로 생성하거나 인스펙터 프로퍼티를 일괄 세팅하는 에디터 스크립트(`Assets/Editor/...Setup...Prefab.cs` 등)가 존재하는 경우, UI 배치/좌표/크기/직렬화 필드를 변경할 때는 **프리팹 에셋(.prefab)과 에디터 셋업 스크립트 양쪽을 반드시 동시에 수정·동기화**하라.
+- 어느 한쪽만 수정할 경우 에디터 재컴파일이나 셋업 메뉴 재실행 시 기존 작업물이 이전 값으로 덮어씌워지거나 런타임에 미반영된다.
+
+### 2.10 재사용 인디케이터 및 뷰의 활성화(SetActive) 보장 규칙 (Indicator & View Lifecycle)
+- `Clear()` 또는 `Hide()` 시 `SetActive(false)` 처리되는 공유 인디케이터(타일 범위/사거리 표시기), 팝업, 하이라이트 뷰 등은 데이터를 표시하는 진입점(`Show...`, `SetData...`, `UpdateView...`)에서 반드시 `gameObject.SetActive(true)`를 명시적으로 호출하여 시각적 활성 상태를 보장하라.
+- 뷰 내부 자식 요소나 타일 컬렉션만 갱신하고 최상위 루트가 비활성화된 채 방치되어 화면에 렌더링되지 않는 침묵 실패(Silent Failure)를 철저히 방지하라.
+
+### 2.11 YAML 데이터 문자열과 C# Enum 파싱 정규화 규칙 (Data Normalization Rule)
+- YAML 등 외부 데이터 시트에서 기획자가 작성하는 문자열 필드(예: 타깃 타입, 속성, 상태이상 명칭 등)를 C# Enum으로 변환할 때 단순 `Enum.TryParse`에만 의존하지 마라.
+- 기획 데이터에서 널리 쓰이는 동의어/별칭(예: `"Enemy"`/`"Single"` → `TargetType.Target`, `"AoE"`/`"All"` → `TargetType.Area`)을 매핑하는 정규화(Normalization) 함수를 데이터 계층에 반드시 구현하여, 기획 데이터 불일치로 인한 침묵 실패를 방지하라.
+
 ---
 
 ## 3. Unity C# 코딩 규칙
