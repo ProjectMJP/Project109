@@ -96,12 +96,12 @@ public class EffectAreaTile : MonoBehaviour
             return;
 
         // 특정 거리 범위 내의 타일 좌표들을 가져옴
-        List<Vector2Int> areaTiles = EffectAreaShapeGenerator.instance.GetShapePositions(shapeName, 
-                                                                                         new Vector2Int(textureWidth, textureHeight),
-                                                                                         shapeLength,
-                                                                                         centerWidth,
-                                                                                         centerHeight,
-                                                                                         radius);
+        List<Vector2Int> areaTiles = EffectAreaShapeGenerator.GetShapePositions(shapeName, 
+                                                                                new Vector2Int(textureWidth, textureHeight),
+                                                                                shapeLength,
+                                                                                centerWidth,
+                                                                                centerHeight,
+                                                                                radius);
 
         //쉐이더에 맞는 색상 설정
         Color controlColor = Color.clear;
