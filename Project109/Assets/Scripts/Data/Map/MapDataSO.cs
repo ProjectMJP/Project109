@@ -20,7 +20,7 @@ public class MapDataSO : ScriptableObject, IIdentifiable
     public Vector3 gridOffset; // 그리드의 시작 위치 (씬에서의 오프셋)
     public List<CellData> cells = new List<CellData>(); // 맵의 각 셀에 대한 데이터 리스트
 
-    public string ID => locationType.ToString();
+    public string ID => !string.IsNullOrEmpty(stageName) ? stageName : name;
 
     //맵 초기화 함수
     public void InitializeGrid()

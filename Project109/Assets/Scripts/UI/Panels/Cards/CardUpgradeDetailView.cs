@@ -50,7 +50,19 @@ public class CardUpgradeDetailView : MonoBehaviour
         {
             GameSceneManager.instance.player.deck.UpgradeCard(currentCardInstance.runtimeID);
         }
-        transform.parent.gameObject.SetActive(false);
-        Destroy(transform.parent.gameObject);
+
+        UIPanelBase parentPanel = GetComponentInParent<UIPanelBase>();
+        if (parentPanel != null)
+        {
+            parentPanel.Close();
+        }
+        else if (transform.parent != null)
+        {
+            Destroy(transform.parent.gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 }

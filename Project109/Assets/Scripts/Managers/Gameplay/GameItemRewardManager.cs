@@ -45,15 +45,37 @@ public class GameItemRewardManager : MonoBehaviour, IOnAddRelic, IOnRemoveRelic
     RandomItemPicker<RelicData> uniqueRelicPicker;
     RandomItemPicker<RelicData> bossRelicPicker;
 
+    private Player _subscribedPlayer = null;
+
     public void SubscribeToPlayerEvents()
     {
-        // TODO: 차후 보상 풀 자체를 유지하는 방식(Push) 대신, 보상 획득 시점에 
-        // RunManager.instance.player.relics를 참조하여 동적으로 획득 가능 유물만 추려내는(Pull) 방식으로 변경 권장.
-        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        Player currentPlayer = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        if (currentPlayer == null) return;
+
+        // 이미 동일 플레이어에 구독 중이면 중복 구독 건너뜀
+        if (_subscribedPlayer == currentPlayer) return;
+
+        // 기존 플레이어 구독 해제 후 신규 바인딩
+        UnsubscribeFromPlayerEvents();
+
+        _subscribedPlayer = currentPlayer;
+        _subscribedPlayer.eventBus.Add<IOnAddRelic>(this);
+        _subscribedPlayer.eventBus.Add<IOnRemoveRelic>(this);
+    }
+
+    public void UnsubscribeFromPlayerEvents()
+    {
+        if (_subscribedPlayer != null && _subscribedPlayer.eventBus != null)
         {
-            GameSceneManager.instance.player.eventBus.Add<IOnAddRelic>(this);
-            GameSceneManager.instance.player.eventBus.Add<IOnRemoveRelic>(this);
+            _subscribedPlayer.eventBus.Remove<IOnAddRelic>(this);
+            _subscribedPlayer.eventBus.Remove<IOnRemoveRelic>(this);
         }
+        _subscribedPlayer = null;
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeFromPlayerEvents();
     }
 
     public void OnAddRelic(RelicData relicData)
@@ -88,60 +110,69 @@ public class GameItemRewardManager : MonoBehaviour, IOnAddRelic, IOnRemoveRelic
 
     public void UpdateItemList()
     {
-        foreach(CardData data in ModLoader.Instance.CardDatabase.Values)
-        {
-            if(data.isUpgraded)
-            {
-                continue; //업그레이드 카드들은 보상으로 등장하지 않음
-            }
+        // 이전 목록 비우기 (누적 증식 방지)
+        commonCardList.Clear();
+        uncommonCardList.Clear();
+        rareCardList.Clear();
+        uniqueCardList.Clear();
 
-            switch (data.rarity)
+        commonRelicList.Clear();
+        rareRelicList.Clear();
+        uniqueRelicList.Clear();
+        bossRelicList.Clear();
+
+        if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
+        {
+            foreach (CardData data in ModLoader.Instance.CardDatabase.Values)
             {
-                case CardRarity.Common:
-                    commonCardList.Add(data);
-                    break;
-                case CardRarity.Uncommon:
-                    uncommonCardList.Add(data);
-                    break;
-                case CardRarity.Rare:
-                    rareCardList.Add(data);
-                    break;
-                case CardRarity.Unique:
-                    uniqueCardList.Add(data);
-                    break;
+                if (data.isUpgraded)
+                {
+                    continue; // 업그레이드 카드들은 보상으로 등장하지 않음
+                }
+
+                switch (data.rarity)
+                {
+                    case CardRarity.Common:
+                        commonCardList.Add(data);
+                        break;
+                    case CardRarity.Uncommon:
+                        uncommonCardList.Add(data);
+                        break;
+                    case CardRarity.Rare:
+                        rareCardList.Add(data);
+                        break;
+                    case CardRarity.Unique:
+                        uniqueCardList.Add(data);
+                        break;
+                }
             }
         }
 
-        foreach (RelicData data in ModLoader.Instance.RelicDatabase.Values)
+        if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
         {
-            switch (data.rarity)
+            foreach (RelicData data in ModLoader.Instance.RelicDatabase.Values)
             {
-                case GameItem.Types.RelicRarity.Common:
-                    commonRelicList.Add(data);
-                    break;
-                case GameItem.Types.RelicRarity.Rare:
-                    rareRelicList.Add(data);
-                    break;
-                case GameItem.Types.RelicRarity.Unique:
-                    uniqueRelicList.Add(data);
-                    break;
-                case GameItem.Types.RelicRarity.Boss:
-                    bossRelicList.Add(data);
-                    break;
+                switch (data.rarity)
+                {
+                    case GameItem.Types.RelicRarity.Common:
+                        commonRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Rare:
+                        rareRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Unique:
+                        uniqueRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Boss:
+                        bossRelicList.Add(data);
+                        break;
+                }
             }
         }
 
-        //Card Picker 초기화
-        commonCardPicker = new RandomItemPicker<CardData>(commonCardList);
-        uncommonCardPicker = new RandomItemPicker<CardData>(uncommonCardList);
-        rareCardPicker = new RandomItemPicker<CardData>(rareCardList);
-        uniqueCardPicker = new RandomItemPicker<CardData>(uniqueCardList);
-
-        //Relic Picker 초기화
-        commonRelicPicker = new RandomItemPicker<RelicData>(commonRelicList);
-        rareRelicPicker = new RandomItemPicker<RelicData>(rareRelicList);
-        uniqueRelicPicker = new RandomItemPicker<RelicData>(uniqueRelicList);
-        bossRelicPicker = new RandomItemPicker<RelicData>(bossRelicList);
+        // Card / Relic Picker 초기화 동기화
+        ResetCardLists();
+        ResetRelicLists();
     }
 
     public void EraseRelicFromList(RelicData relicData)

@@ -51,15 +51,22 @@ public class RestoreUIHandler : UIPanelBase
                 }
             });
 
-        gameObject.SetActive(false);
+        Close();
     }
 
     public void HealHP()
     {
-        //플레이어의 체력 회복
-        Debug.Log("Player Hp is Healed!");
+        // 플레이어의 체력 회복 (최대 체력의 30%)
+        Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        if (player != null && player.character != null)
+        {
+            float maxHp = player.character.maxHealth;
+            int healAmount = Mathf.RoundToInt(maxHp * 0.3f);
+            player.character.TakeHeal(new EventStructs.HealInfo(null, player.character, healAmount, EventStructs.HealFlag.Normal));
+            Debug.Log($"[RestoreUIHandler] Player Hp Healed: +{healAmount} (Current: {player.character.curHealth}/{player.character.maxHealth})");
+        }
 
-        gameObject.SetActive(false);
+        Close();
     }
 
 

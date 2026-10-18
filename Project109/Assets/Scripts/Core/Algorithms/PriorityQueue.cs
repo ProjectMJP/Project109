@@ -3,11 +3,11 @@ using UnityEngine;
 
 public class PriorityQueue<T> where T : IComparable<T>
 {
-    T[] data;
+    private T[] data;
     public int Count { get; private set; }
     public int Capacity { get; private set; }
 
-    #region »ı¼ºÀÚ
+    #region ìƒì„±ì
     public PriorityQueue()
     {
         Count = 0;
@@ -25,24 +25,24 @@ public class PriorityQueue<T> where T : IComparable<T>
 
     public void Enqueue(T value)
     {
-        if(Count >= Capacity)
+        if (Count >= Capacity)
         {
             Expand();
         }
         data[Count] = value;
         Count++;
 
-        //Æ®¸® ³ëµåÀÇ ¿À¸§Â÷¼ø Á¤·ÄÀ» À§ÇÑ µ¥ÀÌÅÍ ÀÌµ¿
+        // íŠ¸ë¦¬ ë§ˆì§€ë§‰ ìœ„ì¹˜ì—ì„œ ë¶€ëª¨ì™€ ë¹„êµí•˜ë©° ì˜¬ë°”ë¥¸ ìœ„ì¹˜ë¡œ ì´ë™
         int currentDataIndex = Count - 1;
-        while(currentDataIndex > 0)
+        while (currentDataIndex > 0)
         {
-            int parentDataIndex = (currentDataIndex - 1) / Capacity;
+            int parentDataIndex = (currentDataIndex - 1) / 2;
 
-            //ºÎ¸ğ ³ëµåÀÇ °ªÀÌ ´õ Å©°Å³ª °°´Ù¸é Á¤Áö
-            if (data[currentDataIndex].CompareTo(data[parentDataIndex]) > 0)
+            // ë¶€ëª¨ ë…¸ë“œê°€ ë” ì‘ê±°ë‚˜ ê°™ë‹¤ë©´ í™ ì¡°ê±´ ë§Œì¡±ìœ¼ë¡œ ì¤‘ë‹¨ (ìµœì†Œ í™ ê¸°ì¤€)
+            if (data[currentDataIndex].CompareTo(data[parentDataIndex]) >= 0)
                 break;
 
-            //ÀÛÀ» °æ¿ì ¼­·Î ±³È¯
+            // ë¶€ëª¨ì™€ ê°’ êµí™˜
             T temp = data[currentDataIndex];
             data[currentDataIndex] = data[parentDataIndex];
             data[parentDataIndex] = temp;
@@ -53,33 +53,33 @@ public class PriorityQueue<T> where T : IComparable<T>
 
     public T Dequeue()
     {
-        if(Count == 0)
+        if (Count == 0)
             throw new IndexOutOfRangeException();
 
-        //Á¦ÀÏ Ã³À½ °ª ÃßÃâ
+        // ìµœìƒë‹¨ ë£¨íŠ¸ ë…¸ë“œ ë°˜í™˜
         T result = data[0];
         data[0] = data[Count - 1];
         data[Count - 1] = default(T);
         Count--;
 
         int currentDataIndex = 0;
-        while(currentDataIndex < Count) 
+        while (currentDataIndex < Count)
         {
             int left = (currentDataIndex * 2) + 1;
             int right = (currentDataIndex * 2) + 2;
 
             int nextDataIndex = currentDataIndex;
 
-            //¿ŞÂÊ, ¿À¸¥ÂÊ °ªµé Áß ´õ ÀÛÀº °ªÀÌ Á¸ÀçÇÑ´Ù¸é nextData °»½Å
-            //°°´Ù¸é Á¤·ÄÇÒ ÇÊ¿ä°¡ ¾øÀ¸´Ï while¹® Á¾·á
-            if(left < Count && data[currentDataIndex].CompareTo(data[left]) > 0)
+            // ì¢Œ/ìš° ìì‹ ì¤‘ ê°€ì¥ ì‘ì€ ë…¸ë“œë¥¼ nextDataIndexë¡œ ì„ íƒ
+            if (left < Count && data[left].CompareTo(data[nextDataIndex]) < 0)
                 nextDataIndex = left;
-            if (right < Count && data[currentDataIndex].CompareTo(data[right]) > 0)
+            if (right < Count && data[right].CompareTo(data[nextDataIndex]) < 0)
                 nextDataIndex = right;
+
             if (nextDataIndex == currentDataIndex)
                 break;
 
-            //°ª ±³È¯
+            // ê°’ êµí™˜
             T temp = data[currentDataIndex];
             data[currentDataIndex] = data[nextDataIndex];
             data[nextDataIndex] = temp;
@@ -92,20 +92,26 @@ public class PriorityQueue<T> where T : IComparable<T>
 
     public T Peek()
     {
-        if(Count == 0)
+        if (Count == 0)
             throw new IndexOutOfRangeException();
 
         return data[0];
     }
 
-    void Expand()
+    public void Clear()
+    {
+        Array.Clear(data, 0, Count);
+        Count = 0;
+    }
+
+    private void Expand()
     {
         T[] newData = new T[Capacity * 2];
-        for(int i = 0; i < Count; i++)
+        for (int i = 0; i < Count; i++)
         {
             newData[i] = data[i];
         }
-        
+
         data = newData;
         Capacity *= 2;
     }

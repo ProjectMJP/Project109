@@ -136,7 +136,10 @@ public class CharacterMove
         Vector2Int toCoord = destinationTile.GetCoord();
 
         MoveInfo beforeInfo = new MoveInfo(this.character, fromCoord, toCoord, MoveFlag.Normal);
-        this.character.eventBus?.Invoke<ICharacterEvent>(c => (c as IOnBeforeMove)?.OnBeforeMove(beforeInfo));
+        if (this.character != null && this.character.eventBus != null)
+        {
+            this.character.eventBus.Invoke<IOnBeforeMove>(c => c.OnBeforeMove(beforeInfo));
+        }
 
         if (beforeInfo.isCanceled)
         {
@@ -189,7 +192,10 @@ public class CharacterMove
         // 2. 이동 직후 이벤트 (IOnAfterMove)
         Vector2Int currentCoord = currentTile.GetCoord();
         MoveInfo afterInfo = new MoveInfo(this.character, currentCoord, currentCoord, MoveFlag.Normal);
-        this.character.eventBus?.Invoke<ICharacterEvent>(c => (c as IOnAfterMove)?.OnAfterMove(afterInfo));
+        if (this.character != null && this.character.eventBus != null)
+        {
+            this.character.eventBus.Invoke<IOnAfterMove>(c => c.OnAfterMove(afterInfo));
+        }
 
         // 콜백 호출
         onComplete?.Invoke();

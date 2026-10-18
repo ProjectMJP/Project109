@@ -43,10 +43,34 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     void Awake()
     {
-        selectHighlightObject.SetActive(false);
+        if (selectHighlightObject != null)
+        {
+            selectHighlightObject.SetActive(false);
+        }
         if (masteryUpgradeAvailableUI != null)
         {
             masteryUpgradeAvailableUI.SetActive(false);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (bIsCardHighlight)
+        {
+            OffSelectHighlight();
+        }
+
+        if (bShowEffectAreaUI && UIManager.instance != null)
+        {
+            UIManager.instance.ClearEffectAreaTiles();
+        }
+
+        if (enableZoom && isZoomed)
+        {
+            isZoomed = false;
+            transform.localScale = originalScale;
+            transform.localPosition = originalPosition;
+            transform.SetSiblingIndex(originalSiblingIndex);
         }
     }
 
