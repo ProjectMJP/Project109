@@ -39,117 +39,45 @@ public class UIManager : MonoBehaviour
     private RectTransform _worldLayerRect;
 
     /// <summary>
-    /// 인스펙터에 수동 할당되지 않았더라도 메인 스크린 캔버스(HUD, Popup) 및 월드 스페이스 캔버스(WorldUI)를 자동 보장합니다.
+    /// 인스펙터에 할당된 캔버스 레이어를 캐싱하며, 미할당 시 자식 오브젝트로부터 탐색하여 보장합니다.
+    /// 프리팹/씬에 구성된 캔버스 레이아웃 설정을 존중합니다.
     /// </summary>
     public void EnsureCanvases()
     {
-        // 1. 메인 스크린 캔버스 구성 (ScreenSpace - Overlay: HUD 및 Popup 관리)
-        if (normalUILayer == null || topUILayer == null || popupUILayer == null || _hudLayerRect == null || _popupLayerRect == null)
+        // 1. 인스펙터 미할당 레이어 자식 탐색
+        if (normalUILayer == null)
         {
-            Transform existingMain = transform.Find("MainUICanvas");
-            GameObject mainCanvasGo;
-            Canvas mainCanvas;
-
-            if (existingMain != null)
-            {
-                mainCanvasGo = existingMain.gameObject;
-                mainCanvas = mainCanvasGo.GetComponent<Canvas>();
-            }
-            else
-            {
-                mainCanvasGo = new GameObject("MainUICanvas");
-                mainCanvasGo.transform.SetParent(transform, false);
-
-                mainCanvas = mainCanvasGo.AddComponent<Canvas>();
-                mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                mainCanvas.sortingOrder = 0;
-
-                var scaler = mainCanvasGo.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-                scaler.matchWidthOrHeight = 0.5f;
-
-                mainCanvasGo.AddComponent<GraphicRaycaster>();
-            }
-
-            // 하위 1: HUDLayer (기본 HUD, 상시 노출: TopHUD, 손패 등)
-            Transform hudTransform = mainCanvasGo.transform.Find("HUDLayer");
-            if (hudTransform == null)
-            {
-                GameObject hudGo = new GameObject("HUDLayer", typeof(RectTransform));
-                hudGo.transform.SetParent(mainCanvasGo.transform, false);
-                _hudLayerRect = hudGo.GetComponent<RectTransform>();
-                SetupStretchRectTransform(_hudLayerRect);
-            }
-            else
-            {
-                _hudLayerRect = hudTransform as RectTransform;
-            }
-
-            // 하위 2: PopupLayer (슬더스식 모달 팝업 스택 창들이 올라가는 곳)
-            Transform popupTransform = mainCanvasGo.transform.Find("PopupLayer");
-            if (popupTransform == null)
-            {
-                GameObject popupGo = new GameObject("PopupLayer", typeof(RectTransform));
-                popupGo.transform.SetParent(mainCanvasGo.transform, false);
-                _popupLayerRect = popupGo.GetComponent<RectTransform>();
-                SetupStretchRectTransform(_popupLayerRect);
-            }
-            else
-            {
-                _popupLayerRect = popupTransform as RectTransform;
-            }
-
-            if (normalUILayer == null) normalUILayer = mainCanvas;
-            if (topUILayer == null) topUILayer = mainCanvas;
-            if (popupUILayer == null) popupUILayer = mainCanvas;
+            var child = transform.Find("NormalUILayer");
+            if (child != null) normalUILayer = child.GetComponent<Canvas>();
         }
 
-        // 2. 월드 스페이스 캔버스 구성 (WorldSpace: 캐릭터 머리 위 HP 바 등)
-        if (worldUILayer == null || _worldLayerRect == null)
+        if (topUILayer == null)
         {
-            Transform existingWorld = transform.Find("WorldUICanvas");
-            GameObject worldCanvasGo;
-
-            if (existingWorld != null)
-            {
-                worldCanvasGo = existingWorld.gameObject;
-                worldUILayer = worldCanvasGo.GetComponent<Canvas>();
-            }
-            else
-            {
-                worldCanvasGo = new GameObject("WorldUICanvas");
-                worldCanvasGo.transform.SetParent(transform, false);
-
-                worldUILayer = worldCanvasGo.AddComponent<Canvas>();
-                worldUILayer.renderMode = RenderMode.WorldSpace;
-                worldUILayer.sortingOrder = 10; // 월드 스프라이트보다 전면 렌더링
-
-                var scaler = worldCanvasGo.AddComponent<CanvasScaler>();
-                scaler.dynamicPixelsPerUnit = 1f;
-
-                worldCanvasGo.AddComponent<GraphicRaycaster>();
-
-                // 월드 단위(1 unit = 100px) 스케일 변환 (0.01 배율)
-                worldCanvasGo.transform.localPosition = Vector3.zero;
-                worldCanvasGo.transform.localRotation = Quaternion.identity;
-                worldCanvasGo.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
-            }
-
-            _worldLayerRect = worldCanvasGo.GetComponent<RectTransform>();
+            var child = transform.Find("TopUILayer");
+            if (child != null) topUILayer = child.GetComponent<Canvas>();
         }
-    }
 
-    private void SetupStretchRectTransform(RectTransform rt)
-    {
-        if (rt == null) return;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.localScale = Vector3.one;
+        if (popupUILayer == null)
+        {
+            var child = transform.Find("PopupUILayer");
+            if (child != null) popupUILayer = child.GetComponent<Canvas>();
+        }
+
+        if (worldUILayer == null)
+        {
+            var child = transform.Find("WorldUILayer");
+            if (child != null) worldUILayer = child.GetComponent<Canvas>();
+        }
+
+        // 2. RectTransform 캐싱
+        if (normalUILayer != null && _hudLayerRect == null)
+            _hudLayerRect = normalUILayer.transform as RectTransform;
+
+        if (popupUILayer != null && _popupLayerRect == null)
+            _popupLayerRect = popupUILayer.transform as RectTransform;
+
+        if (worldUILayer != null && _worldLayerRect == null)
+            _worldLayerRect = worldUILayer.transform as RectTransform;
     }
 
     // 1. 인스턴스 캐시 풀 (동일 UI 재사용, 무할당 최적화)
@@ -662,30 +590,46 @@ public class UIManager : MonoBehaviour
     }
 
     #endregion
-    #region 카드 범위확인 UI
+    #region 카드 범위확인 UI (GameMap으로 위임)
 
+    /// <summary>
+    /// 카드 데이터의 효과 범위를 표시합니다. 실제 로직은 월드 계층인 GameMap.current가 전담합니다.
+    /// </summary>
     public void UpdateEffectAreaUI(CardData newCardData)
     {
-        UIManager.instance.ClearEffectAreaTiles();
-
-        //효과 범위 설정
-        UIManager.instance.SetEffectAreaFromTargetDistance(newCardData.targetType,
-                                                           newCardData.targetMinDistance,
-                                                           newCardData.targetMaxDistance,
-                                                           TileType.TargetTile);
-
-        //추가 효과 범위 설정
-        foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
+        if (GameMap.current != null)
         {
-            UIManager.instance.SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
-                                                               Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
-                                                               additionalEffectArea.distance,
-                                                               TileType.AdditionalEffectTile);
+            GameMap.current.UpdateEffectArea(newCardData);
+            return;
+        }
+
+        // GameMap이 없는 씬을 위한 레거시 폴백
+        ClearEffectAreaTiles();
+        SetEffectAreaFromTargetDistance(newCardData.targetType,
+                                           newCardData.targetMinDistance,
+                                           newCardData.targetMaxDistance,
+                                           TileType.TargetTile);
+
+        if (newCardData.additionalEffectAreaList != null)
+        {
+            foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
+            {
+                SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
+                                                   Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
+                                                   additionalEffectArea.distance,
+                                                   TileType.AdditionalEffectTile);
+            }
         }
     }
 
     public void UpdateEffectAreaUI(Card card)
     {
+        if (GameMap.current != null)
+        {
+            GameMap.current.UpdateEffectArea(card);
+            return;
+        }
+
         if (card != null && card.cardData != null)
         {
             UpdateEffectAreaUI(card.cardData);
@@ -694,16 +638,26 @@ public class UIManager : MonoBehaviour
 
     public void ClearEffectAreaTiles()
     {
-        if (effectAreaTile == null)
+        if (GameMap.current != null)
+        {
+            GameMap.current.ClearEffectAreaTiles();
             return;
+        }
 
-        effectAreaTile.ClearAllTiles();
-        AdditionalEffectAreaTile.ClearAllTiles();
-
+        if (effectAreaTile != null)
+            effectAreaTile.ClearAllTiles();
+        if (AdditionalEffectAreaTile != null)
+            AdditionalEffectAreaTile.ClearAllTiles();
     }
 
     public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, TileType type)
     {
+        if (GameMap.current != null)
+        {
+            GameMap.current.SetEffectAreaFromTargetDistance(cardTargetType, minDistance, maxDistance, type);
+            return;
+        }
+
         if (effectAreaTile == null)
             return;
 
@@ -713,13 +667,19 @@ public class UIManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"Invalid TargetType string: {cardTargetType}");
+            Debug.LogWarning($"[UIManager] Invalid TargetType string: {cardTargetType}");
         }
     }
 
     public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
     {
-        if (effectAreaTile == null)
+        if (GameMap.current != null)
+        {
+            GameMap.current.SetEffectAreaFromShapeGenerator(shapeName, shapeLength, radius, type);
+            return;
+        }
+
+        if (AdditionalEffectAreaTile == null)
             return;
 
         AdditionalEffectAreaTile.SetTileFromShapeGenerator(shapeName, shapeLength, radius, type);

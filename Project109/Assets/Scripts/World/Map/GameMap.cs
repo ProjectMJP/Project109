@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using CardTypes;
 
 public class GameMap : MonoBehaviour
 {
@@ -380,6 +381,123 @@ public class GameMap : MonoBehaviour
         }
 
         return checkList;
+    }
+
+    #endregion
+
+    #region 카드 효과 범위 타일 제어 (Effect Area Tiles)
+
+    [Header("Effect Area Tiles")]
+    [SerializeField] private EffectAreaTile effectAreaTile;
+    [SerializeField] private EffectAreaTile additionalEffectAreaTile;
+
+    public EffectAreaTile MainEffectAreaTile => effectAreaTile;
+    public EffectAreaTile AdditionalEffectAreaTile => additionalEffectAreaTile;
+
+    public void RegisterEffectAreaTiles(EffectAreaTile mainTile, EffectAreaTile additionalTile)
+    {
+        effectAreaTile = mainTile;
+        additionalEffectAreaTile = additionalTile;
+    }
+
+    private void EnsureEffectAreaTiles()
+    {
+        if (effectAreaTile == null || additionalEffectAreaTile == null)
+        {
+            var tiles = Object.FindObjectsByType<EffectAreaTile>(FindObjectsSortMode.None);
+            foreach (var t in tiles)
+            {
+                if (t == null) continue;
+                if (t.name.Contains("Additional") || t.isAdditionalEffectAreaActive)
+                {
+                    if (additionalEffectAreaTile == null) additionalEffectAreaTile = t;
+                }
+                else
+                {
+                    if (effectAreaTile == null) effectAreaTile = t;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 카드 데이터의 사거리 및 효과 범위를 월드 타일맵에 시각화합니다.
+    /// </summary>
+    public void UpdateEffectArea(CardData newCardData)
+    {
+        if (newCardData == null) return;
+        EnsureEffectAreaTiles();
+        ClearEffectAreaTiles();
+
+        // 타겟 기본 범위 설정
+        SetEffectAreaFromTargetDistance(newCardData.targetType,
+                                        newCardData.targetMinDistance,
+                                        newCardData.targetMaxDistance,
+                                        TileType.TargetTile);
+
+        // 추가 효과 범위 설정
+        if (newCardData.additionalEffectAreaList != null)
+        {
+            foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
+            {
+                SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
+                                                Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
+                                                additionalEffectArea.distance,
+                                                TileType.AdditionalEffectTile);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 카드 객체로부터 효과 범위를 월드 타일맵에 시각화합니다.
+    /// </summary>
+    public void UpdateEffectArea(Card card)
+    {
+        if (card != null && card.cardData != null)
+        {
+            UpdateEffectArea(card.cardData);
+        }
+    }
+
+    /// <summary>
+    /// 표시 중인 모든 카드 효과 범위 타일을 초기화(제거)합니다.
+    /// </summary>
+    public void ClearEffectAreaTiles()
+    {
+        EnsureEffectAreaTiles();
+
+        if (effectAreaTile != null)
+        {
+            effectAreaTile.ClearAllTiles();
+        }
+
+        if (additionalEffectAreaTile != null)
+        {
+            additionalEffectAreaTile.ClearAllTiles();
+        }
+    }
+
+    public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, TileType type)
+    {
+        EnsureEffectAreaTiles();
+        if (effectAreaTile == null) return;
+
+        if (System.Enum.TryParse(cardTargetType, out TargetType parsedTargetType))
+        {
+            effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
+        }
+        else
+        {
+            Debug.LogWarning($"[GameMap] Invalid TargetType string: {cardTargetType}");
+        }
+    }
+
+    public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
+    {
+        EnsureEffectAreaTiles();
+        if (additionalEffectAreaTile == null) return;
+
+        additionalEffectAreaTile.SetTileFromShapeGenerator(shapeName, shapeLength, radius, type);
     }
 
     #endregion
