@@ -53,7 +53,7 @@ public class BattleManager : IInitializable, IDisposable
     private List<ICharacterController> playerTeam = new();
     private List<ICharacterController> enemyTeam = new();
     private readonly List<ICharacterController> allCombatantsCache = new();
-    private ICharacterController currentTurnController;
+    public ICharacterController currentTurnController { get; private set; }
     public float battleTimeScale = 1f;
     public int accumulativeGoldReward { get; set; }
 
@@ -182,6 +182,15 @@ public class BattleManager : IInitializable, IDisposable
         battleState = BattleState.TurnInProgress;
         currentTurnController = controller;
         controller.controlledCharacter.currentTurn++;
+
+        // 턴 시작 시 자연 회복 등으로 maxStamina를 초과한 경우 maxStamina로 보정
+        if (controller.controlledCharacter != null && controller.controlledCharacter.curCharacterStat != null)
+        {
+            if (controller.controlledCharacter.curStamina > controller.controlledCharacter.curCharacterStat.maxStamina)
+            {
+                controller.controlledCharacter.curStamina = controller.controlledCharacter.curCharacterStat.maxStamina;
+            }
+        }
 
         controller.controlledCharacter.ResetMoveStat();
 

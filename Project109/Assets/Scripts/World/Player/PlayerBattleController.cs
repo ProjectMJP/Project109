@@ -12,12 +12,20 @@ public enum PlayerControlState
 
 /// <summary>
 /// 전투 중 플레이어 캐릭터의 턴을 제어하는 컨트롤러.
+/// <summary>
+/// 전투 중 플레이어 캐릭터의 턴을 제어하는 컨트롤러.
 /// 전투 시작 ~ 전투 종료까지 유지된다.
 /// </summary>
-public class PlayerBattleController : ICharacterController, System.IDisposable
+public class PlayerBattleController : ICharacterController, IOnBattleEnd, System.IDisposable
 {
+    private BattleUIPanel _battleUI;
+    public BattleUIPanel battleUI => _battleUI;
+    public BattleHandPanel handUI => _battleUI != null ? _battleUI.HandPanel : null;
+
     public void Dispose()
     {
+        OnBattleEnd();
+
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
@@ -47,14 +55,14 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     #region Battle Deck (전투 중 카드 덱 관리)
 
-    public BattleDeck battleDeck => player?.battleDeck;
+    public BattleDeck battleDeck => player != null ? player.battleDeck : null;
 
     #endregion
 
     public PlayerBattleController(Player player)
     {
         this.player = player;
-        this._controlledCharacter = player?.character;
+        this._controlledCharacter = player != null ? player.character : null;
 
         // PlayerBattleMove 초기화
         if (this._controlledCharacter != null)
@@ -73,15 +81,38 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
 
     public void OnBattleStart()
     {
-        player?.InitBattleDeck();
+        if (player != null)
+        {
+            player.InitBattleDeck();
+        }
 
         if (UIManager.instance != null)
         {
-            var handUI = UIManager.instance.GetOrSpawnBattleHand();
-            if (handUI != null && battleDeck != null)
+            _battleUI = UIManager.instance.GetOrSpawnBattleUI();
+            if (_battleUI != null)
             {
-                handUI.BindBattleDeck(battleDeck);
+                _battleUI.BindPlayer(player, this);
+                _battleUI.SwitchToHandMode();
             }
+        }
+
+        if (_controlledCharacter != null)
+        {
+            _controlledCharacter.eventBus.Add<IOnBattleEnd>(this);
+        }
+    }
+
+    public void OnBattleEnd()
+    {
+        if (_controlledCharacter != null)
+        {
+            _controlledCharacter.eventBus.Remove<IOnBattleEnd>(this);
+        }
+
+        if (_battleUI != null)
+        {
+            _battleUI.Close();
+            _battleUI = null;
         }
     }
 
@@ -126,6 +157,12 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
             PlayerInputController.instance.OnCancelEvent += CancelCurrentState;
         }
         controlState = PlayerControlState.Normal;
+        if (_battleUI != null)
+        {
+            _battleUI.SwitchToHandMode();
+            _battleUI.RefreshMoveStats();
+            _battleUI.SetEndTurnInteractable(true);
+        }
     }
 
     public void OnTurnEnd()
@@ -137,7 +174,10 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         battleDeck.DiscardHand();
 
         // 3. 이동 비활성화
-        playerMove?.ClearCanMoveTiles();
+        if (playerMove != null)
+        {
+            playerMove.ClearCanMoveTiles();
+        }
 
         // 4. 이벤트 구독 해제
         if (PlayerInputController.instance != null)
@@ -147,6 +187,25 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         }
         controlState = PlayerControlState.Normal;
         bonusDrawThisTurn = 0;
+
+        if (_battleUI != null)
+        {
+            _battleUI.SetEndTurnInteractable(false);
+        }
+    }
+
+    /// <summary>
+    /// 플레이어의 턴 종료를 요청합니다.
+    /// </summary>
+    public void RequestEndTurn()
+    {
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            if (ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
+            {
+                RunManager.instance.battleManager.EndTurn();
+            }
+        }
     }
 
     #region Card Operations
@@ -236,6 +295,10 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         }
 
         controlState = PlayerControlState.Normal;
+        if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Hand)
+        {
+            _battleUI.SwitchToHandMode();
+        }
     }
 
     /// <summary>
@@ -247,6 +310,11 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
         {
             playerMove.CheckCanMoveTiles();
             controlState = PlayerControlState.Move;
+
+            if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Move)
+            {
+                _battleUI.SwitchToMoveMode();
+            }
         }
     }
 
@@ -341,6 +409,10 @@ public class PlayerBattleController : ICharacterController, System.IDisposable
                             playerMove.ClearCanMoveTiles();
                         }
                         controlState = PlayerControlState.Normal;
+                        if (_battleUI != null)
+                        {
+                            _battleUI.SwitchToHandMode();
+                        }
                         break;
 
                     case PlayerControlState.TargetSelection:

@@ -228,6 +228,10 @@ public class TopHUDPanel : UIPanelBase
         {
             mapButtonImage.sprite = mapButtonIconTexture;
         }
+        else if (AssetCacheManager.instance.TryGetTexture("ExploreMapTexture", out Sprite exploreMapTexture))
+        {
+            mapButtonImage.sprite = exploreMapTexture;
+        }
         else
         {
             Debug.LogWarning("Failed to load Texture_UI_MapButtonIcon");

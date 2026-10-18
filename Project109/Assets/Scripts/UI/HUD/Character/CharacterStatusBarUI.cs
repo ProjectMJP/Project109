@@ -32,22 +32,38 @@ public class CharacterStatusBarUI : MonoBehaviour
     {
         cachedCamera = Camera.main;
 
-        // 인스펙터 바인딩 누락 대비 자가 복구 (Self-Healing)
-        if (healthGaugeUI == null)
+        // 인스펙터 바인딩 누락 및 잘못된 Background 바인딩 대비 자가 복구 (Self-Healing)
+        if (healthGaugeUI == null || healthGaugeUI.gameObject.name.Contains("Background"))
         {
             Transform healthGroup = transform.Find("HealthGroup");
             if (healthGroup != null)
             {
-                healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
+                Transform fillTrans = healthGroup.Find("HealthFill");
+                if (fillTrans != null)
+                {
+                    healthGaugeUI = fillTrans.GetComponent<GaugeUI>();
+                }
+                if (healthGaugeUI == null)
+                {
+                    healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
+                }
             }
         }
 
-        if (staminaGaugeUI == null)
+        if (staminaGaugeUI == null || staminaGaugeUI.gameObject.name.Contains("Background"))
         {
             Transform staminaGroup = transform.Find("StaminaGroup");
             if (staminaGroup != null)
             {
-                staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
+                Transform fillTrans = staminaGroup.Find("StaminaFill");
+                if (fillTrans != null)
+                {
+                    staminaGaugeUI = fillTrans.GetComponent<GaugeUI>();
+                }
+                if (staminaGaugeUI == null)
+                {
+                    staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
+                }
             }
         }
 
@@ -82,8 +98,8 @@ public class CharacterStatusBarUI : MonoBehaviour
         }
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
-        int curHp = Mathf.CeilToInt(curHealth);
-        int maxHp = Mathf.CeilToInt(maxHealth);
+        int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);
+        int maxHp = Mathf.RoundToInt(maxHealth);
         int shieldVal = Mathf.CeilToInt(shield);
 
         string text = (shield > 0f) ? $"({shieldVal}) {curHp} / {maxHp}" : $"{curHp} / {maxHp}";
@@ -106,7 +122,9 @@ public class CharacterStatusBarUI : MonoBehaviour
         }
 
         float rate = (maxStamina > 0f) ? Mathf.Clamp01(curStamina / maxStamina) : 0f;
-        string text = $"{Mathf.CeilToInt(curStamina)} / {Mathf.CeilToInt(maxStamina)}";
+        int displayStamina = (curStamina >= maxStamina) ? Mathf.RoundToInt(curStamina) : Mathf.CeilToInt(curStamina);
+        int displayMaxStamina = Mathf.RoundToInt(maxStamina);
+        string text = $"{displayStamina} / {displayMaxStamina}";
 
         staminaGaugeUI.Refresh(rate, text);
     }

@@ -151,6 +151,12 @@ public class Character : MonoBehaviour, IDamageable
     public float curStamina { get { return _curStamina; } set { _curStamina = value; OnCharacterStaminaChanged?.Invoke(this); } }
     public float curStaminaRate { get { return (_curStamina == 0) ? 0 : _curStamina / curCharacterStat.maxStamina; } }
 
+    /// <summary>
+    /// 턴 도달 시 maxStamina를 초과했던 잉여 스태미나 (프레임 틱 오버플로우 보존용).
+    /// 턴 중에는 maxStamina로 플레이하고, 턴 종료 시 다음 턴 충전으로 환원됩니다.
+    /// </summary>
+    public float overflowStamina { get; private set; } = 0f;
+
     [SerializeField]
     private float _shield = 0f;
     public float shield
@@ -184,15 +190,24 @@ public class Character : MonoBehaviour, IDamageable
         // 이펙트 틱
         effectManager.Tick(dt);
 
-        return curStamina >= curCharacterStat.maxStamina;
+        if (curStamina >= curCharacterStat.maxStamina)
+        {
+            // 초과분을 오버플로우 버퍼에 보존하고 턴 중에는 maxStamina로 고정
+            overflowStamina = curStamina - curCharacterStat.maxStamina;
+            curStamina = curCharacterStat.maxStamina;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
-    /// 턴 종료 시 호출하여 스태미나 이월(절반 감축) 처리
+    /// 턴 종료 시 호출하여 스태미나 이월(절반 감축) 처리 및 보존된 오버플로우 스태미나 환원
     /// </summary>
     public void ResetStamina()
     {
-        curStamina = curStamina * 0.5f;
+        curStamina = (curStamina * 0.5f) + overflowStamina;
+        overflowStamina = 0f;
     }
 
     /// <summary>
@@ -201,6 +216,7 @@ public class Character : MonoBehaviour, IDamageable
     public void ResetStaminaForBattle(float initialStamina = 0f)
     {
         curStamina = initialStamina;
+        overflowStamina = 0f;
     }
 
     /// <summary>
@@ -209,6 +225,7 @@ public class Character : MonoBehaviour, IDamageable
     public void ResetCharacterForBattle(bool clearPermanentEffects = true)
     {
         curStamina = 0f;
+        overflowStamina = 0f;
         shield = 0f;
         shieldDurationTurns = 0;
         currentTurn = 0;

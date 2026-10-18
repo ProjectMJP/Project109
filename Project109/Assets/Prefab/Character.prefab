@@ -60,11 +60,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Character
   faction: 2
   _characterStat:
-    maxHealth: 0
-    maxStamina: 0
-    staminaRegenPerSecond: 0
-    maxMoveCount: 0
-    maxTilesPerMove: 0
+    maxHealth: 100
+    maxStamina: 120
+    staminaRegenPerSecond: 40
+    maxMoveCount: 1
+    maxTilesPerMove: 3
   _curMoveCount: 0
   _curTilesPerMove: 0
   _currentState: 0
