@@ -100,6 +100,25 @@ public class RunManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 던전 런 종료 시 또는 은신처 복귀 시 층수, 노드, 맵 데이터를 완전히 리셋합니다.
+    /// </summary>
+    public void ResetRunProgress()
+    {
+        currentStageLevel = 1;
+        currentExploreMapFloor = 0;
+        currentExploreNode = null;
+        beforeExploreNode = null;
+
+        if (exploreMapManager != null)
+        {
+            exploreMapManager.ClearMap();
+        }
+
+        Debug.Log("[RunManager] 런 진행 데이터(스테이지, 층수, 탐험 노드, 맵)가 초기화되었습니다.");
+    }
+
+
     public void SaveGame()
     {
         int slot = GameSceneManager.instance != null ? GameSceneManager.instance.currentSaveSlot : 1;
@@ -228,8 +247,15 @@ public class RunManager : MonoBehaviour
 
     private void HandleBattleLost()
     {
-        Debug.Log("[RunManager] 전투 패배 이벤트 수신");
-        // TODO: 향후 패배 결과창 또는 게임 오버 처리 추가
+        Debug.Log("[RunManager] 전투 패배 이벤트 수신: 게임 오버 결과 패널을 엽니다.");
+        if (UIManager.instance != null)
+        {
+            GameOverPanel panel = UIManager.instance.OpenUI<GameOverPanel>(UIConstants.PANEL_GAME_OVER, UILayerType.Popup, true);
+            if (panel != null)
+            {
+                panel.Setup(currentExploreMapFloor, currentMapName);
+            }
+        }
     }
 
     #endregion

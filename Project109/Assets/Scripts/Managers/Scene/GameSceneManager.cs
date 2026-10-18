@@ -37,7 +37,7 @@ public class GameSceneManager : MonoBehaviour
 
     [Header("Active SubScene Managers")]
     public HideoutManager currentHideoutManager { get; private set; }
-    public RunManager currentDungeonManager { get; private set; }
+    public RunManager currentDungeonManager => RunManager.instance;
 
     [Header("SubScene Settings")]
     [SerializeField]
@@ -244,8 +244,8 @@ public class GameSceneManager : MonoBehaviour
         {
             SceneLoadManager.instance.TransitionToSubScene(_hideoutScenePath, () =>
             {
-                // 던전에서 은신처로 복귀 시 던전 진입 플래그를 해제하고 세이브
-                SaveSystem.SaveGame(currentDungeonManager, currentSaveSlot);
+                // 던전에서 은신처로 복귀 시 던전 진입 플래그를 해제하고 은신처 상태로 세이브
+                SaveSystem.SaveGame(null, currentSaveSlot);
                 onComplete?.Invoke();
             });
         }

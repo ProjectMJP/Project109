@@ -494,4 +494,21 @@ public class ExploreMapManager
             hiddenNodes[randIdx].isRevealed = true;
         }
     }
+
+    /// <summary>
+    /// 세이브 파일이나 외부 데이터로부터 탐험 맵 데이터를 직접 복원 주입합니다.
+    /// </summary>
+    public void RestoreMapData(ExploreMapData data)
+    {
+        MapData = data;
+    }
+
+    /// <summary>
+    /// 현재 보관 중인 맵 데이터를 완전히 비워 초기화합니다.
+    /// </summary>
+    public void ClearMap()
+    {
+        MapData = null;
+    }
 }
+

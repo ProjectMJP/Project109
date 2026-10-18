@@ -72,28 +72,44 @@ public static class SaveSystem
         try
         {
             RunSaveData data = new RunSaveData();
-            data.currentMapName = runManager != null ? runManager.currentMapName : "Temple";
-            data.currentStageLevel = runManager != null ? runManager.currentStageLevel : 1;
-            data.currentExploreMapFloor = runManager != null ? runManager.currentExploreMapFloor : 1;
-            
-            if (runManager != null && runManager.exploreMapManager != null)
+            data.isInDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
+
+            if (data.isInDungeon && runManager != null)
             {
-                data.exploreMapData = runManager.exploreMapManager.MapData;
+                data.currentMapName = runManager.currentMapName;
+                data.currentStageLevel = runManager.currentStageLevel;
+                data.currentExploreMapFloor = runManager.currentExploreMapFloor;
                 
-                if (runManager.currentExploreNode != null)
+                if (runManager.exploreMapManager != null)
                 {
-                    data.currentExploreNodeFloor = runManager.currentExploreNode.floor;
-                    data.currentExploreNodeIndex = runManager.currentExploreNode.index;
-                }
-                
-                if (runManager.beforeExploreNode != null)
-                {
-                    data.beforeExploreNodeFloor = runManager.beforeExploreNode.floor;
-                    data.beforeExploreNodeIndex = runManager.beforeExploreNode.index;
+                    data.exploreMapData = runManager.exploreMapManager.MapData;
+                    
+                    if (runManager.currentExploreNode != null)
+                    {
+                        data.currentExploreNodeFloor = runManager.currentExploreNode.floor;
+                        data.currentExploreNodeIndex = runManager.currentExploreNode.index;
+                    }
+                    
+                    if (runManager.beforeExploreNode != null)
+                    {
+                        data.beforeExploreNodeFloor = runManager.beforeExploreNode.floor;
+                        data.beforeExploreNodeIndex = runManager.beforeExploreNode.index;
+                    }
                 }
             }
-            
-            data.isInDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
+            else
+            {
+                // 은신처(비던전) 상태인 경우 런 진행도 데이터 초기화 저장
+                data.currentMapName = "Temple";
+                data.currentStageLevel = 1;
+                data.currentExploreMapFloor = 0;
+                data.exploreMapData = null;
+                data.currentExploreNodeFloor = -1;
+                data.currentExploreNodeIndex = -1;
+                data.beforeExploreNodeFloor = -1;
+                data.beforeExploreNodeIndex = -1;
+            }
+
             
             data.playerGold = player.playerStat != null ? player.playerStat.InGameCurrencyGold : 0;
             data.playerMemorySharp = player.playerStat != null ? player.playerStat.InGameCurrencyMemorySharp : 0;
@@ -226,9 +242,89 @@ public static class SaveSystem
     {
         if (player == null || player.character == null) return;
 
-        CharacterStat initialStat = CloneCharacterStat(player.character.curCharacterStat);
+        StarterKitData kitData = null;
+        string kitId = !string.IsNullOrEmpty(player.selectedStarterKitId) ? player.selectedStarterKitId : "warrior_starter";
+
+        if (ModLoader.Instance != null && ModLoader.Instance.StarterKitDatabase != null)
+        {
+            if (!ModLoader.Instance.StarterKitDatabase.TryGetValue(kitId, out kitData))
+            {
+                // 지정된 키트가 없을 경우 첫 번째 등록된 시작 키트를 fallback으로 사용
+                foreach (var kvp in ModLoader.Instance.StarterKitDatabase)
+                {
+                    kitData = kvp.Value;
+                    kitId = kvp.Key;
+                    break;
+                }
+            }
+        }
+
+        CharacterStat initialStat = null;
+        if (kitData != null && kitData.characterStat != null)
+        {
+            initialStat = CloneCharacterStat(kitData.characterStat);
+        }
+        else if (player.character.curCharacterStat != null && player.character.curCharacterStat.maxHealth > 0f)
+        {
+            initialStat = CloneCharacterStat(player.character.curCharacterStat);
+        }
+        else
+        {
+            // 안전 fallback 기본 스탯 (YAML 로드 실패 시)
+            initialStat = new CharacterStat
+            {
+                maxHealth = 100,
+                maxStamina = 120,
+                staminaRegenPerSecond = 40,
+                maxMoveCount = 1,
+                maxTilesPerMove = 3
+            };
+        }
+
         player.character.InitializeStat(initialStat);
-        Debug.Log($"[SaveSystem] 신규 플레이어 기본 스탯 초기화 완료 (최대 체력: {initialStat.maxHealth}, 이동력: {initialStat.maxTilesPerMove}).");
+
+        // 시작 키트 구성품 (재화, 드로우 수, 카드, 유물) 지급
+        if (kitData != null)
+        {
+            if (player.playerStat != null)
+            {
+                player.playerStat.InGameCurrencyGold = kitData.startGold;
+                if (kitData.baseDrawCount > 0)
+                {
+                    player.playerStat.BaseDrawCount = kitData.baseDrawCount;
+                }
+            }
+
+            // 시작 카드 덱 초기화
+            if (player.deck != null && kitData.startCards != null && kitData.startCards.Count > 0)
+            {
+                player.deck.Clear();
+                foreach (string cardId in kitData.startCards)
+                {
+                    if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null &&
+                        ModLoader.Instance.CardDatabase.TryGetValue(cardId, out CardData cardData))
+                    {
+                        player.deck.AddCard(cardData);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[SaveSystem] 시작 카드 '{cardId}'를 CardDatabase에서 찾을 수 없습니다.");
+                    }
+                }
+            }
+
+            // 시작 유물 초기화
+            if (player.relicManager != null && kitData.startRelics != null && kitData.startRelics.Count > 0)
+            {
+                player.relicManager.ClearRelics();
+                foreach (string relicId in kitData.startRelics)
+                {
+                    player.relicManager.AddRelic(relicId);
+                }
+            }
+        }
+
+        Debug.Log($"[SaveSystem] 신규 플레이어 기본 스탯 및 시작 키트 초기화 완료 (키트: '{kitId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동횟수: {initialStat.maxMoveCount}, 최대이동타일: {initialStat.maxTilesPerMove}).");
     }
 
     /// <summary>
@@ -344,13 +440,20 @@ public static class SaveSystem
     {
         if (data == null || runManager == null) return;
 
+        if (!data.isInDungeon || data.exploreMapData == null)
+        {
+            runManager.ResetRunProgress();
+            Debug.Log("[SaveSystem] 은신처 또는 빈 데이터 상태이므로 던전 런 진행도를 초기화했습니다.");
+            return;
+        }
+
         runManager.currentMapName = data.currentMapName;
         runManager.currentStageLevel = data.currentStageLevel;
         runManager.currentExploreMapFloor = data.currentExploreMapFloor;
 
         if (runManager.exploreMapManager != null)
         {
-            runManager.exploreMapManager.GetType().GetProperty("MapData").SetValue(runManager.exploreMapManager, data.exploreMapData);
+            runManager.exploreMapManager.RestoreMapData(data.exploreMapData);
 
             if (data.exploreMapData != null && data.currentExploreNodeFloor >= 0 && data.currentExploreNodeIndex >= 0)
             {
