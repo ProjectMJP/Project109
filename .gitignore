@@ -76,8 +76,11 @@ crashlytics-build.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
 
-# Ignore all dot-directories (e.g. .Docs, .vscode, .agents)
+# Ignore all dot-directories (e.g. .Docs, .vscode) except .agents
 .*/
+!.agents/
+!.agents/**
+
 
 # EventBinderGenerator build folders
 EventBinderGenerator/bin/

@@ -144,6 +144,9 @@ Lua          → L2(Character API), L1(Data)  // C# API 바인딩을 통해
 | 위치 | 역참조 내용 | 개선 방향 |
 |------|------------|----------|
 | `GameItemRewardManager` | `ModLoader.Instance.CardDatabase` 직접 참조 | 초기화 시점에 주입 |
+| `CardData`, `EffectData`, `RelicData` (L1) | `LuaManager.Instance`(외부) 및 `new Card(...)`(L2) 직접 생성/호출 | L1 데이터 모델과 L2 런타임 팩토리 분리 |
+| `CameraController` (L5) | `Map`, `Tile` 레이어 마스크 직접 레이캐스트(L2) | Input 이벤트 버스 경유 간접화 |
+
 
 ---
 
@@ -195,15 +198,18 @@ DungeonScene ──TransitionToHideout()──→ HideoutScene
 
 ```
 StreamingAssets/Mods/Core/
-  ├── Cards/*.yaml       ─┐
-  ├── Effects/*.yaml      │  ← ModLoader.LoadAllMods()
-  ├── Relics/*.yaml       │     YAML → Dictionary<string, *Data>
-  ├── Units/*.yaml        │     Data SSOT = ModLoader.*Database
-  ├── StarterKits/*.yaml  │
-  ├── Dialogues/*.yaml    │
-  ├── Interactables/*.yaml│
-  ├── DropTables/*.yaml  ─┘
-  └── Scripts/Cards/*.lua ──→ LuaManager (LuaTable 프로토타입)
+  ├── YAML/
+  │   ├── Cards/*.yaml       ─┐
+  │   ├── Effects/*.yaml      │  ← ModLoader.LoadAllMods()
+  │   ├── Relics/*.yaml       │     YAML → Dictionary<string, *Data>
+  │   ├── Enemies/*.yaml      │     Data SSOT = ModLoader.*Database
+  │   ├── StarterKits/*.yaml  │
+  │   ├── Dialogues/*.yaml    │
+  │   ├── Interactables/*.yaml│
+  │   └── DropTables/*.yaml  ─┘
+  └── Scripts/
+      ├── CardTags/*.lua     ──→ LuaManager (LuaTable 프로토타입)
+      └── Choice/*.lua       ──→ 다이얼로그 선택지 스크립트
 ```
 
 - **데이터 원본(SSOT)**: `ModLoader.Instance.*Database` (딕셔너리)
@@ -301,6 +307,13 @@ RunManager.instance.exploreMapManager (ExploreMapManager)
 | `Character` | `OnCharacterHealthChanged` / `OnCharacterStaminaChanged` | HUD UI |
 | `BattleManager` | `OnBattleWon` / `OnBattleLost` | `RunManager` |
 
+### 6.4 Roslyn Source Generator (EventBinderGenerator) 연동 규칙
+- `LuaEventBinder`는 `partial` 클래스로 구현되어 있으며, Roslyn Source Generator(`EventBinderGenerator`)가 빌드 시 `ICharacterEvent` 및 `IPlayerEvent` 파생 인터페이스(`IOn...`)를 탐색하여 C# ↔ Lua 프록시 바인딩 코드를 자동 생성합니다.
+- **새로운 이벤트 인터페이스 추가 시 필수 3단계 체크리스트**:
+  1. `CharacterInterfaces.cs` 또는 `PlayerInterfaces.cs`에 인터페이스 정의 (`IOn...` 네이밍 준수)
+  2. `GenConfig.cs`의 `CSharpCallLua` 리스트에 해당 인터페이스 타입 등록 (**누락 시 XLua 런타임에 `InvalidCastException` 발생**)
+  3. 이 문서(PROJECT_MAP.md) §6.1 / §6.2 테이블에 반영
+
 ---
 
 ## 7. 모딩 시스템 구조
@@ -308,18 +321,19 @@ RunManager.instance.exploreMapManager (ExploreMapManager)
 ```
 StreamingAssets/Mods/
   └── Core/              ← 바닐라(기본) 게임 데이터
-      ├── Cards/
-      │   ├── *.yaml     ← CardData 정의
-      │   └── ...
-      ├── Effects/
-      ├── Relics/
-      ├── Units/
-      ├── StarterKits/
-      ├── Dialogues/
-      ├── Interactables/
-      ├── DropTables/
-      ├── Icons/          ← 카드/유물 아이콘 이미지
-      └── Scripts/Cards/  ← Lua 카드 로직 스크립트
+      ├── YAML/          ← 데이터 스키마 정의 폴더
+      │   ├── Cards/     ← *.yaml CardData 정의
+      │   ├── Effects/
+      │   ├── Relics/
+      │   ├── Enemies/   ← 적 유닛 데이터 정의
+      │   ├── StarterKits/
+      │   ├── Dialogues/
+      │   ├── Interactables/
+      │   └── DropTables/
+      ├── Icons/         ← 카드/유물 아이콘 이미지
+      └── Scripts/       ← Lua 스크립트 폴더
+          ├── CardTags/  ← 카드 태그 로직 Lua
+          └── Choice/    ← 다이얼로그 선택지 Lua
 
 유저 모드 경로: {persistentDataPath}/mods/{modName}/
   └── (Core와 동일한 구조, 동일 ID 시 오버라이드)
