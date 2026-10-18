@@ -389,30 +389,7 @@ public static class SaveSystem
                         }
                         else
                         {
-                            if (newCard.masteryUpgrades != null && cardData.masteryTags != null)
-                            {
-                                foreach (var kvp in newCard.masteryUpgrades)
-                                {
-                                    string masteryId = kvp.Key;
-                                    int count = kvp.Value;
-                                    if (cardData.masteryTags.TryGetValue(masteryId, out var tags))
-                                    {
-                                        for (int i = 0; i < count; i++)
-                                        {
-                                            foreach (var tag in tags)
-                                            {
-                                                newCard.AddTag(tag);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            float costMod = newCard.GetEffectiveValue("cost");
-                            if (costMod != 0)
-                            {
-                                newCard.currentCost = Mathf.Max(0, cardData.stamina + (int)costMod);
-                            }
+                            newCard.RefreshMasteryStatsAndTags();
                         }
                     }
                 }

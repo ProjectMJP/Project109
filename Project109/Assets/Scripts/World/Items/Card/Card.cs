@@ -454,6 +454,39 @@ public class Card : IDescribable
     }
 
     /// <summary>
+    /// 카드 인스턴스의 마스터리 업그레이드에 따른 코스트와 동적 태그를 재동기화합니다.
+    /// </summary>
+    public void RefreshMasteryStatsAndTags()
+    {
+        if (masteryUpgrades == null || cardData == null) return;
+
+        float costMod = GetEffectiveValue("cost");
+        if (costMod != 0)
+        {
+            currentCost = UnityEngine.Mathf.Max(0, cardData.stamina + (int)costMod);
+        }
+
+        if (cardData.masteryTags != null)
+        {
+            foreach (var kvp in masteryUpgrades)
+            {
+                string masteryId = kvp.Key;
+                int count = kvp.Value;
+                if (cardData.masteryTags.TryGetValue(masteryId, out var tags))
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        foreach (var tag in tags)
+                        {
+                            AddTag(tag);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// 이 카드 인스턴스에 특정 태그가 부착되어 있는지 조회합니다.
     /// Lua에서도 card:HasTag("Preserve") 형태로 호출 가능합니다.
     /// </summary>

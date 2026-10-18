@@ -108,102 +108,63 @@ public class ModLoader
         }
 
         // [이펙트(Effect) 로딩]
-        // 모드 폴더 하위의 "YAML/Effects" 폴더만 특정하여 로드합니다.
         string effectsPath = Path.Combine(modDir, "YAML", "Effects");
         if (Directory.Exists(effectsPath))
         {
-            LoadEffectsFromPath(effectsPath, modDir);
+            LoadDataFromPath(effectsPath, modDir, EffectDatabase, d => d.effectName, "이펙트");
         }
 
         // [유물(Relic) 로딩]
         string relicsPath = Path.Combine(modDir, "YAML", "Relics");
         if (Directory.Exists(relicsPath))
         {
-            LoadRelicsFromPath(relicsPath, modDir);
+            LoadDataFromPath(relicsPath, modDir, RelicDatabase, d => d.relicName, "유물");
         }
 
         // [카드(Card) 로딩]
         string cardsPath = Path.Combine(modDir, "YAML", "Cards");
         if (Directory.Exists(cardsPath))
         {
-            LoadCardsFromPath(cardsPath, modDir);
+            LoadDataFromPath(cardsPath, modDir, CardDatabase, d => d.cardName, "카드");
         }
 
         // [시작 키트(StarterKit) 로딩]
         string starterKitsPath = Path.Combine(modDir, "YAML", "StarterKits");
         if (Directory.Exists(starterKitsPath))
         {
-            LoadStarterKitsFromPath(starterKitsPath, modDir);
+            LoadDataFromPath(starterKitsPath, modDir, StarterKitDatabase, d => d.loadoutId, "시작 키트");
         }
 
         // [적군 AI(Enemy) 로딩]
         string enemiesPath = Path.Combine(modDir, "YAML", "Enemies");
         if (Directory.Exists(enemiesPath))
         {
-            LoadNPCUnitsFromPath(enemiesPath, modDir);
+            LoadDataFromPath(enemiesPath, modDir, NPCUnitDatabase, d => d.unitId, "적");
         }
 
         // [다이얼로그(Dialogue) 로딩]
         string dialoguesPath = Path.Combine(modDir, "YAML", "Dialogues");
         if (Directory.Exists(dialoguesPath))
         {
-            LoadDialoguesFromPath(dialoguesPath, modDir);
+            LoadDataFromPath(dialoguesPath, modDir, DialogueDatabase, d => d.dialogueID, "다이얼로그");
         }
 
         // [상호작용(Interactable) 로딩]
         string interactablesPath = Path.Combine(modDir, "YAML", "Interactables");
         if (Directory.Exists(interactablesPath))
         {
-            LoadInteractablesFromPath(interactablesPath, modDir);
+            LoadDataFromPath(interactablesPath, modDir, InteractableDatabase, d => d.interactableID, "상호작용");
         }
 
         // [드롭 테이블(DropTable) 로딩]
         string dropTablesPath = Path.Combine(modDir, "YAML", "DropTables");
         if (Directory.Exists(dropTablesPath))
         {
-            LoadDropTablesFromPath(dropTablesPath, modDir);
+            LoadDataFromPath(dropTablesPath, modDir, DropTableDatabase, d => d.dropTableID, "드롭 테이블");
         }
     }
 
-    private void LoadEffectsFromPath(string dataPath, string modRootPath)
-    {
-        // ModManager.cs에서 사용하신 네이밍 컨벤션 재사용
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        // Effects 폴더 내의 모든 .yaml 파일 탐색
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                // 1. 파일 하나당 1개의 EffectData가 들어있다고 가정하고 파싱
-                EffectData effectData = deserializer.Deserialize<EffectData>(yamlContent);
-
-                if (effectData != null)
-                {
-                    // 2. IModAssetResolver 인터페이스를 통한 에셋 링킹 및 검증
-                    if (effectData.ResolveAndValidate(modRootPath))
-                    {
-                        // 3. 딕셔너리에 저장! (Key가 같으면 덮어쓰기 됨 = 모드 Overwrite 구현 완료)
-                        EffectDatabase[effectData.effectName] = effectData;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 이펙트가 무시되었습니다: {file}");
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-    private void LoadRelicsFromPath(string dataPath, string modRootPath)
+    private void LoadDataFromPath<T>(string dataPath, string modRootPath, Dictionary<string, T> targetDict, System.Func<T, string> keySelector, string typeName) where T : class
     {
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -216,203 +177,23 @@ public class ModLoader
             string yamlContent = File.ReadAllText(file);
             try
             {
-                RelicData relicData = deserializer.Deserialize<RelicData>(yamlContent);
-
-                if (relicData != null)
+                T data = deserializer.Deserialize<T>(yamlContent);
+                if (data != null)
                 {
-                    if (relicData.ResolveAndValidate(modRootPath))
+                    if (data is IModAssetResolver resolver)
                     {
-                        RelicDatabase[relicData.relicName] = relicData;
+                        if (!resolver.ResolveAndValidate(modRootPath))
+                        {
+                            Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 {typeName} 데이터가 무시되었습니다: {file}");
+                            continue;
+                        }
                     }
-                    else
+
+                    string key = keySelector(data);
+                    if (!string.IsNullOrEmpty(key))
                     {
-                        Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 유물이 무시되었습니다: {file}");
+                        targetDict[key] = data;
                     }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadCardsFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                CardData cardData = deserializer.Deserialize<CardData>(yamlContent);
-
-                if (cardData != null)
-                {
-                    if (cardData.ResolveAndValidate(modRootPath))
-                    {
-                        CardDatabase[cardData.cardName] = cardData;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 카드가 무시되었습니다: {file}");
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadStarterKitsFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                StarterKitData kitData = deserializer.Deserialize<StarterKitData>(yamlContent);
-
-                if (kitData != null)
-                {
-                    if (kitData.ResolveAndValidate(modRootPath))
-                    {
-                        StarterKitDatabase[kitData.loadoutId] = kitData;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 시작 키트가 무시되었습니다: {file}");
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadNPCUnitsFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                NPCUnitData enemyData = deserializer.Deserialize<NPCUnitData>(yamlContent);
-
-                if (enemyData != null)
-                {
-                    if (enemyData.ResolveAndValidate(modRootPath))
-                    {
-                        NPCUnitDatabase[enemyData.unitId] = enemyData;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 적 데이터가 무시되었습니다: {file}");
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadDialoguesFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                DialogueData dialogueData = deserializer.Deserialize<DialogueData>(yamlContent);
-
-                if (dialogueData != null)
-                {
-                    // 다이얼로그 데이터는 별도 외부 리소스 매핑(ResolveAndValidate) 없이 딕셔너리에 추가
-                    DialogueDatabase[dialogueData.dialogueID] = dialogueData;
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadInteractablesFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                InteractableData interactableData = deserializer.Deserialize<InteractableData>(yamlContent);
-
-                if (interactableData != null)
-                {
-                    // 상호작용 데이터는 별도 외부 리소스 매핑(ResolveAndValidate) 없이 딕셔너리에 추가
-                    InteractableDatabase[interactableData.interactableID] = interactableData;
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[ModLoader] YAML 파싱 에러 ({file}):\n{e.Message}");
-            }
-        }
-    }
-
-    private void LoadDropTablesFromPath(string dataPath, string modRootPath)
-    {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
-
-        string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
-
-        foreach (string file in yamlFiles)
-        {
-            string yamlContent = File.ReadAllText(file);
-            try
-            {
-                DropTableData dropTableData = deserializer.Deserialize<DropTableData>(yamlContent);
-
-                if (dropTableData != null)
-                {
-                    DropTableDatabase[dropTableData.dropTableID] = dropTableData;
                 }
             }
             catch (System.Exception e)
