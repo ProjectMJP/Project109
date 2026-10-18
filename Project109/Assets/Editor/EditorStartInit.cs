@@ -13,6 +13,7 @@ public class EditorStartInit : Editor
         Debug.Log("Clear play mode start scene (playModeStartScene = null)");
 
         AddressableAutoRegister.RegisterAll();
+        SetupBattleUIPanelPrefab.SetupReferences();
     }
 }
 #endif

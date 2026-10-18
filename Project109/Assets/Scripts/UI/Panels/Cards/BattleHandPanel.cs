@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class BattleHandPanel : UIPanelBase
 {
@@ -7,6 +10,17 @@ public class BattleHandPanel : UIPanelBase
     public Transform contentTransform;
     public float maxPanelWidth = 900f;
     public float defaultCardSpacing = 160f;
+
+    [Header("Deck Pile UI")]
+    [SerializeField] private Button drawPileButton;
+    [SerializeField] private TextMeshProUGUI drawCountText;
+    [SerializeField] private Button usedPileButton;
+    [SerializeField] private TextMeshProUGUI usedCountText;
+
+    [Header("Mode Switch Button")]
+    [SerializeField] private Button switchToMoveModeButton;
+
+    public event Action OnMoveModeRequested;
 
     private readonly List<GameObject> activeCardUIs = new List<GameObject>();
     private BattleDeck _boundDeck;
@@ -21,6 +35,24 @@ public class BattleHandPanel : UIPanelBase
     {
         base.OnEnable();
 
+        if (drawPileButton != null)
+        {
+            drawPileButton.onClick.RemoveAllListeners();
+            drawPileButton.onClick.AddListener(OnDrawPileClicked);
+        }
+
+        if (usedPileButton != null)
+        {
+            usedPileButton.onClick.RemoveAllListeners();
+            usedPileButton.onClick.AddListener(OnUsedPileClicked);
+        }
+
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.onClick.RemoveAllListeners();
+            switchToMoveModeButton.onClick.AddListener(HandleSwitchToMoveMode);
+        }
+
         // 바인딩된 덱이 없으면 현재 플레이어의 전투 덱 자동 바인딩 시도
         if (_boundDeck == null && GameSceneManager.instance != null && GameSceneManager.instance.player != null)
         {
@@ -31,7 +63,19 @@ public class BattleHandPanel : UIPanelBase
     protected override void OnDisable()
     {
         base.OnDisable();
+
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.onClick.RemoveListener(HandleSwitchToMoveMode);
+        }
+
         UnbindBattleDeck();
+        ClearHandUI();
+    }
+
+    private void HandleSwitchToMoveMode()
+    {
+        OnMoveModeRequested?.Invoke();
     }
 
     /// <summary>
@@ -43,7 +87,7 @@ public class BattleHandPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 전투 덱을 바인딩하고 손패 UI를 즉시 갱신합니다.
+    /// 전투 덱을 바인딩하고 손패 UI 및 덱 카운터를 즉시 갱신합니다.
     /// </summary>
     public void BindBattleDeck(BattleDeck deck)
     {
@@ -55,7 +99,12 @@ public class BattleHandPanel : UIPanelBase
         if (_boundDeck != null)
         {
             _boundDeck.OnHandChanged += HandleHandChanged;
+            _boundDeck.OnDrawPileChanged += RefreshDrawPileCount;
+            _boundDeck.OnDiscardPileChanged += RefreshDiscardPileCount;
+
             RefreshHand(_boundDeck.hand);
+            RefreshDrawPileCount();
+            RefreshDiscardPileCount();
         }
     }
 
@@ -67,7 +116,45 @@ public class BattleHandPanel : UIPanelBase
         if (_boundDeck != null)
         {
             _boundDeck.OnHandChanged -= HandleHandChanged;
+            _boundDeck.OnDrawPileChanged -= RefreshDrawPileCount;
+            _boundDeck.OnDiscardPileChanged -= RefreshDiscardPileCount;
             _boundDeck = null;
+        }
+    }
+
+    private void RefreshDrawPileCount()
+    {
+        if (drawCountText != null && _boundDeck != null)
+        {
+            drawCountText.text = _boundDeck.drawPile.Count.ToString();
+        }
+    }
+
+    private void RefreshDiscardPileCount()
+    {
+        if (usedCountText != null && _boundDeck != null)
+        {
+            usedCountText.text = _boundDeck.discardPile.Count.ToString();
+        }
+    }
+
+    private void OnDrawPileClicked()
+    {
+        if (_boundDeck == null || UIManager.instance == null) return;
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        if (deckPanel != null)
+        {
+            deckPanel.OpenDrawPile(_boundDeck);
+        }
+    }
+
+    private void OnUsedPileClicked()
+    {
+        if (_boundDeck == null || UIManager.instance == null) return;
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        if (deckPanel != null)
+        {
+            deckPanel.OpenDiscardPile(_boundDeck);
         }
     }
 

@@ -815,10 +815,22 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    public BattleUIPanel GetOrSpawnBattleUI()
+    {
+        GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_UI, UILayerType.Top, true);
+        return spawned != null ? spawned.GetComponent<BattleUIPanel>() : null;
+    }
+
     public BattleHandPanel GetOrSpawnBattleHand()
     {
-        GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Normal, true);
-        return spawned != null ? spawned.GetComponent<BattleHandPanel>() : null;
+        BattleUIPanel battleUI = GetOrSpawnBattleUI();
+        if (battleUI != null && battleUI.HandPanel != null)
+        {
+            return battleUI.HandPanel;
+        }
+
+        GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Top, true);
+        return spawned != null ? spawned.GetComponentInChildren<BattleHandPanel>(true) : null;
     }
     #endregion
 }
