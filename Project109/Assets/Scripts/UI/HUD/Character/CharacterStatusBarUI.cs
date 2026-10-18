@@ -63,6 +63,10 @@ public class CharacterStatusBarUI : MonoBehaviour
             worldOffset = offset.Value;
         }
 
+        if (!gameObject.activeSelf)
+        {
+            Show();
+        }
         UpdatePosition();
     }
 
@@ -72,6 +76,11 @@ public class CharacterStatusBarUI : MonoBehaviour
     public void UpdateHealth(float curHealth, float maxHealth, float shield)
     {
         if (healthGaugeUI == null) return;
+
+        if (!gameObject.activeSelf)
+        {
+            Show();
+        }
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
         int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);

@@ -67,6 +67,12 @@ public class CharacterEffectListUI : MonoBehaviour
     {
         if (effect == null || effectContainer == null) return;
 
+        // 재사용 뷰 활성화 보장 (§2.10)
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
         // 이미 존재하는 경우 리프레시
         var existing = activeEffectItems.Find(x => x != null && x.TargetEffect == effect);
         if (existing != null)
@@ -98,9 +104,8 @@ public class CharacterEffectListUI : MonoBehaviour
         }
         else
         {
-            GameObject go = new GameObject($"EffectItem_{effect.Data?.effectName}");
-            go.transform.SetParent(effectContainer, false);
-            itemUI = go.AddComponent<CharacterEffectItemUI>();
+            Debug.LogError($"[CharacterEffectListUI] 필수 프리팹({UIConstants.PREFAB_CHARACTER_EFFECT_ITEM})을 찾을 수 없습니다.");
+            return;
         }
 
         itemUI.Setup(effect);

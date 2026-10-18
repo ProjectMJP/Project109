@@ -293,20 +293,19 @@ public class UIManager : MonoBehaviour
         }
 
         CharacterStatusBarUI statusBarUI = null;
+        string targetName = target != null ? target.name : "Target";
         if (prefab != null)
         {
             GameObject go = Instantiate(prefab, parentTransform);
-            go.name = $"CharacterStatusBar_{target?.name ?? "Target"}";
+            go.name = $"CharacterStatusBar_{targetName}";
             SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             statusBarUI = go.GetComponent<CharacterStatusBarUI>();
             if (statusBarUI == null) statusBarUI = go.AddComponent<CharacterStatusBarUI>();
         }
         else
         {
-            GameObject go = new GameObject($"CharacterStatusBar_{target?.name ?? "Target"}");
-            go.transform.SetParent(parentTransform, false);
-            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
-            statusBarUI = go.AddComponent<CharacterStatusBarUI>();
+            Debug.LogError($"[UIManager] 필수 프리팹({UIConstants.PREFAB_CHARACTER_STATUS_BAR})이 AssetCacheManager에 로드되지 않았습니다.");
+            return null;
         }
 
         if (statusBarUI != null)
@@ -336,20 +335,19 @@ public class UIManager : MonoBehaviour
         }
 
         CharacterEffectListUI effectListUI = null;
+        string targetName = target != null ? target.name : "Target";
         if (prefab != null)
         {
             GameObject go = Instantiate(prefab, parentTransform);
-            go.name = $"CharacterEffectList_{target?.name ?? "Target"}";
+            go.name = $"CharacterEffectList_{targetName}";
             SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             effectListUI = go.GetComponent<CharacterEffectListUI>();
             if (effectListUI == null) effectListUI = go.AddComponent<CharacterEffectListUI>();
         }
         else
         {
-            GameObject go = new GameObject($"CharacterEffectList_{target?.name ?? "Target"}");
-            go.transform.SetParent(parentTransform, false);
-            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
-            effectListUI = go.AddComponent<CharacterEffectListUI>();
+            Debug.LogError($"[UIManager] 필수 프리팹({UIConstants.PREFAB_CHARACTER_EFFECT_LIST})이 AssetCacheManager에 로드되지 않았습니다.");
+            return null;
         }
 
         if (effectListUI != null)

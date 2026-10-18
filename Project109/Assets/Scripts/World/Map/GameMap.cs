@@ -400,26 +400,6 @@ public class GameMap : MonoBehaviour
         additionalEffectAreaTile = additionalTile;
     }
 
-    private void EnsureEffectAreaTiles()
-    {
-        if (effectAreaTile == null || additionalEffectAreaTile == null)
-        {
-            var tiles = Object.FindObjectsByType<EffectAreaTile>(FindObjectsSortMode.None);
-            foreach (var t in tiles)
-            {
-                if (t == null) continue;
-                if (t.name.Contains("Additional") || t.isAdditionalEffectAreaActive)
-                {
-                    if (additionalEffectAreaTile == null) additionalEffectAreaTile = t;
-                }
-                else
-                {
-                    if (effectAreaTile == null) effectAreaTile = t;
-                }
-            }
-        }
-    }
-
     /// <summary>
     /// 카드 데이터의 문자열 형태 targetType을 TargetType enum으로 안전하게 변환합니다.
     /// "Enemy", "Single", "Target" 등의 동의어를 TargetType.Target으로 정규화합니다.
@@ -570,7 +550,6 @@ public class GameMap : MonoBehaviour
         ShowCardRange(playerCoord, newCardData);
 
         // 2. 레거시 3D 스튜디오(CardDetailUI 호환용) 업데이트 유지
-        EnsureEffectAreaTiles();
         if (effectAreaTile != null)
         {
             effectAreaTile.ClearAllTiles();
@@ -613,7 +592,6 @@ public class GameMap : MonoBehaviour
         ClearCardRange();
 
         // 2. 레거시 3D 스튜디오 타일 클리어
-        EnsureEffectAreaTiles();
         if (effectAreaTile != null)
         {
             effectAreaTile.ClearAllTiles();
@@ -627,7 +605,6 @@ public class GameMap : MonoBehaviour
 
     public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, TileType type)
     {
-        EnsureEffectAreaTiles();
         if (effectAreaTile == null) return;
 
         TargetType parsedTargetType = ParseTargetType(cardTargetType);
@@ -636,7 +613,6 @@ public class GameMap : MonoBehaviour
 
     public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
     {
-        EnsureEffectAreaTiles();
         if (additionalEffectAreaTile == null) return;
 
         additionalEffectAreaTile.SetTileFromShapeGenerator(shapeName, shapeLength, radius, type);

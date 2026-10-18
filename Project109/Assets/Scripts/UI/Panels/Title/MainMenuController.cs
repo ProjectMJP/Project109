@@ -23,6 +23,8 @@ public class MainMenuController : MonoBehaviour
     [Header("Default Starter Kit")]
     [SerializeField] private string defaultStarterKitId = "warrior_starter";
 
+    private static readonly WaitForSeconds _initWait = new WaitForSeconds(0.1f);
+
     // 런타임 동적 빌드 Awake는 제거하고 인스펙터에서 바인딩된 컴포넌트들을 직접 사용합니다.
 
     private void Start()
@@ -73,7 +75,7 @@ public class MainMenuController : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(0.1f);
+        yield return _initWait;
 
         SetMenuButtonsInteractable(true);
         RefreshSlotUI();
