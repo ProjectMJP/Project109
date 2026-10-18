@@ -16,22 +16,17 @@ public class CardDetailPanel : UIPanelBase
         if (cardUI == null)
         {
             cardUI = GetComponentInChildren<CardUI>(true);
+            if (cardUI == null)
+            {
+                Debug.LogError("[CardDetailPanel] cardUI가 바인딩되지 않았습니다! CardDetailUI 프리팹 설정을 확인하세요.", this);
+            }
         }
 
         if (closeBackgroundButton == null)
         {
-            var trigger = transform.Find("CloseTrigger");
-            if (trigger != null)
-            {
-                closeBackgroundButton = trigger.GetComponent<Button>();
-                if (closeBackgroundButton == null)
-                {
-                    closeBackgroundButton = trigger.gameObject.AddComponent<Button>();
-                }
-            }
+            Debug.LogError("[CardDetailPanel] closeBackgroundButton이 바인딩되지 않았습니다! CardDetailUI 프리팹 설정을 확인하세요.", this);
         }
-
-        if (closeBackgroundButton != null)
+        else
         {
             closeBackgroundButton.onClick.RemoveListener(Close);
             closeBackgroundButton.onClick.AddListener(Close);

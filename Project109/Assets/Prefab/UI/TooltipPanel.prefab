@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 195146344621258125}
   - component: {fileID: 7433028868790999477}
   - component: {fileID: 8789855289049478591}
+  - component: {fileID: 934760009005499708}
   m_Layer: 0
   m_Name: TooltipPanel
   m_TagString: Untagged
@@ -132,11 +133,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5c5f3f0250be1947a58a24355487e62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TooltipPanel
-  _headerText: {fileID: 0}
-  _bodyText: {fileID: 0}
-  _layoutElement: {fileID: 0}
-  _characterWrapLimit: 80
+  _headerText: {fileID: 5459931206585425932}
+  _bodyText: {fileID: 580077836635604746}
+  _layoutElement: {fileID: 934760009005499708}
   _preferredWidthValue: 350
+--- !u!114 &934760009005499708
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 82086511615443955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: -1
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &5654328879904456995
 GameObject:
   m_ObjectHideFlags: 0

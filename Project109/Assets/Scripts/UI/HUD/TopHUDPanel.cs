@@ -16,19 +16,7 @@ public class TopHUDPanel : UIPanelBase
 
         if (playerRelicUI == null)
         {
-            Transform spawnTransform = transform.Find("HUDPanel/Relic/SpawnTransform");
-            if (spawnTransform != null)
-            {
-                playerRelicUI = spawnTransform.gameObject.GetComponent<PlayerRelicUI>();
-                if (playerRelicUI == null)
-                {
-                    playerRelicUI = spawnTransform.gameObject.AddComponent<PlayerRelicUI>();
-                }
-            }
-            else
-            {
-                Debug.LogWarning("[TopHUDPanel] Relic/SpawnTransform not found in hierarchy!");
-            }
+            Debug.LogError("[TopHUDPanel] playerRelicUI가 바인딩되지 않았습니다! TopHUDPanel 프리팹 설정을 확인하세요.", this);
         }
     }
 

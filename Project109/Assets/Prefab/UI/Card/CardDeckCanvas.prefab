@@ -54,6 +54,10 @@ MonoBehaviour:
   uiLayerType: 1
   blockWorldInput: 1
   contentTransform: {fileID: 7045555817398906721}
+  titleText: {fileID: 0}
+  confirmButton: {fileID: 0}
+  confirmButtonText: {fileID: 0}
+  closeButton: {fileID: 7313337656231288324}
 --- !u!1 &2172932305740490572
 GameObject:
   m_ObjectHideFlags: 0

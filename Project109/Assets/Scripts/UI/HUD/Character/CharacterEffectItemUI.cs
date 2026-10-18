@@ -23,7 +23,7 @@ public class CharacterEffectItemUI : MonoBehaviour
         tooltipTrigger = GetComponent<TooltipTrigger>();
         if (tooltipTrigger == null)
         {
-            tooltipTrigger = gameObject.AddComponent<TooltipTrigger>();
+            Debug.LogError("[CharacterEffectItemUI] TooltipTrigger가 누락되었습니다! CharacterEffectItemUI 프리팹을 확인하세요.", this);
         }
     }
 

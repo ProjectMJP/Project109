@@ -12,36 +12,30 @@ public class TooltipPanel : MonoBehaviour
 
     private void Awake()
     {
-        if (_headerText == null)
-        {
-            Transform child = transform.Find("HeaderText");
-            if (child != null)
-            {
-                _headerText = child.GetComponent<TextMeshProUGUI>();
-            }
-        }
         if (_headerText != null)
         {
-            _headerText.enableWordWrapping = true;
+            _headerText.textWrappingMode = TextWrappingModes.Normal;
         }
-        if (_bodyText == null)
+        else
         {
-            Transform child = transform.Find("BodyText");
-            if (child != null)
-            {
-                _bodyText = child.GetComponent<TextMeshProUGUI>();
-            }
+            Debug.LogError("[TooltipPanel] _headerText가 바인딩되지 않았습니다! TooltipPanel 프리팹을 확인하세요.", this);
         }
+
         if (_bodyText != null)
         {
-            _bodyText.enableWordWrapping = true;
+            _bodyText.textWrappingMode = TextWrappingModes.Normal;
         }
+        else
+        {
+            Debug.LogError("[TooltipPanel] _bodyText가 바인딩되지 않았습니다! TooltipPanel 프리팹을 확인하세요.", this);
+        }
+
         if (_layoutElement == null)
         {
             _layoutElement = GetComponent<LayoutElement>();
             if (_layoutElement == null)
             {
-                _layoutElement = gameObject.AddComponent<LayoutElement>();
+                Debug.LogError("[TooltipPanel] LayoutElement가 바인딩되지 않았습니다! TooltipPanel 프리팹을 확인하세요.", this);
             }
         }
     }

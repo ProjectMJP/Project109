@@ -21,45 +21,30 @@ public class EventDescriptionScript : UIPanelBase
 
     public Button CreateChoiceButton(string buttonDescription)
     {
+        if (eventButtonPrefab == null || eventButtonSpawnPoint == null)
+        {
+            Debug.LogError("[EventDescriptionScript] eventButtonPrefab 또는 eventButtonSpawnPoint가 바인딩되지 않았습니다!", this);
+            return null;
+        }
+
         GameObject button = GameObject.Instantiate(eventButtonPrefab, eventButtonSpawnPoint);
         if (button != null)
         {
-            var textMesh = button.transform.GetChild(0).GetComponent<TextMeshProUGUI>();
-            textMesh.text = buttonDescription;
-            textMesh.textWrappingMode = TextWrappingModes.Normal;
-            var fitter = button.GetComponent<ContentSizeFitter>();
-            if (fitter == null)
+            var textMesh = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (textMesh != null)
             {
-                fitter = button.AddComponent<ContentSizeFitter>();
+                textMesh.text = buttonDescription;
+                textMesh.textWrappingMode = TextWrappingModes.Normal;
             }
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var layoutGroup = button.GetComponent<VerticalLayoutGroup>();
-            if (layoutGroup == null)
+
+            var rectTransform = button.transform as RectTransform;
+            if (rectTransform != null)
             {
-                layoutGroup = button.AddComponent<VerticalLayoutGroup>();
-                layoutGroup.padding = new RectOffset(15, 15, 10, 10);
-                layoutGroup.childAlignment = TextAnchor.MiddleCenter;
-                layoutGroup.childControlWidth = true;
-                layoutGroup.childControlHeight = true;
-                layoutGroup.childForceExpandWidth = true;
-                layoutGroup.childForceExpandHeight = false;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
             }
-            var parentLayoutGroup = eventButtonSpawnPoint.GetComponent<VerticalLayoutGroup>();
-            if (parentLayoutGroup != null)
-            {
-                parentLayoutGroup.childControlWidth = true;
-                parentLayoutGroup.childForceExpandWidth = true;
-                parentLayoutGroup.childControlHeight = true;
-                parentLayoutGroup.childForceExpandHeight = false;
-            }
-            LayoutRebuilder.ForceRebuildLayoutImmediate(button.GetComponent<RectTransform>());
-            if (parentLayoutGroup != null)
-            {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(eventButtonSpawnPoint.GetComponent<RectTransform>());
-            }
+            return button.GetComponent<Button>();
         }
-        return button.GetComponent<Button>();
+        return null;
     }
 
     public void ClearChoiceButton()

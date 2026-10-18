@@ -14,8 +14,7 @@ public class DamageIndicatorManager : MonoBehaviour
                 _instance = FindFirstObjectByType<DamageIndicatorManager>();
                 if (_instance == null)
                 {
-                    GameObject go = new GameObject("DamageIndicatorManager");
-                    _instance = go.AddComponent<DamageIndicatorManager>();
+                    Debug.LogError("[DamageIndicatorManager] DamageIndicatorManager가 씬에 존재하지 않습니다! GameScene의 [Managers] 구성을 확인하세요.");
                 }
             }
             return _instance;
@@ -47,9 +46,8 @@ public class DamageIndicatorManager : MonoBehaviour
             createFunc: () => {
                 if (_indicatorPrefab == null)
                 {
-                    // 폴백용 임시 오브젝트 생성
-                    GameObject go = new GameObject("DamageIndicatorFallback");
-                    return go.AddComponent<DamageIndicator>();
+                    Debug.LogError("[DamageIndicatorManager] _indicatorPrefab이 바인딩되지 않았습니다! DamageIndicatorManager 프리팹을 확인하세요.", this);
+                    return null;
                 }
                 return Instantiate(_indicatorPrefab, transform);
             },

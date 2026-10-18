@@ -28,7 +28,11 @@ public class TooltipManager : MonoBehaviour
         {
             if (instance == null)
             {
-                CreateInstance();
+                instance = FindFirstObjectByType<TooltipManager>(FindObjectsInactive.Include);
+                if (instance == null)
+                {
+                    Debug.LogError("[TooltipManager] TooltipManager가 씬에 존재하지 않습니다! UIManager.prefab 구성을 확인하세요.");
+                }
             }
             return instance;
         }
@@ -162,70 +166,31 @@ public class TooltipManager : MonoBehaviour
         rectTransform = GetComponent<RectTransform>();
         parentCanvas = GetComponentInParent<Canvas>();
 
-        // 1. 다중 정렬 레이아웃을 위한 Vertical Layout Group 설정
         layoutGroup = GetComponent<VerticalLayoutGroup>();
         if (layoutGroup == null)
         {
-            layoutGroup = gameObject.AddComponent<VerticalLayoutGroup>();
+            Debug.LogError("[TooltipManager] VerticalLayoutGroup이 누락되었습니다! TooltipContainer 설정을 확인하세요.", this);
         }
-        layoutGroup.childAlignment = TextAnchor.UpperRight;
-        layoutGroup.childControlWidth = true;
-        layoutGroup.childControlHeight = true;
-        layoutGroup.childForceExpandWidth = true;
-        layoutGroup.childForceExpandHeight = false;
-        layoutGroup.spacing = 8f;
-        layoutGroup.padding = new RectOffset(10, 10, 10, 10);
 
-        // 2. 전체 패널 크기 자동 조절을 위한 Content Size Fitter 설정
         sizeFitter = GetComponent<ContentSizeFitter>();
         if (sizeFitter == null)
         {
-            sizeFitter = gameObject.AddComponent<ContentSizeFitter>();
+            Debug.LogError("[TooltipManager] ContentSizeFitter가 누락되었습니다! TooltipContainer 설정을 확인하세요.", this);
         }
-        sizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-        sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        // 3. 캐시 매니저를 통해 독립적인 TooltipPanel 프리팹 로드
+        // 캐시 매니저를 통한 백업 로드 (프리팹에 미할당된 경우)
         if (panelTemplatePrefab == null && AssetCacheManager.instance != null)
         {
             if (AssetCacheManager.instance.TryGetUI("TooltipPanel", out GameObject panelPrefab))
             {
                 panelTemplatePrefab = panelPrefab.GetComponent<TooltipPanel>();
-                if (panelTemplatePrefab == null)
-                {
-                    Debug.LogError("[TooltipManager] TooltipPanel component not found on 'TooltipPanel' prefab.");
-                }
-            }
-            else
-            {
-                Debug.LogError("[TooltipManager] Failed to find 'TooltipPanel' prefab in AssetCacheManager.");
             }
         }
-    }
 
-    private static void CreateInstance()
-    {
-        if (UIManager.instance == null)
+        if (panelTemplatePrefab == null)
         {
-            Debug.LogWarning("[TooltipManager] UIManager is not initialized yet.");
-            return;
+            Debug.LogError("[TooltipManager] panelTemplatePrefab이 바인딩되지 않았습니다! TooltipManager 인스펙터를 확인하세요.", this);
         }
-
-        // 1. 빈 RectTransform 게임 오브젝트를 런타임에 생성
-        GameObject inst = new GameObject("TooltipContainer", typeof(RectTransform));
-        
-        // 2. UIManager의 popupUILayer 자식으로 정렬 배치
-        Transform parentTransform = UIManager.instance.popupUILayer != null 
-            ? UIManager.instance.popupUILayer.transform 
-            : UIManager.instance.transform;
-        inst.transform.SetParent(parentTransform, false);
-
-        // 3. TooltipManager 컴포넌트 추가 및 컴포넌트 초기화
-        instance = inst.AddComponent<TooltipManager>();
-        instance.InitializeComponents();
-        inst.SetActive(false);
-
-        Debug.Log("[TooltipManager] TooltipContainer dynamically created and TooltipManager initialized.");
     }
 
     public void ShowTooltip(string title, string content, RectTransform targetRect = null)

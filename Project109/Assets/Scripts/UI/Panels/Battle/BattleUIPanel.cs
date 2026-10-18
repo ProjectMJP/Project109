@@ -35,24 +35,20 @@ public class BattleUIPanel : UIPanelBase
         uiLayerType = UILayerType.Top;
         blockWorldInput = false;
 
-        // 직렬화 필드가 비어있을 경우 하위 자식 계층에서 자동 탐색 (폴백)
+        // 프리팹 직렬화 필드 유효성 검증 (Fail-Fast)
         if (battleHandPanel == null)
         {
-            battleHandPanel = GetComponentInChildren<BattleHandPanel>(true);
+            Debug.LogError("[BattleUIPanel] battleHandPanel이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
         }
 
         if (battleMovePanel == null)
         {
-            battleMovePanel = GetComponentInChildren<BattleMovePanel>(true);
+            Debug.LogError("[BattleUIPanel] battleMovePanel이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
         }
 
         if (endTurnButton == null)
         {
-            Transform btnTrans = transform.Find("EndTurnButton");
-            if (btnTrans != null)
-            {
-                endTurnButton = btnTrans.GetComponent<UnityEngine.UI.Button>();
-            }
+            Debug.LogError("[BattleUIPanel] endTurnButton이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
         }
     }
 

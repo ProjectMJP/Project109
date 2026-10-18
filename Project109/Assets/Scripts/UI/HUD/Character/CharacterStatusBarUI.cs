@@ -32,43 +32,24 @@ public class CharacterStatusBarUI : MonoBehaviour
     {
         cachedCamera = Camera.main;
 
-        // 인스펙터 바인딩 누락 및 잘못된 Background 바인딩 대비 자가 복구 (Self-Healing)
-        if (healthGaugeUI == null || healthGaugeUI.gameObject.name.Contains("Background"))
+        // 프리팹 직렬화 바인딩 검증 (Fail-Fast)
+        if (healthGaugeUI == null)
         {
-            Transform healthGroup = transform.Find("HealthGroup");
-            if (healthGroup != null)
-            {
-                Transform fillTrans = healthGroup.Find("HealthFill");
-                if (fillTrans != null)
-                {
-                    healthGaugeUI = fillTrans.GetComponent<GaugeUI>();
-                }
-                if (healthGaugeUI == null)
-                {
-                    healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
-                }
-            }
+            Debug.LogError("[CharacterStatusBarUI] healthGaugeUI가 바인딩되지 않았습니다! CharacterStatusBarUI 프리팹 설정을 확인하세요.", this);
+        }
+        else
+        {
+            healthGaugeUI.SetGaugeColor(healthColor);
         }
 
-        if (staminaGaugeUI == null || staminaGaugeUI.gameObject.name.Contains("Background"))
+        if (staminaGaugeUI == null)
         {
-            Transform staminaGroup = transform.Find("StaminaGroup");
-            if (staminaGroup != null)
-            {
-                Transform fillTrans = staminaGroup.Find("StaminaFill");
-                if (fillTrans != null)
-                {
-                    staminaGaugeUI = fillTrans.GetComponent<GaugeUI>();
-                }
-                if (staminaGaugeUI == null)
-                {
-                    staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
-                }
-            }
+            Debug.LogError("[CharacterStatusBarUI] staminaGaugeUI가 바인딩되지 않았습니다! CharacterStatusBarUI 프리팹 설정을 확인하세요.", this);
         }
-
-        if (healthGaugeUI != null) healthGaugeUI.SetGaugeColor(healthColor);
-        if (staminaGaugeUI != null) staminaGaugeUI.SetGaugeColor(staminaColor);
+        else
+        {
+            staminaGaugeUI.SetGaugeColor(staminaColor);
+        }
     }
 
     /// <summary>
@@ -90,12 +71,7 @@ public class CharacterStatusBarUI : MonoBehaviour
     /// </summary>
     public void UpdateHealth(float curHealth, float maxHealth, float shield)
     {
-        if (healthGaugeUI == null)
-        {
-            Transform healthGroup = transform.Find("HealthGroup");
-            if (healthGroup != null) healthGaugeUI = healthGroup.GetComponentInChildren<GaugeUI>();
-            if (healthGaugeUI == null) return;
-        }
+        if (healthGaugeUI == null) return;
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
         int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);
@@ -114,12 +90,7 @@ public class CharacterStatusBarUI : MonoBehaviour
     /// </summary>
     public void UpdateStamina(float curStamina, float maxStamina)
     {
-        if (staminaGaugeUI == null)
-        {
-            Transform staminaGroup = transform.Find("StaminaGroup");
-            if (staminaGroup != null) staminaGaugeUI = staminaGroup.GetComponentInChildren<GaugeUI>();
-            if (staminaGaugeUI == null) return;
-        }
+        if (staminaGaugeUI == null) return;
 
         float rate = (maxStamina > 0f) ? Mathf.Clamp01(curStamina / maxStamina) : 0f;
         int displayStamina = (curStamina >= maxStamina) ? Mathf.RoundToInt(curStamina) : Mathf.CeilToInt(curStamina);
