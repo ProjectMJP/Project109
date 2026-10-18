@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
 using XLua;
 
@@ -20,6 +19,10 @@ public delegate void ExecuteDialogueChoice(DialogueManager dm);
 [CSharpCallLua]
 public delegate string GetDialogueChoiceDescription(DialogueManager dm);
 
+/// <summary>
+/// 다이얼로그 UI 표시, 지문 출력 및 선택지 분기 처리를 전담하는 L4 UI 매니저입니다.
+/// 인게임 게임플레이 액션(보상, 회복, 전투 등)은 DialogueActionExecutor로 위임합니다.
+/// </summary>
 public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager Instance { get; private set; }
@@ -31,14 +34,15 @@ public class DialogueManager : MonoBehaviour
     public static event Action<DialogueNode, List<ChoiceData>> OnPopulateChoices;
 
     public GameObject dialogueUICanvasPrefab;
-    private EventDescriptionScript dialogueUI; // 기존 UI 제어 클래스 재활용
+    private EventDescriptionScript dialogueUI;
 
     private DialogueData activeDialogue;
     private Dictionary<string, DialogueNode> nodeMap = new Dictionary<string, DialogueNode>();
     private DialogueNode currentNode;
     private int currentLineIndex = 0;
 
-    private LuaEnv luaEnv;
+    private readonly DialogueActionExecutor actionExecutor = new DialogueActionExecutor();
+
     private string luaNextNodeOverride = null;
     private bool endDialogueTriggered = false;
 
@@ -52,10 +56,7 @@ public class DialogueManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
-            return;
         }
-
-        luaEnv = new LuaEnv();
     }
 
     private void EnsureDialogueUI()
@@ -153,10 +154,8 @@ public class DialogueManager : MonoBehaviour
         if (currentLineIndex < currentNode.lines.Count)
         {
             dialogueUI.ClearChoiceButton();
-            // 지문 대사 출력
             dialogueUI.SetDescription(currentNode.lines[currentLineIndex]);
 
-            // 기존 EventDescriptionScript의 Next 기능이나 마우스 클릭으로 다음 줄을 출력하도록 바인딩하기 위해 기본 진행용 '다음' 버튼 생성
             Button nextBtn = dialogueUI.CreateChoiceButton("▶");
             nextBtn.onClick.AddListener(() =>
             {
@@ -166,7 +165,6 @@ public class DialogueManager : MonoBehaviour
         }
         else
         {
-            // 지문이 전부 끝났으므로 선택지 세팅
             SetupChoiceButtons();
         }
     }
@@ -184,12 +182,10 @@ public class DialogueManager : MonoBehaviour
             choicesToDisplay.AddRange(currentNode.choices);
         }
 
-        // 외부 훅에서 선택지 추가 기회 제공 (유물 등)
         OnPopulateChoices?.Invoke(currentNode, choicesToDisplay);
 
         if (choicesToDisplay.Count == 0)
         {
-            // 대화 분기나 선택지가 없다면 대화 종료
             Button closeBtn = dialogueUI.CreateChoiceButton("대화를 끝마친다.");
             closeBtn.onClick.AddListener(EndDialogue);
             return;
@@ -200,13 +196,11 @@ public class DialogueManager : MonoBehaviour
             string finalDescription = choice.description;
             bool isSelectable = true;
 
-            // Lua 스크립트 기반 조건 및 설명 오버라이드
             if (!string.IsNullOrEmpty(choice.luaScript))
             {
                 LoadAndExecuteLua(choice.luaScript, out var canSelect, out var getDesc, out _, out var isVisible);
                 if (isVisible != null && !isVisible(this))
                 {
-                    // 조건에 맞지 않아 표시되지 않는 선택지 건너뜀
                     continue;
                 }
                 if (getDesc != null)
@@ -275,9 +269,6 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 플레이어가 특정 선택지 버튼을 눌렀을 때의 콜백입니다.
-    /// </summary>
     private void OnChoiceClicked(ChoiceData choice)
     {
         if (!string.IsNullOrEmpty(choice.luaScript))
@@ -310,9 +301,6 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 다이얼로그 대화창을 비활성화하고 정산합니다.
-    /// </summary>
     public void EndDialogue()
     {
         EnsureDialogueUI();
@@ -321,15 +309,8 @@ public class DialogueManager : MonoBehaviour
             dialogueUI.Close();
         }
         activeDialogue = null;
-        if (luaEnv != null)
-        {
-            luaEnv.FullGc(); // XLua 가비지 컬렉션 수행
-        }
     }
 
-    /// <summary>
-    /// 개별 Lua 스크립트를 로드하여 델리게이트에 바인딩합니다.
-    /// </summary>
     private void LoadAndExecuteLua(string luaScriptName, out CanSelectDialogueChoice canSelect, out GetDialogueChoiceDescription getDesc, out ExecuteDialogueChoice execute, out IsDialogueChoiceVisible isVisible)
     {
         canSelect = null;
@@ -344,14 +325,21 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
+        LuaEnv env = LuaManager.Instance != null ? LuaManager.Instance.luaEnv : null;
+        if (env == null)
+        {
+            Debug.LogError("[DialogueManager] LuaManager.Instance.luaEnv가 초기화되지 않았습니다.");
+            return;
+        }
+
         try
         {
             string scriptContent = File.ReadAllText(path);
-            luaEnv.DoString(scriptContent);
-            canSelect = luaEnv.Global.Get<CanSelectDialogueChoice>("CanSelect");
-            getDesc = luaEnv.Global.Get<GetDialogueChoiceDescription>("GetDescription");
-            execute = luaEnv.Global.Get<ExecuteDialogueChoice>("ExecuteChoice");
-            isVisible = luaEnv.Global.Get<IsDialogueChoiceVisible>("IsVisible");
+            env.DoString(scriptContent);
+            canSelect = env.Global.Get<CanSelectDialogueChoice>("CanSelect");
+            getDesc = env.Global.Get<GetDialogueChoiceDescription>("GetDescription");
+            execute = env.Global.Get<ExecuteDialogueChoice>("ExecuteChoice");
+            isVisible = env.Global.Get<IsDialogueChoiceVisible>("IsVisible");
         }
         catch (Exception e)
         {
@@ -359,260 +347,36 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    #region Sandbox C# API for Lua (루아 바인딩용 샌드박스 API)
+    #region Action Delegation to DialogueActionExecutor (44개 기존 Lua 스크립트 100% 호환 포워딩)
 
-    private Player GetPlayer() => GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+    public int GetGold() => actionExecutor.GetGold();
+    public void ConsumeGold(int amount) => actionExecutor.ConsumeGold(amount);
+    public void AddGold(int amount) => actionExecutor.AddGold(amount);
 
-    // 1. 재화 (골드) 제어 API
-    public int GetGold() => GetPlayer()?.playerStat != null ? GetPlayer().playerStat.InGameCurrencyGold : 0;
+    public int GetCardCount() => actionExecutor.GetCardCount();
+    public string GetCardNameAt(int index) => actionExecutor.GetCardNameAt(index);
+    public void AddCard(string cardName) => actionExecutor.AddCard(cardName);
+    public void RemoveCardAt(int index) => actionExecutor.RemoveCardAt(index);
 
-    public void ConsumeGold(int amount)
-    {
-        var p = GetPlayer();
-        if (p?.playerStat != null)
-        {
-            p.playerStat.InGameCurrencyGold = Mathf.Max(0, GetGold() - amount);
-        }
-    }
+    public int GetRelicCount() => actionExecutor.GetRelicCount();
+    public string GetRelicNameAt(int index) => actionExecutor.GetRelicNameAt(index);
+    public void RemoveRelicAt(int index) => actionExecutor.RemoveRelicAt(index);
+    public void RemoveRelicByName(string relicName) => actionExecutor.RemoveRelicByName(relicName);
+    public bool HasRelic(string relicName) => actionExecutor.HasRelic(relicName);
 
-    public void AddGold(int amount)
-    {
-        var p = GetPlayer();
-        if (p?.playerStat != null)
-        {
-            p.playerStat.InGameCurrencyGold += amount;
-        }
-    }
+    public int GetCurrentHealth() => actionExecutor.GetCurrentHealth();
+    public int GetMaxHealth() => actionExecutor.GetMaxHealth();
+    public void HealPlayer(int amount) => actionExecutor.HealPlayer(amount);
+    public void DamagePlayer(int amount) => actionExecutor.DamagePlayer(amount);
+    public void ModifyMaxHealth(int amount) => actionExecutor.ModifyMaxHealth(amount);
 
-    // 2. 카드 제어 API
-    public int GetCardCount()
-    {
-        var p = GetPlayer();
-        return p?.deck != null ? p.deck.GetCards().Count : 0;
-    }
-
-    public string GetCardNameAt(int index)
-    {
-        var p = GetPlayer();
-        if (p?.deck != null)
-        {
-            var cards = p.deck.GetCards();
-            if (index >= 0 && index < cards.Count)
-            {
-                return cards[index].cardName;
-            }
-        }
-        return "";
-    }
-
-    public void AddCard(string cardName)
-    {
-        var p = GetPlayer();
-        if (ModLoader.Instance != null && p?.deck != null)
-        {
-            if (ModLoader.Instance.CardDatabase.TryGetValue(cardName, out CardData cardData))
-            {
-                p.deck.AddCard(cardData);
-                Debug.Log($"[DialogueManager] 덱에 '{cardName}' 카드가 추가되었습니다.");
-            }
-            else
-            {
-                Debug.LogError($"[DialogueManager] 카드 데이터베이스에서 '{cardName}' 카드를 찾을 수 없습니다.");
-            }
-        }
-    }
-
-    public void RemoveCardAt(int index)
-    {
-        var p = GetPlayer();
-        if (p?.deck != null)
-        {
-            var cards = p.deck.GetCards();
-            if (index >= 0 && index < cards.Count)
-            {
-                p.deck.RemoveCard(cards[index].runtimeID);
-                Debug.Log($"[DialogueManager] index {index} 번의 카드가 제거되었습니다.");
-            }
-        }
-    }
-
-    // 3. 유물 제어 API
-    public int GetRelicCount()
-    {
-        var p = GetPlayer();
-        return p?.relicManager != null ? p.relicManager.GetRelics().Count : 0;
-    }
-
-    public string GetRelicNameAt(int index)
-    {
-        var p = GetPlayer();
-        if (p?.relicManager != null)
-        {
-            var relics = p.relicManager.GetRelics();
-            if (index >= 0 && index < relics.Count)
-            {
-                return relics[index].Data.relicName;
-            }
-        }
-        return "";
-    }
-
-    public void RemoveRelicAt(int index)
-    {
-        var p = GetPlayer();
-        if (p != null)
-        {
-            var relics = p.relicManager.GetRelics();
-            if (index >= 0 && index < relics.Count)
-            {
-                p.RemoveRelic(relics[index].Data.relicName);
-                Debug.Log($"[DialogueManager] index {index} 번의 유물('{relics[index].Data.relicName}')이 제거되었습니다.");
-            }
-        }
-    }
-
-    public void RemoveRelicByName(string relicName)
-    {
-        var p = GetPlayer();
-        if (p != null)
-        {
-            p.RemoveRelic(relicName);
-            Debug.Log($"[DialogueManager] 유물 '{relicName}'이 제거되었습니다.");
-        }
-    }
-
-    public bool HasRelic(string relicName)
-    {
-        var p = GetPlayer();
-        if (p != null && p.relicManager != null)
-        {
-            foreach (var relic in p.relicManager.GetRelics())
-            {
-                if (relic != null && relic.Data != null && relic.Data.relicName == relicName)
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // 4. 플레이어 체력 제어 API
-    public int GetCurrentHealth() => (int)(GetPlayer()?.character != null ? GetPlayer().character.curHealth : 0);
-
-    public int GetMaxHealth() => (int)(GetPlayer()?.character?.curCharacterStat != null ? GetPlayer().character.curCharacterStat.maxHealth : 0);
-
-    public void HealPlayer(int amount)
-    {
-        var character = GetPlayer()?.character;
-        if (character != null)
-        {
-            character.TakeHeal(new EventStructs.HealInfo(null, character, amount, EventStructs.HealFlag.Normal));
-        }
-    }
-
-    public void DamagePlayer(int amount)
-    {
-        var character = GetPlayer()?.character;
-        if (character != null)
-        {
-            character.curHealth = Mathf.Max(1f, character.curHealth - amount);
-        }
-    }
-
-    public void ModifyMaxHealth(int amount)
-    {
-        var character = GetPlayer()?.character;
-        if (character != null && character.curCharacterStat != null)
-        {
-            var stat = character.curCharacterStat;
-            stat.maxHealth = Mathf.Max(1f, stat.maxHealth + amount);
-            if (character.curHealth > stat.maxHealth)
-            {
-                character.curHealth = stat.maxHealth;
-            }
-        }
-    }
-
-    // 5. 맵 노드 및 UI 제어 연출 API
-    public void StartBattle(string battleName)
-    {
-        if (AssetCacheManager.instance.TryGetBattle(battleName, out BattleData battleData))
-        {
-            RunManager.instance.SpawnMonsterInBattleNodeData(battleData);
-        }
-        else
-        {
-            Debug.LogError($"[DialogueManager] 전투 데이터를 찾을 수 없습니다: {battleName}");
-        }
-    }
-
-    /// <summary>
-    /// 맵의 모든 노드를 공개(Reveal)합니다.
-    /// </summary>
-    public void RevealAllNodes()
-    {
-        if (RunManager.instance != null && RunManager.instance.exploreMapManager != null)
-        {
-            RunManager.instance.exploreMapManager.RevealAllNodes();
-        }
-
-        if (UIManager.instance != null)
-        {
-            ExploreMapUI mapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
-            if (mapUI != null && mapUI.gameObject.activeSelf)
-            {
-                mapUI.RefreshMapVisuals();
-            }
-        }
-    }
+    public void StartBattle(string battleName) => actionExecutor.StartBattle(battleName);
+    public void RevealAllNodes() => actionExecutor.RevealAllNodes();
 
     [System.Obsolete("Use RevealAllNodes instead")]
     public void OpenAllExploreNodes() => RevealAllNodes();
 
-    public void SpawnReward(string rewardTypeStr, string rarityStr)
-    {
-        if (GameItemRewardManager.instance == null)
-        {
-            Debug.LogError("[DialogueManager] GameItemRewardManager.instance가 존재하지 않습니다.");
-            return;
-        }
-
-        RewardItemType rType = RewardItemType.Card;
-        if (rewardTypeStr.Equals("relic", StringComparison.OrdinalIgnoreCase))
-        {
-            rType = RewardItemType.Relic;
-        }
-
-        string dropTableID = "Default_Card_Table";
-        if (rType == RewardItemType.Relic)
-        {
-            dropTableID = "Default_Relic_Table";
-            if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Rare_Relic_Table";
-            }
-            else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Unique_Relic_Table";
-            }
-        }
-        else
-        {
-            if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Rare_Card_Table";
-            }
-            else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Unique_Card_Table";
-            }
-        }
-
-        // 현재 매니저의 위치(필드) 주변에 스폰
-        Vector3 spawnPos = this.transform.position;
-        GameItemRewardManager.instance.InstantiateItemReward(rType, dropTableID, spawnPos);
-    }
+    public void SpawnReward(string rewardTypeStr, string rarityStr) => actionExecutor.SpawnReward(rewardTypeStr, rarityStr, transform.position);
 
     public void OpenEraseCardUI(int count)
     {
@@ -654,80 +418,34 @@ public class DialogueManager : MonoBehaviour
     public void OpenUpgradeCardUI()
     {
         PauseDialogue();
-
         if (UIManager.instance != null)
         {
             UIManager.instance.OpenUI(UIConstants.PANEL_UPGRADE_CARD_DECK, UILayerType.Normal, true);
         }
     }
 
-    // 6. 대화 흐름 분기 제어 API
-    public void OverrideNextNode(string nodeID)
-    {
-        luaNextNodeOverride = nodeID;
-    }
+    public void OverrideNextNode(string nodeID) => luaNextNodeOverride = nodeID;
+    public void TriggerEndDialogue() => endDialogueTriggered = true;
 
-    public void TriggerEndDialogue()
-    {
-        endDialogueTriggered = true;
-    }
-
-    // 7. 상점/회복/보물상자 UI 연동 API
     public void OpenShop()
     {
-        if (ActiveInteractable is ShopNPC shopNPC)
-        {
-            EndDialogue();
-            shopNPC.OpenShopDirectly();
-        }
-        else
-        {
-            Debug.LogWarning("[DialogueManager] ActiveInteractable이 ShopNPC가 아닙니다.");
-        }
+        EndDialogue();
+        actionExecutor.OpenShop(ActiveInteractable);
     }
 
     public void OpenRestore()
     {
-        if (ActiveInteractable is RestoreBonfire restoreBonfire)
-        {
-            EndDialogue();
-            restoreBonfire.OpenRestoreDirectly();
-        }
-        else
-        {
-            Debug.LogWarning("[DialogueManager] ActiveInteractable이 RestoreBonfire가 아닙니다.");
-        }
+        EndDialogue();
+        actionExecutor.OpenRestore(ActiveInteractable);
     }
 
-    public void MarkActiveInteractableUsed()
-    {
-        if (ActiveInteractable is RestoreBonfire restoreBonfire)
-        {
-            restoreBonfire.MarkAsUsed();
-        }
-    }
+    public void MarkActiveInteractableUsed() => actionExecutor.MarkActiveInteractableUsed(ActiveInteractable);
 
     public void OpenChest()
     {
-        if (ActiveInteractable is RewardChest rewardChest)
-        {
-            EndDialogue();
-            rewardChest.OpenChestDirectly();
-        }
-        else
-        {
-            Debug.LogWarning("[DialogueManager] ActiveInteractable이 RewardChest가 아닙니다.");
-        }
+        EndDialogue();
+        actionExecutor.OpenChest(ActiveInteractable);
     }
 
     #endregion
-
-    private void OnDestroy()
-    {
-        if (luaEnv != null)
-        {
-            luaEnv.Dispose();
-            luaEnv = null;
-        }
-    }
 }

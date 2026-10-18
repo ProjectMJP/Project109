@@ -74,14 +74,14 @@
 | `Items/Relic/` | `RelicBase` (유물 베이스), `RelicManager` |
 | `NPC/AI/` | `NPCUnitController` (적 AI 컨트롤러), `AIPositionPlanner` |
 | `Interactables/` | `InteractableObject`, `RewardChest`, `RestoreBonfire`, `ShopNPC` |
-| `Map/` | `GameMap`, `Tile`, `EffectAreaTile`, `DestructibleObject`, `MapMoveRangeIndicator` |
+| `Map/` | `GameMap` (타일맵 생성/관리, 카드 효과 범위 타일 제어), `Tile`, `EffectAreaTile`, `DestructibleObject`, `MapMoveRangeIndicator` |
 
 #### [L3] Managers (`Scripts/Managers/`)
 
 | 서브디렉터리 | 책임 |
 |---|---|
 | `Scene/` | **`GameSceneManager`** (세션 루트 싱글턴), **`RunManager`** (던전 런 오케스트레이터), `HideoutManager` (은신처 서브씬), `SceneLoadManager` (씬 전환), `ScreenFader` |
-| `Gameplay/` | **`BattleManager`** (전투 FSM), **`MapManager`** (맵 생성/상태), **`ExploreMapManager`** (탐험 맵 노드 생성/진행), **`UIManager`** (UI 레이어 스택), `GameItemRewardManager` (보상 풀/배분), `SaveSystem` (JSON 직렬화), `ObjectPoolManager` |
+| `Gameplay/` | **`BattleManager`** (전투 FSM), **`MapManager`** (맵 생성/상태/O(1) 캐시), **`ExploreMapManager`** (탐험 맵 노드 생성/진행), **`UIManager`** (UI 레이어 스택), `DialogueActionExecutor` (다이얼로그 액션 실행 분리), `GameItemRewardManager` (보상 풀/배분), `SaveSystem` (JSON 직렬화), `ObjectPoolManager` |
 | `Modding/` | **`ModLoader`** (YAML 파싱, 데이터베이스 구축), `ModManager`, `ModObjectFactory` |
 
 #### [L4] UI (`Scripts/UI/`)
