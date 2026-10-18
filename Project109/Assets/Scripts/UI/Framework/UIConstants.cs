@@ -16,7 +16,8 @@ public static class UIConstants
     public const string PANEL_CARD_DECK = "CardDeckCanvas";
     public const string PANEL_CARD_DETAIL = "CardDetailUI";
     public const string PANEL_EXPLORE_MAP = "ExploreMap";
-    public const string PANEL_BATTLE_HAND = "BattleHandPanel";
+    public const string PANEL_BATTLE_HAND = "BattleUIPanel";
+    public const string PANEL_BATTLE_UI = "BattleUIPanel";
     public const string PANEL_CONFIRM_DIALOG = "ConfirmDialog";
     public const string PANEL_RESTORE_NPC = "RestoreNPCUI";
     public const string PANEL_DIALOGUE = "DialogueUI";
@@ -25,6 +26,7 @@ public static class UIConstants
     public const string PANEL_UPGRADE_CARD_DECK = "UpgradeCardDeckCanvas";
     public const string PANEL_ERASE_CARD_DECK = "EraseCardDeckCanvas";
     public const string PANEL_BATTLE_NOTICE = "UIBattleNotice";
+    public const string PANEL_GAME_OVER = "GameOverPanel";
 
     // 기본 월드 위치 오프셋 (캐릭터 머리/발 위치 기준)
     public static readonly Vector3 DEFAULT_STATUS_BAR_OFFSET = new Vector3(0f, -2.2f, 0f);

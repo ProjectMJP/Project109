@@ -195,6 +195,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e40f3083020b0404fa3a84e95b63fdff
+    m_Address: GameOverPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f07b8796f2e064a46b67742010c141a3
     m_Address: EventChoiceButton
     m_ReadOnly: 0
