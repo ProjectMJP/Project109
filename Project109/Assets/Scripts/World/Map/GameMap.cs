@@ -421,23 +421,130 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 카드 데이터의 사거리 및 효과 범위를 월드 타일맵에 시각화합니다.
+    /// 현재 활성 플레이어의 타일 그리드 좌표를 가져옵니다.
+    /// </summary>
+    public Vector2Int GetPlayerCoordinate()
+    {
+        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            var pChar = GameSceneManager.instance.player.character;
+            if (pChar != null && pChar.characterMove != null && pChar.characterMove.GetCurrentTile() != null)
+            {
+                return pChar.characterMove.GetCurrentTile().GetCoord();
+            }
+        }
+        return Vector2Int.zero;
+    }
+
+    /// <summary>
+    /// 카드 데이터와 시전 원점 좌표를 바탕으로 유효 사거리 타일 좌표 목록을 계산합니다.
+    /// </summary>
+    public List<Vector2Int> CalculateCardRangeCoords(Vector2Int originCoord, CardData cardData)
+    {
+        if (cardData == null) return new List<Vector2Int>();
+
+        if (System.Enum.TryParse(cardData.targetType, true, out TargetType parsedTargetType))
+        {
+            GridAreaSearch search = new GridAreaSearch();
+            return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance);
+        }
+
+        return new List<Vector2Int>();
+    }
+
+    /// <summary>
+    /// 카드 데이터와 타깃 좌표를 바탕으로 폭발 범위(AoE) 타일 좌표 목록을 계산합니다.
+    /// </summary>
+    public List<Vector2Int> CalculateCardAoECoords(Vector2Int targetCoord, CardData cardData)
+    {
+        List<Vector2Int> aoeCoords = new List<Vector2Int>();
+        if (cardData == null) return aoeCoords;
+
+        if (cardData.additionalEffectAreaList != null && cardData.additionalEffectAreaList.Count > 0)
+        {
+            foreach (var area in cardData.additionalEffectAreaList)
+            {
+                if (area == null) continue;
+                var shapePositions = EffectAreaShapeGenerator.GetShapePositions(
+                    area.areaType,
+                    new Vector2Int(mapColumn, mapRow),
+                    1,
+                    targetCoord.x,
+                    targetCoord.y,
+                    area.distance);
+
+                if (shapePositions != null)
+                {
+                    aoeCoords.AddRange(shapePositions);
+                }
+            }
+        }
+        else
+        {
+            // 추가 효과 범위가 없으면 대상 타일(targetCoord) 자체를 단일 타깃으로 추가
+            aoeCoords.Add(targetCoord);
+        }
+
+        return aoeCoords;
+    }
+
+    /// <summary>
+    /// 원점 좌표를 기준으로 카드의 사거리를 월드 타일맵에 표시합니다.
+    /// </summary>
+    public void ShowCardRange(Vector2Int originCoord, CardData cardData)
+    {
+        if (cardData == null || moveRangeIndicator == null) return;
+        List<Vector2Int> rangeCoords = CalculateCardRangeCoords(originCoord, cardData);
+        moveRangeIndicator.ShowCardRangeTiles(rangeCoords, tileMap);
+    }
+
+    /// <summary>
+    /// 카드의 사거리를 유지하면서, 마우스가 위치한 대상 타일 중심의 폭발 범위(AoE)를 월드 타일맵에 실시간 표시합니다.
+    /// </summary>
+    public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData)
+    {
+        if (cardData == null || moveRangeIndicator == null) return;
+        List<Vector2Int> rangeCoords = CalculateCardRangeCoords(originCoord, cardData);
+        List<Vector2Int> aoeCoords = CalculateCardAoECoords(targetCoord, cardData);
+        moveRangeIndicator.ShowCardAoETiles(rangeCoords, aoeCoords, tileMap);
+    }
+
+    /// <summary>
+    /// 월드 타일맵에 표시 중인 카드 사거리 및 폭발 범위 하이라이트를 제거합니다.
+    /// </summary>
+    public void ClearCardRange()
+    {
+        if (moveRangeIndicator != null)
+        {
+            moveRangeIndicator.ClearCardRange(tileMap);
+        }
+    }
+
+    /// <summary>
+    /// 카드 데이터의 사거리 및 효과 범위를 월드 타일맵과 프리뷰에 시각화합니다.
     /// </summary>
     public void UpdateEffectArea(CardData newCardData)
     {
         if (newCardData == null) return;
+
+        // 1. 실제 월드 타일맵에 사거리 하이라이트 표시
+        Vector2Int playerCoord = GetPlayerCoordinate();
+        ShowCardRange(playerCoord, newCardData);
+
+        // 2. 레거시 3D 스튜디오(CardDetailUI 호환용) 업데이트 유지
         EnsureEffectAreaTiles();
-        ClearEffectAreaTiles();
-
-        // 타겟 기본 범위 설정
-        SetEffectAreaFromTargetDistance(newCardData.targetType,
-                                        newCardData.targetMinDistance,
-                                        newCardData.targetMaxDistance,
-                                        TileType.TargetTile);
-
-        // 추가 효과 범위 설정
-        if (newCardData.additionalEffectAreaList != null)
+        if (effectAreaTile != null)
         {
+            effectAreaTile.ClearAllTiles();
+            SetEffectAreaFromTargetDistance(newCardData.targetType,
+                                            newCardData.targetMinDistance,
+                                            newCardData.targetMaxDistance,
+                                            TileType.TargetTile);
+        }
+
+        if (newCardData.additionalEffectAreaList != null && additionalEffectAreaTile != null)
+        {
+            additionalEffectAreaTile.ClearAllTiles();
             foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
             {
                 SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
@@ -464,8 +571,11 @@ public class GameMap : MonoBehaviour
     /// </summary>
     public void ClearEffectAreaTiles()
     {
-        EnsureEffectAreaTiles();
+        // 1. 월드 맵 하이라이트 클리어
+        ClearCardRange();
 
+        // 2. 레거시 3D 스튜디오 타일 클리어
+        EnsureEffectAreaTiles();
         if (effectAreaTile != null)
         {
             effectAreaTile.ClearAllTiles();

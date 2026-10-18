@@ -29,6 +29,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
+            PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
         }
     }
@@ -44,6 +45,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     // 현재 플레이어 조작 상태
     public PlayerControlState controlState { get; private set; } = PlayerControlState.Normal;
     private Card activeCardForTargeting;
+    private Vector2Int _lastHoveredCoord = new Vector2Int(-999, -999);
 
     #region References
 
@@ -154,9 +156,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent += HandleGlobalClick;
+            PlayerInputController.instance.OnPointerHoverEvent += HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent += CancelCurrentState;
         }
         controlState = PlayerControlState.Normal;
+        _lastHoveredCoord = new Vector2Int(-999, -999);
         if (_battleUI != null)
         {
             _battleUI.SwitchToHandMode();
@@ -183,9 +187,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
+            PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
         }
         controlState = PlayerControlState.Normal;
+        _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;
 
         if (_battleUI != null)
@@ -284,9 +290,14 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (controlState == PlayerControlState.TargetSelection)
         {
             activeCardForTargeting = null;
+            _lastHoveredCoord = new Vector2Int(-999, -999);
             if (UIManager.instance != null)
             {
                 UIManager.instance.ClearEffectAreaTiles();
+            }
+            else if (GameMap.current != null)
+            {
+                GameMap.current.ClearCardRange();
             }
         }
         else if (controlState == PlayerControlState.Move)
@@ -318,6 +329,133 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
     }
 
+    /// <summary>
+    /// 화면 스크린 좌표로부터 해당 위치의 인게임 타일을 감지합니다.
+    /// </summary>
+    private Tile GetTileFromScreenPosition(Vector2 pos)
+    {
+        if (Camera.main == null) return null;
+
+        Ray ray = Camera.main.ScreenPointToRay(pos);
+        Tile targetTile = null;
+
+        // 1. Tile 레이어 우선 레이캐스트
+        int tileMask = LayerMask.GetMask("Tile");
+        if (tileMask != 0 && Physics.Raycast(ray, out RaycastHit tileHit, 10000.0f, tileMask))
+        {
+            targetTile = tileHit.collider.GetComponentInParent<Tile>();
+        }
+
+        // 2. Tile 레이어 히트 실패 시 일반 레이캐스트
+        if (targetTile == null && Physics.Raycast(ray, out RaycastHit generalHit, 10000.0f))
+        {
+            targetTile = generalHit.collider.GetComponentInParent<Tile>();
+            if (targetTile == null && GameMap.current != null)
+            {
+                targetTile = GameMap.current.GetTileAtWorldPosition(generalHit.point);
+            }
+        }
+
+        // 3. 지면 평면(Y=0)과의 교차점 탐색
+        if (targetTile == null)
+        {
+            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+            if (groundPlane.Raycast(ray, out float enter))
+            {
+                if (GameMap.current != null)
+                {
+                    targetTile = GameMap.current.GetTileAtWorldPosition(ray.GetPoint(enter));
+                }
+            }
+        }
+
+        return targetTile;
+    }
+
+    /// <summary>
+    /// 타겟팅 모드 중 마우스 커서 이동에 따라 실시간으로 폭발 범위(AoE) 타일을 갱신합니다.
+    /// </summary>
+    private void HandlePointerHover(Vector2 screenPos)
+    {
+        if (controlState != PlayerControlState.TargetSelection || activeCardForTargeting == null)
+        {
+            return;
+        }
+
+        // UI 위를 가리키고 있을 경우 월드 호버 갱신 무시
+        if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
+        Tile hoveredTile = GetTileFromScreenPosition(screenPos);
+        Vector2Int hoveredCoord = hoveredTile != null ? hoveredTile.GetCoord() : new Vector2Int(-999, -999);
+
+        // 동일한 타일 위라면 중복 렌더링 스킵
+        if (hoveredCoord == _lastHoveredCoord)
+        {
+            return;
+        }
+        _lastHoveredCoord = hoveredCoord;
+
+        Tile playerTile = controlledCharacter != null && controlledCharacter.characterMove != null 
+            ? controlledCharacter.characterMove.GetCurrentTile() 
+            : null;
+        Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : Vector2Int.zero;
+
+        if (hoveredTile != null && playerTile != null && GameMap.current != null)
+        {
+            int distance = Tile.GetDistance(playerTile, hoveredTile);
+            int minDistance = activeCardForTargeting.cardData.targetMinDistance;
+            int maxDistance = activeCardForTargeting.cardData.targetMaxDistance;
+
+            if (distance >= minDistance && distance <= maxDistance)
+            {
+                // 유효 사거리 내 타일이면 사거리(R) 유지 + 해당 타일 중심 폭발 범위(G) 실시간 표시
+                GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData);
+                return;
+            }
+        }
+
+        // 사거리 밖이거나 타일이 없으면 사거리만 유지 표시
+        if (GameMap.current != null)
+        {
+            GameMap.current.ShowCardRange(playerCoord, activeCardForTargeting.cardData);
+        }
+    }
+
+    /// <summary>
+    /// 지정된 타일 좌표 목록에 위치한 모든 적 캐릭터를 수집합니다.
+    /// </summary>
+    private List<Character> CollectCharactersInCoords(HashSet<Vector2Int> targetCoords)
+    {
+        List<Character> foundCharacters = new List<Character>();
+        if (targetCoords == null || targetCoords.Count == 0) return foundCharacters;
+
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            var combatants = RunManager.instance.battleManager.GetAllCombatants();
+            for (int i = 0; i < combatants.Count; i++)
+            {
+                var combatant = combatants[i];
+                if (combatant == null || combatant.controlledCharacter == null) continue;
+
+                // 시전자 자신은 타깃에서 제외
+                if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+
+                var cMove = combatant.controlledCharacter.characterMove;
+                if (cMove != null && cMove.GetCurrentTile() != null)
+                {
+                    if (targetCoords.Contains(cMove.GetCurrentTile().GetCoord()))
+                    {
+                        foundCharacters.Add(combatant.controlledCharacter);
+                    }
+                }
+            }
+        }
+        return foundCharacters;
+    }
+
     private void HandleGlobalClick(Vector2 pos)
     {
         // UI 요소 클릭 시 월드 조작 무시
@@ -331,49 +469,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             return;
         }
 
-        if (Camera.main == null) return;
-
-        Ray ray = Camera.main.ScreenPointToRay(pos);
-        Tile targetTile = null;
-        string hitObjectName = "None";
-        Vector3 hitPoint = Vector3.zero;
-
-        // 1. Tile 레이어 우선 레이캐스트
-        int tileMask = LayerMask.GetMask("Tile");
-        if (tileMask != 0 && Physics.Raycast(ray, out RaycastHit tileHit, 10000.0f, tileMask))
-        {
-            hitObjectName = tileHit.collider.gameObject.name;
-            hitPoint = tileHit.point;
-            targetTile = tileHit.collider.GetComponentInParent<Tile>();
-        }
-
-        // 2. Tile 레이어 히트 실패 시, 전체 레이캐스트 수행 후 히트 지점 월드 좌표로 가장 가까운 타일 탐색
-        if (targetTile == null && Physics.Raycast(ray, out RaycastHit generalHit, 10000.0f))
-        {
-            hitObjectName = generalHit.collider.gameObject.name;
-            hitPoint = generalHit.point;
-            targetTile = generalHit.collider.GetComponentInParent<Tile>();
-
-            if (targetTile == null && GameMap.current != null)
-            {
-                targetTile = GameMap.current.GetTileAtWorldPosition(hitPoint);
-            }
-        }
-
-        // 3. 레이캐스트가 아무 콜라이더에도 닿지 않았을 경우, 지면 평면(Y=0)과의 교차점으로 타일 탐색
-        if (targetTile == null)
-        {
-            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
-            if (groundPlane.Raycast(ray, out float enter))
-            {
-                hitPoint = ray.GetPoint(enter);
-                hitObjectName = "GroundPlane(Y=0)";
-                if (GameMap.current != null)
-                {
-                    targetTile = GameMap.current.GetTileAtWorldPosition(hitPoint);
-                }
-            }
-        }
+        Tile targetTile = GetTileFromScreenPosition(pos);
+        string hitObjectName = targetTile != null ? targetTile.name : "None";
+        Vector3 hitPoint = targetTile != null ? targetTile.transform.position : Vector3.zero;
 
         // 상세 디버그 로그 출력
         Tile playerTile = controlledCharacter.characterMove?.GetCurrentTile();
@@ -428,15 +526,35 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
                                 if (distance >= minDistance && distance <= maxDistance)
                                 {
-                                    List<Character> targets = new();
                                     Vector2Int targetPos = targetTile.GetCoord();
+
+                                    // 폭발 범위(AoE) 좌표 계산 및 대상 캐릭터 수집
+                                    HashSet<Vector2Int> affectedCoords = new HashSet<Vector2Int>();
+                                    affectedCoords.Add(targetPos);
+
+                                    if (GameMap.current != null)
+                                    {
+                                        var aoeList = GameMap.current.CalculateCardAoECoords(targetPos, activeCardForTargeting.cardData);
+                                        for (int i = 0; i < aoeList.Count; i++)
+                                        {
+                                            affectedCoords.Add(aoeList[i]);
+                                        }
+                                    }
+
+                                    List<Character> targets = CollectCharactersInCoords(affectedCoords);
 
                                     UseCard(activeCardForTargeting, targets, targetPos);
 
                                     activeCardForTargeting = null;
+                                    _lastHoveredCoord = new Vector2Int(-999, -999);
+
                                     if (UIManager.instance != null)
                                     {
                                         UIManager.instance.ClearEffectAreaTiles();
+                                    }
+                                    else if (GameMap.current != null)
+                                    {
+                                        GameMap.current.ClearCardRange();
                                     }
                                     controlState = PlayerControlState.Normal;
                                 }

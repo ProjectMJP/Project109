@@ -33,6 +33,7 @@ public class PlayerInputController : MonoBehaviour
     public event Action<Vector2> OnTouchStartEvent;
     public event Action<Vector2> OnTouchDragEvent;
     public event Action<Vector2> OnTouchClickEvent;
+    public event Action<Vector2> OnPointerHoverEvent; // 마우스/포인터 실시간 이동(호버) 이벤트
     public event Action OnCancelEvent; // 우클릭 및 ESC 취소 이벤트
 
     /// <summary>
@@ -43,6 +44,7 @@ public class PlayerInputController : MonoBehaviour
 
     private Vector2 startTouchPos;
     private Vector2 lastTouchPos;
+    private Vector2 lastHoverPos;
     private bool isClickPending;
     private Vector2 pendingClickPos;
     private bool _isInitialized = false;
@@ -68,6 +70,14 @@ public class PlayerInputController : MonoBehaviour
             else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 OnCancelEvent?.Invoke();
+            }
+
+            // 실시간 포인터 이동 감지 (호버 타깃팅용)
+            Vector2 currentPointerPos = GetCurrentPointerPosition();
+            if (currentPointerPos != lastHoverPos)
+            {
+                lastHoverPos = currentPointerPos;
+                OnPointerHoverEvent?.Invoke(currentPointerPos);
             }
         }
     }
@@ -164,5 +174,21 @@ public class PlayerInputController : MonoBehaviour
             isClickPending = true;
             pendingClickPos = lastTouchPos;
         }
+    }
+
+    /// <summary>
+    /// 현재 마우스 또는 포인터의 화면 스크린 좌표를 반환합니다.
+    /// </summary>
+    public Vector2 GetCurrentPointerPosition()
+    {
+        if (Mouse.current != null)
+        {
+            return Mouse.current.position.ReadValue();
+        }
+        else if (Pointer.current != null)
+        {
+            return Pointer.current.position.ReadValue();
+        }
+        return lastTouchPos;
     }
 }

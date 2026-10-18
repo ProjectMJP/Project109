@@ -124,4 +124,97 @@ public class MapMoveRangeIndicator : MonoBehaviour
         if (texture == null) return;
         RefreshBaseMap(tileMap);
     }
+
+    /// <summary>
+    /// 카드 시전 가능 사거리 타일들을 R 채널로 하이라이트합니다 (G 채널 초기화, B 채널 유지).
+    /// </summary>
+    public void ShowCardRangeTiles(List<Vector2Int> rangeCoords, List<List<Tile>> tileMap)
+    {
+        if (texture == null || tileMap == null) return;
+
+        // 1. R, G 하이라이트 리셋 및 B 채널 유지
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Tile tile = tileMap[col][row];
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+
+        // 2. 사거리 좌표 R 채널 설정
+        if (rangeCoords != null)
+        {
+            for (int i = 0; i < rangeCoords.Count; i++)
+            {
+                Vector2Int coord = rangeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    texture.SetPixel(coord.x, coord.y, new Color(1f, 0f, current.b, 0f));
+                }
+            }
+        }
+
+        texture.Apply();
+    }
+
+    /// <summary>
+    /// 카드 사거리(R 채널)를 유지하면서, 마우스가 위치한 타일 중심의 추가 효과 범위(AoE)를 G 채널로 하이라이트합니다.
+    /// </summary>
+    public void ShowCardAoETiles(List<Vector2Int> rangeCoords, List<Vector2Int> aoeCoords, List<List<Tile>> tileMap)
+    {
+        if (texture == null || tileMap == null) return;
+
+        // 1. 전체 리셋 후 B 채널 유지
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Tile tile = tileMap[col][row];
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+
+        // 2. 사거리 좌표 R 채널 활성화
+        if (rangeCoords != null)
+        {
+            for (int i = 0; i < rangeCoords.Count; i++)
+            {
+                Vector2Int coord = rangeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    texture.SetPixel(coord.x, coord.y, new Color(1f, 0f, current.b, 0f));
+                }
+            }
+        }
+
+        // 3. AoE 폭발 범위 좌표 G 채널 활성화
+        if (aoeCoords != null)
+        {
+            for (int i = 0; i < aoeCoords.Count; i++)
+            {
+                Vector2Int coord = aoeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    // R 채널 유지하면서 G 채널 1.0f 적용 (사거리와 겹치는 폭발 지점은 R=1, G=1로 혼합됨)
+                    texture.SetPixel(coord.x, coord.y, new Color(current.r, 1f, current.b, 0f));
+                }
+            }
+        }
+
+        texture.Apply();
+    }
+
+    /// <summary>
+    /// 카드 사거리 및 효과 범위 하이라이트를 제거하고 기본 바닥 상태로 복원합니다.
+    /// </summary>
+    public void ClearCardRange(List<List<Tile>> tileMap)
+    {
+        ClearAllTiles(tileMap);
+    }
 }

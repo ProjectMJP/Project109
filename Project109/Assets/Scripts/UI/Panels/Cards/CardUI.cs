@@ -59,7 +59,14 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (bShowEffectAreaUI && UIManager.instance != null)
         {
-            UIManager.instance.ClearEffectAreaTiles();
+            bool isTargeting = RunManager.instance != null && 
+                               RunManager.instance.playerBattleController != null && 
+                               RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
+
+            if (!isTargeting)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
         }
 
         if (enableZoom && isZoomed)
@@ -208,10 +215,13 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (bIsCardHighlight)
             OnSelectHighlight();       //카드 하이라이트on
 
-        //카드 범위 세팅 진행
-        if (bShowEffectAreaUI && cardData != null)
+        // 타깃팅 모드(TargetSelection) 진행 중이 아닐 때만 호버 범위 세팅 진행
+        bool isTargeting = RunManager.instance != null && 
+                           RunManager.instance.playerBattleController != null && 
+                           RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
+
+        if (!isTargeting && bShowEffectAreaUI && cardData != null && UIManager.instance != null)
         {
-            Debug.Log("Show Effect Area UI");
             UIManager.instance.UpdateEffectAreaUI(cardData);
         }
 
@@ -237,7 +247,15 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (bShowEffectAreaUI)
         {
-            UIManager.instance.ClearEffectAreaTiles();
+            // 타깃팅 모드(TargetSelection) 진행 중일 때는 마우스가 손패를 벗어나도 사거리/AoE 프리뷰 유지
+            bool isTargeting = RunManager.instance != null && 
+                               RunManager.instance.playerBattleController != null && 
+                               RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
+
+            if (!isTargeting && UIManager.instance != null)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
         }
 
         if (enableZoom && isZoomed)
