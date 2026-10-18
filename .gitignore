@@ -86,3 +86,7 @@ EventBinderGenerator/obj/
 # XLua Generated Code
 Project109/Assets/XLua/Gen/
 Project109/Assets/XLua/Gen.meta
+
+# Backup files
+BackupFile/
+
