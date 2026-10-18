@@ -19,11 +19,14 @@ public class BattleHandPanel : UIPanelBase
 
     [Header("Mode Switch Button")]
     [SerializeField] private Button switchToMoveModeButton;
+    [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
 
     public event Action OnMoveModeRequested;
+    public event Action OnCardModeRequested;
 
     private readonly List<GameObject> activeCardUIs = new List<GameObject>();
     private BattleDeck _boundDeck;
+    private bool _isMoveMode = false;
 
     private void Awake()
     {
@@ -50,7 +53,7 @@ public class BattleHandPanel : UIPanelBase
         if (switchToMoveModeButton != null)
         {
             switchToMoveModeButton.onClick.RemoveAllListeners();
-            switchToMoveModeButton.onClick.AddListener(HandleSwitchToMoveMode);
+            switchToMoveModeButton.onClick.AddListener(HandleSwitchMode);
         }
 
         // 바인딩된 덱이 없으면 현재 플레이어의 전투 덱 자동 바인딩 시도
@@ -66,16 +69,67 @@ public class BattleHandPanel : UIPanelBase
 
         if (switchToMoveModeButton != null)
         {
-            switchToMoveModeButton.onClick.RemoveListener(HandleSwitchToMoveMode);
+            switchToMoveModeButton.onClick.RemoveListener(HandleSwitchMode);
         }
 
         UnbindBattleDeck();
         ClearHandUI();
     }
 
-    private void HandleSwitchToMoveMode()
+    private void HandleSwitchMode()
     {
-        OnMoveModeRequested?.Invoke();
+        if (_isMoveMode)
+        {
+            OnCardModeRequested?.Invoke();
+        }
+        else
+        {
+            OnMoveModeRequested?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 이동 모드 상태와 덱 버튼의 MoveCount 표시를 상호 전환합니다.
+    /// </summary>
+    public void SetMoveMode(bool isMoveMode, int moveCount = 0)
+    {
+        _isMoveMode = isMoveMode;
+
+        // 1. 손패 영역 표시/숨김
+        if (contentTransform != null)
+        {
+            contentTransform.gameObject.SetActive(!isMoveMode);
+        }
+
+        // 2. 모드 전환 버튼 텍스트 변경
+        if (modeSwitchButtonText != null)
+        {
+            modeSwitchButtonText.text = isMoveMode ? "전투" : "이동";
+        }
+
+        // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 횟수, 카드 모드: 드로우 덱 수)
+        if (isMoveMode)
+        {
+            if (drawCountText != null)
+            {
+                drawCountText.text = moveCount.ToString();
+            }
+        }
+        else
+        {
+            RefreshDrawPileCount();
+        }
+    }
+
+    /// <summary>
+    /// 이동 모드 중 실시간으로 남은 이동 횟수를 갱신합니다.
+    /// </summary>
+    public void UpdateMoveCount(int moveCount)
+    {
+        if (_isMoveMode && drawCountText != null)
+        {
+            drawCountText.text = moveCount.ToString();
+        }
     }
 
     /// <summary>
@@ -124,6 +178,8 @@ public class BattleHandPanel : UIPanelBase
 
     private void RefreshDrawPileCount()
     {
+        if (_isMoveMode) return;
+
         if (drawCountText != null && _boundDeck != null)
         {
             drawCountText.text = _boundDeck.drawPile.Count.ToString();
@@ -140,6 +196,8 @@ public class BattleHandPanel : UIPanelBase
 
     private void OnDrawPileClicked()
     {
+        if (_isMoveMode) return;
+
         if (_boundDeck == null || UIManager.instance == null) return;
         var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
         if (deckPanel != null)

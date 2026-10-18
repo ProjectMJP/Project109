@@ -60,6 +60,8 @@ public class BattleUIPanel : UIPanelBase
         {
             battleHandPanel.OnMoveModeRequested -= SwitchToMoveMode;
             battleHandPanel.OnMoveModeRequested += SwitchToMoveMode;
+            battleHandPanel.OnCardModeRequested -= SwitchToHandMode;
+            battleHandPanel.OnCardModeRequested += SwitchToHandMode;
         }
 
         if (battleMovePanel != null)
@@ -85,6 +87,7 @@ public class BattleUIPanel : UIPanelBase
         if (battleHandPanel != null)
         {
             battleHandPanel.OnMoveModeRequested -= SwitchToMoveMode;
+            battleHandPanel.OnCardModeRequested -= SwitchToHandMode;
         }
 
         if (battleMovePanel != null)
@@ -151,6 +154,7 @@ public class BattleUIPanel : UIPanelBase
         if (battleHandPanel != null)
         {
             battleHandPanel.gameObject.SetActive(true);
+            battleHandPanel.SetMoveMode(false);
         }
 
         if (battleMovePanel != null)
@@ -166,24 +170,23 @@ public class BattleUIPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 이동 모드로 전환합니다.
+    /// 이동 모드로 전환합니다. (손패 숨김, 덱 버튼을 MoveCount 표시로 전환, 버튼은 전투 모드 복귀로 변경)
     /// </summary>
     public void SwitchToMoveMode()
     {
         currentMode = BattleUIMode.Move;
 
+        int moveCount = _boundCharacter != null ? _boundCharacter.curMoveCount : 0;
+
         if (battleHandPanel != null)
         {
-            battleHandPanel.gameObject.SetActive(false);
+            battleHandPanel.gameObject.SetActive(true);
+            battleHandPanel.SetMoveMode(true, moveCount);
         }
 
         if (battleMovePanel != null)
         {
-            battleMovePanel.gameObject.SetActive(true);
-            if (_boundCharacter != null)
-            {
-                battleMovePanel.RefreshMoveInfo(_boundCharacter);
-            }
+            battleMovePanel.gameObject.SetActive(false);
         }
 
         // 플레이어 전투 컨트롤러에 이동 모드 활성화 지시
@@ -209,13 +212,21 @@ public class BattleUIPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 캐릭터의 최신 이동 수치를 이동 패널에 반영합니다.
+    /// 캐릭터의 최신 이동 수치를 덱 카운터 및 이동 패널에 반영합니다.
     /// </summary>
     public void RefreshMoveStats()
     {
-        if (battleMovePanel != null && _boundCharacter != null)
+        if (_boundCharacter != null)
         {
-            battleMovePanel.RefreshMoveInfo(_boundCharacter);
+            if (battleMovePanel != null)
+            {
+                battleMovePanel.RefreshMoveInfo(_boundCharacter);
+            }
+
+            if (battleHandPanel != null)
+            {
+                battleHandPanel.UpdateMoveCount(_boundCharacter.curMoveCount);
+            }
         }
     }
 }

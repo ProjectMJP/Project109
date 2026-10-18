@@ -15,6 +15,12 @@ MonoBehaviour:
   m_GroupName: UI_Prefabs
   m_GUID: fcb5d7755b26f5b42a31cf49048af440
   m_SerializeEntries:
+  - m_GUID: 0472d6590f4b7624181a64d482f82793
+    m_Address: CharacterEffectListUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0d469a0903396c345903f5f398836881
     m_Address: EffectAreaBackground
     m_ReadOnly: 0
@@ -207,6 +213,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f625a2563f017844ba2df518296b1edd
+    m_Address: UIManager
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f880594dadcdb7d45b6d4c23c1f8aa72
     m_Address: FadeCanvas
     m_ReadOnly: 0
@@ -215,6 +227,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f9c66f3290f371a46add545f87e447f9
     m_Address: CardDeckCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa9bbb29f3360294fa1c2e4d054c35f0
+    m_Address: DamageIndicator
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI

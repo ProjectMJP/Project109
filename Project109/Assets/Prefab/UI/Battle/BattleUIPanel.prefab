@@ -903,6 +903,7 @@ MonoBehaviour:
   usedPileButton: {fileID: 6366624235829939412}
   usedCountText: {fileID: 4850860266578932558}
   switchToMoveModeButton: {fileID: 2170007661428149395}
+  modeSwitchButtonText: {fileID: 6380580919683742152}
 --- !u!1 &5406632024516269840
 GameObject:
   m_ObjectHideFlags: 0

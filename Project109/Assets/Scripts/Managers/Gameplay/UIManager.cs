@@ -54,7 +54,14 @@ public class UIManager : MonoBehaviour
         if (popupUILayer != null) _popupLayerRect = popupUILayer.transform as RectTransform;
         else Debug.LogError("[UIManager] popupUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
 
-        if (worldUILayer != null) _worldLayerRect = worldUILayer.transform as RectTransform;
+        if (worldUILayer != null)
+        {
+            _worldLayerRect = worldUILayer.transform as RectTransform;
+            if (worldUILayer.renderMode == RenderMode.WorldSpace && worldUILayer.worldCamera == null)
+            {
+                worldUILayer.worldCamera = Camera.main;
+            }
+        }
         else Debug.LogError("[UIManager] worldUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
     }
 
