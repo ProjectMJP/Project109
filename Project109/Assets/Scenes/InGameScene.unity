@@ -5295,14 +5295,9 @@ MonoBehaviour:
   cardKey: Card
   eventKey: Event
   battleKey: Battle
-  monsterKey: Monster
-  characterKey: Character
   mapKey: Map
-  mapInfoKey: MapInfo
   modelKey: Model
   textureKey: Texture
-  obstacleKey: Obstacle
-  trapKey: Trap
   uiKey: UI
   interactableKey: Interactable
 --- !u!1 &813495787
@@ -5960,14 +5955,9 @@ MonoBehaviour:
   normalUILayer: {fileID: 1791120030}
   topUILayer: {fileID: 1197279975}
   popupUILayer: {fileID: 955001881}
-  cardDetailHandler: {fileID: 0}
-  topHUDPanel: {fileID: 0}
-  cardDeckViewPanel: {fileID: 0}
-  battleHandPanel: {fileID: 0}
   effectAreaManager: {fileID: 0}
   effectAreaTile: {fileID: 788475941}
   AdditionalEffectAreaTile: {fileID: 43106747}
-  characterStatusBarManager: {fileID: 0}
 --- !u!1 &947176725
 GameObject:
   m_ObjectHideFlags: 0
@@ -14646,6 +14636,8 @@ MonoBehaviour:
   moveRangeIndicatorPrefab: {fileID: 0}
   mapColumn: 0
   mapRow: 0
+  effectAreaTile: {fileID: 0}
+  additionalEffectAreaTile: {fileID: 0}
 --- !u!114 &2077144589
 MonoBehaviour:
   m_ObjectHideFlags: 0

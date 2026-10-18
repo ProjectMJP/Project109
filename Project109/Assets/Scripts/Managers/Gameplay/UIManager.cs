@@ -18,7 +18,7 @@ public class UIManager : MonoBehaviour
             instance = this;
 
             // DontDestroyOnLoad(this.gameObject);
-            EnsureCanvases();
+            InitializeLayers();
         }
         else
         {
@@ -26,8 +26,8 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // UI 부모 레이어 관리 (각 레이어는 독립된 Canvas와 Sorting Order를 갖게 됨)
-    [Header("UI Parent Layers")]
+    // UI 부모 레이어 관리 (UIManager 프리팹에서 사전에 바인딩됨)
+    [Header("UI Parent Layers (Pre-bound in Prefab)")]
     public Canvas worldUILayer;
     public Canvas normalUILayer;
     public Canvas topUILayer;
@@ -40,81 +40,28 @@ public class UIManager : MonoBehaviour
     private RectTransform _worldLayerRect;
 
     /// <summary>
-    /// 인스펙터에 할당된 캔버스 레이어를 캐싱하며, 미할당 시 자식 오브젝트로부터 탐색합니다.
-    /// 만약 어떤 씬에서도 캔버스 레이어가 설정되어 있지 않다면(예: Release/GameScene) 안전한 기본 캔버스 계층을 구성하여 UI 표시를 보장합니다.
+    /// 프리팹에서 사전 바인딩된 각 캔버스 레이어의 RectTransform을 캐싱하고 무결성을 검증합니다.
+    /// 동적 생성/폴백 땜질 없이, 프리팹 에셋 설정에 기반하여 Fail-Fast 원칙을 준수합니다.
     /// </summary>
-    public void EnsureCanvases()
+    public void InitializeLayers()
     {
-        // 1. 인스펙터 미할당 레이어 자식 탐색
-        if (normalUILayer == null)
-        {
-            var child = transform.Find("NormalUILayer");
-            if (child != null) normalUILayer = child.GetComponent<Canvas>();
-        }
+        if (normalUILayer != null) _hudLayerRect = normalUILayer.transform as RectTransform;
+        else Debug.LogError("[UIManager] normalUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
 
-        if (topUILayer == null)
-        {
-            var child = transform.Find("TopUILayer");
-            if (child != null) topUILayer = child.GetComponent<Canvas>();
-        }
+        if (topUILayer != null) _topLayerRect = topUILayer.transform as RectTransform;
+        else Debug.LogError("[UIManager] topUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
 
-        if (popupUILayer == null)
-        {
-            var child = transform.Find("PopupUILayer");
-            if (child != null) popupUILayer = child.GetComponent<Canvas>();
-        }
+        if (popupUILayer != null) _popupLayerRect = popupUILayer.transform as RectTransform;
+        else Debug.LogError("[UIManager] popupUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
 
-        if (worldUILayer == null)
-        {
-            var child = transform.Find("WorldUILayer");
-            if (child != null) worldUILayer = child.GetComponent<Canvas>();
-        }
-
-        // 2. 씬에 캔버스 레이어가 전혀 없는 경우를 위한 안전한 기본 레이어 생성 폴백 (Release/GameScene 등 대비)
-        if (normalUILayer == null)
-            CreateFallbackLayer("NormalUILayer", 200, out normalUILayer, out _hudLayerRect);
-
-        if (topUILayer == null)
-            CreateFallbackLayer("TopUILayer", 300, out topUILayer, out _topLayerRect);
-
-        if (popupUILayer == null)
-            CreateFallbackLayer("PopupUILayer", 400, out popupUILayer, out _popupLayerRect);
-
-        if (worldUILayer == null)
-            CreateFallbackLayer("WorldUILayer", 100, out worldUILayer, out _worldLayerRect);
-
-        // 3. RectTransform 캐싱
-        if (normalUILayer != null && _hudLayerRect == null)
-            _hudLayerRect = normalUILayer.transform as RectTransform;
-
-        if (topUILayer != null && _topLayerRect == null)
-            _topLayerRect = topUILayer.transform as RectTransform;
-
-        if (popupUILayer != null && _popupLayerRect == null)
-            _popupLayerRect = popupUILayer.transform as RectTransform;
-
-        if (worldUILayer != null && _worldLayerRect == null)
-            _worldLayerRect = worldUILayer.transform as RectTransform;
+        if (worldUILayer != null) _worldLayerRect = worldUILayer.transform as RectTransform;
+        else Debug.LogError("[UIManager] worldUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
     }
 
-    private void CreateFallbackLayer(string layerName, int sortingOrder, out Canvas canvas, out RectTransform rect)
-    {
-        GameObject go = new GameObject(layerName);
-        go.transform.SetParent(transform, false);
-
-        canvas = go.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = sortingOrder;
-
-        var scaler = go.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-        scaler.matchWidthOrHeight = 0.5f;
-
-        go.AddComponent<GraphicRaycaster>();
-        rect = go.GetComponent<RectTransform>();
-    }
+    /// <summary>
+    /// 하위 호환성을 위한 래퍼 메서드입니다.
+    /// </summary>
+    public void EnsureCanvases() => InitializeLayers();
 
     // 1. 인스턴스 캐시 풀 (동일 UI 재사용, 무할당 최적화)
     private readonly Dictionary<string, UIPanelBase> _cachedPanels = new Dictionary<string, UIPanelBase>();
