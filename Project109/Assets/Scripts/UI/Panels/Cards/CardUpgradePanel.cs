@@ -11,15 +11,12 @@ public class CardUpgradePanel : UIPanelBase
 
     private Dictionary<int, GameObject> activeCardUIs = new Dictionary<int, GameObject>();
 
-    private void Awake()
+    public override void OnOpen()
     {
+        base.OnOpen();
         if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
         {
             RefreshAllCardUIs();
-        }
-        else
-        {
-            Debug.LogWarning("Player is null!");
         }
     }
 

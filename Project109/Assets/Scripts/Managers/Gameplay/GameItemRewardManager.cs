@@ -412,14 +412,13 @@ public class GameItemRewardManager : MonoBehaviour
         }
 
         // 맵 이동 시 지워질 오브젝트 목록으로 등록
-        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentMap != null)
+        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
         {
-            RunManager.instance.currentMap.currentSpawnNPCList.Add(newRewardBox.gameObject);
-            RunManager.instance.currentMap.currentSpawnUIList.Add(newRewardBox.GetRewardListUI());
+            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
         }
     }
 
-    public void SpawnRewardBox(Vector3 spawnPosition)
+    public void SpawnRewardBox(Vector3 spawnPosition, int bonusGold = 0)
     {
         if (RunManager.instance == null || RunManager.instance.currentExploreNode == null)
         {
@@ -430,14 +429,13 @@ public class GameItemRewardManager : MonoBehaviour
 
         if (newRewardBox != null)
         {
-            newRewardBox.SetRewardItemList();
+            newRewardBox.SetRewardItemList(bonusGold);
         }
 
         // 맵 이동 시 지워질 오브젝트 목록으로 등록
-        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentMap != null)
+        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
         {
-            RunManager.instance.currentMap.currentSpawnNPCList.Add(newRewardBox.gameObject);
-            RunManager.instance.currentMap.currentSpawnUIList.Add(newRewardBox.GetRewardListUI());
+            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
         }
     }
 

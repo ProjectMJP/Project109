@@ -133,11 +133,7 @@ public class ShopNPC : InteractableObject
             return;
         }
 
-        shopUI = spawned.GetComponent<ShopPanel>();
-        if (shopUI == null && spawned.transform.childCount > 0)
-        {
-            shopUI = spawned.transform.GetChild(0).GetComponent<ShopPanel>();
-        }
+        shopUI = spawned.GetComponentInChildren<ShopPanel>(true);
 
         if (shopUI != null)
         {
@@ -160,14 +156,6 @@ public class ShopNPC : InteractableObject
         if (shopUI != null)
         {
             shopUI.Open();
-
-            if (RunManager.instance != null && RunManager.instance.currentMap != null)
-            {
-                if (!RunManager.instance.currentMap.currentSpawnUIList.Contains(shopUI.gameObject))
-                {
-                    RunManager.instance.currentMap.currentSpawnUIList.Add(shopUI.gameObject);
-                }
-            }
         }
         else
         {

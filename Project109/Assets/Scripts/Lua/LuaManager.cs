@@ -159,6 +159,15 @@ public class LuaManager : MonoBehaviour
             }
 
             CS = nil
+
+            -- 샌드박스 보안 강화: 파일/프로세스/디버그 리플렉션 및 동적 로드 함수 차단
+            io = nil
+            os = nil
+            debug = nil
+            package = nil
+            dofile = nil
+            loadfile = nil
+            load = nil
         ");
     }
 

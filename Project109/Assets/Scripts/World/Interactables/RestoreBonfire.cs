@@ -70,18 +70,7 @@ public class RestoreBonfire : InteractableObject
             }
         }
 
-        if (spawned.transform.childCount > 0)
-        {
-            restoreUI = spawned.transform.GetChild(0).GetComponent<RestoreUIHandler>();
-            if (restoreUI == null)
-            {
-                restoreUI = spawned.GetComponent<RestoreUIHandler>();
-            }
-        }
-        else
-        {
-            restoreUI = spawned.GetComponent<RestoreUIHandler>();
-        }
+        restoreUI = spawned.GetComponentInChildren<RestoreUIHandler>(true);
 
         if (restoreUI != null)
         {
@@ -104,14 +93,6 @@ public class RestoreBonfire : InteractableObject
         if (restoreUI != null)
         {
             restoreUI.Open();
-
-            if (RunManager.instance != null && RunManager.instance.currentMap != null)
-            {
-                if (!RunManager.instance.currentMap.currentSpawnUIList.Contains(restoreUI.gameObject))
-                {
-                    RunManager.instance.currentMap.currentSpawnUIList.Add(restoreUI.gameObject);
-                }
-            }
         }
         else
         {

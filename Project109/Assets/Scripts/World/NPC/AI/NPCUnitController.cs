@@ -69,13 +69,19 @@ public class NPCUnitController : ICharacterController
     {
         if (ModLoader.Instance.CardDatabase.TryGetValue(cardId, out CardData cardData))
         {
-            // 몬스터는 덱을 쓰지 않으므로 실시간으로 카드를 생성하여 시전
-            Card tempCard = new Card(cardData, controlledCharacter, cardData.luaPrototype, -99);
+            // 몬스터는 덱을 쓰지 않으므로 실시간으로 카드를 생성하여 시전 (전역 프로토타입 오염 방지를 위해 NewInstance 격리)
+            XLua.LuaTable luaInstance = null;
+            if (cardData.luaPrototype != null && LuaManager.Instance != null)
+            {
+                luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
+            }
+            Card tempCard = new Card(cardData, controlledCharacter, luaInstance, -99);
 
             // [최소 조건 검증] 스태미나 소비 및 루아 CanPlay 평가 만족 시에만 카드 사용 가능
             if (!tempCard.CanPlay(controlledCharacter))
             {
                 Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}'의 사용 조건을 만족하지 못해(Stamina 등) 행동 없이 턴을 종료합니다.");
+                tempCard.Dispose();
                 EndNPCTurn();
                 return;
             }
@@ -89,15 +95,15 @@ public class NPCUnitController : ICharacterController
             }
 
             // [실시간 사거리 및 이동 계획 계산]
-            var currentMap = (RunManager.instance != null) ? RunManager.instance.currentMap : null;
-            if (hostileTarget != null && currentMap != null && currentMap.currentGameMap != null)
+            var currentStage = (RunManager.instance != null) ? RunManager.instance.currentStage : null;
+            if (hostileTarget != null && currentStage != null && currentStage.currentGameMap != null)
             {
                 // 카드의 사거리를 만족할 수 있는 최적의 목적지 타일 계산
                 Tile optimalDest = AIPositionPlanner.PlanOptimalPosition(
                     controlledCharacter, 
                     hostileTarget, 
                     tempCard, 
-                    currentMap.currentGameMap
+                    currentStage.currentGameMap
                 );
 
                 if (optimalDest != null)
@@ -106,7 +112,7 @@ public class NPCUnitController : ICharacterController
                     Tile moveTarget = AIPositionPlanner.GetClampedMoveTarget(
                         controlledCharacter, 
                         optimalDest, 
-                        currentMap.currentGameMap
+                        currentStage.currentGameMap
                     );
 
                     Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
@@ -131,8 +137,9 @@ public class NPCUnitController : ICharacterController
             CardPlayAction playAction = new CardPlayAction(controlledCharacter, tempCard, targets, targetPos);
             ActionQueueManager.Instance.EnqueueAction(playAction);
             
-            // 3. 액션 완료 후 턴을 마치는 콜백 액션을 큐에 추가
+            // 3. 액션 완료 후 임시 카드를 해제하고 턴을 마치는 콜백 액션을 큐에 추가
             ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(controlledCharacter, () => {
+                tempCard.Dispose();
                 EndNPCTurn();
             }));
         }

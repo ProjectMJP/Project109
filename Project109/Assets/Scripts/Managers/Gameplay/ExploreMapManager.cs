@@ -108,19 +108,17 @@ public class ExploreMapManager
             // 천리안 노드
             if (sectionIdx == 0 && exploreNodeListInSection[sectionIdx].Count > 0)
             {
-                do
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], exploreNodeListInSection[sectionIdx].Count / 3);
+                if (currentNode != null)
                 {
-                    currentNode = exploreNodeListInSection[sectionIdx][Random.Range(exploreNodeListInSection[sectionIdx].Count / 3, exploreNodeListInSection[sectionIdx].Count)];
-                }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.Battle;
-                currentNode.encounterData.extraEncountType = ExtraEncountType.Insight;
-                currentNode.isNodeChanged = true;
+                    currentNode.encounterData.encountType = EncountType.Battle;
+                    currentNode.encounterData.extraEncountType = ExtraEncountType.Insight;
+                    currentNode.isNodeChanged = true;
 
-                if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Insight_Event_Data", out InteractableData data))
-                {
-                    currentNode.encounterData.interactableDataId = data.ID;
+                    if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Insight_Event_Data", out InteractableData data))
+                    {
+                        currentNode.encounterData.interactableDataId = data.ID;
+                    }
                 }
             }
 
@@ -128,87 +126,75 @@ public class ExploreMapManager
             for (int i = 0; i < BoxNumber; i++)
             {
                 if (exploreNodeListInSection[sectionIdx].Count == 0) continue;
-                do
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], exploreNodeListInSection[sectionIdx].Count / 2);
+                if (currentNode != null)
                 {
-                    currentNode = exploreNodeListInSection[sectionIdx][Random.Range(exploreNodeListInSection[sectionIdx].Count / 2, exploreNodeListInSection[sectionIdx].Count)];
+                    currentNode.encounterData.encountType = EncountType.SecretBox;
+                    currentNode.encounterData.interactableDataId = "Reward_Chest_Data";
+                    currentNode.isNodeChanged = true;
                 }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.SecretBox;
-                currentNode.encounterData.interactableDataId = "Reward_Chest_Data";
-                currentNode.isNodeChanged = true;
             }
 
             // 엘리트 적 생성
             for (int i = 0; i < EliteNumber; i++)
             {
                 if (exploreNodeListInSection[sectionIdx].Count == 0) continue;
-                do
+                int startIdx = (sectionIdx == 0) ? (exploreNodeListInSection[sectionIdx].Count / 3) : 0;
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], startIdx);
+                if (currentNode != null)
                 {
-                    if (sectionIdx == 0)
-                        currentNode = exploreNodeListInSection[sectionIdx][Random.Range(exploreNodeListInSection[sectionIdx].Count / 3, exploreNodeListInSection[sectionIdx].Count)];
-                    else
-                        currentNode = exploreNodeListInSection[sectionIdx][Random.Range(0, exploreNodeListInSection[sectionIdx].Count)];
+                    currentNode.encounterData.encountType = EncountType.Elite;
+                    currentNode.isNodeChanged = true;
                 }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.Elite;
-                currentNode.isNodeChanged = true;
             }
 
             // 휴식 생성
             for (int i = 0; i < RestoreNumber; i++)
             {
                 if (exploreNodeListInSection[sectionIdx].Count == 0) continue;
-                do
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], exploreNodeListInSection[sectionIdx].Count / 3);
+                if (currentNode != null)
                 {
-                    currentNode = exploreNodeListInSection[sectionIdx][Random.Range(exploreNodeListInSection[sectionIdx].Count / 3, exploreNodeListInSection[sectionIdx].Count)];
+                    currentNode.encounterData.encountType = EncountType.Restore;
+                    currentNode.encounterData.interactableDataId = "Restore_Bonfire_Data";
+                    currentNode.isNodeChanged = true;
                 }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.Restore;
-                currentNode.encounterData.interactableDataId = "Restore_Bonfire_Data";
-                currentNode.isNodeChanged = true;
             }
 
             // 상점 생성
             for (int i = 0; i < StoreNumber; i++)
             {
                 if (exploreNodeListInSection[sectionIdx].Count == 0) continue;
-                do
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], 0);
+                if (currentNode != null)
                 {
-                    currentNode = exploreNodeListInSection[sectionIdx][Random.Range(0, exploreNodeListInSection[sectionIdx].Count)];
+                    currentNode.encounterData.encountType = EncountType.Store;
+                    currentNode.encounterData.interactableDataId = "Shop_NPC_Data";
+                    currentNode.isNodeChanged = true;
                 }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.Store;
-                currentNode.encounterData.interactableDataId = "Shop_NPC_Data";
-                currentNode.isNodeChanged = true;
             }
 
             // 시크릿 생성
             for (int i = 0; i < SecretNumber; i++)
             {
                 if (exploreNodeListInSection[sectionIdx].Count == 0) continue;
-                do
+                currentNode = PickAvailableBattleNode(exploreNodeListInSection[sectionIdx], 0);
+                if (currentNode != null)
                 {
-                    currentNode = exploreNodeListInSection[sectionIdx][Random.Range(0, exploreNodeListInSection[sectionIdx].Count)];
-                }
-                while (currentNode.encounterData.encountType != EncountType.Battle || currentNode.isNodeChanged);
-                
-                currentNode.encounterData.encountType = EncountType.Secret;
-                currentNode.isNodeChanged = true;
+                    currentNode.encounterData.encountType = EncountType.Secret;
+                    currentNode.isNodeChanged = true;
 
-                if (eventItemPicker.TryGetNext(out InteractableData data))
-                {
-                    currentNode.encounterData.interactableDataId = data.ID;
-                }
-                else
-                {
-                    eventItemPicker.Reset();
-                    if (eventItemPicker.TryGetNext(out InteractableData newData))
+                    if (eventItemPicker.TryGetNext(out InteractableData data))
                     {
-                        currentNode.encounterData.interactableDataId = newData.ID;
+                        currentNode.encounterData.interactableDataId = data.ID;
+                    }
+                    else
+                    {
+                        eventItemPicker.Reset();
+                        if (eventItemPicker.TryGetNext(out InteractableData newData))
+                        {
+                            currentNode.encounterData.interactableDataId = newData.ID;
+                        }
                     }
                 }
             }
@@ -234,6 +220,54 @@ public class ExploreMapManager
         SetBattleNodeData();
         LinkNodes();
         InitializeNodeVisibility(mapLength);
+    }
+
+    /// <summary>
+    /// 섹션 내에서 아직 변경되지 않은 일반 전투 노드를 안전하게 탐색하여 반환합니다.
+    /// do-while 무한 루프를 방지하기 위해 최대 시도 횟수를 제한하고 후보 리스트 순회 폴백을 제공합니다.
+    /// </summary>
+    private ExploreNode PickAvailableBattleNode(List<ExploreNode> sectionNodes, int startIndex, int maxAttempts = 100)
+    {
+        if (sectionNodes == null || sectionNodes.Count == 0) return null;
+        startIndex = Mathf.Clamp(startIndex, 0, sectionNodes.Count - 1);
+
+        // 1. 빠른 무작위 시도 (기존 확률 분포 유지)
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            int randIdx = Random.Range(startIndex, sectionNodes.Count);
+            ExploreNode candidate = sectionNodes[randIdx];
+            if (candidate != null && candidate.encounterData != null && 
+                candidate.encounterData.encountType == EncountType.Battle && !candidate.isNodeChanged)
+            {
+                return candidate;
+            }
+        }
+
+        // 2. 랜덤 시도 실패 시 startIndex 이후 사용 가능한 모든 후보 직접 순회 검색
+        for (int i = startIndex; i < sectionNodes.Count; i++)
+        {
+            ExploreNode candidate = sectionNodes[i];
+            if (candidate != null && candidate.encounterData != null && 
+                candidate.encounterData.encountType == EncountType.Battle && !candidate.isNodeChanged)
+            {
+                return candidate;
+            }
+        }
+
+        // 3. 만약 startIndex 이후에 남은 전투 노드가 없다면 전체 범위에서 폴백 검색
+        for (int i = 0; i < sectionNodes.Count; i++)
+        {
+            ExploreNode candidate = sectionNodes[i];
+            if (candidate != null && candidate.encounterData != null && 
+                candidate.encounterData.encountType == EncountType.Battle && !candidate.isNodeChanged)
+            {
+                return candidate;
+            }
+        }
+
+        // 4. 섹션 내에 조건을 만족하는 노드가 전혀 없는 경우
+        Debug.LogWarning("[ExploreMapManager] 해당 섹션 내에 변경 가능한 Battle 노드가 부족하여 특수 노드 배정을 건너뜁니다.");
+        return null;
     }
 
     private void SetBattleNodeData()

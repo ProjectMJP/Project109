@@ -17,8 +17,16 @@ public class ShopPanel : UIPanelBase
 
     void Start()
     {
-        upgradeCardButton.onClick.AddListener(OpenUpgradeCardUI);   //버튼 등록
-        closeUIButton.onClick.AddListener(CloseUI);     //버튼 등록
+        if (upgradeCardButton != null)
+        {
+            upgradeCardButton.onClick.RemoveAllListeners();
+            upgradeCardButton.onClick.AddListener(OpenUpgradeCardUI);
+        }
+        if (closeUIButton != null)
+        {
+            closeUIButton.onClick.RemoveAllListeners();
+            closeUIButton.onClick.AddListener(CloseUI);
+        }
     }
 
     /// <summary>
@@ -76,48 +84,129 @@ public class ShopPanel : UIPanelBase
         }
     }
 
+    public static int GetCardPrice(CardData card)
+    {
+        if (card == null) return 50;
+        return card.rarity switch
+        {
+            GameItem.Types.CardRarity.Common => 50,
+            GameItem.Types.CardRarity.Uncommon => 75,
+            GameItem.Types.CardRarity.Rare => 120,
+            GameItem.Types.CardRarity.Unique => 150,
+            _ => 50
+        };
+    }
+
+    public static int GetRelicPrice(RelicData relic)
+    {
+        if (relic == null) return 150;
+        return relic.rarity switch
+        {
+            GameItem.Types.RelicRarity.Common => 150,
+            GameItem.Types.RelicRarity.Rare => 250,
+            GameItem.Types.RelicRarity.Unique => 300,
+            GameItem.Types.RelicRarity.Boss => 400,
+            _ => 150
+        };
+    }
+
     public void UpdateCardList(List<CardData> cardData)
     {
-        int cardCount = Mathf.Clamp(cardData.Count, 0, cardList.Count); //상점의 카드 수만큼 데이터를 불러와 등록
+        int cardCount = cardData != null ? cardData.Count : 0;
 
-        for (int i = 0; i < cardCount; i++)
+        for (int i = 0; i < cardList.Count; i++)
         {
-            CardData currentCardData = cardData[i];
-            cardList[i].UpdateCardData(currentCardData);
-            cardList[i].OnCardClick.AddListener(() => PurchaseCard(currentCardData));
+            if (cardList[i] == null) continue;
+
+            cardList[i].OnCardClick.RemoveAllListeners();
+
+            if (i < cardCount)
+            {
+                CardData currentCardData = cardData[i];
+                cardList[i].gameObject.SetActive(true);
+                cardList[i].UpdateCardData(currentCardData);
+                int index = i;
+                cardList[i].OnCardClick.AddListener(() => PurchaseCard(currentCardData, index));
+            }
+            else
+            {
+                cardList[i].gameObject.SetActive(false);
+            }
         }
     }
 
     public void UpdateRelicList(List<RelicData> relicData)
     {
-        int relicCount = Mathf.Clamp(relicData.Count, 0, relicList.Count); //상점의 유물 수만큼 데이터를 불러와 등록
+        int relicCount = relicData != null ? relicData.Count : 0;
 
-        for (int i = 0; i < relicCount; i++)
+        for (int i = 0; i < relicList.Count; i++)
         {
-            RelicData currentRelicData = relicData[i];
-            relicList[i].UpdateRelicData(currentRelicData);
-            relicList[i].OnRelicClick.AddListener(() => PurchaseRelic(currentRelicData));
+            if (relicList[i] == null) continue;
+
+            relicList[i].OnRelicClick.RemoveAllListeners();
+
+            if (i < relicCount)
+            {
+                RelicData currentRelicData = relicData[i];
+                relicList[i].gameObject.SetActive(true);
+                relicList[i].UpdateRelicData(currentRelicData);
+                int index = i;
+                relicList[i].OnRelicClick.AddListener(() => PurchaseRelic(currentRelicData, index));
+            }
+            else
+            {
+                relicList[i].gameObject.SetActive(false);
+            }
         }
     }
 
-    void PurchaseCard(CardData cardData)
+    void PurchaseCard(CardData cardData, int slotIndex)
     {
-        Debug.Log($"{cardData.cardName} 행동 카드를 구매합니다.");
+        if (cardData == null) return;
 
-        //덱에 카드 추가하는 로직 구현
-        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        if (player == null || player.playerStat == null) return;
+
+        int price = GetCardPrice(cardData);
+        if (player.playerStat.InGameCurrencyGold < price)
         {
-            GameSceneManager.instance.player.deck.AddCard(cardData);
+            Debug.LogWarning($"[ShopPanel] 골드가 부족합니다! (필요: {price}, 보유: {player.playerStat.InGameCurrencyGold})");
+            return;
+        }
+
+        player.playerStat.InGameCurrencyGold -= price;
+        player.deck.AddCard(cardData);
+        Debug.Log($"[ShopPanel] {cardData.cardName} 카드를 {price}골드에 구매했습니다.");
+
+        if (slotIndex >= 0 && slotIndex < cardList.Count && cardList[slotIndex] != null)
+        {
+            cardList[slotIndex].OnCardClick.RemoveAllListeners();
+            cardList[slotIndex].gameObject.SetActive(false);
         }
     }
 
-    void PurchaseRelic(RelicData relicData)
+    void PurchaseRelic(RelicData relicData, int slotIndex)
     {
-        Debug.Log($"{relicData.relicName} 유물을 구매합니다.");
+        if (relicData == null) return;
 
-        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        if (player == null || player.playerStat == null) return;
+
+        int price = GetRelicPrice(relicData);
+        if (player.playerStat.InGameCurrencyGold < price)
         {
-            GameSceneManager.instance.player.AddRelic(relicData.relicName);
+            Debug.LogWarning($"[ShopPanel] 골드가 부족합니다! (필요: {price}, 보유: {player.playerStat.InGameCurrencyGold})");
+            return;
+        }
+
+        player.playerStat.InGameCurrencyGold -= price;
+        player.AddRelic(relicData.relicName);
+        Debug.Log($"[ShopPanel] {relicData.relicName} 유물을 {price}골드에 구매했습니다.");
+
+        if (slotIndex >= 0 && slotIndex < relicList.Count && relicList[slotIndex] != null)
+        {
+            relicList[slotIndex].OnRelicClick.RemoveAllListeners();
+            relicList[slotIndex].gameObject.SetActive(false);
         }
     }
 

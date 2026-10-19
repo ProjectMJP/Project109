@@ -51,8 +51,6 @@ public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointer
                 cardRewardHandler.rootObject = this.gameObject;
                 cardRewardHandler.gameObject.SetActive(false);
 
-                RunManager.instance.currentMap.currentSpawnUIList.Add(currentRewardUIObject);
-
                 itemTexture.gameObject.SetActive(false);
                 itemText.text = "새로운 기억 보상!";
                 break;
@@ -118,5 +116,21 @@ public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointer
     public void OnPointerExit(PointerEventData eventData)
     {
         //마우스 오버 시 UI 하이라이트 비활성화
+    }
+
+    private void OnDestroy()
+    {
+        if (currentRewardUIObject != null)
+        {
+            CardRewardPanel panel = currentRewardUIObject.GetComponent<CardRewardPanel>();
+            if (panel != null)
+            {
+                panel.Close();
+            }
+            else
+            {
+                Destroy(currentRewardUIObject);
+            }
+        }
     }
 }

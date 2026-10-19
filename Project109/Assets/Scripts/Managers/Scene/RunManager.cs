@@ -29,8 +29,8 @@ public class RunManager : MonoBehaviour
                 sceneGameMap = GameMap.current != null ? GameMap.current : UnityEngine.Object.FindFirstObjectByType<GameMap>();
             }
 
-            currentMap = new MapManager();
-            currentMap.Initialize(sceneGameMap);
+            currentStage = new StageManager();
+            currentStage.Initialize(sceneGameMap);
 
             exploreMapManager = new ExploreMapManager();
         }
@@ -40,7 +40,6 @@ public class RunManager : MonoBehaviour
         }
     }
 
-
     [Header("Player Controllers")]
     public PlayerBattleController playerBattleController;
     public PlayerExploreController playerExploreController;
@@ -48,7 +47,7 @@ public class RunManager : MonoBehaviour
     private ICharacterController _activePlayerController;
     public ICharacterController activePlayerController => _activePlayerController;
 
-    [Header("Map")]
+    [Header("Stage & Map")]
     //맵 관련 변수
     public string currentMapName;
     public int currentStageLevel = 0;
@@ -56,7 +55,13 @@ public class RunManager : MonoBehaviour
     [System.NonSerialized] public ExploreNode currentExploreNode;
     [System.NonSerialized] public ExploreNode beforeExploreNode;
 
-    public MapManager currentMap;
+    public StageManager currentStage;
+    [System.Obsolete("currentMap is deprecated, use currentStage instead.")]
+    public StageManager currentMap
+    {
+        get => currentStage;
+        set => currentStage = value;
+    }
     public ExploreMapManager exploreMapManager;
     public ExploreMapUI currentExploreUI;
 
@@ -85,7 +90,7 @@ public class RunManager : MonoBehaviour
 
     private void Update()
     {
-        if (currentMap.currentMapState == MapState.Battle)
+        if (currentStage != null && currentStage.currentMapState == MapState.Battle)
         {
             battleManager?.Update(Time.deltaTime);
         }
@@ -181,9 +186,9 @@ public class RunManager : MonoBehaviour
             // 전투 매니저 시작!
             List<ICharacterController> players = new List<ICharacterController> { playerBattleController };
             List<ICharacterController> enemies = new List<ICharacterController>();
-            if (currentMap != null && currentMap.currentEnemyControllers != null)
+            if (currentStage != null && currentStage.currentEnemyControllers != null)
             {
-                enemies.AddRange(currentMap.currentEnemyControllers);
+                enemies.AddRange(currentStage.currentEnemyControllers);
             }
 
             if (battleManager != null)
@@ -229,16 +234,23 @@ public class RunManager : MonoBehaviour
     {
         Debug.Log("[RunManager] 전투 승리 이벤트 수신: 맵 상태 복귀 및 보상 처리 시작");
 
-        if (currentMap != null)
+        if (currentStage != null)
         {
-            currentMap.currentMapState = MapState.None;
+            currentStage.currentMapState = MapState.None;
+        }
+
+        // 전투 중 누적된 처치 골드를 보상 상자에 안전하게 이관
+        int battleGold = (battleManager != null) ? battleManager.accumulativeGoldReward : 0;
+        if (battleManager != null)
+        {
+            battleManager.accumulativeGoldReward = 0; // 중복 합산 방지
         }
 
         Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
         if (GameItemRewardManager.instance != null && player != null && player.character != null)
         {
             Vector3 spawnPos = player.character.transform.position;
-            GameItemRewardManager.instance.SpawnRewardBox(spawnPos);
+            GameItemRewardManager.instance.SpawnRewardBox(spawnPos, battleGold);
         }
 
         OnMapStateChanged(MapState.None);
@@ -272,10 +284,12 @@ public class RunManager : MonoBehaviour
             battleManager.Dispose();
         }
 
-        currentMap?.Dispose();
+        if (currentStage != null)
+        {
+            currentStage.Dispose();
+        }
 
-
-        if (instance != null)
+        if (instance == this)
         {
             instance = null;
         }
@@ -327,9 +341,9 @@ public class RunManager : MonoBehaviour
     {
         Debug.Log("currentExploreNode = " + (currentExploreNode != null ? currentExploreNode.encounterData.encountType.ToString() : "null"));
 
-        if (currentExploreNode != null && currentMap != null)
+        if (currentExploreNode != null && currentStage != null)
         {
-            currentMap.GenerateStage(currentExploreNode);
+            currentStage.GenerateStage(currentExploreNode);
 
             switch (currentExploreNode.encounterData.extraEncountType)
             {
@@ -340,7 +354,7 @@ public class RunManager : MonoBehaviour
                         ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null &&
                         ModLoader.Instance.InteractableDatabase.TryGetValue(currentExploreNode.encounterData.interactableDataId, out var interactableData))
                     {
-                        currentMap.GenerateNPC(currentMap.currentMapData, EncountType.Secret, interactableData);
+                        currentStage.GenerateNPC(currentStage.currentMapData, EncountType.Secret, interactableData);
                     }
                     break;
                 case ExtraEncountType.ShineWell:
@@ -348,7 +362,7 @@ public class RunManager : MonoBehaviour
             }
 
             // 맵 생성이 끝난 후 RunManager에게 상태 전이 알림
-            OnMapStateChanged(currentMap.currentMapState);
+            OnMapStateChanged(currentStage.currentMapState);
         }
 
         if (SceneLoadManager.instance != null)

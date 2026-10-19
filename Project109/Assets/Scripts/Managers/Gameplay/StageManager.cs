@@ -9,7 +9,7 @@ public enum MapState
     Secret
 }
 
-public class MapManager : IInitializable, System.IDisposable
+public class StageManager : IInitializable, System.IDisposable
 {
     public void Initialize()
     {
@@ -46,14 +46,46 @@ public class MapManager : IInitializable, System.IDisposable
     private List<CellData> spawnPlayerCells = new List<CellData>();
     private List<CellData> spawnNPCCells = new List<CellData>();
 
-    //맵 이동 시 제거할 오브젝트 모음
-    public List<GameObject> currentSpawnEnemyList = new List<GameObject>();
-    public List<ICharacterController> currentEnemyControllers = new List<ICharacterController>();
-    public List<GameObject> currentSpawnNPCList = new List<GameObject>();
-    public List<GameObject> currentSpawnUIList = new List<GameObject>();
-    public List<GameObject> currentSpawnEtcList = new List<GameObject>();
+    // 맵 이동 시 제거할 오브젝트 컬렉션 (IReadOnlyList로 캡슐화)
+    private readonly List<GameObject> _currentSpawnEnemyList = new List<GameObject>();
+    private readonly List<ICharacterController> _currentEnemyControllers = new List<ICharacterController>();
+    private readonly List<GameObject> _currentSpawnNPCList = new List<GameObject>();
+    private readonly List<GameObject> _currentSpawnEtcList = new List<GameObject>();
 
-    public MapManager()
+    public IReadOnlyList<GameObject> currentSpawnEnemyList => _currentSpawnEnemyList;
+    public IReadOnlyList<ICharacterController> currentEnemyControllers => _currentEnemyControllers;
+    public IReadOnlyList<GameObject> currentSpawnNPCList => _currentSpawnNPCList;
+    public IReadOnlyList<GameObject> currentSpawnEtcList => _currentSpawnEtcList;
+
+    public void RegisterSpawnEnemy(GameObject enemy, ICharacterController controller = null)
+    {
+        if (enemy != null && !_currentSpawnEnemyList.Contains(enemy))
+        {
+            _currentSpawnEnemyList.Add(enemy);
+        }
+        if (controller != null && !_currentEnemyControllers.Contains(controller))
+        {
+            _currentEnemyControllers.Add(controller);
+        }
+    }
+
+    public void RegisterSpawnNPC(GameObject npc)
+    {
+        if (npc != null && !_currentSpawnNPCList.Contains(npc))
+        {
+            _currentSpawnNPCList.Add(npc);
+        }
+    }
+
+    public void RegisterSpawnEtc(GameObject etc)
+    {
+        if (etc != null && !_currentSpawnEtcList.Contains(etc))
+        {
+            _currentSpawnEtcList.Add(etc);
+        }
+    }
+
+    public StageManager()
     {
     }
 
@@ -64,7 +96,7 @@ public class MapManager : IInitializable, System.IDisposable
     {
         if (node == null || node.encounterData == null)
         {
-            Debug.LogError("[MapManager] GenerateStage: node or encounterData is null!");
+            Debug.LogError("[StageManager] GenerateStage: node or encounterData is null!");
             return;
         }
 
@@ -126,14 +158,14 @@ public class MapManager : IInitializable, System.IDisposable
 
             if (currentGameMap == null)
             {
-                Debug.LogError("[MapManager] 씬에서 GameMap을 찾을 수 없습니다! GameMap을 씬에 배치해주세요.");
+                Debug.LogError("[StageManager] 씬에서 GameMap을 찾을 수 없습니다! GameMap을 씬에 배치해주세요.");
                 return;
             }
         }
 
         if (currentMapData == null || currentMapData.cells == null)
         {
-            Debug.LogError($"[MapManager] 스테이지 생성 중단: currentMapData 또는 cells가 null입니다! (Location: {mapLocation}, Encount: {EncountType})");
+            Debug.LogError($"[StageManager] 스테이지 생성 중단: currentMapData 또는 cells가 null입니다! (Location: {mapLocation}, Encount: {EncountType})");
             return;
         }
 
@@ -237,7 +269,7 @@ public class MapManager : IInitializable, System.IDisposable
 
             spawned.transform.position = worldPos;
             spawned.transform.SetParent(currentGameMap.transform);
-            currentSpawnEtcList.Add(spawned);
+            RegisterSpawnEtc(spawned);
 
             // 파괴 가능한 오브젝트인 경우, 파괴 시 타일을 Empty로 복구하도록 이벤트 구독
             DestructibleObject destructible = spawned.GetComponent<DestructibleObject>();
@@ -256,95 +288,74 @@ public class MapManager : IInitializable, System.IDisposable
 
     public void GenerateEnemy(MapDataSO mapData, List<string> spawnMonsterList, int spawnCount)
     {
-        for (int i = 0; i < spawnCount; i++)
+        int count = Mathf.Min(spawnCount, Mathf.Min(spawnEnemyCells.Count, spawnMonsterList.Count));
+        List<List<Tile>> tileMap = currentGameMap != null ? currentGameMap.GetTileMap() : null;
+
+        for (int i = 0; i < count; i++)
         {
             CellData cell = spawnEnemyCells[i];
             string monsterId = spawnMonsterList[i];
 
-            Debug.Log($"Check MapManager enemy spawn: {monsterId}...");
-
-            // 1. NPCUnitData 캐시 조회
             NPCUnitData aiData = ResolveNPCUnitData(monsterId);
-
-            // 2. 모델 프리팹 주소 결정
             string modelAddress = (aiData != null && !string.IsNullOrEmpty(aiData.prefabAddress))
                 ? aiData.prefabAddress
                 : monsterId;
 
-            // 3. 몬스터 프리팹 캐시 탐색 (O(1))
             GameObject monsterPrefab = ResolveMonsterPrefab(modelAddress);
-
-            if (monsterPrefab != null)
+            if (monsterPrefab == null)
             {
-                Debug.Log($"Monster prefab {monsterPrefab.name} (키: {modelAddress}) Load Success.");
+                Debug.LogError($"[StageManager] 몬스터 프리팹 로드 실패: {modelAddress}");
+                continue;
+            }
 
-                // 셀의 그리드 좌표를 실제 월드 좌표로 변환 (셀 크기 및 오프셋 적용)
-                Vector3 worldPos = new Vector3(
-                    cell.position.x * mapData.cellSize + mapData.gridOffset.x,
-                    mapData.gridOffset.y,
-                    cell.position.y * mapData.cellSize + mapData.gridOffset.z
-                );
+            Vector3 worldPos = new Vector3(
+                cell.position.x * mapData.cellSize + mapData.gridOffset.x,
+                mapData.gridOffset.y,
+                cell.position.y * mapData.cellSize + mapData.gridOffset.z
+            );
 
-                // 적 생성
-                GameObject newMonster = UnityEngine.Object.Instantiate(monsterPrefab, worldPos, Quaternion.identity);
+            GameObject newMonster = UnityEngine.Object.Instantiate(monsterPrefab, worldPos, Quaternion.identity);
+            Character enemyCharacter = newMonster.GetComponent<Character>();
+            if (enemyCharacter == null)
+            {
+                var controller = newMonster.GetComponent<ICharacterController>();
+                if (controller != null) enemyCharacter = controller.controlledCharacter;
+            }
 
-                // 적 캐릭터의 방향을 Down으로 설정하고 3D 회전 업데이트
-                Character enemyCharacter = newMonster.GetComponent<Character>();
-                if (enemyCharacter == null)
-                {
-                    var controller = newMonster.GetComponent<ICharacterController>();
-                    if (controller != null)
+            ICharacterController enemyController = null;
+            if (enemyCharacter != null)
+            {
+                enemyCharacter.faction = CharacterFaction.Enemy;
+                CharacterStat enemyStat = (aiData != null && aiData.characterStat != null)
+                    ? aiData.characterStat
+                    : new CharacterStat
                     {
-                        enemyCharacter = controller.controlledCharacter;
-                    }
-                }
-
-                if (enemyCharacter != null)
-                {
-                    // 몬스터 진영 설정
-                    enemyCharacter.faction = CharacterFaction.Enemy;
-
-                    // 1. Enemy 스탯 초기화
-                    CharacterStat enemyStat = (aiData != null && aiData.characterStat != null)
-                        ? aiData.characterStat
-                        : new CharacterStat
-                        {
-                            maxHealth = 50f,
-                            maxStamina = 100f,
-                            staminaRegenPerSecond = 10f,
-                            maxMoveCount = 3,
-                            maxTilesPerMove = 2
-                        };
-                    enemyCharacter.InitializeStat(enemyStat);
-
-                    // 2. NPC AI Controller 초기화 및 등록
-                    NPCUnitData targetAiData = aiData ?? new NPCUnitData
-                    {
-                        unitId = monsterId,
-                        characterStat = enemyStat
+                        maxHealth = 50f,
+                        maxStamina = 100f,
+                        staminaRegenPerSecond = 10f,
+                        maxMoveCount = 3,
+                        maxTilesPerMove = 2
                     };
-                    var enemyController = new NPCUnitController(enemyCharacter, targetAiData);
-                    currentEnemyControllers.Add(enemyController);
+                enemyCharacter.InitializeStat(enemyStat);
 
-                    // 3. 이동 컴포넌트 세팅 및 배치 타일 세팅
-                    if (enemyCharacter.characterMove != null)
+                NPCUnitData targetAiData = aiData ?? new NPCUnitData
+                {
+                    unitId = monsterId,
+                    characterStat = enemyStat
+                };
+                enemyController = new NPCUnitController(enemyCharacter, targetAiData);
+
+                if (enemyCharacter.characterMove != null)
+                {
+                    enemyCharacter.characterMove.SetFacingDirection(LookDirection.Down);
+                    if (tileMap != null && cell.position.x < tileMap.Count && cell.position.y < tileMap[cell.position.x].Count)
                     {
-                        enemyCharacter.characterMove.SetFacingDirection(LookDirection.Down);
-
-                        List<List<Tile>> tileMap = currentGameMap.GetTileMap();
-                        if (tileMap != null && cell.position.x < tileMap.Count && cell.position.y < tileMap[cell.position.x].Count)
-                        {
-                            enemyCharacter.characterMove.SetCurrentTile(tileMap[cell.position.x][cell.position.y]);
-                        }
+                        enemyCharacter.characterMove.SetCurrentTile(tileMap[cell.position.x][cell.position.y]);
                     }
                 }
+            }
 
-                currentSpawnEnemyList.Add(newMonster);
-            }
-            else
-            {
-                Debug.LogError($"[MapManager] 몬스터 프리팹 로드 실패: {modelAddress}");
-            }
+            RegisterSpawnEnemy(newMonster, enemyController);
         }
     }
 
@@ -366,7 +377,6 @@ public class MapManager : IInitializable, System.IDisposable
         );
 
         GameObject npcObj = null;
-        GameObject uiObj = null;
 
         // [단일 베이스 프리팹 사용]
         // 모든 NPC는 "EventObject" 프리팹을 공통 기반으로 생성하며, 
@@ -435,7 +445,6 @@ public class MapManager : IInitializable, System.IDisposable
                     shop.SetInteractableData(eventData);
                 }
                 shop.InitializeShop();
-                uiObj = shop.GetShopUI() != null ? shop.GetShopUI().gameObject : null;
                 newNPC = shop;
             }
             else if (isRestore)
@@ -450,7 +459,6 @@ public class MapManager : IInitializable, System.IDisposable
                     restore.SetInteractableData(fallbackData);
                 }
                 restore.CreateRestoreUI();
-                uiObj = restore.GetRestoreUI() != null ? restore.GetRestoreUI().gameObject : null;
                 newNPC = restore;
             }
             else
@@ -470,16 +478,12 @@ public class MapManager : IInitializable, System.IDisposable
         }
         else
         {
-            Debug.LogError("[MapManager] EventObject 프리팹을 Addressables 캐시에서 찾을 수 없습니다!");
+            Debug.LogError("[StageManager] EventObject 프리팹을 Addressables 캐시에서 찾을 수 없습니다!");
         }
 
         if (npcObj != null)
         {
-            currentSpawnNPCList.Add(npcObj);
-        }
-        if (uiObj != null)
-        {
-            currentSpawnUIList.Add(uiObj);
+            RegisterSpawnNPC(npcObj);
         }
     }
 
@@ -561,7 +565,7 @@ public class MapManager : IInitializable, System.IDisposable
             {
                 // 요청한 타입의 맵이 없으면 기본 전투 맵으로 Fallback
                 currentMapData = stageMapData.battleMapDataList[0];
-                Debug.LogWarning($"[MapManager] {EncountType} 맵이 없어 기본 전투 맵({currentMapData.stageName})으로 Fallback합니다.");
+                Debug.LogWarning($"[StageManager] {EncountType} 맵이 없어 기본 전투 맵({currentMapData.stageName})으로 Fallback합니다.");
             }
         }
 
@@ -582,58 +586,51 @@ public class MapManager : IInitializable, System.IDisposable
                 currentMapData = AssetCacheManager.instance.mapList[0];
             }
 
-            Debug.LogWarning($"[MapManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({currentMapData?.stageName})에서 Fallback했습니다.");
+            Debug.LogWarning($"[StageManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({currentMapData?.stageName})에서 Fallback했습니다.");
         }
 
         if (currentMapData != null)
         {
-            Debug.Log($"[MapManager] Selected MapData: {currentMapData.stageName} (Location: {stageName}, Encount: {EncountType})");
+            Debug.Log($"[StageManager] Selected MapData: {currentMapData.stageName} (Location: {stageName}, Encount: {EncountType})");
         }
         else
         {
-            Debug.LogError($"[MapManager] MapData를 전혀 찾을 수 없습니다! (Location: {stageName}, Encount: {EncountType})");
+            Debug.LogError($"[StageManager] MapData를 전혀 찾을 수 없습니다! (Location: {stageName}, Encount: {EncountType})");
         }
     }
 
     public void ClearStage()
     {
         // 현재 씬에 존재하는 적 오브젝트를 모두 제거
-        foreach (GameObject enemy in currentSpawnEnemyList)
+        foreach (GameObject enemy in _currentSpawnEnemyList)
         {
             if (enemy != null)
             {
                 UnityEngine.Object.Destroy(enemy);
             }
         }
-        currentSpawnEnemyList.Clear();
-        currentEnemyControllers.Clear();
+        _currentSpawnEnemyList.Clear();
+        _currentEnemyControllers.Clear();
+
         // 현재 씬에 존재하는 NPC 오브젝트를 모두 제거
-        foreach (GameObject obj in currentSpawnNPCList)
+        foreach (GameObject obj in _currentSpawnNPCList)
         {
             if (obj != null)
             {
                 UnityEngine.Object.Destroy(obj);
             }
         }
-        currentSpawnNPCList.Clear();
-        // 현재 씬에 존재하는 UI 오브젝트를 모두 제거
-        foreach (GameObject ui in currentSpawnUIList)
-        {
-            if (ui != null)
-            {
-                UnityEngine.Object.Destroy(ui);
-            }
-        }
-        currentSpawnUIList.Clear();
+        _currentSpawnNPCList.Clear();
+
         // 현재 씬에 존재하는 장애물, 함정 오브젝트를 모두 제거
-        foreach (GameObject etc in currentSpawnEtcList)
+        foreach (GameObject etc in _currentSpawnEtcList)
         {
             if (etc != null)
             {
                 UnityEngine.Object.Destroy(etc);
             }
         }
-        currentSpawnEtcList.Clear();
+        _currentSpawnEtcList.Clear();
 
         // GameMap 게임오브젝트를 파괴하지 않고 타일들만 정리하여 인스턴스를 재사용합니다.
         if (currentGameMap != null)
@@ -641,6 +638,9 @@ public class MapManager : IInitializable, System.IDisposable
             currentGameMap.ClearTiles();
         }
     }
+
+    [System.Obsolete("ClearMap is deprecated, use ClearStage instead.")]
+    public void ClearMap() => ClearStage();
 
     // 리스트를 무작위로 섞는 유틸리티 함수
     private void ShuffleList<T>(List<T> list)
@@ -773,4 +773,13 @@ public class MapManager : IInitializable, System.IDisposable
     }
 
     #endregion
+}
+
+/// <summary>
+/// 레거시 하위 호환용 클래스 래퍼 (신규 코드는 StageManager 사용 권장)
+/// </summary>
+[System.Obsolete("MapManager is deprecated, use StageManager instead.")]
+public class MapManager : StageManager
+{
+    public MapManager() : base() { }
 }

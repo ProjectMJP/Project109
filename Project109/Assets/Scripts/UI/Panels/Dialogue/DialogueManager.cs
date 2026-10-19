@@ -34,7 +34,7 @@ public class DialogueManager : MonoBehaviour
     public static event Action<DialogueNode, List<ChoiceData>> OnPopulateChoices;
 
     public GameObject dialogueUICanvasPrefab;
-    private EventDescriptionScript dialogueUI;
+    private DialogueUI dialogueUI;
 
     private DialogueData activeDialogue;
     private Dictionary<string, DialogueNode> nodeMap = new Dictionary<string, DialogueNode>();
@@ -82,11 +82,7 @@ public class DialogueManager : MonoBehaviour
             }
         }
 
-        dialogueUI = spawned.GetComponent<EventDescriptionScript>();
-        if (dialogueUI == null && spawned.transform.childCount > 0)
-        {
-            dialogueUI = spawned.transform.GetChild(0).GetComponent<EventDescriptionScript>();
-        }
+        dialogueUI = spawned.GetComponentInChildren<DialogueUI>(true);
 
         if (dialogueUI != null)
         {
@@ -311,6 +307,37 @@ public class DialogueManager : MonoBehaviour
         activeDialogue = null;
     }
 
+    private string FindChoiceScriptPath(string luaScriptName)
+    {
+        string fileName = luaScriptName.EndsWith(".lua") ? luaScriptName : $"{luaScriptName}.lua";
+
+        // 1. Core 모드 스트리밍 에셋 경로
+        string streamingCorePath = Path.Combine(Application.streamingAssetsPath, "Mods", "Core", "Scripts", "Choices", fileName);
+        if (File.Exists(streamingCorePath)) return streamingCorePath;
+
+        string streamingCorePath2 = Path.Combine(Application.streamingAssetsPath, "Mods", "Core", "Scripts", "Choice", fileName);
+        if (File.Exists(streamingCorePath2)) return streamingCorePath2;
+
+        // 2. 유저 모드 경로 (persistentDataPath/mods)
+        string userModsPath = Path.Combine(Application.persistentDataPath, "mods");
+        if (Directory.Exists(userModsPath))
+        {
+            string[] found = Directory.GetFiles(userModsPath, fileName, SearchOption.AllDirectories);
+            if (found.Length > 0) return found[0];
+        }
+
+        // 3. 에디터 전용 경로 폴백
+#if UNITY_EDITOR
+        string editorPath = Path.Combine(Application.dataPath, "Scripts", "Lua", "Choice", fileName);
+        if (File.Exists(editorPath)) return editorPath;
+
+        string editorPath2 = Path.Combine(Application.dataPath, "Scripts", "Lua", "Choices", fileName);
+        if (File.Exists(editorPath2)) return editorPath2;
+#endif
+
+        return null;
+    }
+
     private void LoadAndExecuteLua(string luaScriptName, out CanSelectDialogueChoice canSelect, out GetDialogueChoiceDescription getDesc, out ExecuteDialogueChoice execute, out IsDialogueChoiceVisible isVisible)
     {
         canSelect = null;
@@ -318,10 +345,10 @@ public class DialogueManager : MonoBehaviour
         execute = null;
         isVisible = null;
 
-        string path = $"Assets/Scripts/Lua/Choice/{luaScriptName}.lua";
-        if (!File.Exists(path))
+        string path = FindChoiceScriptPath(luaScriptName);
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            Debug.LogError($"[DialogueManager] Lua 스크립트 파일을 찾을 수 없습니다: {path}");
+            Debug.LogError($"[DialogueManager] Lua 선택지 스크립트 파일을 찾을 수 없습니다: {luaScriptName}");
             return;
         }
 
@@ -334,12 +361,18 @@ public class DialogueManager : MonoBehaviour
 
         try
         {
+            // 스크립트 실행 전 전역 공간 초기화 (이전 선택지의 함수 오염 방지)
+            env.DoString("CanSelect = nil; GetDescription = nil; ExecuteChoice = nil; IsVisible = nil;");
+
             string scriptContent = File.ReadAllText(path);
             env.DoString(scriptContent);
             canSelect = env.Global.Get<CanSelectDialogueChoice>("CanSelect");
             getDesc = env.Global.Get<GetDialogueChoiceDescription>("GetDescription");
             execute = env.Global.Get<ExecuteDialogueChoice>("ExecuteChoice");
             isVisible = env.Global.Get<IsDialogueChoiceVisible>("IsVisible");
+
+            // 델리게이트 획득 후 전역 공간 재정리
+            env.DoString("CanSelect = nil; GetDescription = nil; ExecuteChoice = nil; IsVisible = nil;");
         }
         catch (Exception e)
         {

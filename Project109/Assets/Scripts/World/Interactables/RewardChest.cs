@@ -35,12 +35,12 @@ public class RewardChest : InteractableObject
         SetupRewardUI();
     }
 
-    public void SetRewardItemList()
+    public void SetRewardItemList(int bonusGold = 0)
     {
-        SetupRewardUI();
+        SetupRewardUI(bonusGold);
     }
 
-    private void SetupRewardUI()
+    private void SetupRewardUI(int bonusGold = 0)
     {
         if (rewardListUI != null) return; // 중복 생성 방지
 
@@ -63,11 +63,7 @@ public class RewardChest : InteractableObject
             }
         }
 
-        rewardListUI = spawned.GetComponent<RewardListUIHandler>();
-        if (rewardListUI == null && spawned.transform.childCount > 0)
-        {
-            rewardListUI = spawned.transform.GetChild(0).GetComponent<RewardListUIHandler>();
-        }
+        rewardListUI = spawned.GetComponentInChildren<RewardListUIHandler>(true);
 
         if (rewardListUI != null && activeRewardData != null)
         {
@@ -88,6 +84,7 @@ public class RewardChest : InteractableObject
                             value += RunManager.instance.battleManager.accumulativeGoldReward;
                             RunManager.instance.battleManager.accumulativeGoldReward = 0; // 중복 합산 방지
                         }
+                        value += bonusGold;
                         if (value > 0)
                         {
                             rewardListUI.AddRewardItem(ItemRewardUIType.Gold, rewardConfig.referenceID, value);
@@ -161,6 +158,7 @@ public class RewardChest : InteractableObject
                 totalGold += RunManager.instance.battleManager.accumulativeGoldReward;
                 RunManager.instance.battleManager.accumulativeGoldReward = 0;
             }
+            totalGold += bonusGold;
 
             if (totalGold > 0)
                 rewardListUI.AddRewardItem(ItemRewardUIType.Gold, "", totalGold);
@@ -190,14 +188,6 @@ public class RewardChest : InteractableObject
         if (rewardListUI != null)
         {
             rewardListUI.Open();
-
-            if (RunManager.instance != null && RunManager.instance.currentMap != null)
-            {
-                if (!RunManager.instance.currentMap.currentSpawnUIList.Contains(rewardListUI.gameObject))
-                {
-                    RunManager.instance.currentMap.currentSpawnUIList.Add(rewardListUI.gameObject);
-                }
-            }
         }
     }
 

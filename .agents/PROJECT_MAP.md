@@ -81,7 +81,7 @@
 | 서브디렉터리 | 책임 |
 |---|---|
 | `Scene/` | **`GameSceneManager`** (세션 루트 싱글턴), **`RunManager`** (던전 런 오케스트레이터), `HideoutManager` (은신처 서브씬), `SceneLoadManager` (씬 전환), `ScreenFader` |
-| `Gameplay/` | **`BattleManager`** (전투 FSM), **`MapManager`** (맵 생성/상태/O(1) 캐시), **`ExploreMapManager`** (탐험 맵 노드 생성/진행), **`UIManager`** (UI 레이어 스택), `DialogueActionExecutor` (다이얼로그 액션 실행 분리), `GameItemRewardManager` (보상 풀/배분), `SaveSystem` (JSON 직렬화), `ObjectPoolManager` |
+| `Gameplay/` | **`BattleManager`** (전투 FSM), **`StageManager`** (스테이지/인카운터 조립, 적·NPC 스폰, 상태 관리, 구 `MapManager`), **`ExploreMapManager`** (탐험 맵 노드 생성/진행), **`UIManager`** (UI 레이어 스택), `DialogueActionExecutor` (다이얼로그 액션 실행 분리), `GameItemRewardManager` (보상 풀/배분), `SaveSystem` (JSON 직렬화), `ObjectPoolManager` |
 | `Modding/` | **`ModLoader`** (YAML 파싱, 데이터베이스 구축), `ModManager`, `ModObjectFactory` |
 
 #### [L4] UI (`Scripts/UI/`)
@@ -174,7 +174,7 @@ Lua          → L2(Character API), L1(Data)  // C# API 바인딩을 통해
 [SubScene 수명 — 서브씬 로드/언로드에 따라]
   ├── RunManager            ← 던전 런 (DungeonScene)
   │   ├── BattleManager     ← 전투 FSM (POCO, non-MonoBehaviour)
-  │   └── MapManager        ← 맵 생성/상태 (POCO)
+  │   └── StageManager      ← 스테이지/인카운터 조립 및 엔티티 스폰 (POCO, 구 MapManager)
   └── HideoutManager        ← 은신처 (HideoutScene)
 ```
 
