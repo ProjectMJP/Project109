@@ -67,12 +67,6 @@ public class CharacterEffectListUI : MonoBehaviour
     {
         if (effect == null || effectContainer == null) return;
 
-        // 재사용 뷰 활성화 보장 (§2.10)
-        if (!gameObject.activeSelf)
-        {
-            gameObject.SetActive(true);
-        }
-
         // 이미 존재하는 경우 리프레시
         var existing = activeEffectItems.Find(x => x != null && x.TargetEffect == effect);
         if (existing != null)

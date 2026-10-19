@@ -95,11 +95,13 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (statusBarUI == null)
         {
             statusBarUI = UIManager.instance.CreateStatusBarUI(transform, statusBarOffset);
+            if (!_isBattleActive && statusBarUI != null) statusBarUI.Hide();
         }
 
         if (effectListUI == null)
         {
             effectListUI = UIManager.instance.CreateEffectListUI(transform, effectListOffset);
+            if (!_isBattleActive && effectListUI != null) effectListUI.Hide();
         }
     }
 
@@ -169,7 +171,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnHealthChanged(Character c)
     {
-        if (statusBarUI == null || c == null) return;
+        if (!_isBattleActive || statusBarUI == null || c == null) return;
         float maxHp = (c.curCharacterStat != null && c.curCharacterStat.maxHealth > 0f)
             ? c.curCharacterStat.maxHealth
             : Mathf.Max(1f, c.curHealth);
@@ -179,7 +181,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnShieldChanged(Character c)
     {
-        if (statusBarUI == null || c == null) return;
+        if (!_isBattleActive || statusBarUI == null || c == null) return;
         float maxHp = (c.curCharacterStat != null && c.curCharacterStat.maxHealth > 0f)
             ? c.curCharacterStat.maxHealth
             : Mathf.Max(1f, c.curHealth);
@@ -189,7 +191,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnStaminaChanged(Character c)
     {
-        if (statusBarUI == null || c == null) return;
+        if (!_isBattleActive || statusBarUI == null || c == null) return;
         float maxStamina = (c.curCharacterStat != null && c.curCharacterStat.maxStamina > 0f)
             ? c.curCharacterStat.maxStamina
             : Mathf.Max(1f, c.curStamina);
@@ -204,26 +206,20 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnEffectAdded(Effect effect)
     {
-        if (effectListUI != null)
-        {
-            effectListUI.AddEffect(effect);
-        }
+        if (!_isBattleActive || effectListUI == null) return;
+        effectListUI.AddEffect(effect);
     }
 
     private void OnEffectStacked(Effect effect)
     {
-        if (effectListUI != null)
-        {
-            effectListUI.UpdateEffect(effect);
-        }
+        if (!_isBattleActive || effectListUI == null) return;
+        effectListUI.UpdateEffect(effect);
     }
 
     private void OnEffectRemoved(Effect effect)
     {
-        if (effectListUI != null)
-        {
-            effectListUI.RemoveEffect(effect);
-        }
+        if (!_isBattleActive || effectListUI == null) return;
+        effectListUI.RemoveEffect(effect);
     }
 
     #endregion
@@ -237,8 +233,18 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     {
         if (character == null) return;
 
-        OnHealthChanged(character);
-        OnStaminaChanged(character);
+        if (statusBarUI != null)
+        {
+            float maxHp = (character.curCharacterStat != null && character.curCharacterStat.maxHealth > 0f)
+                ? character.curCharacterStat.maxHealth
+                : Mathf.Max(1f, character.curHealth);
+            statusBarUI.UpdateHealth(character.curHealth, maxHp, character.shield);
+
+            float maxStamina = (character.curCharacterStat != null && character.curCharacterStat.maxStamina > 0f)
+                ? character.curCharacterStat.maxStamina
+                : Mathf.Max(1f, character.curStamina);
+            statusBarUI.UpdateStamina(character.curStamina, maxStamina);
+        }
 
         if (effectListUI != null && character.effectManager != null)
         {
