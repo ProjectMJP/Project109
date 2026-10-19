@@ -165,9 +165,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         _lastHoveredCoord = new Vector2Int(-999, -999);
         if (_battleUI != null)
         {
-            _battleUI.SwitchToHandMode();
+            _battleUI.SetTurnActive(true);
             _battleUI.RefreshMoveStats();
-            _battleUI.SetEndTurnInteractable(true);
         }
     }
 
@@ -179,7 +178,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         // 2. 손패 → 묘지 이동 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
         battleDeck.DiscardHand();
 
-        // 3. 이동 비활성화
+        // 3. 이동 비활성화 및 칸 정리
         if (playerMove != null)
         {
             playerMove.ClearCanMoveTiles();
@@ -198,7 +197,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         if (_battleUI != null)
         {
-            _battleUI.SetEndTurnInteractable(false);
+            _battleUI.SetTurnActive(false);
         }
     }
 
@@ -207,6 +206,16 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void RequestEndTurn()
     {
+        // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 클리어 및 UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
+        if (playerMove != null)
+        {
+            playerMove.ClearCanMoveTiles();
+        }
+        if (_battleUI != null)
+        {
+            _battleUI.SetTurnActive(false);
+        }
+
         if (RunManager.instance != null && RunManager.instance.battleManager != null)
         {
             if (ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))

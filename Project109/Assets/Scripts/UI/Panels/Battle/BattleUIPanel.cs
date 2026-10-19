@@ -112,6 +112,25 @@ public class BattleUIPanel : UIPanelBase
         }
     }
 
+    /// <summary>
+    /// 플레이어의 턴 활성화 여부에 따라 턴 종료 버튼 및 모드 전환 버튼을 활성화/비활성화하고,
+    /// 턴이 끝났을 경우 즉시 카드(손패) 모드로 강제 복구합니다.
+    /// </summary>
+    public void SetTurnActive(bool isActive)
+    {
+        SetEndTurnInteractable(isActive);
+
+        if (battleHandPanel != null)
+        {
+            battleHandPanel.SetSwitchModeInteractable(isActive);
+        }
+
+        if (!isActive)
+        {
+            SwitchToHandMode();
+        }
+    }
+
     private void HandleEndTurnClicked()
     {
         if (_controller != null)

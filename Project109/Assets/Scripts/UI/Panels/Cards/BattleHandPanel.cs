@@ -133,6 +133,18 @@ public class BattleHandPanel : UIPanelBase
     }
 
     /// <summary>
+    /// 모드 전환 버튼(이동/카드)의 상호작용 가능 여부를 설정합니다.
+    /// 플레이어 턴이 아닐 때는 비활성화됩니다.
+    /// </summary>
+    public void SetSwitchModeInteractable(bool interactable)
+    {
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.interactable = interactable;
+        }
+    }
+
+    /// <summary>
     /// 플레이어의 전투 덱을 바인딩하여 손패 변경(OnHandChanged) 이벤트를 수신합니다.
     /// </summary>
     public void BindPlayer(Player player)

@@ -335,7 +335,12 @@ public class BattleManager : IInitializable, IDisposable
 
         foreach (var combatant in playerTeam)
         {
-            combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+
+            if (combatant.controlledCharacter.eventBus != null)
+            {
+                combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+            }
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
             var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
@@ -346,7 +351,12 @@ public class BattleManager : IInitializable, IDisposable
         }
         foreach (var combatant in enemyTeam)
         {
-            combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+
+            if (combatant.controlledCharacter.eventBus != null)
+            {
+                combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+            }
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
             var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
