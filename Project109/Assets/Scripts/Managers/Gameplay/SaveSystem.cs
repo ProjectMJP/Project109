@@ -357,6 +357,7 @@ public static class SaveSystem
         if (player.playerStat == null) player.playerStat = new PlayerStat();
         player.playerStat.InGameCurrencyGold = data.playerGold;
         player.playerStat.InGameCurrencyMemorySharp = data.playerMemorySharp;
+        player.playerStat.player = player;
 
         // 3. 덱 복원
         if (player.deck != null && data.playerDeckCards != null && data.playerDeckCards.Count > 0)
@@ -375,17 +376,7 @@ public static class SaveSystem
                         if (!restoredCardMasteries.Contains(cardEntry.cardName))
                         {
                             restoredCardMasteries.Add(cardEntry.cardName);
-                            if (cardEntry.masteryUpgrades != null)
-                            {
-                                foreach (var upgrade in cardEntry.masteryUpgrades)
-                                {
-                                    for (int i = 0; i < upgrade.count; i++)
-                                    {
-                                        newCard.AddMastery(upgrade.masteryId);
-                                    }
-                                }
-                            }
-                            newCard.currentMasteryXP = cardEntry.currentMasteryXP;
+                            newCard.RestoreMasteryState(cardEntry.masteryLevel, cardEntry.currentMasteryXP, cardEntry.masteryUpgrades);
                         }
                         else
                         {

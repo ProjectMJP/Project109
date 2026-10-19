@@ -147,9 +147,39 @@ public class RunManager : MonoBehaviour
         // 1. 던전 런 진행도 메타 복구 (SaveSystem에 위임)
         SaveSystem.RestoreRunData(data, this);
 
+        // 2. 던전 인필드/맵 상태 재개
+        ResumeRunAfterLoad();
+
         if (SceneLoadManager.instance != null)
         {
             SceneLoadManager.instance.FadeIn();
+        }
+    }
+
+    /// <summary>
+    /// 세이브 데이터 복원 후 노드 진행 상태에 맞춰 스테이지를 재구축하거나 맵 창을 엽니다.
+    /// </summary>
+    public void ResumeRunAfterLoad()
+    {
+        if (currentExploreNode == null)
+        {
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.OpenUI(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+            }
+            return;
+        }
+
+        if (currentExploreNode.isCleared)
+        {
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.OpenUI(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+            }
+        }
+        else
+        {
+            LoadCurrentNodeDataInMap();
         }
     }
 
@@ -253,6 +283,12 @@ public class RunManager : MonoBehaviour
             GameItemRewardManager.instance.SpawnRewardBox(spawnPos, battleGold);
         }
 
+        if (currentExploreNode != null)
+        {
+            currentExploreNode.isCleared = true;
+        }
+        SaveGame();
+
         OnMapStateChanged(MapState.None);
     }
 
@@ -329,11 +365,13 @@ public class RunManager : MonoBehaviour
             SceneLoadManager.instance.FadeIn(0.35f, () =>
             {
                 LoadCurrentNodeDataInMap();
+                SaveGame();
             });
         }
         else
         {
             LoadCurrentNodeDataInMap();
+            SaveGame();
         }
     }
 

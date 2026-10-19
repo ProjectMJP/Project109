@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using CardTypes;
+using Random = UnityEngine.Random;
+
 
 public enum MapState
 {
@@ -405,22 +409,30 @@ public class StageManager : IInitializable, System.IDisposable
             bool isShop = (EncountType == EncountType.Store);
             bool isChest = (EncountType == EncountType.SecretBox);
 
-            if (EncountType == EncountType.Secret && eventData != null)
+            if (eventData != null)
             {
-                if (eventData.rewardData != null && eventData.rewardData.rewards != null && eventData.rewardData.rewards.Count > 0)
+                if (eventData.interactableType == InteractableType.Chest || 
+                    (eventData.rewardData != null && eventData.rewardData.rewards != null && eventData.rewardData.rewards.Count > 0))
                 {
                     isChest = true;
                 }
-                else
+                else if (eventData.interactableType == InteractableType.Shop)
                 {
+                    isShop = true;
+                }
+                else if (eventData.interactableType == InteractableType.RestoreBonfire)
+                {
+                    isRestore = true;
+                }
+                else if (EncountType == EncountType.Secret)
+                {
+                    // 레거시 하위 호환 매칭: 오작동을 유발하는 임의의 부분일치(store, rest) 대신 경계 단어 매칭
                     string idLower = !string.IsNullOrEmpty(eventData.interactableID) ? eventData.interactableID.ToLower() : "";
-                    string modelLower = !string.IsNullOrEmpty(eventData.modelPrefabPath) ? eventData.modelPrefabPath.ToLower() : "";
-
-                    if (idLower.Contains("shop") || modelLower.Contains("shop") || idLower.Contains("store") || modelLower.Contains("store"))
+                    if (idLower.StartsWith("shop") || idLower.EndsWith("_shop") || idLower.Contains("_shop_") || idLower == "shop")
                     {
                         isShop = true;
                     }
-                    else if (idLower.Contains("restore") || modelLower.Contains("restore") || idLower.Contains("bonfire") || modelLower.Contains("bonfire") || idLower.Contains("rest") || modelLower.Contains("rest"))
+                    else if (idLower.StartsWith("bonfire") || idLower.EndsWith("_bonfire") || idLower.Contains("restore_bonfire"))
                     {
                         isRestore = true;
                     }
@@ -601,6 +613,16 @@ public class StageManager : IInitializable, System.IDisposable
 
     public void ClearStage()
     {
+        // 살아남은 적 컨트롤러들의 루아 리소스 및 이벤트 바인딩 해제
+        for (int i = 0; i < _currentEnemyControllers.Count; i++)
+        {
+            if (_currentEnemyControllers[i] is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        _currentEnemyControllers.Clear();
+
         // 현재 씬에 존재하는 적 오브젝트를 모두 제거
         foreach (GameObject enemy in _currentSpawnEnemyList)
         {
@@ -610,7 +632,7 @@ public class StageManager : IInitializable, System.IDisposable
             }
         }
         _currentSpawnEnemyList.Clear();
-        _currentEnemyControllers.Clear();
+
 
         // 현재 씬에 존재하는 NPC 오브젝트를 모두 제거
         foreach (GameObject obj in _currentSpawnNPCList)

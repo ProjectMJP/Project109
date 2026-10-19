@@ -89,4 +89,30 @@ public class CharacterEffectItemUI : MonoBehaviour
             tooltipTrigger.SetDynamicContent(header, targetEffect);
         }
     }
+
+    /// <summary>
+    /// 매 프레임 호출되는 가벼운 지속시간 게이지 링 전용 갱신 메서드 (GC 무할당)
+    /// </summary>
+    public void RefreshCooldownGauge()
+    {
+        if (targetEffect == null || targetEffect.Data == null) return;
+
+        if (durationFillImage != null)
+        {
+            if (!targetEffect.Data.isPermanent && targetEffect.duration > 0f)
+            {
+                float fillRatio = Mathf.Clamp01(targetEffect.currentDuration / targetEffect.duration);
+                durationFillImage.fillAmount = fillRatio;
+                if (!durationFillImage.gameObject.activeSelf)
+                {
+                    durationFillImage.gameObject.SetActive(true);
+                }
+            }
+            else if (durationFillImage.gameObject.activeSelf)
+            {
+                durationFillImage.gameObject.SetActive(false);
+            }
+        }
+    }
 }
+

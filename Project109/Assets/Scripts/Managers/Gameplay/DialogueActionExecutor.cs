@@ -258,28 +258,39 @@ public class DialogueActionExecutor
             rType = RewardItemType.Relic;
         }
 
-        string dropTableID = "Default_Card_Table";
-        if (rType == RewardItemType.Relic)
+        // 1. 전달받은 rarityStr 자체가 ModLoader의 DropTableDatabase에 등록된 테이블 ID라면 직접 우선 사용
+        string dropTableID = null;
+        if (!string.IsNullOrEmpty(rarityStr) && ModLoader.Instance != null && ModLoader.Instance.DropTableDatabase != null &&
+            ModLoader.Instance.DropTableDatabase.ContainsKey(rarityStr))
         {
-            dropTableID = "Default_Relic_Table";
-            if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Rare_Relic_Table";
-            }
-            else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
-            {
-                dropTableID = "Unique_Relic_Table";
-            }
+            dropTableID = rarityStr;
         }
         else
         {
-            if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
+            // 2. 기본 희귀도 매핑 (폴백)
+            if (rType == RewardItemType.Relic)
             {
-                dropTableID = "Rare_Card_Table";
+                dropTableID = "Default_Relic_Table";
+                if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropTableID = "Rare_Relic_Table";
+                }
+                else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropTableID = "Unique_Relic_Table";
+                }
             }
-            else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                dropTableID = "Unique_Card_Table";
+                dropTableID = "Default_Card_Table";
+                if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropTableID = "Rare_Card_Table";
+                }
+                else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropTableID = "Unique_Card_Table";
+                }
             }
         }
 

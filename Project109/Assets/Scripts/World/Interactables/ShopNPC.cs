@@ -43,75 +43,11 @@ public class ShopNPC : InteractableObject
 
         if (GameItemRewardManager.instance == null) return;
 
-        // 1. 카드 중복 방지 저장
-        for (int i = 0; i < cardCount; i++)
-        {
-            CardData card = null;
-            int attempts = 0;
-            const int maxAttempts = 50;
+        // 1. 카드 추첨 (중복 방지)
+        actionCards.AddRange(GameItemRewardManager.instance.GetUniqueRandomCards("Shop_Card_Table", cardCount));
 
-            while (attempts < maxAttempts)
-            {
-                card = GameItemRewardManager.instance.GetRandomCardDataByDropTable("Shop_Card_Table");
-                if (card == null) break;
-
-                bool isDuplicate = false;
-                foreach (var activeCard in actionCards)
-                {
-                    if (activeCard.cardName == card.cardName)
-                    {
-                        isDuplicate = true;
-                        break;
-                    }
-                }
-
-                if (!isDuplicate)
-                {
-                    break;
-                }
-                attempts++;
-            }
-
-            if (card != null)
-            {
-                actionCards.Add(card);
-            }
-        }
-
-        // 2. 유물 중복 방지 저장
-        for (int i = 0; i < relicCount; i++)
-        {
-            RelicData relic = null;
-            int attempts = 0;
-            const int maxAttempts = 50;
-
-            while (attempts < maxAttempts)
-            {
-                relic = GameItemRewardManager.instance.GetRandomRelicDataByDropTable("Shop_Relic_Table");
-                if (relic == null) break;
-
-                bool isDuplicate = false;
-                foreach (var activeRelic in relics)
-                {
-                    if (activeRelic.relicName == relic.relicName)
-                    {
-                        isDuplicate = true;
-                        break;
-                    }
-                }
-
-                if (!isDuplicate)
-                {
-                    break;
-                }
-                attempts++;
-            }
-
-            if (relic != null)
-            {
-                relics.Add(relic);
-            }
-        }
+        // 2. 유물 추첨 (중복 방지)
+        relics.AddRange(GameItemRewardManager.instance.GetUniqueRandomRelics("Shop_Relic_Table", relicCount));
     }
 
     public void UpdateShopItems() //상점UI 생성 후 아이템 진열

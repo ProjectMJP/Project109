@@ -446,4 +446,50 @@ public class GameItemRewardManager : MonoBehaviour
     public List<RelicData> GetCommonRelicList() { return commonRelicList; }
     public List<RelicData> GetRareRelicList() { return rareRelicList; }
     public List<RelicData> GetUniqueRelicList() { return uniqueRelicList; }
+
+    /// <summary>
+    /// 드롭 테이블을 기반으로 중복 없는 무작위 카드 목록을 지정한 개수만큼 추첨합니다.
+    /// </summary>
+    public List<CardData> GetUniqueRandomCards(string dropTableID, int count)
+    {
+        List<CardData> result = new List<CardData>();
+        HashSet<string> pickedNames = new HashSet<string>();
+        int attempts = 0;
+        int maxAttempts = Mathf.Max(50, count * 20);
+
+        while (result.Count < count && attempts < maxAttempts)
+        {
+            attempts++;
+            var card = GetRandomCardDataByDropTable(dropTableID);
+            if (card == null) break;
+            if (pickedNames.Add(card.cardName))
+            {
+                result.Add(card);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 드롭 테이블을 기반으로 중복 없는 무작위 유물 목록을 지정한 개수만큼 추첨합니다.
+    /// </summary>
+    public List<RelicData> GetUniqueRandomRelics(string dropTableID, int count)
+    {
+        List<RelicData> result = new List<RelicData>();
+        HashSet<string> pickedNames = new HashSet<string>();
+        int attempts = 0;
+        int maxAttempts = Mathf.Max(50, count * 20);
+
+        while (result.Count < count && attempts < maxAttempts)
+        {
+            attempts++;
+            var relic = GetRandomRelicDataByDropTable(dropTableID);
+            if (relic == null) break;
+            if (pickedNames.Add(relic.relicName))
+            {
+                result.Add(relic);
+            }
+        }
+        return result;
+    }
 }

@@ -147,7 +147,7 @@ public class CharacterEffectListUI : MonoBehaviour
         {
             if (activeEffectItems[i] != null)
             {
-                activeEffectItems[i].Refresh();
+                activeEffectItems[i].RefreshCooldownGauge();
             }
         }
     }

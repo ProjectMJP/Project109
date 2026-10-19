@@ -490,7 +490,10 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         }
 
         var result = new List<Card>(selectedCards);
-        _onConfirmCallback?.Invoke(result);
+        var confirmCallback = _onConfirmCallback;
+        _onConfirmCallback = null;
+        _onCancelCallback = null;
+        confirmCallback?.Invoke(result);
 
         Close();
     }

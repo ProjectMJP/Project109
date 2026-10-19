@@ -113,7 +113,7 @@ public class SceneLoadManager : MonoBehaviour
     }
 
     // 초기 서브씬 설정용 (최초 GameScene 진입 시 은신처 씬을 덧붙여 로드할 때 사용)
-    public void LoadInitialSubScene(string subSceneName)
+    public void LoadInitialSubScene(string subSceneName, System.Action onComplete = null)
     {
         SceneManager.LoadSceneAsync(subSceneName, LoadSceneMode.Additive).completed += (op) =>
         {
@@ -123,6 +123,7 @@ public class SceneLoadManager : MonoBehaviour
                 SceneManager.SetActiveScene(loadedScene);
                 currentLoadedSubScene = subSceneName;
             }
+            onComplete?.Invoke();
         };
     }
 

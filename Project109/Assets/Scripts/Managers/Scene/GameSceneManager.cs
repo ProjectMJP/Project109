@@ -188,7 +188,20 @@ public class GameSceneManager : MonoBehaviour
 
         if (SceneLoadManager.instance != null)
         {
-            SceneLoadManager.instance.LoadInitialSubScene(targetSubScenePath);
+            SceneLoadManager.instance.LoadInitialSubScene(targetSubScenePath, () =>
+            {
+                // 던전 서브씬 로드 완료 후 런 데이터 복원
+                if (isInDungeon && SaveSystem.HasSaveData(currentSaveSlot))
+                {
+                    RunSaveData data = SaveSystem.LoadGameData(currentSaveSlot);
+                    if (data != null && currentDungeonManager != null)
+                    {
+                        SaveSystem.RestoreRunData(data, currentDungeonManager);
+                        currentDungeonManager.ResumeRunAfterLoad();
+                        Debug.Log($"[GameSceneManager] 서브씬 로드 완료 후 던전 런 데이터 복원 및 재개 완료 (슬롯 {currentSaveSlot})");
+                    }
+                }
+            });
             Debug.Log($"[GameSceneManager] 세이브 데이터 검사 완료 (슬롯 {currentSaveSlot}, 던전 진입 상태: {isInDungeon}). 서브씬('{targetSubScenePath}') 로딩을 시작합니다.");
         }
         else

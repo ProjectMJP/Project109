@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
+using CardTypes;
 
 [System.Serializable]
 public class InteractableData : IIdentifiable
 {
     public string interactableID;             // 상호작용 오브젝트 고유 식별자
     public string interactableName;           // 오브젝트의 표시 명칭
+    public InteractableType interactableType = InteractableType.Normal; // 명시적 상호작용 타입 (Chest, Shop, RestoreBonfire, Normal)
     public string modelPrefabPath;            // Addressables 소환 모델 경로
     public List<int> eventAppearLevels;       // 이 이벤트가 등장할 수 있는 스테이지 층/레벨 제한 목록
     
@@ -14,6 +16,7 @@ public class InteractableData : IIdentifiable
 
     [Header("보상 상자 추가 데이터")]
     public RewardData rewardData;             // 보상 상자일 때 획득 가능한 보상 기획 데이터
+
 
     public string ID => interactableID;
 }
