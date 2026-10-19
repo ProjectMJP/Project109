@@ -59,12 +59,22 @@ namespace CardTypes
         Move
     }
 
-    public enum TargetType  //공격 대상 타입
+    public enum TargetType  //공격 대상 및 타깃팅 방식 타입
     {
-        Target,
-        Area,
-        Self,
-        All
+        Self,          // 시전자 자신 대상 즉시 발동
+        SingleEnemy,   // 사거리 내 단일 적 수동 지정
+        AreaSelf,      // 시전자 중심 즉시 광역 발동 (회전베기, 지진 등)
+        AreaGround,    // 사거리 내 바닥 타일 수동 지정 광역
+        RandomEnemy,   // 사거리 내 무작위 적 N명 자동 타격
+        MultiEnemy,    // 사거리 내 적 N명 순차 수동 지정
+        AllEnemies,    // 전장의 모든 적 즉시 타격
+        SingleAlly,    // 사거리 내 아군 1명 수동 지정 (미래 확장용)
+        AllAllies,     // 전장의 모든 아군 즉시 적용 (미래 확장용)
+
+        // 레거시 하위 호환 별칭
+        Target = SingleEnemy,
+        Area = AreaSelf,
+        All = AllEnemies
     }
 
     public enum CardMasteryType

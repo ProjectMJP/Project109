@@ -151,23 +151,60 @@ public class BattleManager : IInitializable, IDisposable
 
         float scaledDt = dt * battleTimeScale;
 
-        // 플레이어 팀 먼저 틱 (동시 MAX 시 플레이어 우선)
-        foreach (var combatant in playerTeam)
+        // 모든 전투원에 대해 공정하게 스태미나 틱을 먼저 진행 (프레임 dt 누수 방지)
+        ICharacterController highestOverflowCombatant = null;
+        float maxOverflow = float.MinValue;
+        bool isPlayerOverflow = false;
+
+        // 1. 플레이어 팀 틱
+        for (int i = 0; i < playerTeam.Count; i++)
         {
-            if (combatant.controlledCharacter.BattleTick(scaledDt))
+            var combatant = playerTeam[i];
+            if (combatant?.controlledCharacter == null || combatant.controlledCharacter.isDead) continue;
+
+            combatant.controlledCharacter.BattleTick(scaledDt);
+            if (combatant.controlledCharacter.curCharacterStat != null)
             {
-                RequestTurnStart(combatant.controlledCharacter);
-                return; // 한 프레임에 한 명만 턴 시작 (동시 턴 시작 방지)
+                float overflow = combatant.controlledCharacter.curStamina - combatant.controlledCharacter.curCharacterStat.maxStamina;
+                if (overflow >= 0f)
+                {
+                    if (highestOverflowCombatant == null || overflow > maxOverflow)
+                    {
+                        maxOverflow = overflow;
+                        highestOverflowCombatant = combatant;
+                        isPlayerOverflow = true;
+                    }
+                }
             }
         }
-        
-        foreach (var combatant in enemyTeam)
+
+        // 2. 적 팀 틱
+        for (int i = 0; i < enemyTeam.Count; i++)
         {
-            if (combatant.controlledCharacter.BattleTick(scaledDt))
+            var combatant = enemyTeam[i];
+            if (combatant?.controlledCharacter == null || combatant.controlledCharacter.isDead) continue;
+
+            combatant.controlledCharacter.BattleTick(scaledDt);
+            if (combatant.controlledCharacter.curCharacterStat != null)
             {
-                RequestTurnStart(combatant.controlledCharacter);
-                return; // 한 프레임에 한 명만 턴 시작
+                float overflow = combatant.controlledCharacter.curStamina - combatant.controlledCharacter.curCharacterStat.maxStamina;
+                if (overflow >= 0f)
+                {
+                    // 동률일 경우 플레이어 우선권 유지 (isPlayerOverflow && overflow <= maxOverflow 인 경우 교체 안 함)
+                    if (highestOverflowCombatant == null || (!isPlayerOverflow && overflow > maxOverflow) || (isPlayerOverflow && overflow > maxOverflow + 0.0001f))
+                    {
+                        maxOverflow = overflow;
+                        highestOverflowCombatant = combatant;
+                        isPlayerOverflow = false;
+                    }
+                }
             }
+        }
+
+        // 3. 턴 획득 조건을 만족한 전투원 중 최대 초과자에게 턴 부여
+        if (highestOverflowCombatant != null)
+        {
+            RequestTurnStart(highestOverflowCombatant.controlledCharacter);
         }
     }
 
@@ -203,10 +240,18 @@ public class BattleManager : IInitializable, IDisposable
 
     /// <summary>
     /// 현재 턴을 종료한다. 플레이어가 턴 종료 버튼을 누르거나, AI가 행동을 마쳤을 때 호출.
+    /// requester가 전달된 경우 현재 턴 소유자인지 검증하여 무효한 콜백의 턴 가로채기를 방어합니다.
     /// </summary>
-    public void EndTurn()
+    public void EndTurn(ICharacterController requester = null)
     {
         if (currentTurnController == null) return;
+
+        // 호출자가 지정되어 있는데 현재 턴 소유자가 아니면 무시 (stale 콜백 또는 사망 유닛의 부정 턴 종료 방어)
+        if (requester != null && requester != currentTurnController)
+        {
+            Debug.LogWarning($"[BattleManager] EndTurn ignored: Requester ({requester}) is not current turn controller ({currentTurnController})");
+            return;
+        }
 
         currentTurnController.OnTurnEnd();
 
@@ -383,6 +428,12 @@ public class BattleManager : IInitializable, IDisposable
         CleanupCombatants();
         battleState = BattleState.None;
         accumulativeGoldReward = 0;
+
+        // 전투 복제 카드 및 이벤트 리스너 안전 해제
+        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            GameSceneManager.instance.player.DisposeBattleDeck();
+        }
     }
 
     #endregion

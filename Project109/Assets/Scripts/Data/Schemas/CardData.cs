@@ -20,6 +20,9 @@ public class CardData : IModAssetResolver, IIdentifiable
     public string targetType { get; set; }
     public int targetMinDistance { get; set; }
     public int targetMaxDistance { get; set; }
+    public int targetCount { get; set; } = 1;
+    public int minTargetCount { get; set; } = 1;
+    public bool allowDuplicateTarget { get; set; } = true;
     public List<EffectArea> additionalEffectAreaList { get; set; } = new();
 
     public CardRarity rarity { get; set; }

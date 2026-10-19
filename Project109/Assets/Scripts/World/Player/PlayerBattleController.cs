@@ -238,55 +238,228 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 카드 시전 시도 (지정형 카드는 타겟팅 모드로 진입)
+    /// 카드 시전 시도 (사전 유효성 검사 후 지정형 카드는 타겟팅 모드로 진입, 비지정형은 즉시 시전)
     /// </summary>
     public void TryUseCard(Card card)
     {
         if (card == null) return;
 
-        // 액션 큐 실행 중 조작 방지 잠금
+        // 1. 액션 큐 실행 중 조작 방지 잠금
         if (ActionQueueManager.Instance.IsBusy)
         {
-            Debug.LogWarning("[PlayerBattleController] 캐릭터가 행동 중입니다. 카드 사용이 무시됩니다.");
+            Debug.LogWarning("[PlayerBattleController] 이전 행동을 수행 중입니다. 카드 사용이 무시됩니다.");
             return;
         }
 
-        // 실시간 다중 비용 및 시전 가능 조건 검사
+        // 2. 실시간 다중 비용 및 시전 가능 조건 검사
         if (!card.CanPlay(controlledCharacter))
         {
             Debug.LogWarning($"[PlayerBattleController] 시전 요구조건이 충족되지 않아 '{card.cardName}' 카드를 사용할 수 없습니다.");
             return;
         }
 
+        TargetType parsedTargetType = GameMap.ParseTargetType(card.cardData != null ? card.cardData.targetType : null);
+
+        // 3. [★ 핵심] 사거리 내 유효 대상 존재 여부 사전 검증 (Fail-Fast)
+        if (!HasValidTargetsInRange(card, parsedTargetType))
+        {
+            Debug.LogWarning($"[PlayerBattleController] '{card.cardName}' 시전 실패: 사거리 내에 유효한 대상이 없습니다.");
+            if (controlState == PlayerControlState.TargetSelection)
+            {
+                CancelCurrentState();
+            }
+            return;
+        }
+
+        // 이미 다른 카드로 타겟팅 중이었다면 이전 타겟팅 상태 안전하게 리셋
+        if (controlState == PlayerControlState.TargetSelection)
+        {
+            CancelCurrentState();
+        }
+
         // 사용 시도 이벤트 발동 (IOnTryUseCard)
         CardInfo tryInfo = new CardInfo(controlledCharacter, card, CardFlag.Normal);
         controlledCharacter.eventBus.Invoke<IOnTryUseCard>(c => c.OnTryUseCard(tryInfo));
 
-        TargetType parsedTargetType = GameMap.ParseTargetType(card.cardData != null ? card.cardData.targetType : null);
-        if (parsedTargetType == TargetType.Target || parsedTargetType == TargetType.Area)
+        Vector2Int casterPos = Vector2Int.zero;
+        if (controlledCharacter.characterMove != null && controlledCharacter.characterMove.GetCurrentTile() != null)
         {
-            controlState = PlayerControlState.TargetSelection;
-            activeCardForTargeting = card;
+            casterPos = controlledCharacter.characterMove.GetCurrentTile().GetCoord();
+        }
 
-            if (UIManager.instance != null)
+        // 4. 타깃팅 유형별 분기 처리
+        switch (parsedTargetType)
+        {
+            case TargetType.SingleEnemy:
+            case TargetType.AreaGround:
+            case TargetType.MultiEnemy:
+                // 수동 지정형: 타겟팅 모드로 진입
+                controlState = PlayerControlState.TargetSelection;
+                activeCardForTargeting = card;
+
+                if (UIManager.instance != null)
+                {
+                    UIManager.instance.UpdateEffectAreaUI(card);
+                }
+
+                Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
+                break;
+
+            case TargetType.Self:
+                // 즉시 시전 (자신)
+                UseCard(card, CardInfo.EmptyTargets, casterPos);
+                break;
+
+            case TargetType.AllEnemies:
+                // 즉시 시전 (전체 적)
+                List<Character> allEnemies = GetAllLivingEnemies();
+                UseCard(card, allEnemies, casterPos);
+                break;
+
+            case TargetType.AreaSelf:
+                // 시전자 중심 즉시 광역 (PBAoE)
+                List<Character> pbaoeTargets;
+                if (GameMap.current != null && card.cardData.additionalEffectAreaList != null && card.cardData.additionalEffectAreaList.Count > 0)
+                {
+                    var aoeCoords = GameMap.current.CalculateCardAoECoords(casterPos, card.cardData);
+                    HashSet<Vector2Int> set = new HashSet<Vector2Int>(aoeCoords) { casterPos };
+                    pbaoeTargets = CollectCharactersInCoords(set);
+                }
+                else
+                {
+                    pbaoeTargets = GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
+                }
+                UseCard(card, pbaoeTargets, casterPos);
+                break;
+
+            case TargetType.RandomEnemy:
+                // 사거리 내 무작위 적 자동 추첨 후 즉시 시전
+                List<Character> candidates = GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
+                List<Character> selectedTargets = PickRandomTargets(candidates, card.cardData.targetCount, card.cardData.allowDuplicateTarget);
+                UseCard(card, selectedTargets, casterPos);
+                break;
+
+            default:
+                // 기본 폴백: 즉시 시전
+                UseCard(card, CardInfo.EmptyTargets, casterPos);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 카드의 타깃팅 유형과 사거리를 기반으로 현재 유효한 대상이 존재하는지 사전에 검증합니다.
+    /// </summary>
+    public bool HasValidTargetsInRange(Card card, TargetType targetType)
+    {
+        if (card == null || card.cardData == null) return false;
+
+        switch (targetType)
+        {
+            case TargetType.Self:
+                return true;
+
+            case TargetType.AllEnemies:
+                return GetAllLivingEnemies().Count > 0;
+
+            case TargetType.SingleEnemy:
+            case TargetType.RandomEnemy:
+            case TargetType.MultiEnemy:
+            case TargetType.AreaSelf:
+                return GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0;
+
+            case TargetType.AreaGround:
+                return true;
+
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// 플레이어 기준 맨해튼 사거리 내에 위치한 살아있는 모든 적 캐릭터 목록을 가져옵니다.
+    /// </summary>
+    public List<Character> GetEnemiesInRange(int minDistance, int maxDistance)
+    {
+        List<Character> enemies = new List<Character>();
+        Tile playerTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+            ? controlledCharacter.characterMove.GetCurrentTile()
+            : null;
+
+        if (playerTile == null || RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return enemies;
+        }
+
+        var combatants = RunManager.instance.battleManager.GetAllCombatants();
+        for (int i = 0; i < combatants.Count; i++)
+        {
+            var combatant = combatants[i];
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+            if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+            if (combatant.controlledCharacter.isDead) continue;
+
+            var enemyMove = combatant.controlledCharacter.characterMove;
+            if (enemyMove != null && enemyMove.GetCurrentTile() != null)
             {
-                UIManager.instance.UpdateEffectAreaUI(card);
+                int dist = Tile.GetDistance(playerTile, enemyMove.GetCurrentTile());
+                if (dist >= minDistance && dist <= maxDistance)
+                {
+                    enemies.Add(combatant.controlledCharacter);
+                }
             }
+        }
+        return enemies;
+    }
 
-            Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요.");
+    /// <summary>
+    /// 전장에 살아있는 모든 적 캐릭터 목록을 반환합니다.
+    /// </summary>
+    public List<Character> GetAllLivingEnemies()
+    {
+        List<Character> enemies = new List<Character>();
+        if (RunManager.instance == null || RunManager.instance.battleManager == null) return enemies;
+
+        var combatants = RunManager.instance.battleManager.GetAllCombatants();
+        for (int i = 0; i < combatants.Count; i++)
+        {
+            var combatant = combatants[i];
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+            if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+            if (combatant.controlledCharacter.isDead) continue;
+
+            enemies.Add(combatant.controlledCharacter);
+        }
+        return enemies;
+    }
+
+    /// <summary>
+    /// 후보 리스트 중 지정된 수량만큼 대상을 무작위 추첨합니다. (중복 허용 여부 옵션 반영)
+    /// </summary>
+    private List<Character> PickRandomTargets(List<Character> candidates, int count, bool allowDuplicate)
+    {
+        List<Character> result = new List<Character>();
+        if (candidates == null || candidates.Count == 0 || count <= 0) return result;
+
+        if (allowDuplicate)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                int idx = UnityEngine.Random.Range(0, candidates.Count);
+                result.Add(candidates[idx]);
+            }
         }
         else
         {
-            // 즉시 시전 카드 (Self, All 등)
-            Vector2Int casterPos = Vector2Int.zero;
-
-            if (controlledCharacter.characterMove != null && controlledCharacter.characterMove.GetCurrentTile() != null)
+            List<Character> pool = new List<Character>(candidates);
+            int pickCount = Mathf.Min(count, pool.Count);
+            for (int i = 0; i < pickCount; i++)
             {
-                casterPos = controlledCharacter.characterMove.GetCurrentTile().GetCoord();
+                int idx = UnityEngine.Random.Range(0, pool.Count);
+                result.Add(pool[idx]);
+                pool.RemoveAt(idx);
             }
-
-            UseCard(card, CardInfo.EmptyTargets, casterPos);
         }
+        return result;
     }
 
     /// <summary>
@@ -451,8 +624,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 var combatant = combatants[i];
                 if (combatant == null || combatant.controlledCharacter == null) continue;
 
-                // 시전자 자신은 타깃에서 제외
+                // 시전자 자신 및 사망한 대상은 타깃에서 제외
                 if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+                if (combatant.controlledCharacter.isDead) continue;
 
                 var cMove = combatant.controlledCharacter.characterMove;
                 if (cMove != null && cMove.GetCurrentTile() != null)
@@ -560,6 +734,14 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                     }
 
                                     List<Character> targets = CollectCharactersInCoords(affectedCoords);
+                                    TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
+
+                                    // 적을 수동 지정해야 하는 카드인데 적이 없는 빈 타일을 클릭했을 경우 시전 거부
+                                    if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy) && targets.Count == 0)
+                                    {
+                                        Debug.LogWarning("[PlayerBattleController] 적 유닛이 위치한 타일을 선택해야 합니다.");
+                                        return;
+                                    }
 
                                     UseCard(activeCardForTargeting, targets, targetPos);
 
