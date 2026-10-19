@@ -46,9 +46,9 @@ public interface ICharacterEvent { }
 
 #region 이동 관련 인터페이스 (Movement Interfaces)
 
-    public interface IOnBeforeMove : ICharacterEvent { void OnBeforeMove(MoveInfo info); }
+    public interface IOnBeforeMove : ICharacterEvent { void OnBeforeMove(ref MoveInfo info); }
     public interface IOnAfterMove : ICharacterEvent  { void OnAfterMove(MoveInfo info); }
-    public interface IOnBeforeForcedMove : ICharacterEvent { void OnBeforeForcedMove(MoveInfo info); }
+    public interface IOnBeforeForcedMove : ICharacterEvent { void OnBeforeForcedMove(ref MoveInfo info); }
     public interface IOnAfterForcedMove : ICharacterEvent { void OnAfterForcedMove(MoveInfo info); }
 
 #endregion

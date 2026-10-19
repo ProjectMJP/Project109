@@ -40,6 +40,34 @@ public class DamageIndicatorManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        Character.OnCharacterDamagedIndicator += HandleCharacterDamaged;
+        Character.OnCharacterHealedIndicator += HandleCharacterHealed;
+    }
+
+    private void OnDisable()
+    {
+        Character.OnCharacterDamagedIndicator -= HandleCharacterDamaged;
+        Character.OnCharacterHealedIndicator -= HandleCharacterHealed;
+    }
+
+    private void HandleCharacterDamaged(Character character, float amount, DamageFlag flags)
+    {
+        if (character != null)
+        {
+            ShowIndicator(character.transform.position, amount, flags);
+        }
+    }
+
+    private void HandleCharacterHealed(Character character, float amount)
+    {
+        if (character != null)
+        {
+            ShowHealIndicator(character.transform.position, amount);
+        }
+    }
+
     private void InitPool()
     {
         _pool = new ObjectPool<DamageIndicator>(

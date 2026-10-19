@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using UnityEngine.UIElements;
 using CardTypes;
 
 public enum TileType
@@ -27,11 +26,11 @@ public class EffectAreaTile : MonoBehaviour
 
     private void Start()
     {
-        texture = new Texture2D(textureHeight, textureWidth);
+        texture = new Texture2D(textureWidth, textureHeight);
         texture.filterMode = FilterMode.Point;
         texture.wrapMode = TextureWrapMode.Clamp;
 
-        Color32[] resetColors = new Color32[textureHeight * textureWidth];
+        Color32[] resetColors = new Color32[textureWidth * textureHeight];
         for(int i = 0; i < resetColors.Length; i++)
         {
             resetColors[i] = Color.clear;
@@ -84,7 +83,7 @@ public class EffectAreaTile : MonoBehaviour
         //타일 변경 진행
         foreach (var coord in areaTiles)
         {
-            texture.SetPixel(coord.y, coord.x, controlColor);
+            texture.SetPixel(coord.x, coord.y, controlColor);
         }
 
         texture.Apply();
@@ -115,7 +114,7 @@ public class EffectAreaTile : MonoBehaviour
         //타일 변경 진행
         foreach (var coord in areaTiles)
         {
-            texture.SetPixel(coord.y, coord.x, controlColor);
+            texture.SetPixel(coord.x, coord.y, controlColor);
         }
 
         texture.Apply();
@@ -123,7 +122,7 @@ public class EffectAreaTile : MonoBehaviour
 
     public void ClearAllTiles()
     {
-        Color32[] resetColors = new Color32[textureHeight * textureWidth];
+        Color32[] resetColors = new Color32[textureWidth * textureHeight];
         for (int i = 0; i < resetColors.Length; i++)
         {
             resetColors[i] = Color.clear;

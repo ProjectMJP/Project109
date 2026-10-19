@@ -68,7 +68,7 @@ public static class AIPositionPlanner
         int shortestPathLength = int.MaxValue;
         
         // 경로 탐색을 위해 임시 RoutePathfinding 인스턴스 사용
-        RoutePathfinding pathfinder = new RoutePathfinding();
+        RoutePathfinding pathfinder = RoutePathfinding.Shared;
 
         foreach (var candidate in candidateTiles)
         {
@@ -121,7 +121,7 @@ public static class AIPositionPlanner
         }
 
         List<List<Tile>> tileMap = gameMap.GetTileMap();
-        RoutePathfinding pathfinder = new RoutePathfinding();
+        RoutePathfinding pathfinder = RoutePathfinding.Shared;
         
         MoverCapability caps = (caster != null && caster.characterMove != null) ? caster.characterMove.capabilities : MoverCapability.None;
         List<Tile> path = pathfinder.TilePathfinding(currentTile, finalDestination, tileMap, caps);

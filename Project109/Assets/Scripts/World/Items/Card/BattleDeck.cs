@@ -43,9 +43,39 @@ public class BattleDeck
         return new CardInfo(owner, card, defaultFlags);
     }
 
+    /// <summary>
+    /// 전투 종료 또는 덱 재초기화 시 런타임 복제 카드들의 리소스를 해제하고 이벤트 버스 구독을 완전히 정리합니다.
+    /// </summary>
+    public void DisposeDeck()
+    {
+        DisposeCardList(drawPile);
+        DisposeCardList(hand);
+        DisposeCardList(discardPile);
+        DisposeCardList(exhaustPile);
+
+        OnHandChanged?.Invoke();
+        OnDrawPileChanged?.Invoke();
+        OnDiscardPileChanged?.Invoke();
+        OnExhaustPileChanged?.Invoke();
+    }
+
+    private void DisposeCardList(List<Card> cardList)
+    {
+        if (cardList == null) return;
+        for (int i = 0; i < cardList.Count; i++)
+        {
+            if (cardList[i] != null)
+            {
+                cardList[i].Dispose();
+            }
+        }
+        cardList.Clear();
+    }
+
     public void InitDeck(IReadOnlyList<Card> masterDeck)
     {
-        drawPile.Clear();
+        // 이전 전투에서 남아있는 복제 카드 및 태그의 이벤트 리스너를 완전히 해제
+        DisposeDeck();
         
         // 마스터 덱 카드를 복제하여 전투 전용 덱 구성 (🚨 참조 공유로 인한 데이터 오염 방지)
         if (masterDeck != null)
@@ -61,10 +91,6 @@ public class BattleDeck
         }
         
         ShuffleDrawPile(suppressEvent: true);
-
-        hand.Clear();
-        discardPile.Clear();
-        exhaustPile.Clear();
 
         OnHandChanged?.Invoke();
         OnDrawPileChanged?.Invoke();

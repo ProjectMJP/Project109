@@ -15,83 +15,116 @@ public class TileNode : IComparable<TileNode>
 
     public TileNode(bool nisWalkable, int nGridX, int nGridY)
     {
+        Reset(nisWalkable, nGridX, nGridY);
+    }
+
+    public void Reset(bool nisWalkable, int nGridX, int nGridY)
+    {
         isWalkable = nisWalkable;
         gridX = nGridX;
         gridY = nGridY;
+        gCost = 0;
+        hCost = 0;
+        parentNode = null;
     }
 
-    public int fCost
-    {
-        get { return gCost + hCost; }
-    }
+    public int fCost => gCost + hCost;
 
     public int CompareTo(TileNode other)
     {
+        if (other == null) return 1;
         return fCost.CompareTo(other.fCost);
     }
 }
 
 public class RoutePathfinding
 {
-    TileNode[,] tileNodeMap;
+    /// <summary>
+    /// 메인 스레드에서 반복 할당 없이 재사용할 수 있는 공유 길찾기 인스턴스입니다.
+    /// </summary>
+    public static readonly RoutePathfinding Shared = new RoutePathfinding();
+
+    private readonly PriorityQueue<TileNode> _tileQueue = new PriorityQueue<TileNode>(64);
+    private readonly HashSet<TileNode> _openList = new HashSet<TileNode>();
+    private readonly HashSet<TileNode> _closeList = new HashSet<TileNode>();
+
+    private TileNode[,] _tileNodeMap;
+    private int _allocatedCols = 0;
+    private int _allocatedRows = 0;
 
     public List<Tile> TilePathfinding(Tile start, Tile target, List<List<Tile>> map, MoverCapability capabilities = MoverCapability.None)
     {
-        PriorityQueue<TileNode> TileList = new PriorityQueue<TileNode>();
-        HashSet<TileNode> openList = new HashSet<TileNode>();
-        HashSet<TileNode> closeList = new HashSet<TileNode>();
+        if (start == null || target == null || map == null || map.Count == 0 || map[0].Count == 0)
+        {
+            return new List<Tile>();
+        }
 
-        //노드 맵 생성
+        _tileQueue.Clear();
+        _openList.Clear();
+        _closeList.Clear();
+
+        // 노드 맵 캐시 갱신 (무할당 재활용)
         MakeTileNodeMap(map, capabilities);
 
-        TileNode startNode = tileNodeMap[start.GetCoord().x, start.GetCoord().y];
-        TileNode targetNode = tileNodeMap[target.GetCoord().x, target.GetCoord().y];
+        var startCoord = start.GetCoord();
+        var targetCoord = target.GetCoord();
+
+        if (startCoord.x < 0 || startCoord.x >= map.Count || startCoord.y < 0 || startCoord.y >= map[0].Count ||
+            targetCoord.x < 0 || targetCoord.x >= map.Count || targetCoord.y < 0 || targetCoord.y >= map[0].Count)
+        {
+            return new List<Tile>();
+        }
+
+        TileNode startNode = _tileNodeMap[startCoord.x, startCoord.y];
+        TileNode targetNode = _tileNodeMap[targetCoord.x, targetCoord.y];
 
         List<Tile> resultPath = new List<Tile>();
 
-        TileList.Enqueue(startNode);
-        openList.Add(startNode);
+        _tileQueue.Enqueue(startNode);
+        _openList.Add(startNode);
 
-        while (TileList.Count > 0)
+        int[] dirX = { 0, 0, 1, -1 };
+        int[] dirY = { 1, -1, 0, 0 };
+
+        while (_tileQueue.Count > 0)
         {
-            TileNode currentTile = TileList.Dequeue();
+            TileNode currentTile = _tileQueue.Dequeue();
 
-            closeList.Add(currentTile);
+            _closeList.Add(currentTile);
 
             if (currentTile == targetNode)
             {
-                //현재까지 탐색한 방향 반대로 트래킹 시작
+                // 현재까지 탐색한 방향 반대로 트래킹 시작
                 resultPath = RetracePath(startNode, targetNode, map);
-
                 return resultPath;
             }
 
-            //현재 타일의 상,하,좌,우 탐색(대각선은 탐색하지 않음)
-            int[] dirX = { 0, 0, 1, -1 };
-            int[] dirY = { 1, -1, 0, 0 };
-
+            // 현재 타일의 상,하,좌,우 탐색(대각선은 탐색하지 않음)
             for (int i = 0; i < 4; i++)
             {
                 int x = currentTile.gridX + dirX[i];
                 int y = currentTile.gridY + dirY[i];
 
-                //맵을 넘어가거나 비어있지 않을 경우 제외
-                if (x >= map.Count || y >= map[0].Count || x < 0 || y < 0 || !tileNodeMap[x, y].isWalkable || closeList.Contains(tileNodeMap[x, y]))
+                // 맵을 넘어가거나 통과 불가능하거나 닫힌 목록에 있으면 제외
+                if (x >= map.Count || y >= map[0].Count || x < 0 || y < 0)
                     continue;
 
-                //현재 탐색중인 타일이 이전에 계산된 코스트보다 더 적을 경우 교환
-                //또는 탐색된 적이 없는 경우 코스트 계산
-                int newCurrentTileCost = currentTile.gCost + GetDistanceToTileNode(currentTile, tileNodeMap[x, y]);
-                if(newCurrentTileCost < tileNodeMap[x, y].gCost || !openList.Contains(tileNodeMap[x, y]))
-                {
-                    tileNodeMap[x, y].gCost = newCurrentTileCost;
-                    tileNodeMap[x, y].hCost = GetDistanceToTileNode(tileNodeMap[x, y], targetNode);
-                    tileNodeMap[x, y].parentNode = currentTile;
+                TileNode neighbor = _tileNodeMap[x, y];
+                if (neighbor == null || !neighbor.isWalkable || _closeList.Contains(neighbor))
+                    continue;
 
-                    TileList.Enqueue(tileNodeMap[x, y]);
-                    if(!openList.Contains(tileNodeMap[x, y]))
+                // 현재 탐색중인 타일이 이전에 계산된 코스트보다 더 적거나 열린 목록에 없는 경우
+                int newCurrentTileCost = currentTile.gCost + GetDistanceToTileNode(currentTile, neighbor);
+                if (newCurrentTileCost < neighbor.gCost || !_openList.Contains(neighbor))
+                {
+                    neighbor.gCost = newCurrentTileCost;
+                    neighbor.hCost = GetDistanceToTileNode(neighbor, targetNode);
+                    neighbor.parentNode = currentTile;
+
+                    _tileQueue.Enqueue(neighbor);
+                    if (!_openList.Contains(neighbor))
                     {
-                        openList.Add(tileNodeMap[x, y]);
+                        _openList.Add(neighbor);
                     }
                 }
             }
@@ -99,12 +132,12 @@ public class RoutePathfinding
         return resultPath;
     }
 
-    List<Tile> RetracePath(TileNode startNode, TileNode endNode, List<List<Tile>> map)
+    private List<Tile> RetracePath(TileNode startNode, TileNode endNode, List<List<Tile>> map)
     {
         List<Tile> path = new List<Tile>();
         TileNode currentTileNode = endNode;
 
-        while (currentTileNode != startNode) 
+        while (currentTileNode != null && currentTileNode != startNode)
         {
             path.Add(map[currentTileNode.gridX][currentTileNode.gridY]);
             currentTileNode = currentTileNode.parentNode;
@@ -114,49 +147,60 @@ public class RoutePathfinding
         return path;
     }
 
-    int GetDistanceToTileNode(TileNode startNode, TileNode endNode)
+    private static int GetDistanceToTileNode(TileNode startNode, TileNode endNode)
     {
         int distX = Mathf.Abs(startNode.gridX - endNode.gridX);
         int distY = Mathf.Abs(startNode.gridY - endNode.gridY);
 
-        //가장 빠른 경로일 경우의 두 노드간의 거리 계산
-        //각 칸의 가중치는 10으로 계산함
+        // 가장 빠른 경로일 경우의 두 노드간의 거리 계산 (각 칸 가중치 10)
         return 10 * (distX + distY);
     }
 
-    //탐색을 위한 타일 맵 생성
-    void MakeTileNodeMap(List<List<Tile>> map, MoverCapability capabilities)
+    // 탐색을 위한 타일 맵 생성 및 캐시 재활용
+    private void MakeTileNodeMap(List<List<Tile>> map, MoverCapability capabilities)
     {
         int column = map.Count;
         int row = map[0].Count;
 
-        tileNodeMap = new TileNode[column, row];
+        // 크기가 커졌을 때만 신규 배열 할당
+        if (_tileNodeMap == null || column > _allocatedCols || row > _allocatedRows)
+        {
+            _allocatedCols = Mathf.Max(column, _allocatedCols);
+            _allocatedRows = Mathf.Max(row, _allocatedRows);
+            _tileNodeMap = new TileNode[_allocatedCols, _allocatedRows];
 
+            for (int c = 0; c < _allocatedCols; c++)
+            {
+                for (int r = 0; r < _allocatedRows; r++)
+                {
+                    _tileNodeMap[c, r] = new TileNode(false, c, r);
+                }
+            }
+        }
+
+        // 기존 인스턴스에 값만 재설정 (GC Alloc 없음)
         for (int columnIndex = 0; columnIndex < column; columnIndex++)
         {
             for (int rowIndex = 0; rowIndex < row; rowIndex++)
             {
-                TileState state = map[columnIndex][rowIndex].tileState;
-                bool isWalkable = false;
+                Tile tile = map[columnIndex][rowIndex];
+                TileState state = tile != null ? tile.tileState : TileState.Full;
+                bool isWalkable;
 
                 if (state == TileState.Full)
                 {
-                    // 벽(Full)을 관통하려면 PassWalls 플래그가 있어야 합니다.
                     isWalkable = capabilities.HasFlag(MoverCapability.PassWalls);
                 }
                 else if (state == TileState.Obstacle)
                 {
-                    // 장애물(Obstacle)을 관통하려면 PassObstacles 플래그가 있어야 합니다.
                     isWalkable = capabilities.HasFlag(MoverCapability.PassObstacles);
                 }
                 else
                 {
-                    // 일반 타일(Empty, Trap)은 항상 통과 가능
                     isWalkable = true;
                 }
 
-                tileNodeMap[columnIndex, rowIndex] = new TileNode(isWalkable, columnIndex, rowIndex);
-                tileNodeMap[columnIndex, rowIndex].gCost = 0;
+                _tileNodeMap[columnIndex, rowIndex].Reset(isWalkable, columnIndex, rowIndex);
             }
         }
     }

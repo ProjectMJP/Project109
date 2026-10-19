@@ -17,7 +17,10 @@ public class GridAreaSearch
 
         switch(cardTargetType)
         {
-            case TargetType.Target:
+            case TargetType.SingleEnemy:
+            case TargetType.MultiEnemy:
+            case TargetType.RandomEnemy:
+            case TargetType.SingleAlly:
                 for (int x = startX; x <= endX; x++)
                 {
                     if (x <= targetX - minDist || x >= targetX + minDist)
@@ -34,7 +37,8 @@ public class GridAreaSearch
                 }
 
                 return results;
-            case TargetType.Area:
+            case TargetType.AreaSelf:
+            case TargetType.AreaGround:
                 for (int x = startX; x <= endX; x++)
                 {
                     for (int y = startY; y <= endY; y++)
@@ -53,7 +57,8 @@ public class GridAreaSearch
             case TargetType.Self:
                 results.Add(new Vector2Int(targetX, targetY));
                 return results;
-            case TargetType.All:
+            case TargetType.AllEnemies:
+            case TargetType.AllAllies:
                 for (int x = 0; x < mapSize.x; x++)
                 {
                     for (int y = 0; y < mapSize.y; y++)

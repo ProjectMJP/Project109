@@ -24,7 +24,7 @@ public class DestructibleObject : MonoBehaviour, IDamageable
     public CharacterFaction faction = CharacterFaction.Neutral;
     CharacterFaction IDamageable.faction => faction;
 
-    /// <summary>오브젝트가 완전히 파괴되었을 때 발행되는 이벤트 (MapManager 등이 구독하여 타일 복구/보상 드롭 처리)</summary>
+    /// <summary>오브젝트가 완전히 파괴되었을 때 발행되는 이벤트 (StageManager 등이 구독하여 타일 복구/보상 드롭 처리)</summary>
     public event Action<DestructibleObject> OnDestroyed;
 
     /// <summary>오브젝트의 피격 시 체력 변경 이벤트</summary>
@@ -76,7 +76,7 @@ public class DestructibleObject : MonoBehaviour, IDamageable
     /// </summary>
     protected virtual void DestroyObject()
     {
-        // 1. 파괴 이벤트 발행 (MapManager가 구독하여 타일 상태를 Empty로 복구하거나 보상 생성)
+        // 1. 파괴 이벤트 발행 (StageManager가 구독하여 타일 상태를 Empty로 복구하거나 보상 생성)
         OnDestroyed?.Invoke(this);
 
         // 2. 게임 오브젝트 파괴

@@ -28,6 +28,14 @@ public class Player : IDisposable
         battleDeck.InitDeck(masterDeck);
     }
 
+    public void DisposeBattleDeck()
+    {
+        if (battleDeck != null)
+        {
+            battleDeck.DisposeDeck();
+        }
+    }
+
     // 유물 관리자
     public RelicManager relicManager;
 

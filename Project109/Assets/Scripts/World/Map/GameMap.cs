@@ -15,6 +15,17 @@ public class GameMap : MonoBehaviour
     public int mapColumn;
     public int mapRow;
 
+    private readonly List<Tile> _playerSpawnTiles = new();
+    private readonly List<Tile> _enemySpawnTiles = new();
+    private readonly List<Tile> _npcSpawnTiles = new();
+
+    /// <summary>플레이어 스폰 위치 타일 목록</summary>
+    public IReadOnlyList<Tile> PlayerSpawnTiles => _playerSpawnTiles;
+    /// <summary>적 스폰 위치 타일 목록</summary>
+    public IReadOnlyList<Tile> EnemySpawnTiles => _enemySpawnTiles;
+    /// <summary>NPC/이벤트 오브젝트 스폰 위치 타일 목록</summary>
+    public IReadOnlyList<Tile> NPCSpawnTiles => _npcSpawnTiles;
+
     /// <summary>
     /// 현재 활성화된 씬의 GameMap 인스턴스 (단일 접근 창구)
     /// </summary>
@@ -210,6 +221,11 @@ public class GameMap : MonoBehaviour
             moveRangeIndicator = null;
         }
 
+        // 스폰 타일 목록 초기화
+        _playerSpawnTiles.Clear();
+        _enemySpawnTiles.Clear();
+        _npcSpawnTiles.Clear();
+
         // 3. 자식 오브젝트 중 혹시 남아있는 타일이나 인디케이터가 있다면 안전하게 정리
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
@@ -261,7 +277,7 @@ public class GameMap : MonoBehaviour
         mapColumn = tileMap.Count;
         mapRow = tileMap[0].Count;
 
-        Debug.Log($"MapManager Column: {mapColumn}, Row: {mapRow}");
+        Debug.Log($"GameMap Column: {mapColumn}, Row: {mapRow}");
 
         ProcessTileSetting(mapData);
 
@@ -280,9 +296,30 @@ public class GameMap : MonoBehaviour
 
     private void ProcessTileSetting(MapDataSO mapData)
     {
+        _playerSpawnTiles.Clear();
+        _enemySpawnTiles.Clear();
+        _npcSpawnTiles.Clear();
+
         //생성된 타일에 알맞은 정보 추가
         foreach (CellData cell in mapData.cells)
         {
+            Tile tile = tileMap[cell.position.x][cell.position.y];
+            if (tile != null)
+            {
+                switch (cell.eventID)
+                {
+                    case "PlayerSpawn":
+                        _playerSpawnTiles.Add(tile);
+                        break;
+                    case "EnemySpawn":
+                        _enemySpawnTiles.Add(tile);
+                        break;
+                    case "NPCSpawn":
+                        _npcSpawnTiles.Add(tile);
+                        break;
+                }
+            }
+
             // eventID가 Trap이거나 objectID가 Trap으로 시작하는 경우 이동 가능(Trap)
             if (cell.eventID == "Trap" || cell.objectID.StartsWith("Trap"))
             {
@@ -406,21 +443,40 @@ public class GameMap : MonoBehaviour
     /// </summary>
     public static TargetType ParseTargetType(string targetTypeStr)
     {
-        if (string.IsNullOrEmpty(targetTypeStr)) return TargetType.Target;
+        if (string.IsNullOrEmpty(targetTypeStr)) return TargetType.SingleEnemy;
         string lower = targetTypeStr.Trim().ToLowerInvariant();
         switch (lower)
         {
             case "self":
                 return TargetType.Self;
+            case "areaself":
             case "area":
-                return TargetType.Area;
+            case "pbaoe":
+                return TargetType.AreaSelf;
+            case "areaground":
+            case "ground":
+            case "tile":
+                return TargetType.AreaGround;
+            case "randomenemy":
+            case "random":
+                return TargetType.RandomEnemy;
+            case "multienemy":
+            case "multi":
+                return TargetType.MultiEnemy;
+            case "allenemies":
             case "all":
-                return TargetType.All;
+                return TargetType.AllEnemies;
+            case "singleally":
+            case "ally":
+                return TargetType.SingleAlly;
+            case "allallies":
+                return TargetType.AllAllies;
+            case "singleenemy":
             case "enemy":
             case "single":
             case "target":
             default:
-                return TargetType.Target;
+                return TargetType.SingleEnemy;
         }
     }
 
