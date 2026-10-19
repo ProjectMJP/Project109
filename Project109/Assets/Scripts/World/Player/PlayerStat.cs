@@ -4,6 +4,8 @@ using System;
 [System.Serializable]
 public class PlayerStat
 {
+    [System.NonSerialized] public Player player;
+
     public event Action<int> OnGoldChanged;
 
     private int _inGameCurrencyGold;
@@ -12,8 +14,16 @@ public class PlayerStat
         get => _inGameCurrencyGold; 
         set 
         { 
+            int diff = value - _inGameCurrencyGold;
             _inGameCurrencyGold = value; 
             OnGoldChanged?.Invoke(_inGameCurrencyGold); 
+            if (player != null && player.eventBus != null)
+            {
+                if (diff > 0)
+                    player.eventBus.Invoke<IOnAddGold>(a => a.OnAddGold(diff));
+                else if (diff < 0)
+                    player.eventBus.Invoke<IOnRemoveGold>(a => a.OnRemoveGold(-diff));
+            }
         } 
     }
     public event Action<int> OnMemorySharpChanged;
@@ -24,8 +34,16 @@ public class PlayerStat
         get => _inGameCurrencyMemorySharp; 
         set 
         { 
+            int diff = value - _inGameCurrencyMemorySharp;
             _inGameCurrencyMemorySharp = value; 
             OnMemorySharpChanged?.Invoke(_inGameCurrencyMemorySharp); 
+            if (player != null && player.eventBus != null)
+            {
+                if (diff > 0)
+                    player.eventBus.Invoke<IOnAddMemorySharp>(a => a.OnAddMemorySharp(diff));
+                else if (diff < 0)
+                    player.eventBus.Invoke<IOnRemoveMemorySharp>(a => a.OnRemoveMemorySharp(-diff));
+            }
         } 
     }
     public int MapFloorCheckStartLength { get; set; }

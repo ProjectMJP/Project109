@@ -225,6 +225,7 @@ public class BattleDeck
         }
 
         hand.Remove(card);
+        card.Dispose();
         OnHandChanged?.Invoke();
     }
 

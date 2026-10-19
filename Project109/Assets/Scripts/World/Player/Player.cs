@@ -46,6 +46,7 @@ public class Player : IDisposable
     {
         this.character = character;
         this.playerStat = new PlayerStat();
+        this.playerStat.player = this;
         this.deck = new PlayerDeck(this);
 
         // 초기 스탯 세팅

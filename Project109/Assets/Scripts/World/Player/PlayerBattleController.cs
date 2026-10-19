@@ -47,6 +47,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     // 현재 플레이어 조작 상태
     public PlayerControlState controlState { get; private set; } = PlayerControlState.Normal;
     private Card activeCardForTargeting;
+    private readonly List<Character> _multiSelectedTargets = new List<Character>();
     private Vector2Int _lastHoveredCoord = new Vector2Int(-999, -999);
 
     #region References
@@ -294,6 +295,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             case TargetType.AreaGround:
             case TargetType.MultiEnemy:
                 // 수동 지정형: 타겟팅 모드로 진입
+                _multiSelectedTargets.Clear();
                 controlState = PlayerControlState.TargetSelection;
                 activeCardForTargeting = card;
 
@@ -473,6 +475,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         if (controlState == PlayerControlState.TargetSelection)
         {
+            _multiSelectedTargets.Clear();
             activeCardForTargeting = null;
             _lastHoveredCoord = new Vector2Int(-999, -999);
             if (UIManager.instance != null)
@@ -741,6 +744,39 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                     {
                                         Debug.LogWarning("[PlayerBattleController] 적 유닛이 위치한 타일을 선택해야 합니다.");
                                         return;
+                                    }
+
+                                    if (targetType == TargetType.MultiEnemy)
+                                    {
+                                        Character enemyTarget = targets.Find(t => t != null && t.faction == CharacterFaction.Enemy && !t.isDead);
+                                        if (enemyTarget == null)
+                                        {
+                                            Debug.LogWarning("[PlayerBattleController] 적 유닛이 위치한 타일을 선택해야 합니다.");
+                                            return;
+                                        }
+
+                                        int requiredCount = Mathf.Max(1, activeCardForTargeting.cardData != null ? activeCardForTargeting.cardData.targetCount : 1);
+                                        bool allowDuplicate = activeCardForTargeting.cardData != null && activeCardForTargeting.cardData.allowDuplicateTarget;
+
+                                        if (!allowDuplicate && _multiSelectedTargets.Contains(enemyTarget))
+                                        {
+                                            Debug.LogWarning("[PlayerBattleController] 이미 선택된 대상입니다.");
+                                            return;
+                                        }
+
+                                        _multiSelectedTargets.Add(enemyTarget);
+                                        int totalLivingEnemies = GetEnemiesInRange(minDistance, maxDistance).Count;
+                                        int targetCap = allowDuplicate ? requiredCount : Mathf.Min(requiredCount, totalLivingEnemies);
+
+                                        Debug.Log($"[PlayerBattleController] 다중 대상 선택됨 ({_multiSelectedTargets.Count}/{targetCap})");
+
+                                        if (_multiSelectedTargets.Count < targetCap)
+                                        {
+                                            return;
+                                        }
+
+                                        targets = new List<Character>(_multiSelectedTargets);
+                                        _multiSelectedTargets.Clear();
                                     }
 
                                     UseCard(activeCardForTargeting, targets, targetPos);

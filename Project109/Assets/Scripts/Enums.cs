@@ -87,5 +87,14 @@ namespace CardTypes
         DrawCard,
         UpgradeCard
     }
+
+    public enum InteractableType
+    {
+        Normal,         // 일반 대화 및 이벤트 인터랙터블
+        Chest,          // 보상 상자
+        Shop,           // 상점 NPC
+        RestoreBonfire  // 휴식/회복 모닥불
+    }
 }
+
 

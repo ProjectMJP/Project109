@@ -58,6 +58,12 @@ public class Card : IDescribable
     public string cardName => cardData != null ? cardData.cardName : string.Empty;
     public string path => cardData != null ? cardData.cardName : string.Empty;
 
+    /// <summary>
+    /// 카드가 사용 시 무덤 대신 소멸(Exhaust)되는 태그를 보유하고 있는지 여부를 반환합니다.
+    /// </summary>
+    public bool isExhaustOnPlay => HasTag("Destroy") || HasTag("Single_use") || HasTag("Exhaust");
+
+
     // 전투 중 임시로 생성된 카드인지 여부
     public bool isTemporary { get; set; }
 
@@ -96,11 +102,7 @@ public class Card : IDescribable
     }
 
     // 이 인스턴스에 붙은 태그 이름 목록 (예: "Preserve", "Vanguard")
-    public HashSet<string> tagNames 
-    { 
-        get => masteryState?.tagNames; 
-        private set { if (masteryState != null) masteryState.tagNames = value; } 
-    }
+    public HashSet<string> tagNames { get; private set; } = new HashSet<string>();
 
     // 이 카드 인스턴스에 장착된 태그(동작 포함) 목록
     public List<CardTag> attachedTags { get; private set; } = new List<CardTag>();
@@ -454,6 +456,46 @@ public class Card : IDescribable
     }
 
     /// <summary>
+    /// 세이브 파일로부터 마스터리 레벨, 경험치 및 업그레이드 데이터를 직접 복원합니다.
+    /// AddMastery()를 재호출하지 않으므로 요구 경험치(maxMasteryXP) 왜곡이나 경험치 소모가 발생하지 않습니다.
+    /// </summary>
+    public void RestoreMasteryState(int level, float currentXP, List<MasteryUpgradeSaveEntry> upgrades)
+    {
+        if (masteryState == null) return;
+
+        masteryLevel = level;
+        currentMasteryXP = currentXP;
+
+        // 레벨에 따른 maxMasteryXP 정확한 재계산
+        if (cardData != null && cardData.maxMasteryPoint > 0)
+        {
+            masteryState.maxMasteryXP = cardData.maxMasteryPoint + (level * masteryXPIncreasePerLevel);
+        }
+
+        if (masteryUpgrades == null)
+        {
+            masteryUpgrades = new Dictionary<string, int>();
+        }
+        else
+        {
+            masteryUpgrades.Clear();
+        }
+
+        if (upgrades != null)
+        {
+            foreach (var u in upgrades)
+            {
+                if (!string.IsNullOrEmpty(u.masteryId))
+                {
+                    masteryUpgrades[u.masteryId] = u.count;
+                }
+            }
+        }
+
+        RefreshMasteryStatsAndTags();
+    }
+
+    /// <summary>
     /// 카드 인스턴스의 마스터리 업그레이드에 따른 코스트와 동적 태그를 재동기화합니다.
     /// </summary>
     public void RefreshMasteryStatsAndTags()
@@ -500,6 +542,9 @@ public class Card : IDescribable
     /// </summary>
     public void AddTag(string tagName)
     {
+        if (string.IsNullOrEmpty(tagName)) return;
+        if (HasTag(tagName)) return;
+
         if (LuaManager.Instance == null) return;
 
         // LuaManager를 통해 온디맨드로 프로토타입 획득

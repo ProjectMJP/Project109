@@ -22,7 +22,7 @@ public class CardPlayAction : BattleAction
 
     public override IEnumerator ExecuteRoutine()
     {
-        if (caster == null) yield break;
+        if (caster == null || caster.isDead) yield break;
 
         // 1. 카드 발동 이벤트 Payload 송출
         CardInfo info = new CardInfo(caster, targets, targetPosition, card, CardFlag.Normal);
@@ -35,11 +35,29 @@ public class CardPlayAction : BattleAction
         // 3. 연출을 위한 인게임 대기 (예: 투사체 날아가는 시간, 이펙트 시작 등)
         yield return _playDelay;
 
-        // 4. 실제 카드 로직 실행 (Lua 및 C#) 및 다중 비용(Stamina, HP, Gold 등) 차감
+        // 대기 중 시전자가 사망했거나 파괴되었으면 행동 중단
+        if (caster == null || caster.isDead) yield break;
+
+        // 사망한 타겟 필터링
+        if (targets != null)
+        {
+            for (int i = targets.Count - 1; i >= 0; i--)
+            {
+                if (targets[i] == null || targets[i].isDead)
+                {
+                    targets.RemoveAt(i);
+                }
+            }
+        }
+
+        // 4. 다중 비용(Stamina, HP, Gold 등) 선차감 및 실제 카드 로직 실행 (Lua 및 C#)
         if (card != null)
         {
+            if (!info.cardFlags.HasFlag(CardFlag.FreeToPlay))
+            {
+                card.SpendCosts(caster);
+            }
             card.Execute(info);
-            card.SpendCosts(caster);
         }
 
         // 5. 사용 카드 손패에서 무덤으로 이동 처리 (플레이어의 경우에만)
@@ -50,7 +68,7 @@ public class CardPlayAction : BattleAction
             {
                 if (!info.cardFlags.HasFlag(CardFlag.NoDiscard))
                 {
-                    bool isExhaustCard = card != null && (card.HasTag("Destroy") || card.HasTag("Single_use"));
+                    bool isExhaustCard = (card != null && card.isExhaustOnPlay) || info.cardFlags.HasFlag(CardFlag.Exhaust);
 
                     if (!info.cardFlags.HasFlag(CardFlag.NoExhaust) && isExhaustCard)
                     {
@@ -67,7 +85,10 @@ public class CardPlayAction : BattleAction
         // 6. 후처리 연출 대기 (애니메이션 마무리 동작)
         yield return _postPlayDelay;
         
-        caster.currentState = CharacterState.Idle;
-        caster.eventBus.Invoke<IOnAfterUseCard>(c => c.OnAfterUseCard(info));
+        if (caster != null && !caster.isDead)
+        {
+            caster.currentState = CharacterState.Idle;
+            caster.eventBus.Invoke<IOnAfterUseCard>(c => c.OnAfterUseCard(info));
+        }
     }
 }
