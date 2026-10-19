@@ -46,7 +46,13 @@ public static class AIPositionPlanner
                 // 자기 타일이거나 비어있는 타일만 후보군
                 if (tile != casterTile && tile.tileState != TileState.Empty && tile.tileState != TileState.Trap)
                 {
-                    // 장애물이 있거나 다른 유닛이 점유한 타일 제외
+                    // 장애물이 있는 타일 제외
+                    continue;
+                }
+
+                // 다른 생존 유닛이 점유 중인 타일 제외
+                if (tile != casterTile && tile.occupyingCharacter != null && !tile.occupyingCharacter.isDead)
+                {
                     continue;
                 }
 

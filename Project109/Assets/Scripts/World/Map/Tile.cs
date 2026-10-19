@@ -39,6 +39,13 @@ public class Tile : MonoBehaviour
         }
     }
 
+    private Character _occupyingCharacter;
+    public Character occupyingCharacter
+    {
+        get => _occupyingCharacter;
+        set => _occupyingCharacter = value;
+    }
+
     public GameObject canMoveAreaTextureObject;
 
     private void Awake()
@@ -126,6 +133,15 @@ public class Tile : MonoBehaviour
         if (tileState == TileState.Obstacle)
         {
             return mover.capabilities.HasFlag(MoverCapability.PassObstacles);
+        }
+
+        // 다른 생존 유닛이 이미 점유 중인 타일에는 올라설 수 없음 (자기 자신 제외)
+        if (occupyingCharacter != null && !occupyingCharacter.isDead)
+        {
+            if (mover.character != null && occupyingCharacter != mover.character)
+            {
+                return false;
+            }
         }
 
         // 그 외 일반 타일(Empty, Trap)은 누구든 진입 및 멈춤 가능

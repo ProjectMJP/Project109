@@ -7,10 +7,12 @@ using System.Collections;
 public class CustomCallbackAction : BattleAction
 {
     private Action _callback;
+    private Action _onCanceled;
 
-    public CustomCallbackAction(Character caster, Action callback) : base(caster)
+    public CustomCallbackAction(Character caster, Action callback, Action onCanceled = null) : base(caster)
     {
         _callback = callback;
+        _onCanceled = onCanceled;
     }
 
     public override IEnumerator ExecuteRoutine()
@@ -18,4 +20,10 @@ public class CustomCallbackAction : BattleAction
         _callback?.Invoke();
         yield break;
     }
+
+    public override void OnCanceled()
+    {
+        _onCanceled?.Invoke();
+    }
 }
+

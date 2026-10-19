@@ -73,20 +73,27 @@ public class EffectManager : IDisposable
     {
         for (int i = effects.Count - 1; i >= 0; i--)
         {
-            if (effects[i].Data != null && effects[i].Data.isPermanent) continue;
+            if (i >= effects.Count) continue;
+            Effect current = effects[i];
+            if (current == null) continue;
+            if (current.Data != null && current.Data.isPermanent) continue;
 
-            effects[i].elapsedSinceLastTick += deltaTime;
-            if (effects[i].elapsedSinceLastTick >= Effect.tickInterval)
+            current.elapsedSinceLastTick += deltaTime;
+            if (current.elapsedSinceLastTick >= Effect.tickInterval)
             {
-                effects[i].OnTick();
-                effects[i].elapsedSinceLastTick -= Effect.tickInterval;
+                current.OnTick();
+                current.elapsedSinceLastTick -= Effect.tickInterval;
             }
 
-            effects[i].currentDuration -= deltaTime;
-            if (effects[i].currentDuration <= 0f)
+            // OnTick 실행 중 대상이 사망했거나 이펙트 컬렉션이 초기화/수정된 경우 안전 탈출
+            if (target != null && target.isDead) break;
+            if (i >= effects.Count || effects[i] != current) continue;
+
+            current.currentDuration -= deltaTime;
+            if (current.currentDuration <= 0f)
             {
-                effects[i].OnTimeOut();
-                if (effects[i].currentStack <= 0)
+                current.OnTimeOut();
+                if (i < effects.Count && effects[i] == current && current.currentStack <= 0)
                 {
                     Effect removedEffect = effects[i];
                     removedEffect.OnRemoved();

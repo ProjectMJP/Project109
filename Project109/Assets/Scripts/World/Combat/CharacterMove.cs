@@ -35,7 +35,17 @@ public class CharacterMove
 
     public void SetCurrentTile(Tile newTile)
     {
+        if (currentTile != null && currentTile.occupyingCharacter == this.character)
+        {
+            currentTile.occupyingCharacter = null;
+        }
+
         currentTile = newTile;
+
+        if (currentTile != null && this.character != null && !this.character.isDead)
+        {
+            currentTile.occupyingCharacter = this.character;
+        }
     }
 
     public Tile GetCurrentTile()
@@ -143,7 +153,12 @@ public class CharacterMove
 
         if (beforeInfo.isCanceled)
         {
+            if (this.character != null && this.character.currentState != CharacterState.Die)
+            {
+                this.character.currentState = CharacterState.Idle;
+            }
             activeMoveCoroutine = null;
+            onComplete?.Invoke();
             yield break;
         }
 

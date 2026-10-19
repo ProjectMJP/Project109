@@ -165,9 +165,9 @@ public class BattleManager : IInitializable, IDisposable
             combatant.controlledCharacter.BattleTick(scaledDt);
             if (combatant.controlledCharacter.curCharacterStat != null)
             {
-                float overflow = combatant.controlledCharacter.curStamina - combatant.controlledCharacter.curCharacterStat.maxStamina;
-                if (overflow >= 0f)
+                if (combatant.controlledCharacter.curStamina >= combatant.controlledCharacter.curCharacterStat.maxStamina)
                 {
+                    float overflow = combatant.controlledCharacter.overflowStamina;
                     if (highestOverflowCombatant == null || overflow > maxOverflow)
                     {
                         maxOverflow = overflow;
@@ -187,9 +187,9 @@ public class BattleManager : IInitializable, IDisposable
             combatant.controlledCharacter.BattleTick(scaledDt);
             if (combatant.controlledCharacter.curCharacterStat != null)
             {
-                float overflow = combatant.controlledCharacter.curStamina - combatant.controlledCharacter.curCharacterStat.maxStamina;
-                if (overflow >= 0f)
+                if (combatant.controlledCharacter.curStamina >= combatant.controlledCharacter.curCharacterStat.maxStamina)
                 {
+                    float overflow = combatant.controlledCharacter.overflowStamina;
                     // 동률일 경우 플레이어 우선권 유지 (isPlayerOverflow && overflow <= maxOverflow 인 경우 교체 안 함)
                     if (highestOverflowCombatant == null || (!isPlayerOverflow && overflow > maxOverflow) || (isPlayerOverflow && overflow > maxOverflow + 0.0001f))
                     {
@@ -310,6 +310,8 @@ public class BattleManager : IInitializable, IDisposable
 
     private void OnCharacterDied(Character deadCharacter)
     {
+        if (battleState == BattleState.BattleEnd) return;
+
         if (deadCharacter.faction == CharacterFaction.Enemy)
         {
             ICharacterController controller = FindControllerInList(enemyTeam, deadCharacter);
@@ -340,6 +342,7 @@ public class BattleManager : IInitializable, IDisposable
 
     public void WinBattle()
     {
+        if (battleState == BattleState.BattleEnd) return;
         battleState = BattleState.BattleEnd;
 
         if (ActionQueueManager.Instance != null)
@@ -356,6 +359,7 @@ public class BattleManager : IInitializable, IDisposable
 
     public void LoseBattle()
     {
+        if (battleState == BattleState.BattleEnd) return;
         battleState = BattleState.BattleEnd;
 
         if (ActionQueueManager.Instance != null)

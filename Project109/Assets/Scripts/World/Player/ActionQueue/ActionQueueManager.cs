@@ -26,7 +26,7 @@ public class ActionQueueManager : MonoBehaviour
     private bool _isProcessing = false;
 
     // 선입력 최대 저장 수 제한 (너무 많은 큐가 쌓여 오조작되는 현상 예방)
-    [SerializeField] private int _maxQueueSize = 2;
+    [SerializeField] private int _maxQueueSize = 4;
 
     private void Awake()
     {
@@ -43,11 +43,11 @@ public class ActionQueueManager : MonoBehaviour
     public bool IsBusy => _isProcessing || _actionQueue.Count > 0;
 
     /// <summary>
-    /// 새로운 액션을 큐에 추가합니다.
+    /// 새로운 액션을 큐에 추가합니다. forceEnqueue가 true인 경우 큐 크기 제한을 무시합니다 (몬스터 AI 및 시스템 전용).
     /// </summary>
-    public bool EnqueueAction(BattleAction action)
+    public bool EnqueueAction(BattleAction action, bool forceEnqueue = false)
     {
-        if (_actionQueue.Count >= _maxQueueSize)
+        if (!forceEnqueue && _actionQueue.Count >= _maxQueueSize)
         {
             Debug.LogWarning("[ActionQueue] 선입력 큐가 가득 차 입력을 무시합니다.");
             return false; // 선입력 초과로 거부
@@ -79,12 +79,17 @@ public class ActionQueueManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 전투 종료 시 큐 강제 클리어
+    /// 전투 종료 시 큐 강제 클리어 및 대기 중 액션 리소스 정리
     /// </summary>
     public void ClearQueue()
     {
         StopAllCoroutines();
-        _actionQueue.Clear();
+        while (_actionQueue.Count > 0)
+        {
+            var action = _actionQueue.Dequeue();
+            action?.OnCanceled();
+        }
         _isProcessing = false;
     }
+
 }

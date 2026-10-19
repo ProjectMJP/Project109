@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventStructs;
 
-public class NPCUnitController : ICharacterController
+public class NPCUnitController : ICharacterController, IDisposable
 {
     public Character controlledCharacter { get; private set; }
     
@@ -118,11 +118,11 @@ public class NPCUnitController : ICharacterController
                     Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
                         ? controlledCharacter.characterMove.GetCurrentTile()
                         : null;
-                    // 실제로 움직여야 하는 경우, 이동 액션을 큐에 먼저 적재
+                    // 실제로 움직여야 하는 경우, 이동 액션을 큐에 먼저 적재 (AI 전용 강제 적재)
                     if (moveTarget != null && moveTarget != currentTile)
                     {
                         Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 타겟 '{hostileTarget.name}'에게 카드 '{cardId}'를 쓰기 위해 타일 {moveTarget.GetCoordToString()}로 이동합니다.");
-                        ActionQueueManager.Instance.EnqueueAction(new EnemyMoveAction(controlledCharacter, moveTarget));
+                        ActionQueueManager.Instance.EnqueueAction(new EnemyMoveAction(controlledCharacter, moveTarget), forceEnqueue: true);
                     }
                 }
             }
@@ -133,15 +133,21 @@ public class NPCUnitController : ICharacterController
                 targetPos = hostileTarget.characterMove.GetCurrentTile().GetCoord();
             }
 
-            // 2. 카드 시전 액션을 큐에 적재 (선입력 잠금으로 순차 실행됨)
+            // 2. 카드 시전 액션을 큐에 적재 (AI 전용 강제 적재)
             CardPlayAction playAction = new CardPlayAction(controlledCharacter, tempCard, targets, targetPos);
-            ActionQueueManager.Instance.EnqueueAction(playAction);
+            ActionQueueManager.Instance.EnqueueAction(playAction, forceEnqueue: true);
             
-            // 3. 액션 완료 후 임시 카드를 해제하고 턴을 마치는 콜백 액션을 큐에 추가
-            ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(controlledCharacter, () => {
-                tempCard.Dispose();
-                EndNPCTurn();
-            }));
+            // 3. 액션 완료 후 임시 카드를 해제하고 턴을 마치는 콜백 액션을 큐에 추가 (취소 시에도 tempCard 정리 보장)
+            ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(
+                controlledCharacter,
+                callback: () => {
+                    tempCard.Dispose();
+                    EndNPCTurn();
+                },
+                onCanceled: () => {
+                    tempCard.Dispose();
+                }
+            ), forceEnqueue: true);
         }
         else
         {
@@ -167,6 +173,11 @@ public class NPCUnitController : ICharacterController
     }
 
     private void HandleCharacterDied(Character deadChar)
+    {
+        Dispose();
+    }
+
+    public void Dispose()
     {
         if (controlledCharacter != null)
         {

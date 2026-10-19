@@ -53,6 +53,18 @@ public class EnemyMoveAction : BattleAction
 
         // 이동 완료 후 짧은 대기 (자연스러운 딜레이)
         yield return _postMoveDelay;
-        caster.currentState = CharacterState.Idle;
+        if (caster != null && caster.currentState != CharacterState.Die)
+        {
+            caster.currentState = CharacterState.Idle;
+        }
+    }
+
+    public override void OnCanceled()
+    {
+        base.OnCanceled();
+        if (caster != null && caster.currentState != CharacterState.Die)
+        {
+            caster.currentState = CharacterState.Idle;
+        }
     }
 }

@@ -188,16 +188,23 @@ public class Character : MonoBehaviour, IDamageable
     /// </summary>
     public bool BattleTick(float dt)
     {
-        // 스태미나 회복
-        curStamina += curCharacterStat.staminaRegenPerSecond * dt;
+        float regen = curCharacterStat.staminaRegenPerSecond * dt;
 
         // 이펙트 틱
         effectManager.Tick(dt);
 
         if (curStamina >= curCharacterStat.maxStamina)
         {
-            // 초과분을 오버플로우 버퍼에 보존하고 턴 중에는 maxStamina로 고정
-            overflowStamina = curStamina - curCharacterStat.maxStamina;
+            // 이미 완충되어 턴 대기 중인 상태: 잉여 스태미나 누적
+            overflowStamina += regen;
+            return true;
+        }
+
+        curStamina += regen;
+        if (curStamina >= curCharacterStat.maxStamina)
+        {
+            // 이번 프레임에 maxStamina에 도달하여 초과한 잉여분을 overflowStamina에 누적하고 curStamina는 max로 고정
+            overflowStamina += (curStamina - curCharacterStat.maxStamina);
             curStamina = curCharacterStat.maxStamina;
             return true;
         }
@@ -258,99 +265,124 @@ public class Character : MonoBehaviour, IDamageable
 
     #region Damage and Heal Pipeline
 
+    private static int _damageRecursionDepth = 0;
+    private const int MAX_DAMAGE_RECURSION_DEPTH = 10;
+
     public void TakeDamage(DamageInfo info)
     {
         if (isDead) return;
 
-        // 1. 공격자의 "공격 직전" 발동 (ex. 힘(Strength) 버프를 통해 baseDamageAmount 증가)
-        if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
-            CombatEventDispatcher.DispatchBeforeDealDamage(info.caster.eventBus, ref info);
-
-        // 2. 피격자의 "방어 직전" 효과 발동 (ex. 데미지 경감, 회피 처리 등)
-        if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
-            CombatEventDispatcher.DispatchBeforeTakeDamage(this.eventBus, ref info);
-
-        // 회피되었는지 체크 (도입 미정으로 주석 처리)
-        // if (info.isDodged) return;
-
-        float initialShield = shield;
-        float initialHealth = curHealth;
-
-        float finalDamage = info.baseDamageAmount * info.damageMultiplier;
-        info.finalDamageAmount = finalDamage;
-
-        info.shieldDamageAmount = 0f;
-        info.hpDamageAmount = 0f;
-
-        // 3. 실제 데미지 적용
-        if (!info.damageFlags.HasFlag(DamageFlag.IgnoreShield))
+        if (_damageRecursionDepth >= MAX_DAMAGE_RECURSION_DEPTH)
         {
-            if (shield > 0f)
+            Debug.LogError($"[Character] TakeDamage 연쇄/반사 데미지 최대 재귀 깊이({MAX_DAMAGE_RECURSION_DEPTH})를 초과하여 연쇄를 강제 차단합니다! (Target: {this.name})");
+            return;
+        }
+
+        _damageRecursionDepth++;
+        try
+        {
+            // 1. 공격자의 "공격 직전" 발동 (ex. 힘(Strength) 버프를 통해 baseDamageAmount 증가)
+            if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
+                CombatEventDispatcher.DispatchBeforeDealDamage(info.caster.eventBus, ref info);
+
+            // 2. 피격자의 "방어 직전" 효과 발동 (ex. 데미지 경감, 회피 처리 등)
+            if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
+                CombatEventDispatcher.DispatchBeforeTakeDamage(this.eventBus, ref info);
+
+            // 회피되었는지 체크 (도입 미정으로 주석 처리)
+            // if (info.isDodged) return;
+
+            float initialShield = shield;
+            float initialHealth = curHealth;
+
+            float finalDamage = info.baseDamageAmount * info.damageMultiplier;
+            info.finalDamageAmount = finalDamage;
+
+            info.shieldDamageAmount = 0f;
+            info.hpDamageAmount = 0f;
+
+            // 3. 실제 데미지 적용
+            if (!info.damageFlags.HasFlag(DamageFlag.IgnoreShield))
             {
-                float damageAfterShield = finalDamage - shield;
-                info.shieldDamageAmount = Mathf.Min(finalDamage, shield);
-                shield -= finalDamage;
-                if (shield <= 0f)
+                if (shield > 0f)
                 {
-                    shield = 0f;
-                    shieldDurationTurns = 0; // 실드가 파괴되었으므로 지속 턴 수 리셋
-                    info.isShieldBroken = true;
-                    OnCharacterShieldChanged?.Invoke(this);
+                    float damageAfterShield = finalDamage - shield;
+                    info.shieldDamageAmount = Mathf.Min(finalDamage, shield);
+                    shield -= finalDamage;
+                    if (shield <= 0f)
+                    {
+                        shield = 0f;
+                        shieldDurationTurns = 0; // 실드가 파괴되었으므로 지속 턴 수 리셋
+                        info.isShieldBroken = true;
+                        OnCharacterShieldChanged?.Invoke(this);
 
-                    // 실드 파괴 즉시 이벤트 발생
-                    if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
-                        CombatEventDispatcher.DispatchBreakShield(info.caster.eventBus, info);
+                        // 실드 파괴 즉시 이벤트 발생
+                        if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
+                            CombatEventDispatcher.DispatchBreakShield(info.caster.eventBus, info);
 
-                    if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
-                        CombatEventDispatcher.DispatchShieldBroken(this.eventBus, info);
+                        if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
+                            CombatEventDispatcher.DispatchShieldBroken(this.eventBus, info);
+                    }
+                    finalDamage = Mathf.Max(0f, damageAfterShield);
                 }
-                finalDamage = Mathf.Max(0f, damageAfterShield);
+            }
+
+            info.hpDamageAmount = finalDamage;
+            info.isBlocked = (info.shieldDamageAmount > 0f && info.hpDamageAmount <= 0f);
+
+            // 남은 데미지를 체력에 적용
+            if (info.hpDamageAmount > 0f)
+            {
+                curHealth -= info.hpDamageAmount;
+            }
+
+            // 데미지 표시기 이벤트 트리거 (UI 계층 직접 의존 탈피)
+            OnCharacterDamagedIndicator?.Invoke(this, info.hpDamageAmount, info.damageFlags);
+
+            // 4. 결과 기록 및 즉시 사망 플래그 선반영 (후속 이벤트에서 죽은 유닛 재피격 방어)
+            if (curHealth <= 0f)
+            {
+                curHealth = 0f;
+                info.isFatal = true;
+                isDead = true;
+                currentState = CharacterState.Die;
+                if (characterMove != null)
+                {
+                    Tile tile = characterMove.GetCurrentTile();
+                    if (tile != null && tile.occupyingCharacter == this)
+                    {
+                        tile.occupyingCharacter = null;
+                    }
+                }
+            }
+
+            // 전투 파이프라인 디버그 감사 로그 (에디터 및 Development Build 전용)
+            LogCombatDamageAudit(info, initialShield, initialHealth, shield, curHealth);
+
+            // 5. 공격자의 "공격 직후" 발동 (ex. 흡혈, 대상 처치 시 추가 효과 등)
+            if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
+            {
+                CombatEventDispatcher.DispatchAfterDealDamage(info.caster.eventBus, info);
+                if (info.isFatal)
+                    CombatEventDispatcher.DispatchKill(info.caster.eventBus, info);
+            }
+
+            // 6. 피격자의 "방어 직후" 발동 (ex. 가시 데미지 반사 등)
+            if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
+            {
+                CombatEventDispatcher.DispatchAfterTakeDamage(this.eventBus, info);
+            }
+
+            // 7. 게임 내 사망 이벤트 발송 및 후처리
+            if (info.isFatal)
+            {
+                CombatEventDispatcher.DispatchDeath(this.eventBus, info);
+                OnCharacterDied?.Invoke(this);
             }
         }
-
-        info.hpDamageAmount = finalDamage;
-        info.isBlocked = (info.shieldDamageAmount > 0f && info.hpDamageAmount <= 0f);
-
-        // 남은 데미지를 체력에 적용
-        if (info.hpDamageAmount > 0f)
+        finally
         {
-            curHealth -= info.hpDamageAmount;
-        }
-
-        // 데미지 표시기 이벤트 트리거 (UI 계층 직접 의존 탈피)
-        OnCharacterDamagedIndicator?.Invoke(this, info.hpDamageAmount, info.damageFlags);
-
-        // 4. 결과 기록 (사망 여부)
-        if (curHealth <= 0f)
-        {
-            curHealth = 0f;
-            info.isFatal = true;
-        }
-
-        // 전투 파이프라인 디버그 감사 로그 (에디터 및 Development Build 전용)
-        LogCombatDamageAudit(info, initialShield, initialHealth, shield, curHealth);
-
-        // 5. 공격자의 "공격 직후" 발동 (ex. 흡혈, 대상 처치 시 추가 효과 등)
-        if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
-        {
-            CombatEventDispatcher.DispatchAfterDealDamage(info.caster.eventBus, info);
-            if (info.isFatal)
-                CombatEventDispatcher.DispatchKill(info.caster.eventBus, info);
-        }
-
-        // 6. 피격자의 "방어 직후" 발동 (ex. 가시 데미지 반사 등)
-        if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
-        {
-            CombatEventDispatcher.DispatchAfterTakeDamage(this.eventBus, info);
-        }
-
-        // 7. 게임 내 사망 확정
-        if (info.isFatal)
-        {
-            isDead = true;
-            currentState = CharacterState.Die;
-            CombatEventDispatcher.DispatchDeath(this.eventBus, info);
-            OnCharacterDied?.Invoke(this);
+            _damageRecursionDepth--;
         }
     }
 
