@@ -68,6 +68,7 @@ public static class GenConfig
     public static List<Type> CSharpCallLua = new List<Type>()
     {
         // Delegates
+        typeof(Action),
         typeof(CanSelectDialogueChoice),
         typeof(ExecuteDialogueChoice),
         typeof(GetDialogueChoiceDescription),

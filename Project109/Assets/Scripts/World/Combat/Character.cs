@@ -246,6 +246,8 @@ public class Character : MonoBehaviour, IDamageable
             effectManager.ClearAllEffects(clearPermanentEffects);
         }
 
+        characterMove?.StopMoving();
+
         currentState = CharacterState.Idle;
         isDead = false;
     }
@@ -483,34 +485,6 @@ public class Character : MonoBehaviour, IDamageable
 
     #region Combat Pipeline Convenience Overloads
 
-    public void TakeDamage(float amount, Character caster = null, DamageFlag flags = DamageFlag.Normal)
-        => TakeDamage(new DamageInfo(caster, this, amount, flags));
-
-    public void TakeHeal(float amount, Character caster = null, HealFlag flags = HealFlag.Normal)
-        => TakeHeal(new HealInfo(caster, this, amount, flags));
-
-    public void TakeShield(float amount, Character caster = null, int durationTurns = 1, ShieldFlag flags = ShieldFlag.Normal)
-        => TakeShield(new ShieldInfo(caster, this, amount, durationTurns, flags));
-
-    public void TakeStamina(float amount, Character caster = null, StaminaFlag flags = StaminaFlag.Normal)
-        => TakeStamina(new StaminaInfo(caster, this, amount, flags));
-
-    public void SpendStamina(float amount, StaminaFlag flags = StaminaFlag.Normal)
-        => SpendStamina(new StaminaInfo(this, this, amount, flags));
-
-    #endregion
-
-
-
-    /// <summary>
-    /// 하위 호환성을 위해 남겨둔 TakeShield 오버로드 데코레이터입니다.
-    /// </summary>
-    public void TakeShield(ShieldInfo info, int durationTurns)
-    {
-        info.durationTurns = durationTurns;
-        TakeShield(info);
-    }
-
     /// <summary>
     /// 대상에게 간단하게 데미지를 적용합니다. (편의성 오버로드)
     /// </summary>
@@ -536,6 +510,15 @@ public class Character : MonoBehaviour, IDamageable
     }
 
     /// <summary>
+    /// 하위 호환성을 위해 남겨둔 TakeShield 오버로드 데코레이터입니다.
+    /// </summary>
+    public void TakeShield(ShieldInfo info, int durationTurns)
+    {
+        info.durationTurns = durationTurns;
+        TakeShield(info);
+    }
+
+    /// <summary>
     /// 대상에게 간단하게 스태미나를 부여합니다. (편의성 오버로드)
     /// </summary>
     public void TakeStamina(Character caster, float baseStaminaAmount, StaminaFlag flags = StaminaFlag.Normal)
@@ -550,6 +533,8 @@ public class Character : MonoBehaviour, IDamageable
     {
         SpendStamina(new StaminaInfo(caster, this, baseStaminaAmount, flags));
     }
+
+    #endregion
 
     /// <summary>
     /// 턴 종료 시 호출하여 실드 지속 시간을 1 감소시킵니다.
@@ -606,6 +591,156 @@ public class Character : MonoBehaviour, IDamageable
         {
             Debug.LogError($"[Character] Failed to take effect: Effect ID '{effectId}' not found in ModObjectFactory. Target: {gameObject.name}");
         }
+    }
+
+    #endregion
+
+    #region Spatial & Forced Movement (Knockback, Dash)
+
+    /// <summary>
+    /// 현재 캐릭터가 서 있는 타일의 격자 좌표를 반환합니다.
+    /// </summary>
+    public Vector2Int GetGridPosition()
+    {
+        if (characterMove != null)
+        {
+            Tile tile = characterMove.GetCurrentTile();
+            if (tile != null) return tile.GetCoord();
+        }
+        return Vector2Int.zero;
+    }
+
+    /// <summary>
+    /// 대상을 시전자 반대 방향(또는 지정 방향)으로 distance칸만큼 강제로 밀쳐냅니다(넉백).
+    /// 벽이나 다른 유닛에 가로막혀 충돌했는지 여부(bool)를 반환합니다.
+    /// </summary>
+    public bool KnockbackFrom(Character caster, int distance, float moveSpeedMultiplier = 2.5f)
+    {
+        if (isDead || characterMove == null || GameMap.current == null) return false;
+
+        Vector2Int myCoord = GetGridPosition();
+        Vector2Int casterCoord = caster != null ? caster.GetGridPosition() : myCoord;
+        Vector2Int dir = myCoord - casterCoord;
+
+        // 시전자와 동일 위치이거나 방향이 0인 경우 기본 상향 벡터 사용
+        if (dir == Vector2Int.zero)
+        {
+            dir = Vector2Int.up;
+        }
+
+        return ForcedMoveInDirection(dir, distance, moveSpeedMultiplier);
+    }
+
+    /// <summary>
+    /// 지정된 방향 벡터로 distance칸만큼 강제 이동(밀치기/당기기)을 수행합니다.
+    /// 벽이나 다른 생존 유닛과 충돌했는지 여부(bool)를 반환합니다.
+    /// </summary>
+    public bool ForcedMoveInDirection(Vector2Int direction, int distance, float moveSpeedMultiplier = 2.5f)
+    {
+        if (isDead || characterMove == null || GameMap.current == null) return false;
+
+        Tile startTile = characterMove.GetCurrentTile();
+        if (startTile == null) return false;
+
+        Vector2Int startCoord = startTile.GetCoord();
+        Character collidedUnit = null;
+        bool isCollided = GameMap.current.CalculateKnockbackPosition(
+            startCoord, direction, distance, out Vector2Int finalCoord, out collidedUnit);
+
+        if (finalCoord != startCoord)
+        {
+            Tile destTile = GameMap.current.GetTile(finalCoord);
+            if (destTile != null)
+            {
+                List<Tile> directPath = new List<Tile> { destTile };
+                characterMove.MoveAlongPath(directPath, destTile, null, MoveFlag.Forced, moveSpeedMultiplier);
+            }
+        }
+        else
+        {
+            // 이미 벽이나 유닛에 막혀 0칸 이동한 경우에도 이벤트 발행
+            MoveInfo zeroInfo = new MoveInfo(this, startCoord, startCoord, MoveFlag.Forced);
+            zeroInfo.moveMultiplier = moveSpeedMultiplier;
+            CombatEventDispatcher.DispatchBeforeForcedMove(this.eventBus, ref zeroInfo);
+            CombatEventDispatcher.DispatchAfterForcedMove(this.eventBus, zeroInfo);
+        }
+
+        return isCollided;
+    }
+
+    /// <summary>
+    /// 목표 타일로 신속하게 돌진 이동합니다. 이동 완료 후 콜백을 실행합니다.
+    /// </summary>
+    public bool DashToTile(Tile targetTile, Action onComplete = null)
+    {
+        if (isDead || characterMove == null || targetTile == null || GameMap.current == null) return false;
+
+        Tile currentTile = characterMove.GetCurrentTile();
+        if (currentTile == null || currentTile == targetTile)
+        {
+            onComplete?.Invoke();
+            return false;
+        }
+
+        // 다른 생존 유닛이 점유 중인 타일로는 돌진 불가
+        if (targetTile.occupyingCharacter != null && !targetTile.occupyingCharacter.isDead && targetTile.occupyingCharacter != this)
+        {
+            return false;
+        }
+
+        List<Tile> path = GameMap.current.FindPath(currentTile, targetTile, characterMove.capabilities);
+        if (path == null || path.Count == 0)
+        {
+            path = new List<Tile> { targetTile };
+        }
+
+        characterMove.MoveAlongPath(path, targetTile, onComplete, MoveFlag.Normal, 2.5f);
+        return true;
+    }
+
+    /// <summary>
+    /// 대상 캐릭터와 인접한 빈 타일로 돌진하여 이동합니다.
+    /// </summary>
+    public bool DashTo(Character target, Action onComplete = null)
+    {
+        if (target == null || target.characterMove == null || GameMap.current == null) return false;
+
+        Tile targetTile = target.characterMove.GetCurrentTile();
+        Tile currentTile = (characterMove != null) ? characterMove.GetCurrentTile() : null;
+        if (targetTile == null || currentTile == null) return false;
+
+        List<List<Tile>> tileMap = GameMap.current.GetTileMap();
+        if (tileMap == null) return false;
+
+        Vector2Int tCoord = targetTile.GetCoord();
+        Vector2Int[] dirs = { new Vector2Int(0, 1), new Vector2Int(0, -1), new Vector2Int(1, 0), new Vector2Int(-1, 0) };
+        Tile bestTile = null;
+        int minDistance = int.MaxValue;
+
+        for (int i = 0; i < dirs.Length; i++)
+        {
+            Vector2Int c = tCoord + dirs[i];
+            if (c.x >= 0 && c.x < tileMap.Count && c.y >= 0 && c.y < tileMap[0].Count)
+            {
+                Tile tile = tileMap[c.x][c.y];
+                if (tile != null && tile.CanEnter(characterMove))
+                {
+                    int d = Tile.GetDistance(currentTile, tile);
+                    if (d < minDistance)
+                    {
+                        minDistance = d;
+                        bestTile = tile;
+                    }
+                }
+            }
+        }
+
+        if (bestTile != null)
+        {
+            return DashToTile(bestTile, onComplete);
+        }
+
+        return false;
     }
 
     #endregion

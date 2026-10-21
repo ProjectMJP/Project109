@@ -1,7 +1,5 @@
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using static UnityEngine.EventSystems.EventTrigger;
 using CardTypes;
 
 public class GridAreaSearch
@@ -23,19 +21,15 @@ public class GridAreaSearch
             case TargetType.SingleAlly:
                 for (int x = startX; x <= endX; x++)
                 {
-                    if (x <= targetX - minDist || x >= targetX + minDist)
+                    for (int y = startY; y <= endY; y++)
                     {
-                        results.Add(new Vector2Int(x, targetY));
+                        int distance = Mathf.Abs(targetX - x) + Mathf.Abs(targetY - y);
+                        if (distance >= minDist && distance <= maxDist)
+                        {
+                            results.Add(new Vector2Int(x, y));
+                        }
                     }
                 }
-                for (int y = startY; y <= endY; y++)
-                {
-                    if (y <= targetY - minDist || y >= targetY + minDist)
-                    {
-                        results.Add(new Vector2Int(targetX, y));
-                    }
-                }
-
                 return results;
             case TargetType.AreaSelf:
             case TargetType.AreaGround:

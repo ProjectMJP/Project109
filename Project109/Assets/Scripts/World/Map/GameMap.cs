@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using CardTypes;
 
@@ -163,21 +162,42 @@ public class GameMap : MonoBehaviour
     /// 특정 좌표에서 지정된 방향으로 밀려날 때, 최종 도달할 타일 좌표와 벽/장외 충돌 여부를 계산합니다.
     /// </summary>
     /// <param name="startCoord">밀치기가 시작되는 캐릭터의 타일 좌표</param>
-    /// <param name="direction">밀려나는 방향 (상하좌우 단위 벡터. 예: Vector2Int.up, Vector2Int.down 등)</param>
+    /// <param name="direction">밀려나는 방향 (상하좌우 단위 벡터)</param>
     /// <param name="distance">밀려나는 최대 타일 수</param>
-    /// <param name="finalCoord">최종 도달하는 타일 좌표 (벽/장외 충돌 시 충돌 직전 좌표)</param>
-    /// <returns>벽이나 맵 바깥(장외)에 부딪혔다면 true(추가 데미지/기절 등 처리용), 안전하게 밀려났다면 false</returns>
-    public bool CalculateKnockbackPosition(Vector2Int startCoord, Vector2Int direction, int distance, out Vector2Int finalCoord)
+    /// <param name="finalCoord">최종 도달하는 타일 좌표 (벽/장외/유닛 충돌 시 충돌 직전 좌표)</param>
+    /// <param name="collidedUnit">밀려나는 경로에서 충돌한 다른 생존 유닛 (없으면 null)</param>
+    /// <returns>벽, 장애물, 장외, 또는 다른 생존 유닛에 부딪혔다면 true, 안전하게 밀려났다면 false</returns>
+    public bool CalculateKnockbackPosition(Vector2Int startCoord, Vector2Int direction, int distance, out Vector2Int finalCoord, out Character collidedUnit)
     {
         finalCoord = startCoord;
+        collidedUnit = null;
         bool isCollided = false;
+
+        // 방향 벡터를 상하좌우 1칸 단위 격자 벡터로 정규화 (대각선 및 초과 벡터 오작동 방지)
+        Vector2Int stepDir = Vector2Int.zero;
+        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y))
+            stepDir = new Vector2Int(direction.x > 0 ? 1 : (direction.x < 0 ? -1 : 0), 0);
+        else
+            stepDir = new Vector2Int(0, direction.y > 0 ? 1 : (direction.y < 0 ? -1 : 0));
+
+        if (stepDir == Vector2Int.zero || distance <= 0) return false;
 
         for (int i = 1; i <= distance; i++)
         {
-            Vector2Int nextCoord = startCoord + direction * i;
+            Vector2Int nextCoord = startCoord + stepDir * i;
 
+            // 1. 벽, 장애물, 맵 바깥 충돌 검사
             if (IsWallOrOutside(nextCoord.x, nextCoord.y))
             {
+                isCollided = true;
+                break;
+            }
+
+            // 2. 다른 생존 유닛 점유 충돌 검사
+            Tile nextTile = GetTile(nextCoord);
+            if (nextTile != null && nextTile.occupyingCharacter != null && !nextTile.occupyingCharacter.isDead)
+            {
+                collidedUnit = nextTile.occupyingCharacter;
                 isCollided = true;
                 break;
             }
@@ -186,6 +206,14 @@ public class GameMap : MonoBehaviour
         }
 
         return isCollided;
+    }
+
+    /// <summary>
+    /// 특정 좌표에서 지정된 방향으로 밀려날 때, 최종 도달할 타일 좌표와 벽/장외/유닛 충돌 여부를 계산합니다. (하위 호환 오버로드)
+    /// </summary>
+    public bool CalculateKnockbackPosition(Vector2Int startCoord, Vector2Int direction, int distance, out Vector2Int finalCoord)
+    {
+        return CalculateKnockbackPosition(startCoord, direction, distance, out finalCoord, out _);
     }
 
     /// <summary>

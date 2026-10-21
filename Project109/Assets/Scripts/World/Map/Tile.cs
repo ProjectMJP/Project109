@@ -46,6 +46,13 @@ public class Tile : MonoBehaviour
         set => _occupyingCharacter = value;
     }
 
+    private DestructibleObject _occupyingDestructible;
+    public DestructibleObject occupyingDestructible
+    {
+        get => _occupyingDestructible;
+        set => _occupyingDestructible = value;
+    }
+
     public GameObject canMoveAreaTextureObject;
 
     private void Awake()
@@ -110,13 +117,6 @@ public class Tile : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 이전 호환용 더미 메서드 (추후 정리 예정)
-    /// </summary>
-    public void ChangeEffect()
-    {
-        // 비주얼 표시는 SetMoveIndicator를 사용하도록 권장합니다.
-    }
 
     /// <summary>
     /// 캐릭터 이동 기믹을 고려하여 이 타일에 해당 캐릭터가 멈춰 설 수 있는지 판단합니다.

@@ -275,15 +275,29 @@ public class StageManager : IInitializable, System.IDisposable
             spawned.transform.SetParent(currentGameMap.transform);
             RegisterSpawnEtc(spawned);
 
-            // 파괴 가능한 오브젝트인 경우, 파괴 시 타일을 Empty로 복구하도록 이벤트 구독
+            // 파괴 가능한 오브젝트인 경우, 파괴 시 타일을 Empty로 복구하도록 이벤트 구독 및 타일 참조 바인딩
             DestructibleObject destructible = spawned.GetComponent<DestructibleObject>();
             if (destructible != null)
             {
+                if (currentGameMap != null)
+                {
+                    Tile tile = currentGameMap.GetTile(pos);
+                    if (tile != null)
+                    {
+                        tile.occupyingDestructible = destructible;
+                    }
+                }
+
                 destructible.OnDestroyed += (obj) =>
                 {
                     if (currentGameMap != null)
                     {
                         currentGameMap.SetTileState(pos, TileState.Empty);
+                        Tile t = currentGameMap.GetTile(pos);
+                        if (t != null && t.occupyingDestructible == obj)
+                        {
+                            t.occupyingDestructible = null;
+                        }
                     }
                 };
             }
@@ -667,13 +681,7 @@ public class StageManager : IInitializable, System.IDisposable
     // 리스트를 무작위로 섞는 유틸리티 함수
     private void ShuffleList<T>(List<T> list)
     {
-        for (int i = 0; i < list.Count; i++)
-        {
-            T temp = list[i];
-            int randomIndex = Random.Range(i, list.Count);
-            list[i] = list[randomIndex];
-            list[randomIndex] = temp;
-        }
+        list.Shuffle();
     }
 
     #region Monster & NPC Resolution Helpers (O(1) Cached)

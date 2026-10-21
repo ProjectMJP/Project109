@@ -122,33 +122,70 @@ public class CharacterMove
     /// </summary>
     private Coroutine activeMoveCoroutine;
 
-    public void MoveAlongPath(List<Tile> movePath, Tile destinationTile, Action onComplete = null)
+    /// <summary>
+    /// 현재 진행 중인 이동 코루틴을 강제 정지하고 캐릭터 상태를 복구합니다.
+    /// 전투 종료, 행동 취소, 피격/사망 인터럽트 시 호출됩니다.
+    /// </summary>
+    public void StopMoving()
     {
-        if (activeMoveCoroutine != null)
+        if (activeMoveCoroutine != null && this.character != null)
         {
             this.character.StopCoroutine(activeMoveCoroutine);
             activeMoveCoroutine = null;
         }
 
-        if (movePath == null || movePath.Count == 0)
+        if (this.character != null && this.character.currentState == CharacterState.Move)
         {
+            this.character.currentState = CharacterState.Idle;
+        }
+    }
+
+    public void MoveAlongPath(List<Tile> movePath, Tile destinationTile, Action onComplete = null, MoveFlag moveFlags = MoveFlag.Normal, float speedMultiplier = 1.0f)
+    {
+        if (activeMoveCoroutine != null && this.character != null)
+        {
+            this.character.StopCoroutine(activeMoveCoroutine);
+            activeMoveCoroutine = null;
+        }
+
+        Vector2Int fromCoord = currentTile != null ? currentTile.GetCoord() : Vector2Int.zero;
+        Vector2Int toCoord = destinationTile != null ? destinationTile.GetCoord() : fromCoord;
+
+        if (movePath == null || movePath.Count == 0 || (movePath.Count == 1 && movePath[0] == currentTile))
+        {
+            if (moveFlags.HasFlag(MoveFlag.Forced) && this.character != null)
+            {
+                MoveInfo zeroInfo = new MoveInfo(this.character, fromCoord, toCoord, moveFlags);
+                zeroInfo.moveMultiplier = speedMultiplier;
+                CombatEventDispatcher.DispatchBeforeForcedMove(this.character.eventBus, ref zeroInfo);
+                CombatEventDispatcher.DispatchAfterForcedMove(this.character.eventBus, zeroInfo);
+            }
             onComplete?.Invoke();
             return;
         }
 
-        activeMoveCoroutine = this.character.StartCoroutine(StartMoveCoroutine(movePath, destinationTile, onComplete));
+        activeMoveCoroutine = this.character.StartCoroutine(StartMoveCoroutine(movePath, destinationTile, onComplete, moveFlags, speedMultiplier));
     }
 
-    private IEnumerator StartMoveCoroutine(List<Tile> movePath, Tile destinationTile, Action onComplete = null)
+    private IEnumerator StartMoveCoroutine(List<Tile> movePath, Tile destinationTile, Action onComplete = null, MoveFlag moveFlags = MoveFlag.Normal, float speedMultiplier = 1.0f)
     {
-        // 1. 이동 직전 이벤트 (IOnBeforeMove)
-        Vector2Int fromCoord = currentTile.GetCoord();
-        Vector2Int toCoord = destinationTile.GetCoord();
+        // 1. 이동 직전 이벤트 (IOnBeforeMove / IOnBeforeForcedMove)
+        Vector2Int fromCoord = currentTile != null ? currentTile.GetCoord() : Vector2Int.zero;
+        Vector2Int toCoord = destinationTile != null ? destinationTile.GetCoord() : fromCoord;
 
-        MoveInfo beforeInfo = new MoveInfo(this.character, fromCoord, toCoord, MoveFlag.Normal);
+        MoveInfo beforeInfo = new MoveInfo(this.character, fromCoord, toCoord, moveFlags);
+        beforeInfo.moveMultiplier = speedMultiplier;
+
         if (this.character != null)
         {
-            CombatEventDispatcher.DispatchBeforeMove(this.character.eventBus, ref beforeInfo);
+            if (moveFlags.HasFlag(MoveFlag.Forced))
+            {
+                CombatEventDispatcher.DispatchBeforeForcedMove(this.character.eventBus, ref beforeInfo);
+            }
+            else
+            {
+                CombatEventDispatcher.DispatchBeforeMove(this.character.eventBus, ref beforeInfo);
+            }
         }
 
         if (beforeInfo.isCanceled)
@@ -162,17 +199,24 @@ public class CharacterMove
             yield break;
         }
 
-        if (this.character.currentState != CharacterState.Die)
+        if (this.character != null && this.character.currentState != CharacterState.Die)
         {
             this.character.currentState = CharacterState.Move;
         }
 
+        float effectiveSpeed = moveSpeed * Mathf.Max(0.1f, speedMultiplier);
         int currentIndex = 0;
         while (currentIndex < movePath.Count)
         {
+            if (this.character == null || this.character.isDead)
+            {
+                activeMoveCoroutine = null;
+                yield break;
+            }
+
             // 목표 회전 및 이동
             Vector3 targetPos = movePath[currentIndex].transform.position;
-            this.character.transform.position = Vector3.MoveTowards(this.character.transform.position, targetPos, moveSpeed * Time.deltaTime);
+            this.character.transform.position = Vector3.MoveTowards(this.character.transform.position, targetPos, effectiveSpeed * Time.deltaTime);
 
             Vector3 directionVector = targetPos - this.character.transform.position;
             if (directionVector != Vector3.zero)
@@ -199,17 +243,26 @@ public class CharacterMove
         // 이동 완료 후 최종 타일 갱신
         SetCurrentTile(destinationTile);
 
-        if (this.character.currentState != CharacterState.Die)
+        if (this.character != null && this.character.currentState != CharacterState.Die)
         {
             this.character.currentState = CharacterState.Idle;
         }
 
-        // 2. 이동 직후 이벤트 (IOnAfterMove)
-        Vector2Int currentCoord = currentTile.GetCoord();
-        MoveInfo afterInfo = new MoveInfo(this.character, currentCoord, currentCoord, MoveFlag.Normal);
+        // 2. 이동 직후 이벤트 (IOnAfterMove / IOnAfterForcedMove)
+        Vector2Int currentCoord = currentTile != null ? currentTile.GetCoord() : toCoord;
+        MoveInfo afterInfo = new MoveInfo(this.character, currentCoord, currentCoord, moveFlags);
+        afterInfo.moveMultiplier = speedMultiplier;
+
         if (this.character != null)
         {
-            CombatEventDispatcher.DispatchAfterMove(this.character.eventBus, afterInfo);
+            if (moveFlags.HasFlag(MoveFlag.Forced))
+            {
+                CombatEventDispatcher.DispatchAfterForcedMove(this.character.eventBus, afterInfo);
+            }
+            else
+            {
+                CombatEventDispatcher.DispatchAfterMove(this.character.eventBus, afterInfo);
+            }
         }
 
         // 콜백 호출

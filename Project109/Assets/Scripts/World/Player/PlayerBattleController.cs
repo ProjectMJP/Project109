@@ -207,6 +207,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void RequestEndTurn()
     {
+        if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle)
+        {
+            return;
+        }
+
         // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 클리어 및 UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
         if (playerMove != null)
         {
@@ -244,6 +249,12 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void TryUseCard(Card card)
     {
         if (card == null) return;
+
+        if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle)
+        {
+            Debug.LogWarning("[PlayerBattleController] 캐릭터가 대기(Idle) 상태가 아니므로 카드를 사용할 수 없습니다.");
+            return;
+        }
 
         // 1. 액션 큐 실행 중 조작 방지 잠금
         if (ActionQueueManager.Instance.IsBusy)
@@ -367,7 +378,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             case TargetType.RandomEnemy:
             case TargetType.MultiEnemy:
             case TargetType.AreaSelf:
-                return GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0;
+                return GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0
+                    || HasDestructiblesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
 
             case TargetType.AreaGround:
                 return true;
@@ -411,6 +423,35 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             }
         }
         return enemies;
+    }
+
+    /// <summary>
+    /// 플레이어 기준 맨해튼 사거리 내에 위치한 파괴 가능한 오브젝트(DestructibleObject)가 존재하는지 확인합니다.
+    /// </summary>
+    public bool HasDestructiblesInRange(int minDistance, int maxDistance)
+    {
+        Tile playerTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+            ? controlledCharacter.characterMove.GetCurrentTile()
+            : null;
+        if (playerTile == null || GameMap.current == null) return false;
+
+        GameMap map = GameMap.current;
+        for (int c = 0; c < map.mapColumn; c++)
+        {
+            for (int r = 0; r < map.mapRow; r++)
+            {
+                Tile tile = map.GetTile(c, r);
+                if (tile != null && tile.occupyingDestructible != null && !tile.occupyingDestructible.isDead)
+                {
+                    int dist = Tile.GetDistance(playerTile, tile);
+                    if (dist >= minDistance && dist <= maxDistance)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -693,16 +734,23 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                     break;
 
                     case PlayerControlState.Move:
-                        // 이동 모드: playerMove에게 이동 지시
+                        // 이동 모드: playerMove에게 이동 지시 (성공 시에만 이동 모드 해제 및 핸드 복귀)
                         if (playerMove != null)
                         {
-                            playerMove.ExecuteMoveToTile(targetTile);
-                            playerMove.ClearCanMoveTiles();
-                        }
-                        controlState = PlayerControlState.Normal;
-                        if (_battleUI != null)
-                        {
-                            _battleUI.SwitchToHandMode();
+                            if (playerMove.ExecuteMoveToTile(targetTile))
+                            {
+                                playerMove.ClearCanMoveTiles();
+                                controlState = PlayerControlState.Normal;
+                                if (_battleUI != null)
+                                {
+                                    _battleUI.RefreshMoveStats();
+                                    _battleUI.SwitchToHandMode();
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[PlayerBattleController] 유효하지 않은 이동 타일이거나 이동할 수 없습니다. (이동 모드 유지)");
+                            }
                         }
                         break;
 
@@ -739,10 +787,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                     List<Character> targets = CollectCharactersInCoords(affectedCoords);
                                     TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
 
-                                    // 적을 수동 지정해야 하는 카드인데 적이 없는 빈 타일을 클릭했을 경우 시전 거부
-                                    if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy) && targets.Count == 0)
+                                    // 적 또는 파괴 가능한 오브젝트가 대상이어야 하는 카드인데 둘 다 없는 빈 타일을 클릭했을 경우 시전 거부
+                                    bool hasDestructible = targetTile != null && targetTile.occupyingDestructible != null && !targetTile.occupyingDestructible.isDead;
+                                    if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy) && targets.Count == 0 && !hasDestructible)
                                     {
-                                        Debug.LogWarning("[PlayerBattleController] 적 유닛이 위치한 타일을 선택해야 합니다.");
+                                        Debug.LogWarning("[PlayerBattleController] 적 유닛 또는 파괴 가능한 오브젝트가 위치한 타일을 선택해야 합니다.");
                                         return;
                                     }
 

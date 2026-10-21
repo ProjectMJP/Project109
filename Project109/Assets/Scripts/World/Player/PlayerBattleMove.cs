@@ -73,31 +73,29 @@ public class PlayerBattleMove
 
     /// <summary>
     /// 외부(PlayerBattleController)에서 이동 모드일 때 클릭된 타일을 전달받아 이동을 실행합니다.
+    /// 이동 시작에 성공하면 true, 실패하거나 불가하면 false를 반환합니다.
     /// </summary>
-    public void ExecuteMoveToTile(Tile targetTile)
+    public bool ExecuteMoveToTile(Tile targetTile)
     {
-        if (characterMove == null || targetTile == null) return;
+        if (characterMove == null || targetTile == null) return false;
 
         // 캐릭터가 Idle 상태가 아닌 경우 무시
-        if (characterMove.character.currentState != CharacterState.Idle)
+        if (characterMove.character != null && characterMove.character.currentState != CharacterState.Idle)
         {
-            return;
+            return false;
         }
 
         if (canMoveTiles.Contains(targetTile))
         {
-            if (characterMove.character.curMoveCount <= 0)
+            if (characterMove.character != null && characterMove.character.curMoveCount <= 0)
             {
                 Debug.LogWarning("[PlayerBattleMove] 이동 횟수가 부족하여 이동할 수 없습니다.");
-                return;
+                return false;
             }
 
             Debug.Log("[PlayerBattleMove] 이동 목표 타일: " + targetTile.GetCoordToString());
 
-            // 1. 전투 이동 횟수 차감 (턴제 규칙 적용)
-            characterMove.character.curMoveCount--;
-
-            // 2. 경로 탐색 및 실제 이동 명령
+            // 1. 경로 탐색 및 실제 이동 명령
             Tile startTile = characterMove.GetCurrentTile();
             GameMap gameMap = null;
             if (targetTile != null && targetTile.ownerMap != null) gameMap = targetTile.ownerMap;
@@ -109,9 +107,17 @@ public class PlayerBattleMove
                 List<Tile> movePath = gameMap.FindPath(startTile, targetTile, caps);
                 if (movePath != null && movePath.Count > 0)
                 {
+                    // 전투 이동 횟수 차감 (턴제 규칙 적용)
+                    if (characterMove.character != null)
+                    {
+                        characterMove.character.curMoveCount--;
+                    }
                     characterMove.MoveAlongPath(movePath, targetTile);
+                    return true;
                 }
             }
         }
+
+        return false;
     }
 }
