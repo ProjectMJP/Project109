@@ -2,8 +2,12 @@ name: Mirror to GitLab
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch: # Actions 탭에서 수동 실행 가능하도록 지원
+    branches:
+      - '**'        # 모든 브랜치 푸시 감지
+    tags:
+      - '**'        # 모든 태그 푸시 감지
+  delete:           # GitHub에서 브랜치/태그가 삭제되었을 때도 동기화 트리거
+  workflow_dispatch: # 수동 즉시 실행 지원
 
 jobs:
   mirror:
@@ -21,23 +25,28 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.GITLAB_SSH_KEY }}
 
-      # 2. 증분 변경 사항만 GitLab으로 미러 푸시
-      - name: Push incremental changes to GitLab
+      # 2. GitLab과 100% 미러 동기화 (생성/수정/삭제)
+      - name: Fully Mirror to GitLab
         env:
           GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=15 -o ServerAliveCountMax=20"
         run: |
-          # 1. LFS 설정
+          # 1. LFS Pure SSH 및 전송 최적화
           git config lfs.allowincompletepush true
           git config lfs.transfer.mode pure-ssh
           git config lfs.concurrenttransfers 4
 
-          # 2. 원격지 등록
+          # 2. GitLab 원격지 등록
           git remote add gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git || git remote set-url gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git
 
-          # 3. 현재 main 브랜치 및 태그 푸시
-          git push gitlab HEAD:refs/heads/main --tags
-
-          # 4. GitHub의 모든 원격 브랜치를 GitLab 브랜치로 안전하게 동기화 (숨김 참조 방지)
-          git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/ | grep -v '^HEAD$' | while read branch; do
-            git push gitlab "refs/remotes/origin/$branch:refs/heads/$branch" --force
+          # 3. GitHub의 원격 추적 브랜치들을 로컬 브랜치(refs/heads/*)로 복원
+          # (러너의 origin/ 참조를 밀어 넣다 발생하는 'hidden ref' 에러 원천 차단)
+          for branch in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/); do
+            [ "$branch" = "HEAD" ] && continue
+            git update-ref "refs/heads/$branch" "refs/remotes/origin/$branch"
           done
+
+          # 4. 브랜치 완전 미러링 (+강제 동기화 및 --prune으로 삭제된 브랜치 제거)
+          git push --prune gitlab "+refs/heads/*:refs/heads/*"
+
+          # 5. 태그 완전 미러링 (신규 태그 추가 및 삭제된 태그 제거)
+          git push --prune gitlab "+refs/tags/*:refs/tags/*"
