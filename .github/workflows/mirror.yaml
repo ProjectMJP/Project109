@@ -1,0 +1,22 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches:
+      - '**' # 모든 브랜치 푸시 감지
+    tags:
+      - '**' # 모든 태그 푸시 감지
+
+jobs:
+  to-gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전체 히스토리 가져오기
+
+      - name: Push to GitLab
+        run: |
+          # 자체 호스팅 GitLab 주소에 맞춘 미러링 푸시
+          git push --mirror https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab-siryu.com/SIRYU/Project109.git
