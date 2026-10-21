@@ -22,7 +22,7 @@ public static class AIPositionPlanner
         int maxRange = card.cardData != null ? card.cardData.targetMaxDistance : 99;
 
         // 1. 이미 현재 위치에서 사거리가 만족되는지 확인
-        int currentDist = GetDistance(casterTile, targetTile);
+        int currentDist = Tile.GetDistance(casterTile, targetTile);
         if (currentDist >= minRange && currentDist <= maxRange)
         {
             return casterTile; // 이동 필요 없음
@@ -56,7 +56,7 @@ public static class AIPositionPlanner
                     continue;
                 }
 
-                int dist = GetDistance(tile, targetTile);
+                int dist = Tile.GetDistance(tile, targetTile);
                 if (dist >= minRange && dist <= maxRange)
                 {
                     candidateTiles.Add(tile);
@@ -135,19 +135,18 @@ public static class AIPositionPlanner
 
         // 이동 사거리 한도로 경로 자르기
         int targetIndex = Mathf.Min(path.Count - 1, maxMoveRange - 1);
-        if (targetIndex >= 0 && targetIndex < path.Count)
+
+        // 잘린 도착 지점이 다른 살아있는 유닛에 의해 점유되어 있다면, 역순으로 거슬러 올라가며 비어있는 타일 선택
+        while (targetIndex >= 0)
         {
-            return path[targetIndex];
+            Tile candidate = path[targetIndex];
+            if (candidate == currentTile || candidate.occupyingCharacter == null || candidate.occupyingCharacter.isDead || candidate.occupyingCharacter == caster)
+            {
+                return candidate;
+            }
+            targetIndex--;
         }
 
         return currentTile;
-    }
-
-    private static int GetDistance(Tile t1, Tile t2)
-    {
-        if (t1 == null || t2 == null) return int.MaxValue;
-        var coord1 = t1.GetCoord();
-        var coord2 = t2.GetCoord();
-        return Mathf.Abs(coord1.x - coord2.x) + Mathf.Abs(coord1.y - coord2.y);
     }
 }

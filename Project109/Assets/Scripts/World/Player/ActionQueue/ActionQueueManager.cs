@@ -23,6 +23,7 @@ public class ActionQueueManager : MonoBehaviour
     }
 
     private Queue<BattleAction> _actionQueue = new Queue<BattleAction>();
+    private BattleAction _currentAction;
     private bool _isProcessing = false;
 
     // 선입력 최대 저장 수 제한 (너무 많은 큐가 쌓여 오조작되는 현상 예방)
@@ -66,16 +67,63 @@ public class ActionQueueManager : MonoBehaviour
     private IEnumerator ProcessQueueRoutine()
     {
         _isProcessing = true;
-
-        while (_actionQueue.Count > 0)
+        try
         {
-            BattleAction currentAction = _actionQueue.Dequeue();
-            
-            // 액션 코루틴 끝날 때까지 런타임 대기
-            yield return StartCoroutine(currentAction.ExecuteRoutine());
+            while (_actionQueue.Count > 0)
+            {
+                _currentAction = _actionQueue.Dequeue();
+                if (_currentAction == null) continue;
+
+                // 안전 래퍼를 통해 액션 코루틴 실행 및 예외 격리
+                yield return StartCoroutine(SafeExecuteAction(_currentAction));
+                _currentAction = null;
+            }
+        }
+        finally
+        {
+            // 어떤 예외나 중단이 발생해도 _isProcessing 잠금 해제 보장
+            _currentAction = null;
+            _isProcessing = false;
+        }
+    }
+
+    private IEnumerator SafeExecuteAction(BattleAction action)
+    {
+        IEnumerator routine = null;
+        try
+        {
+            routine = action.ExecuteRoutine();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[ActionQueue] 액션 초기화 중 예외 발생 ({action.GetType().Name}):\n{ex}");
+            action.OnCanceled();
+            yield break;
         }
 
-        _isProcessing = false;
+        while (true)
+        {
+            object currentYield = null;
+            try
+            {
+                if (!routine.MoveNext())
+                    break;
+                currentYield = routine.Current;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[ActionQueue] 액션 실행 중 예외 발생 ({action.GetType().Name}):\n{ex}");
+                // 비정상 종료 시 캐릭터 상태 강제 복구 및 리소스 정리
+                if (action.caster != null && !action.caster.isDead && action.caster.currentState != CharacterState.Idle)
+                {
+                    action.caster.currentState = CharacterState.Idle;
+                }
+                action.OnCanceled();
+                yield break;
+            }
+
+            yield return currentYield;
+        }
     }
 
     /// <summary>
@@ -84,6 +132,11 @@ public class ActionQueueManager : MonoBehaviour
     public void ClearQueue()
     {
         StopAllCoroutines();
+        if (_currentAction != null)
+        {
+            _currentAction.OnCanceled();
+            _currentAction = null;
+        }
         while (_actionQueue.Count > 0)
         {
             var action = _actionQueue.Dequeue();

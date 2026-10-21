@@ -143,7 +143,7 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         if (tileMap == null) return;
 
         // 상호작용 대상과 가장 가까운 타일을 NPC가 위치한 타일로 간주
-        Tile npcTile = FindTileNearPosition(npcComp.transform.position, tileMap);
+        Tile npcTile = gameMap.GetTileAtWorldPosition(npcComp.transform.position);
         if (npcTile == null)
         {
             interactable.OnInteract();
@@ -211,26 +211,6 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
             }
             interactable.OnInteract();
         }
-    }
-
-    private Tile FindTileNearPosition(Vector3 position, List<List<Tile>> tileMap)
-    {
-        Tile closestTile = null;
-        float minDistance = float.MaxValue;
-
-        foreach (var col in tileMap)
-        {
-            foreach (var tile in col)
-            {
-                float dist = Vector3.Distance(tile.transform.position, position);
-                if (dist < minDistance)
-                {
-                    minDistance = dist;
-                    closestTile = tile;
-                }
-            }
-        }
-        return closestTile;
     }
 
     private List<Tile> GetAdjacentWalkableTiles(Tile centerTile, List<List<Tile>> tileMap)

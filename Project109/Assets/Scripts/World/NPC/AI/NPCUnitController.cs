@@ -277,13 +277,7 @@ public class NPCUnitController : ICharacterController, IDisposable
     private int GetDistance(Character c1, Character c2)
     {
         if (c1 == null || c2 == null || c1.characterMove == null || c2.characterMove == null) return int.MaxValue;
-        var tile1 = c1.characterMove.GetCurrentTile();
-        var tile2 = c2.characterMove.GetCurrentTile();
-        if (tile1 == null || tile2 == null) return int.MaxValue;
-        
-        var coord1 = tile1.GetCoord();
-        var coord2 = tile2.GetCoord();
-        return Mathf.Abs(coord1.x - coord2.x) + Mathf.Abs(coord1.y - coord2.y);
+        return Tile.GetDistance(c1.characterMove.GetCurrentTile(), c2.characterMove.GetCurrentTile());
     }
 
     private void UpdateIntentHUD()

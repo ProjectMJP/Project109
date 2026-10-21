@@ -411,6 +411,12 @@ public class RunManager : MonoBehaviour
 
     public void SpawnMonsterInBattleNodeData(BattleData nodeData)
     {
-        // 맵에 몬스터 스폰 처리가 필요한 경우 여기에 구현
+        if (nodeData == null || currentStage == null) return;
+
+        LocationType loc = (currentStage.currentMapData != null) ? currentStage.currentMapData.locationType : LocationType.Temple;
+        Character playerChar = (GameSceneManager.instance != null && GameSceneManager.instance.player != null) ? GameSceneManager.instance.player.character : null;
+
+        currentStage.GenerateStage(loc, EncountType.Battle, playerChar, null, nodeData);
+        OnMapStateChanged(MapState.Battle);
     }
 }

@@ -62,9 +62,13 @@ public class EnemyMoveAction : BattleAction
     public override void OnCanceled()
     {
         base.OnCanceled();
-        if (caster != null && caster.currentState != CharacterState.Die)
+        if (caster != null)
         {
-            caster.currentState = CharacterState.Idle;
+            caster.characterMove?.StopMoving();
+            if (caster.currentState != CharacterState.Die)
+            {
+                caster.currentState = CharacterState.Idle;
+            }
         }
     }
 }

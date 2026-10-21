@@ -63,8 +63,8 @@ public class RoutePathfinding
         _openList.Clear();
         _closeList.Clear();
 
-        // 노드 맵 캐시 갱신 (무할당 재활용)
-        MakeTileNodeMap(map, capabilities);
+        // 노드 맵 캐시 갱신 (무할당 재활용, 다른 유닛 점유 타일 차단)
+        MakeTileNodeMap(map, capabilities, start, target);
 
         var startCoord = start.GetCoord();
         var targetCoord = target.GetCoord();
@@ -157,7 +157,7 @@ public class RoutePathfinding
     }
 
     // 탐색을 위한 타일 맵 생성 및 캐시 재활용
-    private void MakeTileNodeMap(List<List<Tile>> map, MoverCapability capabilities)
+    private void MakeTileNodeMap(List<List<Tile>> map, MoverCapability capabilities, Tile start = null, Tile target = null)
     {
         int column = map.Count;
         int row = map[0].Count;
@@ -198,6 +198,15 @@ public class RoutePathfinding
                 else
                 {
                     isWalkable = true;
+                }
+
+                // 시작 타일과 목표 타일을 제외한, 다른 살아있는 유닛이 점유 중인 타일은 통과 불가 처리
+                if (isWalkable && tile != null && tile != start && tile != target)
+                {
+                    if (tile.occupyingCharacter != null && !tile.occupyingCharacter.isDead)
+                    {
+                        isWalkable = false;
+                    }
                 }
 
                 _tileNodeMap[columnIndex, rowIndex].Reset(isWalkable, columnIndex, rowIndex);
