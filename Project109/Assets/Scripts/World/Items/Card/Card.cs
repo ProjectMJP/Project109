@@ -615,5 +615,4 @@ public class CardMasteryState
     public float maxMasteryXP = 0f;
     public float masteryXPIncreasePerLevel = 0f;
     public Dictionary<string, int> masteryUpgrades = new Dictionary<string, int>();
-    public HashSet<string> tagNames = new HashSet<string>();
 }

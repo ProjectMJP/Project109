@@ -16,19 +16,7 @@ public class RandomItemPicker<T>
     //셔플 알고리즘
     private void Shuffle(List<T> list)
     {
-        Debug.Log("Shuffle!");
-        for (int i = list.Count - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            (list[i], list[j]) = (list[j], list[i]);  // Swap
-        }
-
-        string str = "";
-        for (int i = 0; i < list.Count; i++)
-        {
-            str += list[i].ToString() + ", ";
-        }
-        Debug.Log(str);
+        list.Shuffle();
     }
 
     //다음 아이템 반환 (없으면 false)

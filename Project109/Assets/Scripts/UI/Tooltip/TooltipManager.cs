@@ -120,14 +120,11 @@ public class TooltipManager : MonoBehaviour
                     LuaTable proto = LuaManager.Instance.GetCardTagPrototype(id);
                     if (proto != null)
                     {
-                        var getDisplayName = proto.Get<LuaFunction>("GetDisplayName");
-                        if (getDisplayName != null)
+                        var getDisplayName = proto.Get<System.Func<LuaTable, string>>("GetDisplayName");
+                        string str = getDisplayName?.Invoke(proto);
+                        if (!string.IsNullOrEmpty(str))
                         {
-                            object[] results = getDisplayName.Call(proto);
-                            if (results != null && results.Length > 0 && results[0] is string str)
-                            {
-                                return str;
-                            }
+                            return str;
                         }
                     }
                 }
@@ -268,31 +265,14 @@ public class TooltipManager : MonoBehaviour
                             LuaTable proto = LuaManager.Instance.GetCardTagPrototype(id);
                             if (proto != null)
                             {
-                                var getDisplayName = proto.Get<LuaFunction>("GetDisplayName");
-                                var getDescription = proto.Get<LuaFunction>("GetDescription");
+                                var getDisplayName = proto.Get<System.Func<LuaTable, string>>("GetDisplayName");
+                                var getDescription = proto.Get<System.Func<LuaTable, string>>("GetDescription");
                                 
-                                string dispName = id;
-                                if (getDisplayName != null)
-                                {
-                                    object[] resName = getDisplayName.Call(proto);
-                                    if (resName != null && resName.Length > 0 && resName[0] is string strName)
-                                    {
-                                        dispName = strName;
-                                    }
-                                }
+                                string dispName = getDisplayName?.Invoke(proto);
+                                string descText = getDescription?.Invoke(proto);
 
-                                string descText = string.Empty;
-                                if (getDescription != null)
-                                {
-                                    object[] resDesc = getDescription.Call(proto);
-                                    if (resDesc != null && resDesc.Length > 0 && resDesc[0] is string strDesc)
-                                    {
-                                        descText = strDesc;
-                                    }
-                                }
-
-                                subTitle = dispName;
-                                subDescription = descText;
+                                subTitle = !string.IsNullOrEmpty(dispName) ? dispName : id;
+                                subDescription = descText ?? string.Empty;
                             }
                         }
                         break;

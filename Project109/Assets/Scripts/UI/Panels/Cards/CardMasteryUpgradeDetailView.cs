@@ -44,7 +44,15 @@ public class CardMasteryUpgradeDetailView : MonoBehaviour
                 : 500;
             selectedCardInstance.AddMasteryPoint(upgradeValue);
         }
-        transform.parent.gameObject.SetActive(false);
-        Destroy(transform.parent.gameObject);
+
+        UIPanelBase parentPanel = GetComponentInParent<UIPanelBase>();
+        if (parentPanel != null)
+        {
+            parentPanel.Close();
+        }
+        else if (transform.parent != null)
+        {
+            transform.parent.gameObject.SetActive(false);
+        }
     }
 }

@@ -1,22 +1,35 @@
 # PROJECT_MAP.md — Project109 아키텍처 SSOT
 
-> **최종 갱신**: 2026-10-19  
+> **최종 갱신**: 2026-10-22  
 > **목적**: 사람 개발자와 AI 에이전트가 동일한 기준으로 코드를 이해·수정할 수 있도록, 프로젝트의 계층 구조·참조 규칙·데이터 흐름을 단일 문서에 정의합니다.
 
 ---
 
 ## 1. 프로젝트 개요
 
-**Project109**는 Unity 기반의 로그라이크 턴제 전투 + 맵 탐색 게임입니다.  
-카드 기반 스킬 시스템, YAML/Lua 기반 모딩, 은신처–던전 서브씬 전환 구조를 갖추고 있습니다.
+**Project109**는 **그리드 전술(Grid Tactics)**과 **반실시간 스태미나(ATB)** 기반의 **로그라이크 덱빌딩(Roguelike Deckbuilder)** 게임입니다.  
+고정된 자리에서 카드만 내는 전통적인 덱빌더와 달리, 2D 격자 타일맵 위에서의 위치 선정, 사거리, 광역 범위(AoE), 돌진 및 밀치기(넉백) 등 공간 전술을 카드 플레이와 밀접하게 결합한 전투 메커니즘을 제공합니다.
 
-| 항목 | 설명 |
-|------|------|
-| 엔진 | Unity (C#) |
-| 스크립팅 확장 | XLua (카드 로직), YamlDotNet (데이터 파싱) |
-| 에셋 관리 | Addressables + StreamingAssets (모드 데이터) |
-| 세이브 | JSON 기반 로컬 파일 (`SaveSystem`) |
-| 빌드 도구 | EventBinderGenerator (Roslyn Source Generator) |
+### 1.1 핵심 게임 기획 기둥 (Core Pillars)
+1. **그리드 공간 전술과 덱빌딩의 융합**: 타일맵(`GameMap`) 위에서 이동력(`curMoveCount`)을 소모해 위치를 잡고, 사거리(`Range`), 방사 범위(`AoE`), 시야 및 장애물(벽/유닛 충돌)을 계산하여 카드를 시전합니다.
+2. **반실시간 스태미나(ATB) 턴 시스템**: 정해진 라운드 순서가 아닌, 유닛별 스태미나가 실시간으로 누적되어 최대치에 도달한 유닛이 즉시 턴을 획득하고 시간을 정지한 뒤 행동합니다. 미사용 스태미나는 다음 턴으로 일부 이월됩니다.
+3. **카드 투트랙(Two-Track) 성장**: 모닥불/상점에서의 1회성 카드 수치 강화(`Upgrade`)뿐 아니라, 전투 중 사용 방식에 따라 경험치가 쌓여 분기형 특성/태그(`CardTag`)를 영구 개조하는 마스터리(`Mastery`) 시스템을 지원합니다.
+4. **완전 데이터 구동형 모딩(Data-Driven Modding)**: 카드 속성, 스킬 효과, 유물, 상태이상, 적 AI, 대화, 드롭 테이블이 모두 `StreamingAssets` 및 유저 모드 디렉터리의 `YAML` 데이터와 `XLua` 스크립트로 분리되어 있어 소스 코드 수정 없이 확장이 가능합니다.
+
+### 1.2 3단계 게임 루프 구조 (Game Loop)
+- **거시적 루프 (세션 & 은신처)**: `GameScene`(상주 플레이어 및 UI)을 기반으로 `HideoutScene`(은신처 정비)과 `DungeonScene`(던전 출격)을 가산(Additive) 방식으로 전환합니다.
+- **중간 루프 (절차적 던전 탐험)**: `ExploreMap`을 통해 15개 층의 연결 노드(전투, 엘리트, 보물, 상점, 모닥불, 보스)를 선택하며 진행하고 층별 자동 저장을 지원합니다.
+- **미시적 루프 (전술 전투 & 액션 큐)**: ATB 스태미나 기반 턴 진입 → 드로우 및 이동 → 카드 타깃팅/시전 → `ActionQueueManager`를 통한 비동기 액션 순차 실행 → 이벤트 버스 파이프라인 연계.
+
+### 1.3 핵심 기술 스택
+
+| 항목 | 사용 기술 / 규격 | 설명 |
+|------|------|------|
+| 엔진 | Unity 6 (6000.3.8f1, C#) | URP 렌더 파이프라인, New Input System |
+| 스크립팅 확장 | XLua (Lua 5.3), YamlDotNet | 카드 로직, 이벤트 핸들러, YAML 스키마 파싱 |
+| 에셋 관리 | Addressables + StreamingAssets | 3D 모델, 텍스처, 프리팹 비동기 캐싱 및 모드 로더 |
+| 세이브 시스템 | JSON 기반 로컬 파일 (`SaveSystem`) | 3개 세이브 슬롯, 인카운터별 자동 저장 |
+| 빌드 도구 | EventBinderGenerator (Roslyn SG) | 리액티브 이벤트 버스 자동 코드 바인딩 |
 
 ---
 
@@ -51,7 +64,7 @@
 | `Algorithms/` | 경로 탐색(A*), 효과 범위 생성, 우선순위 큐 등 순수 알고리즘 |
 | `Events/` | `EventBus<T>` 제네릭 이벤트 버스, `EventInfo` 전투 정보 구조체, `EventFlag` 비트 플래그 |
 | `Interfaces/` | `IIdentifiable`, `IInitializable`, `IInteractable`, `IModAssetResolver` 등 공통 계약 |
-| `Utils/` | `IDescribable`, `ImageLoader` 등 범용 유틸리티 |
+| `Utils/` | `CollectionExtensions`(무할당 셔플), `IDescribable`, `ImageLoader` 등 범용 유틸리티 |
 
 - `Enums.cs` (Scripts 루트): 게임 아이템 타입 열거형, 카드 타입 열거형 등 전역 enum
 

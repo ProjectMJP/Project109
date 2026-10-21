@@ -1,10 +1,5 @@
 using UnityEngine;
 
-namespace RestoreUI
-{
-    // We can define RestoreBonfire in the global namespace or namespace matching files.
-    // Let's use global namespace just like other NPCs, or match original context.
-}
 
 public class RestoreBonfire : InteractableObject
 {

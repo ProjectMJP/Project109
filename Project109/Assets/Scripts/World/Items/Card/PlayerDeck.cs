@@ -184,6 +184,16 @@ public class PlayerDeck
         if (card == null || !cards.Contains(card)) return;
 
         card.AddMastery(masteryId);
+
+        // 동일한 마스터리 상태를 공유하는 덱 내 다른 사본 카드들의 코스트 및 태그도 즉시 동기화
+        foreach (var otherCard in cards)
+        {
+            if (otherCard != null && otherCard != card && otherCard.masteryState == card.masteryState)
+            {
+                otherCard.RefreshMasteryStatsAndTags();
+            }
+        }
+
         owner.eventBus.Invoke<IOnCardMasteryUpgrade>(c => c.OnCardMasteryUpgrade(card, masteryId));
     }
 

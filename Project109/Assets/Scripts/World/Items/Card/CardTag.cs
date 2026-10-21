@@ -77,14 +77,11 @@ public class CardTag
     {
         if (luaTable != null)
         {
-            var luaFunc = luaTable.Get<LuaFunction>("GetDisplayName");
-            if (luaFunc != null)
+            var luaFunc = luaTable.Get<System.Func<LuaTable, string>>("GetDisplayName");
+            string result = luaFunc?.Invoke(luaTable);
+            if (!string.IsNullOrEmpty(result))
             {
-                object[] results = luaFunc.Call(luaTable);
-                if (results != null && results.Length > 0 && results[0] is string str)
-                {
-                    return str;
-                }
+                return result;
             }
         }
         return tagName;
@@ -97,14 +94,11 @@ public class CardTag
     {
         if (luaTable != null)
         {
-            var luaFunc = luaTable.Get<LuaFunction>("GetDescription");
-            if (luaFunc != null)
+            var luaFunc = luaTable.Get<System.Func<LuaTable, string>>("GetDescription");
+            string result = luaFunc?.Invoke(luaTable);
+            if (!string.IsNullOrEmpty(result))
             {
-                object[] results = luaFunc.Call(luaTable);
-                if (results != null && results.Length > 0 && results[0] is string str)
-                {
-                    return str;
-                }
+                return result;
             }
         }
         return string.Empty;

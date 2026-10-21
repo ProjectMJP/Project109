@@ -145,11 +145,7 @@ public class BattleDeck
             owner.eventBus.Invoke<IOnShuffleDeck>(c => c.OnShuffleDeck(drawPile));
         }
 
-        for (int i = drawPile.Count - 1; i > 0; i--)
-        {
-            int j = UnityEngine.Random.Range(0, i + 1);
-            (drawPile[i], drawPile[j]) = (drawPile[j], drawPile[i]);
-        }
+        drawPile.Shuffle();
 
         if (!suppressEvent)
         {

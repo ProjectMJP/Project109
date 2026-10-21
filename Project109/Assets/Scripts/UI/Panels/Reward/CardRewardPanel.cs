@@ -1,6 +1,5 @@
 using GameItem.Types;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class CardRewardPanel : UIPanelBase
