@@ -2,25 +2,31 @@ name: Mirror to GitLab
 
 on:
   push:
-    branches:
-      - '**'
-    tags:
-      - '**'
+    branches: [ main ]
 
 jobs:
-  to-gitlab:
+  mirror:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code (with Git LFS)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true # LFS 실제 바이너리 파일까지 다운로드
+          lfs: true
 
-      - name: Configure Git LFS & Push to GitLab
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GITLAB_SSH_KEY }}
+
+      - name: Add Known Hosts & Push via SSH
         run: |
-          # 1. 누락된 LFS 오브젝트가 있어도 푸시를 허용하도록 설정
-          git config --global lfs.allowincompletepush true
-          
-          # 2. 자체 호스팅 서버 URL 리다이렉트 및 슬래시 이슈 방지 (.git/ 경로 정규화)
-          git push --mirror https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab-siryu.com/SIRYU/Project109.git
+          mkdir -p ~/.ssh
+          ssh-keyscan -H gitlab-siryu.com >> ~/.ssh/known_hosts
+
+          # LFS가 Cloudflare HTTP(413 에러)를 거치지 않고 SSH를 타도록 강제
+          git config lfs.transfer.mode pure-ssh
+          git config lfs.concurrenttransfers 1
+
+          git remote add gitlab git@gitlab-siryu.com:SIRYU/Project109.git
+          git push --mirror gitlab
