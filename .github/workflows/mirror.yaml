@@ -19,7 +19,7 @@ jobs:
       - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.GITLAB_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.GITLAB_SSH_KEY }}
 
       # 2. 증분 변경 사항만 GitLab으로 미러 푸시
       - name: Push incremental changes to GitLab
