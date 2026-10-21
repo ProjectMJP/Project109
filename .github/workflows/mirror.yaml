@@ -25,12 +25,16 @@ jobs:
         env:
           GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
         run: |
-          # LFS가 Cloudflare HTTPS로 재접속하지 않고 SSH 파이프(22번 포트)로만 전송되도록 설정
+          # 1. 누락된 과거 LFS 오브젝트가 있어도 푸시 허용 (핵심)
+          git config lfs.allowincompletepush true
+
+          # 2. GitHub에 보관된 모든 브랜치/히스토리의 LFS 바이너리 내려받기
+          git lfs fetch --all
+
+          # 3. LFS Pure SSH 모드 및 직결 전송 설정
           git config lfs.transfer.mode pure-ssh
           git config lfs.concurrenttransfers 1
 
-          # 프록시가 꺼진 ssh.gitlab-siryu.com으로 원격지 설정
+          # 4. 원격지 설정 및 미러 푸시
           git remote add gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git || git remote set-url gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git
-
-          # 미러 푸시 실행
           git push --mirror gitlab
