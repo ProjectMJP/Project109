@@ -14,19 +14,23 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      # 1. GitHub Secret에 등록된 개인키 주입
       - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.GITLAB_SSH_KEY }}
 
-      - name: Add Known Hosts & Push via SSH
+      # 2. mkdir/keyscan 없이 SSH 호스트 검증 우회 + Pure SSH로 미러 푸시
+      - name: Push to GitLab via Pure SSH
+        env:
+          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H gitlab-siryu.com >> ~/.ssh/known_hosts
-
-          # LFS가 Cloudflare HTTP(413 에러)를 거치지 않고 SSH를 타도록 강제
+          # LFS가 Cloudflare HTTPS로 재접속하지 않고 SSH 파이프(22번 포트)로만 전송되도록 설정
           git config lfs.transfer.mode pure-ssh
           git config lfs.concurrenttransfers 1
 
-          git remote add gitlab git@gitlab-siryu.com:SIRYU/Project109.git
+          # 프록시가 꺼진 ssh.gitlab-siryu.com으로 원격지 설정
+          git remote add gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git || git remote set-url gitlab git@ssh.gitlab-siryu.com:SIRYU/Project109.git
+
+          # 미러 푸시 실행
           git push --mirror gitlab
