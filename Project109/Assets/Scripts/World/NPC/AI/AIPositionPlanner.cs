@@ -35,6 +35,7 @@ public static class AIPositionPlanner
         List<Tile> candidateTiles = new List<Tile>();
         int cols = tileMap.Count;
         int rows = tileMap[0].Count;
+        CharacterMove mover = caster != null ? caster.characterMove : null;
 
         for (int c = 0; c < cols; c++)
         {
@@ -43,15 +44,8 @@ public static class AIPositionPlanner
                 Tile tile = tileMap[c][r];
                 if (tile == null) continue;
 
-                // 자기 타일이거나 비어있는 타일만 후보군
-                if (tile != casterTile && tile.tileState != TileState.Empty && tile.tileState != TileState.Trap)
-                {
-                    // 장애물이 있는 타일 제외
-                    continue;
-                }
-
-                // 다른 생존 유닛이 점유 중인 타일 제외
-                if (tile != casterTile && tile.occupyingCharacter != null && !tile.occupyingCharacter.isDead)
+                // 자기 타일이거나 진입 가능한 타일만 후보군
+                if (tile != casterTile && !tile.CanEnter(mover))
                 {
                     continue;
                 }
@@ -69,17 +63,22 @@ public static class AIPositionPlanner
             return null; // 사거리를 만족할 수 있는 타일이 아예 없음
         }
 
-        // 3. 후보 타일들 중 시전자의 현재 타일로부터 경로 길이가 가장 짧은 타일을 선택
+        // 3. 시전자로부터의 맨해튼 거리 기준으로 오름차순 정렬 (가까운 타일부터 우선 탐색하여 프루닝 극대화)
+        candidateTiles.Sort((a, b) => Tile.GetDistance(casterTile, a).CompareTo(Tile.GetDistance(casterTile, b)));
+
         Tile bestTile = null;
         int shortestPathLength = int.MaxValue;
-        
-        // 경로 탐색을 위해 임시 RoutePathfinding 인스턴스 사용
         RoutePathfinding pathfinder = RoutePathfinding.Shared;
+        MoverCapability caps = mover != null ? mover.capabilities : MoverCapability.None;
 
         foreach (var candidate in candidateTiles)
         {
-            // 경로 계산 (A* 또는 BFS 연동, capabilities 반영)
-            MoverCapability caps = (caster != null && caster.characterMove != null) ? caster.characterMove.capabilities : MoverCapability.None;
+            // 맨해튼 거리가 현재 발견된 최단 경로 이상이면 실제 유효 경로는 절대 더 짧을 수 없으므로 탐색 스킵 (Pruning)
+            if (Tile.GetDistance(casterTile, candidate) >= shortestPathLength)
+            {
+                continue;
+            }
+
             List<Tile> path = pathfinder.TilePathfinding(casterTile, candidate, tileMap, caps);
             if (path != null && path.Count > 0)
             {
@@ -91,16 +90,16 @@ public static class AIPositionPlanner
             }
         }
 
-        // 4. 경로를 찾지 못했더라도 플레이어에게 가장 가까워지는 방향으로 보정
+        // 4. 경로를 찾지 못했더라도 대상에게 가장 가까워지는 후보 타일로 보정 (일관된 그리드 맨해튼 거리 적용)
         if (bestTile == null)
         {
-            float minDistanceToPlayer = float.MaxValue;
+            int minDistanceToTarget = int.MaxValue;
             foreach (var candidate in candidateTiles)
             {
-                float d = Vector3.Distance(candidate.transform.position, targetTile.transform.position);
-                if (d < minDistanceToPlayer)
+                int d = Tile.GetDistance(candidate, targetTile);
+                if (d < minDistanceToTarget)
                 {
-                    minDistanceToPlayer = d;
+                    minDistanceToTarget = d;
                     bestTile = candidate;
                 }
             }

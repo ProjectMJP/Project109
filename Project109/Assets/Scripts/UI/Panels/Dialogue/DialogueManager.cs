@@ -326,15 +326,6 @@ public class DialogueManager : MonoBehaviour
             if (found.Length > 0) return found[0];
         }
 
-        // 3. 에디터 전용 경로 폴백
-#if UNITY_EDITOR
-        string editorPath = Path.Combine(Application.dataPath, "Scripts", "Lua", "Choice", fileName);
-        if (File.Exists(editorPath)) return editorPath;
-
-        string editorPath2 = Path.Combine(Application.dataPath, "Scripts", "Lua", "Choices", fileName);
-        if (File.Exists(editorPath2)) return editorPath2;
-#endif
-
         return null;
     }
 
@@ -405,9 +396,6 @@ public class DialogueManager : MonoBehaviour
 
     public void StartBattle(string battleName) => actionExecutor.StartBattle(battleName);
     public void RevealAllNodes() => actionExecutor.RevealAllNodes();
-
-    [System.Obsolete("Use RevealAllNodes instead")]
-    public void OpenAllExploreNodes() => RevealAllNodes();
 
     public void SpawnReward(string rewardTypeStr, string rarityStr) => actionExecutor.SpawnReward(rewardTypeStr, rarityStr, transform.position);
 

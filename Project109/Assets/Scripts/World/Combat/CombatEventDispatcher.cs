@@ -260,4 +260,62 @@ public static class CombatEventDispatcher
     }
 
     #endregion
+
+    #region Effect Dispatchers
+
+    public static void DispatchBeforeGiveEffect(EventBus<ICharacterEvent> bus, ref EffectInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeGiveEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeGiveEffect(ref info);
+        }
+    }
+
+    public static void DispatchBeforeTakeEffect(EventBus<ICharacterEvent> bus, ref EffectInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeTakeEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeTakeEffect(ref info);
+        }
+    }
+
+    public static void DispatchAfterGiveEffect(EventBus<ICharacterEvent> bus, EffectInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterGiveEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterGiveEffect(info);
+        }
+    }
+
+    public static void DispatchAfterTakeEffect(EventBus<ICharacterEvent> bus, EffectInfo info)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterTakeEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterTakeEffect(info);
+        }
+    }
+
+    public static void DispatchBeforeRemoveEffect(EventBus<ICharacterEvent> bus, Effect effect)
+    {
+        if (bus != null && bus.TryGetListeners<IOnBeforeRemoveEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnBeforeRemoveEffect(effect);
+        }
+    }
+
+    public static void DispatchAfterRemoveEffect(EventBus<ICharacterEvent> bus, Effect effect)
+    {
+        if (bus != null && bus.TryGetListeners<IOnAfterRemoveEffect>(out var listeners))
+        {
+            for (int i = listeners.Count - 1; i >= 0; i--)
+                listeners[i].OnAfterRemoveEffect(effect);
+        }
+    }
+
+    #endregion
 }

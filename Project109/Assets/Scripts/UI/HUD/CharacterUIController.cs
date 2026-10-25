@@ -289,10 +289,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (effectListUI != null) effectListUI.Hide();
     }
 
-    // 하위 호환성 메서드
-    public void ShowStatusBar() => ShowUI();
-    public void HideStatusBar() => HideUI();
-
     #endregion
 
 #if UNITY_EDITOR

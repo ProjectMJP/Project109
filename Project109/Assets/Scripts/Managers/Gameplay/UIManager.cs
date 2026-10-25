@@ -58,10 +58,6 @@ public class UIManager : MonoBehaviour
         else Debug.LogError("[UIManager] worldUILayer가 바인딩되지 않았습니다! UIManager 프리팹 설정을 확인하세요.");
     }
 
-    /// <summary>
-    /// 하위 호환성을 위한 래퍼 메서드입니다.
-    /// </summary>
-    public void EnsureCanvases() => InitializeLayers();
 
     // 1. 인스턴스 캐시 풀 (동일 UI 재사용, 무할당 최적화)
     private readonly Dictionary<string, UIPanelBase> _cachedPanels = new Dictionary<string, UIPanelBase>();
@@ -243,7 +239,6 @@ public class UIManager : MonoBehaviour
 
     private RectTransform GetLayerTransform(UILayerType layerType)
     {
-        EnsureCanvases();
 
         switch (layerType)
         {
@@ -282,7 +277,6 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public CharacterStatusBarUI CreateStatusBarUI(Transform target, Vector3 offset)
     {
-        EnsureCanvases();
 
         Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
         GameObject prefab = null;
@@ -324,7 +318,6 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public CharacterEffectListUI CreateEffectListUI(Transform target, Vector3 offset)
     {
-        EnsureCanvases();
 
         Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
         GameObject prefab = null;
@@ -398,11 +391,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 하위 호환성을 위한 World UI 정리 별칭입니다.
-    /// </summary>
-    public void ClearAllCharacterStatusBars() => ClearWorldUILayer();
-
     #endregion
 
     /// <summary>
@@ -447,11 +435,6 @@ public class UIManager : MonoBehaviour
             newObject.SetActive(true);
             newObject.transform.SetAsLastSibling();
         }
-    }
-
-    public void PushActiveUIPanel(GameObject newObject, UILayerType layerType)
-    {
-        PushActiveUIPanel(newObject);
     }
 
     /// <summary>
@@ -521,20 +504,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    public void RemoveActiveUIFromStack(GameObject targetObject)
-    {
-        if (targetObject != null && targetObject.TryGetComponent<UIPanelBase>(out var panel))
-        {
-            RemovePanelFromStack(panel);
-            EvaluateWorldInputLock();
-        }
-    }
-
-    public void RemoveActiveUIFromStack(GameObject targetObject, UILayerType layerType)
-    {
-        RemoveActiveUIFromStack(targetObject);
-    }
-
     private void RemovePanelFromStack(UIPanelBase targetPanel)
     {
         if (_popupStack.Count == 0 || targetPanel == null) return;
@@ -568,20 +537,6 @@ public class UIManager : MonoBehaviour
         {
             PlayerInputController.instance.IsWorldInputBlocked = IsWorldInputBlocked;
         }
-    }
-
-    public bool IsUIActiveInStack(GameObject checkObject)
-    {
-        if (checkObject != null && checkObject.TryGetComponent<UIPanelBase>(out var panel))
-        {
-            return _popupStack.Contains(panel);
-        }
-        return false;
-    }
-
-    public GameObject GetCurrentTopActiveUI()
-    {
-        return _popupStack.Count > 0 ? _popupStack.Peek().gameObject : null;
     }
 
     #endregion
@@ -703,8 +658,7 @@ public class UIManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[UIManager] ConfirmDialog prefab not found in cache. Executing confirm callback as fallback.");
-            onConfirm?.Invoke();
+            Debug.LogError($"[UIManager] ConfirmDialog 프리팹('{UIConstants.PANEL_CONFIRM_DIALOG}')을 캐시에서 찾을 수 없어 다이얼로그를 표시하지 못했습니다.");
         }
     }
 
@@ -712,18 +666,6 @@ public class UIManager : MonoBehaviour
     {
         GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_UI, UILayerType.Top, true);
         return spawned != null ? spawned.GetComponent<BattleUIPanel>() : null;
-    }
-
-    public BattleHandPanel GetOrSpawnBattleHand()
-    {
-        BattleUIPanel battleUI = GetOrSpawnBattleUI();
-        if (battleUI != null && battleUI.HandPanel != null)
-        {
-            return battleUI.HandPanel;
-        }
-
-        GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_HAND, UILayerType.Top, true);
-        return spawned != null ? spawned.GetComponentInChildren<BattleHandPanel>(true) : null;
     }
     #endregion
 }

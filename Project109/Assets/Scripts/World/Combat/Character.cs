@@ -559,11 +559,12 @@ public class Character : MonoBehaviour, IDamageable
         if (isDead) return;
 
         // 1. 시전자(Caster)의 "내가 부여하기 직전" 유물/버프 발동 (ex. 독 부여 시 +1스택)
-        if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnBeforeGiveEffect>(l => l.OnBeforeGiveEffect(ref info));
+        if (info.caster != null && info.caster.eventBus != null)
+            CombatEventDispatcher.DispatchBeforeGiveEffect(info.caster.eventBus, ref info);
 
         // 2. 피격자(Target)의 "내가 받기 직전" 유물/버프 발동 (ex. 인공물: 디버프 무효화)
-        this.eventBus?.Invoke<IOnBeforeTakeEffect>(l => l.OnBeforeTakeEffect(ref info));
+        if (this.eventBus != null)
+            CombatEventDispatcher.DispatchBeforeTakeEffect(this.eventBus, ref info);
 
         // 3. 무효화(Cancel) 판정 검사
         if (info.effectFlags.HasFlag(EffectFlag.Cancel))
@@ -571,10 +572,13 @@ public class Character : MonoBehaviour, IDamageable
 
         // 4. 무사히 통과했으므로 진짜로 버프 추가 (이때 Added, Stacked 등의 UI 이벤트가 터짐)
         this.effectManager.AddEffect(info.caster, info.effect, info.FinalStack, info.FinalDuration);
+
         // 5. 부여 직후 파이프라인 (ex. 취약 부여 성공 시 약화도 부여)
-        if (info.caster != null)
-            info.caster.eventBus?.Invoke<IOnAfterGiveEffect>(l => l.OnAfterGiveEffect(info));
-        this.eventBus?.Invoke<IOnAfterTakeEffect>(l => l.OnAfterTakeEffect(info));
+        if (info.caster != null && info.caster.eventBus != null)
+            CombatEventDispatcher.DispatchAfterGiveEffect(info.caster.eventBus, info);
+
+        if (this.eventBus != null)
+            CombatEventDispatcher.DispatchAfterTakeEffect(this.eventBus, info);
     }
 
     /// <summary>

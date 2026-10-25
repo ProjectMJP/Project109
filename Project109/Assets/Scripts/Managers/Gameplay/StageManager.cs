@@ -89,10 +89,6 @@ public class StageManager : IInitializable, System.IDisposable
         }
     }
 
-    public StageManager()
-    {
-    }
-
     /// <summary>
     /// ExploreNode에 사전 정의된 EncounterData 메타데이터를 기반으로 스테이지를 생성합니다.
     /// </summary>
@@ -222,7 +218,7 @@ public class StageManager : IInitializable, System.IDisposable
 
         if (battleData != null && battleData.monsterNames != null && (EncountType == EncountType.Battle || EncountType == EncountType.Elite || EncountType == EncountType.Boss))
         {
-            ShuffleList(spawnEnemyCells);
+            spawnEnemyCells.Shuffle();
             int spawnEnemyCount = Mathf.Min(spawnEnemyCells.Count, battleData.monsterNames.Count);
             GenerateEnemy(currentMapData, battleData.monsterNames, spawnEnemyCount);
         }
@@ -520,7 +516,7 @@ public class StageManager : IInitializable, System.IDisposable
             Debug.LogWarning("No Player Spawn Cells Found in Map Data!");
             return;
         }
-        ShuffleList(spawnPlayerCells);
+        spawnPlayerCells.Shuffle();
 
         // 셀의 그리드 좌표를 실제 월드 좌표로 변환 (셀 크기 및 오프셋 적용)
         Vector3 worldPos = new Vector3(
@@ -675,15 +671,6 @@ public class StageManager : IInitializable, System.IDisposable
         }
     }
 
-    [System.Obsolete("ClearMap is deprecated, use ClearStage instead.")]
-    public void ClearMap() => ClearStage();
-
-    // 리스트를 무작위로 섞는 유틸리티 함수
-    private void ShuffleList<T>(List<T> list)
-    {
-        list.Shuffle();
-    }
-
     #region Monster & NPC Resolution Helpers (O(1) Cached)
 
     private NPCUnitData ResolveNPCUnitData(string monsterId)
@@ -803,13 +790,4 @@ public class StageManager : IInitializable, System.IDisposable
     }
 
     #endregion
-}
-
-/// <summary>
-/// 레거시 하위 호환용 클래스 래퍼 (신규 코드는 StageManager 사용 권장)
-/// </summary>
-[System.Obsolete("MapManager is deprecated, use StageManager instead.")]
-public class MapManager : StageManager
-{
-    public MapManager() : base() { }
 }

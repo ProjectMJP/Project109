@@ -420,7 +420,7 @@ public class BattleManager : IInitializable, IDisposable
         allCombatantsCache.Clear();
         if (UIManager.instance != null)
         {
-            UIManager.instance.ClearAllCharacterStatusBars();
+            UIManager.instance.ClearWorldUILayer();
         }
     }
 

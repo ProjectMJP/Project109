@@ -56,12 +56,6 @@ public class RunManager : MonoBehaviour
     [System.NonSerialized] public ExploreNode beforeExploreNode;
 
     public StageManager currentStage;
-    [System.Obsolete("currentMap is deprecated, use currentStage instead.")]
-    public StageManager currentMap
-    {
-        get => currentStage;
-        set => currentStage = value;
-    }
     public ExploreMapManager exploreMapManager;
     public ExploreMapUI currentExploreUI;
 
@@ -249,7 +243,7 @@ public class RunManager : MonoBehaviour
 
             if (UIManager.instance != null)
             {
-                UIManager.instance.ClearAllCharacterStatusBars();
+                UIManager.instance.ClearWorldUILayer();
             }
             if (battleManager != null)
             {
@@ -337,7 +331,7 @@ public class RunManager : MonoBehaviour
 
         if (UIManager.instance != null)
         {
-            UIManager.instance.ClearAllCharacterStatusBars();
+            UIManager.instance.ClearWorldUILayer();
         }
 
         // 이전의 노드를 저장 후 다음 노드로 변경

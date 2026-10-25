@@ -12,7 +12,6 @@ using UnityEngine.SceneManagement;
 public class GameSceneManager : MonoBehaviour
 {
     public static GameSceneManager instance { get; private set; }
-    public static GameSceneManager Instance => instance;
 
     /// <summary>
     /// 타이틀 씬(MainMenu)에서 선택한 세이브 슬롯 번호 (정적 캐시)

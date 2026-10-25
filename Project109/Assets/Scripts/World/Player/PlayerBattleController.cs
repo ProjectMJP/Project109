@@ -14,8 +14,6 @@ public enum PlayerControlState
 
 /// <summary>
 /// 전투 중 플레이어 캐릭터의 턴을 제어하는 컨트롤러.
-/// <summary>
-/// 전투 중 플레이어 캐릭터의 턴을 제어하는 컨트롤러.
 /// 전투 시작 ~ 전투 종료까지 유지된다.
 /// </summary>
 public class PlayerBattleController : ICharacterController, IOnBattleEnd, System.IDisposable
@@ -38,7 +36,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     #region ICharacterController
 
-    [SerializeField]
     private Character _controlledCharacter;
     public Character controlledCharacter => _controlledCharacter;
 
@@ -411,6 +408,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             if (combatant == null || combatant.controlledCharacter == null) continue;
             if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
             if (combatant.controlledCharacter.isDead) continue;
+            if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
 
             var enemyMove = combatant.controlledCharacter.characterMove;
             if (enemyMove != null && enemyMove.GetCurrentTile() != null)
@@ -469,6 +467,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             if (combatant == null || combatant.controlledCharacter == null) continue;
             if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
             if (combatant.controlledCharacter.isDead) continue;
+            if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
 
             enemies.Add(combatant.controlledCharacter);
         }
@@ -668,9 +667,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 var combatant = combatants[i];
                 if (combatant == null || combatant.controlledCharacter == null) continue;
 
-                // 시전자 자신 및 사망한 대상은 타깃에서 제외
+                // 시전자 자신 및 사망한 대상은 타깃에서 제외, 적대 관계인 캐릭터만 수집
                 if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
                 if (combatant.controlledCharacter.isDead) continue;
+                if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
 
                 var cMove = combatant.controlledCharacter.characterMove;
                 if (cMove != null && cMove.GetCurrentTile() != null)

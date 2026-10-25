@@ -38,15 +38,20 @@ public class EventBus<TEventBase>
 
     public void Remove<T>(T action) where T : TEventBase
     {
-        GetListeners<T>().Remove(action);
+        if (TryGetListeners<T>(out var listeners))
+        {
+            listeners.Remove(action);
+        }
     }
 
     public void Invoke<T>(Action<T> invoker) where T : TEventBase
     {
-        var listeners = GetListeners<T>();
-        for (int i = listeners.Count - 1; i >= 0; i--)
+        if (TryGetListeners<T>(out var listeners))
         {
-            invoker(listeners[i]);
+            for (int i = listeners.Count - 1; i >= 0; i--)
+            {
+                invoker(listeners[i]);
+            }
         }
     }
 

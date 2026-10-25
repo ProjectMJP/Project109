@@ -1,6 +1,6 @@
 # PROJECT_MAP.md — Project109 아키텍처 SSOT
 
-> **최종 갱신**: 2026-10-22  
+> **최종 갱신**: 2026-10-25  
 > **목적**: 사람 개발자와 AI 에이전트가 동일한 기준으로 코드를 이해·수정할 수 있도록, 프로젝트의 계층 구조·참조 규칙·데이터 흐름을 단일 문서에 정의합니다.
 
 ---
@@ -81,7 +81,7 @@
 
 | 서브디렉터리 | 책임 |
 |---|---|
-| `Combat/` | `Character` (MonoBehaviour, 전투 엔티티 핵심), `CharacterMove`, `CharacterAnimation`, `CharacterInterfaces` (40+ 이벤트 인터페이스), `Effects/` (Effect, EffectManager) |
+| `Combat/` | `Character` (MonoBehaviour, 전투 엔티티 핵심), `CharacterMove`, `CharacterAnimation`, `CharacterInterfaces` (40+ 이벤트 인터페이스), `CombatEventDispatcher` (전투 파이프라인 무할당 이벤트 디스패처), `Effects/` (Effect, EffectManager) |
 | `Player/` | `Player` (영속 세션 데이터), `PlayerBattleController`, `PlayerExploreController`, `PlayerStat`, `PlayerInterfaces`, `ActionQueue/` (턴 액션 큐) |
 | `Items/Card/` | `Card` (런타임 카드 인스턴스), `PlayerDeck`, `BattleDeck`, `CardMasteryManager`, `CardTag` |
 | `Items/Relic/` | `RelicBase` (유물 베이스), `RelicManager` |
@@ -262,12 +262,12 @@ RunManager.instance.battleManager (BattleManager)
 
 - **상태 원본(SSOT)**: `BattleManager.battleState`
 - **상태 전이**: `InitBattle()` → `StartCombat()` → `RequestTurnStart()` → `EndTurn()` → `WinBattle()`/`LoseBattle()`
-- **이벤트 전파**: `BattleManager` → `RunManager` → `MapManager` / `UIManager`
+- **이벤트 전파**: `BattleManager` → `RunManager` → `StageManager` / `UIManager`
 
-### 5.4 맵 상태 (Map State)
+### 5.4 맵/스테이지 상태 (Stage State)
 
 ```
-RunManager.instance.currentMap (MapManager)
+RunManager.instance.stageManager (StageManager)
   ├── .currentMapState   ← MapState (None/Battle/Secret)
   ├── .currentMapData    ← MapDataSO
   ├── .currentGameMap    ← GameMap (런타임 타일 오브젝트 루트)
@@ -304,7 +304,7 @@ RunManager.instance.exploreMapManager (ExploreMapManager)
 | 이동 | `IOnBeforeMove`, `IOnAfterForcedMove` | 이동 전후 훅 |
 | 전투/턴 | `IOnBattleStart`, `IOnTurnStart`, `IOnDeath` | 전투 생명주기 훅 |
 | 카드 | `IOnBeforeUseCard`, `IOnDrawCard`, `IOnExhaustCard` | 카드 사용 파이프라인 훅 |
-| 이펙트 | `IOnBeforeGiveEffect`, `IOnAfterRemoveEffect` | 버프/디버프 훅 |
+| 이펙트 | `IOnBeforeGiveEffect`, `IOnBeforeTakeEffect`, `IOnAfterGiveEffect`, `IOnAfterTakeEffect`, `IOnBeforeRemoveEffect`, `IOnAfterRemoveEffect` | 버프/디버프 파이프라인 훅 |
 
 ### 6.2 Player EventBus (`EventBus<IPlayerEvent>`)
 
