@@ -40,12 +40,18 @@ public class EnemyMoveAction : BattleAction
             if (movePath != null && movePath.Count > 0)
             {
                 caster.curMoveCount--;
-                caster.characterMove.MoveAlongPath(movePath, TargetTile);
-                
-                // 3. 이동 완료(캐릭터 상태가 Idle로 복구)될 때까지 대기
-                // MoveAlongPath 내부 코루틴이나 연출 시간에 상응하여 대기
-                while (caster.currentState == CharacterState.Move)
+                bool isMoveCompleted = false;
+
+                caster.characterMove.MoveAlongPath(movePath, TargetTile, onComplete: () =>
                 {
+                    isMoveCompleted = true;
+                });
+                
+                // 3. 이동 완료 콜백 대기 (소프트락 방지 최대 3초 타임아웃 가드 포함)
+                float elapsed = 0f;
+                while (!isMoveCompleted && elapsed < 3.0f && caster != null && caster.currentState != CharacterState.Die)
+                {
+                    elapsed += Time.deltaTime;
                     yield return null;
                 }
             }
@@ -64,7 +70,10 @@ public class EnemyMoveAction : BattleAction
         base.OnCanceled();
         if (caster != null)
         {
-            caster.characterMove?.StopMoving();
+            if (caster.characterMove != null)
+            {
+                caster.characterMove.StopMoving();
+            }
             if (caster.currentState != CharacterState.Die)
             {
                 caster.currentState = CharacterState.Idle;

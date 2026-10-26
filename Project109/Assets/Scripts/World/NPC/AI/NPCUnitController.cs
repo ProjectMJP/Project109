@@ -13,6 +13,7 @@ public class NPCUnitController : ICharacterController, IDisposable
     private string _nextPlannedCardId; // 다음 턴에 실행 예정인 카드 ID (의도 노출용)
 
     private XLua.LuaTable _luaTable;
+    private readonly Dictionary<string, Card> _cardPool = new Dictionary<string, Card>();
 
     public NPCUnitController(Character character, NPCUnitData unitData)
     {
@@ -45,6 +46,37 @@ public class NPCUnitController : ICharacterController, IDisposable
         EvaluateNextIntent();
     }
 
+    /// <summary>
+    /// 카드 풀에서 카드를 가져오거나 최초 1회 생성하여 캐싱합니다.
+    /// 몬스터 사망 시 Dispose()에서 일괄 해제됩니다.
+    /// </summary>
+    private Card GetOrLoadCard(string cardId)
+    {
+        if (string.IsNullOrEmpty(cardId)) return null;
+
+        if (_cardPool.TryGetValue(cardId, out Card cachedCard))
+        {
+            return cachedCard;
+        }
+
+        if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null &&
+            ModLoader.Instance.CardDatabase.TryGetValue(cardId, out CardData cardData))
+        {
+            XLua.LuaTable luaInstance = null;
+            if (cardData.luaPrototype != null && LuaManager.Instance != null)
+            {
+                luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
+            }
+
+            int runtimeId = -100 - _cardPool.Count;
+            Card newCard = new Card(cardData, controlledCharacter, luaInstance, runtimeId);
+            _cardPool[cardId] = newCard;
+            return newCard;
+        }
+
+        return null;
+    }
+
     public void OnTurnStart()
     {
         // 1. 이벤트 버스 트리거
@@ -67,21 +99,13 @@ public class NPCUnitController : ICharacterController, IDisposable
 
     private void ExecutePlannedAction(string cardId)
     {
-        if (ModLoader.Instance.CardDatabase.TryGetValue(cardId, out CardData cardData))
+        Card plannedCard = GetOrLoadCard(cardId);
+        if (plannedCard != null)
         {
-            // 몬스터는 덱을 쓰지 않으므로 실시간으로 카드를 생성하여 시전 (전역 프로토타입 오염 방지를 위해 NewInstance 격리)
-            XLua.LuaTable luaInstance = null;
-            if (cardData.luaPrototype != null && LuaManager.Instance != null)
-            {
-                luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
-            }
-            Card tempCard = new Card(cardData, controlledCharacter, luaInstance, -99);
-
             // [최소 조건 검증] 스태미나 소비 및 루아 CanPlay 평가 만족 시에만 카드 사용 가능
-            if (!tempCard.CanPlay(controlledCharacter))
+            if (!plannedCard.CanPlay(controlledCharacter))
             {
                 Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}'의 사용 조건을 만족하지 못해(Stamina 등) 행동 없이 턴을 종료합니다.");
-                tempCard.Dispose();
                 EndNPCTurn();
                 return;
             }
@@ -102,7 +126,7 @@ public class NPCUnitController : ICharacterController, IDisposable
                 Tile optimalDest = AIPositionPlanner.PlanOptimalPosition(
                     controlledCharacter, 
                     hostileTarget, 
-                    tempCard, 
+                    plannedCard, 
                     currentStage.currentGameMap
                 );
 
@@ -134,18 +158,17 @@ public class NPCUnitController : ICharacterController, IDisposable
             }
 
             // 2. 카드 시전 액션을 큐에 적재 (AI 전용 강제 적재)
-            CardPlayAction playAction = new CardPlayAction(controlledCharacter, tempCard, targets, targetPos);
+            CardPlayAction playAction = new CardPlayAction(controlledCharacter, plannedCard, targets, targetPos);
             ActionQueueManager.Instance.EnqueueAction(playAction, forceEnqueue: true);
             
-            // 3. 액션 완료 후 임시 카드를 해제하고 턴을 마치는 콜백 액션을 큐에 추가 (취소 시에도 tempCard 정리 보장)
+            // 3. 액션 완료 후 턴을 마치는 콜백 액션을 큐에 추가
             ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(
                 controlledCharacter,
                 callback: () => {
-                    tempCard.Dispose();
                     EndNPCTurn();
                 },
                 onCanceled: () => {
-                    tempCard.Dispose();
+                    EndNPCTurn();
                 }
             ), forceEnqueue: true);
         }
@@ -183,6 +206,14 @@ public class NPCUnitController : ICharacterController, IDisposable
         {
             controlledCharacter.OnCharacterDied -= HandleCharacterDied;
         }
+
+        // 캐싱된 모든 카드의 Lua 바인딩 및 이벤트 버스 구독 해제
+        foreach (var card in _cardPool.Values)
+        {
+            card?.Dispose();
+        }
+        _cardPool.Clear();
+
         _luaTable?.Dispose();
         _luaTable = null;
     }

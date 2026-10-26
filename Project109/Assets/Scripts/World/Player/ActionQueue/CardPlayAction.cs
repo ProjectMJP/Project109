@@ -107,9 +107,11 @@ public class CardPlayAction : BattleAction
         // 6. 후처리 연출 대기 (애니메이션 마무리 동작)
         yield return _postPlayDelay;
 
-        // 돌진/도약 스킬 등으로 시전자가 이동 중이라면 이동이 완료될 때까지 안전하게 대기
-        while (caster != null && !caster.isDead && caster.currentState == CharacterState.Move && !IsBattleEnded())
+        // 돌진/도약 스킬 등으로 시전자가 이동 중이라면 이동이 완료될 때까지 안전하게 대기 (최대 3초 타임아웃 가드)
+        float moveWaitElapsed = 0f;
+        while (caster != null && !caster.isDead && caster.currentState == CharacterState.Move && !IsBattleEnded() && moveWaitElapsed < 3.0f)
         {
+            moveWaitElapsed += Time.deltaTime;
             yield return null;
         }
         

@@ -45,7 +45,28 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public PlayerControlState controlState { get; private set; } = PlayerControlState.Normal;
     private Card activeCardForTargeting;
     private readonly List<Character> _multiSelectedTargets = new List<Character>();
+    public List<Character> MultiSelectedTargets => _multiSelectedTargets;
     private Vector2Int _lastHoveredCoord = new Vector2Int(-999, -999);
+
+    #region Targeting Strategies
+
+    private static readonly Dictionary<TargetType, ITargetingStrategy> _strategies = new()
+    {
+        { TargetType.Self, new SelfTargetingStrategy() },
+        { TargetType.AllEnemies, new AllEnemiesTargetingStrategy() },
+        { TargetType.AreaSelf, new AreaSelfTargetingStrategy() },
+        { TargetType.RandomEnemy, new RandomEnemyTargetingStrategy() },
+        { TargetType.SingleEnemy, new SingleEnemyTargetingStrategy() },
+        { TargetType.AreaGround, new AreaGroundTargetingStrategy() },
+        { TargetType.MultiEnemy, new MultiEnemyTargetingStrategy() }
+    };
+
+    public ITargetingStrategy GetTargetingStrategy(TargetType type)
+    {
+        return _strategies.TryGetValue(type, out var strategy) ? strategy : _strategies[TargetType.Self];
+    }
+
+    #endregion
 
     #region References
 
@@ -296,63 +317,28 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             casterPos = controlledCharacter.characterMove.GetCurrentTile().GetCoord();
         }
 
-        // 4. 타깃팅 유형별 분기 처리
-        switch (parsedTargetType)
+        // 4. 타깃팅 전략 위임 처리
+        ITargetingStrategy strategy = GetTargetingStrategy(parsedTargetType);
+
+        if (strategy.IsManualSelectionRequired)
         {
-            case TargetType.SingleEnemy:
-            case TargetType.AreaGround:
-            case TargetType.MultiEnemy:
-                // 수동 지정형: 타겟팅 모드로 진입
-                _multiSelectedTargets.Clear();
-                controlState = PlayerControlState.TargetSelection;
-                activeCardForTargeting = card;
+            // 수동 지정형: 타겟팅 모드로 진입
+            _multiSelectedTargets.Clear();
+            controlState = PlayerControlState.TargetSelection;
+            activeCardForTargeting = card;
 
-                if (UIManager.instance != null)
-                {
-                    UIManager.instance.UpdateEffectAreaUI(card);
-                }
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.UpdateEffectAreaUI(card);
+            }
 
-                Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
-                break;
-
-            case TargetType.Self:
-                // 즉시 시전 (자신)
-                UseCard(card, CardInfo.EmptyTargets, casterPos);
-                break;
-
-            case TargetType.AllEnemies:
-                // 즉시 시전 (전체 적)
-                List<Character> allEnemies = GetAllLivingEnemies();
-                UseCard(card, allEnemies, casterPos);
-                break;
-
-            case TargetType.AreaSelf:
-                // 시전자 중심 즉시 광역 (PBAoE)
-                List<Character> pbaoeTargets;
-                if (GameMap.current != null && card.cardData.additionalEffectAreaList != null && card.cardData.additionalEffectAreaList.Count > 0)
-                {
-                    var aoeCoords = GameMap.current.CalculateCardAoECoords(casterPos, card.cardData);
-                    HashSet<Vector2Int> set = new HashSet<Vector2Int>(aoeCoords) { casterPos };
-                    pbaoeTargets = CollectCharactersInCoords(set);
-                }
-                else
-                {
-                    pbaoeTargets = GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
-                }
-                UseCard(card, pbaoeTargets, casterPos);
-                break;
-
-            case TargetType.RandomEnemy:
-                // 사거리 내 무작위 적 자동 추첨 후 즉시 시전
-                List<Character> candidates = GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
-                List<Character> selectedTargets = PickRandomTargets(candidates, card.cardData.targetCount, card.cardData.allowDuplicateTarget);
-                UseCard(card, selectedTargets, casterPos);
-                break;
-
-            default:
-                // 기본 폴백: 즉시 시전
-                UseCard(card, CardInfo.EmptyTargets, casterPos);
-                break;
+            Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
+        }
+        else
+        {
+            // 즉시 시전형: 전략을 통해 대상을 즉시 수집 후 시전
+            List<Character> immediateTargets = strategy.CollectImmediateTargets(this, card, casterPos);
+            UseCard(card, immediateTargets, casterPos);
         }
     }
 
@@ -362,28 +348,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public bool HasValidTargetsInRange(Card card, TargetType targetType)
     {
         if (card == null || card.cardData == null) return false;
-
-        switch (targetType)
-        {
-            case TargetType.Self:
-                return true;
-
-            case TargetType.AllEnemies:
-                return GetAllLivingEnemies().Count > 0;
-
-            case TargetType.SingleEnemy:
-            case TargetType.RandomEnemy:
-            case TargetType.MultiEnemy:
-            case TargetType.AreaSelf:
-                return GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0
-                    || HasDestructiblesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
-
-            case TargetType.AreaGround:
-                return true;
-
-            default:
-                return true;
-        }
+        return GetTargetingStrategy(targetType).HasValidTargets(this, card);
     }
 
     /// <summary>
@@ -477,7 +442,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// <summary>
     /// 후보 리스트 중 지정된 수량만큼 대상을 무작위 추첨합니다. (중복 허용 여부 옵션 반영)
     /// </summary>
-    private List<Character> PickRandomTargets(List<Character> candidates, int count, bool allowDuplicate)
+    public List<Character> PickRandomTargets(List<Character> candidates, int count, bool allowDuplicate)
     {
         List<Character> result = new List<Character>();
         if (candidates == null || candidates.Count == 0 || count <= 0) return result;
@@ -772,79 +737,26 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
                                 if (distance >= minDistance && distance <= maxDistance)
                                 {
-                                    Vector2Int targetPos = targetTile.GetCoord();
-
-                                    // 폭발 범위(AoE) 좌표 계산 및 대상 캐릭터 수집
-                                    HashSet<Vector2Int> affectedCoords = new HashSet<Vector2Int>();
-                                    affectedCoords.Add(targetPos);
-
-                                    if (GameMap.current != null)
-                                    {
-                                        var aoeList = GameMap.current.CalculateCardAoECoords(targetPos, activeCardForTargeting.cardData);
-                                        for (int i = 0; i < aoeList.Count; i++)
-                                        {
-                                            affectedCoords.Add(aoeList[i]);
-                                        }
-                                    }
-
-                                    List<Character> targets = CollectCharactersInCoords(affectedCoords);
                                     TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
+                                    ITargetingStrategy strategy = GetTargetingStrategy(targetType);
 
-                                    // 적 또는 파괴 가능한 오브젝트가 대상이어야 하는 카드인데 둘 다 없는 빈 타일을 클릭했을 경우 시전 거부
-                                    bool hasDestructible = targetTile != null && targetTile.occupyingDestructible != null && !targetTile.occupyingDestructible.isDead;
-                                    if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy) && targets.Count == 0 && !hasDestructible)
+                                    if (strategy.TryCollectTargetsOnTileClicked(this, activeCardForTargeting, targetTile, out List<Character> targets, out Vector2Int targetPos))
                                     {
-                                        Debug.LogWarning("[PlayerBattleController] 적 유닛 또는 파괴 가능한 오브젝트가 위치한 타일을 선택해야 합니다.");
-                                        return;
-                                    }
+                                        UseCard(activeCardForTargeting, targets, targetPos);
 
-                                    if (targetType == TargetType.MultiEnemy)
-                                    {
-                                        Character enemyTarget = targets.Find(t => t != null && t.faction == CharacterFaction.Enemy && !t.isDead);
-                                        if (enemyTarget == null)
+                                        activeCardForTargeting = null;
+                                        _lastHoveredCoord = new Vector2Int(-999, -999);
+
+                                        if (UIManager.instance != null)
                                         {
-                                            Debug.LogWarning("[PlayerBattleController] 적 유닛이 위치한 타일을 선택해야 합니다.");
-                                            return;
+                                            UIManager.instance.ClearEffectAreaTiles();
                                         }
-
-                                        int requiredCount = Mathf.Max(1, activeCardForTargeting.cardData != null ? activeCardForTargeting.cardData.targetCount : 1);
-                                        bool allowDuplicate = activeCardForTargeting.cardData != null && activeCardForTargeting.cardData.allowDuplicateTarget;
-
-                                        if (!allowDuplicate && _multiSelectedTargets.Contains(enemyTarget))
+                                        else if (GameMap.current != null)
                                         {
-                                            Debug.LogWarning("[PlayerBattleController] 이미 선택된 대상입니다.");
-                                            return;
+                                            GameMap.current.ClearCardRange();
                                         }
-
-                                        _multiSelectedTargets.Add(enemyTarget);
-                                        int totalLivingEnemies = GetEnemiesInRange(minDistance, maxDistance).Count;
-                                        int targetCap = allowDuplicate ? requiredCount : Mathf.Min(requiredCount, totalLivingEnemies);
-
-                                        Debug.Log($"[PlayerBattleController] 다중 대상 선택됨 ({_multiSelectedTargets.Count}/{targetCap})");
-
-                                        if (_multiSelectedTargets.Count < targetCap)
-                                        {
-                                            return;
-                                        }
-
-                                        targets = new List<Character>(_multiSelectedTargets);
-                                        _multiSelectedTargets.Clear();
+                                        controlState = PlayerControlState.Normal;
                                     }
-
-                                    UseCard(activeCardForTargeting, targets, targetPos);
-
-                                    activeCardForTargeting = null;
-                                    _lastHoveredCoord = new Vector2Int(-999, -999);
-
-                                    if (UIManager.instance != null)
-                                    {
-                                        UIManager.instance.ClearEffectAreaTiles();
-                                    }
-                                    else if (GameMap.current != null)
-                                    {
-                                        GameMap.current.ClearCardRange();
-                                    }
-                                    controlState = PlayerControlState.Normal;
                                 }
                                 else
                                 {

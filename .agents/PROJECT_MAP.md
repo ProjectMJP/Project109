@@ -1,6 +1,6 @@
 # PROJECT_MAP.md — Project109 아키텍처 SSOT
 
-> **최종 갱신**: 2026-10-25  
+> **최종 갱신**: 2026-10-27  
 > **목적**: 사람 개발자와 AI 에이전트가 동일한 기준으로 코드를 이해·수정할 수 있도록, 프로젝트의 계층 구조·참조 규칙·데이터 흐름을 단일 문서에 정의합니다.
 
 ---
@@ -82,7 +82,7 @@
 | 서브디렉터리 | 책임 |
 |---|---|
 | `Combat/` | `Character` (MonoBehaviour, 전투 엔티티 핵심), `CharacterMove`, `CharacterAnimation`, `CharacterInterfaces` (40+ 이벤트 인터페이스), `CombatEventDispatcher` (전투 파이프라인 무할당 이벤트 디스패처), `Effects/` (Effect, EffectManager) |
-| `Player/` | `Player` (영속 세션 데이터), `PlayerBattleController`, `PlayerExploreController`, `PlayerStat`, `PlayerInterfaces`, `ActionQueue/` (턴 액션 큐) |
+| `Player/` | `Player` (영속 세션 데이터), `PlayerBattleController`, `PlayerExploreController`, `PlayerStat`, `PlayerInterfaces`, `ActionQueue/` (턴 액션 큐), `Targeting/` (`ITargetingStrategy`, `TargetingStrategies` 타깃팅 전략 패턴) |
 | `Items/Card/` | `Card` (런타임 카드 인스턴스), `PlayerDeck`, `BattleDeck`, `CardMasteryManager`, `CardTag` |
 | `Items/Relic/` | `RelicBase` (유물 베이스), `RelicManager` |
 | `NPC/AI/` | `NPCUnitController` (적 AI 컨트롤러), `AIPositionPlanner` |
