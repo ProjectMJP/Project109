@@ -106,7 +106,7 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         Tile startTile = characterMove.GetCurrentTile();
         if (startTile == null || startTile == targetTile) return;
 
-        GameMap gameMap = targetTile.ownerMap ?? startTile.ownerMap ?? GameMap.current;
+        GameMap gameMap = targetTile.ownerMap != null ? targetTile.ownerMap : (startTile.ownerMap != null ? startTile.ownerMap : GameMap.current);
         if (gameMap == null) return;
 
         // GameMap 단일 창구를 통한 자유 길찾기 수행
@@ -136,7 +136,7 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         Tile startTile = characterMove.GetCurrentTile();
         if (startTile == null) return;
 
-        GameMap gameMap = startTile.ownerMap ?? GameMap.current;
+        GameMap gameMap = startTile.ownerMap != null ? startTile.ownerMap : GameMap.current;
         if (gameMap == null) return;
 
         var tileMap = gameMap.GetTileMap();

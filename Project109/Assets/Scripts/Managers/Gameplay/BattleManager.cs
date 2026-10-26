@@ -28,12 +28,16 @@ public class BattleManager : IInitializable, IDisposable
     public void Dispose()
     {
         ClearBattle();
+        OnBattleIntroRequested = null;
         OnBattleWon = null;
         OnBattleLost = null;
         OnBattleEnded = null;
     }
 
     #region Battle Events
+
+    /// <summary>전투 인트로 연출 시작 요청 이벤트. 구독자가 연출 완료 후 인자로 넘겨진 onComplete(StartCombat)를 호출합니다.</summary>
+    public event Action<Action> OnBattleIntroRequested;
 
     /// <summary>전투 승리 시 발행되는 이벤트 (상위 시스템에서 보상 및 맵 상태 복귀 처리)</summary>
     public event Action OnBattleWon;
@@ -88,7 +92,12 @@ public class BattleManager : IInitializable, IDisposable
 
         battleState = BattleState.Intro;
 
-        if (UIManager.instance != null)
+        // UI 계층이 구독 중이면 인트로 연출 위임, 구독자가 없으면 기존 UIManager 확인 또는 즉시 전투 개시
+        if (OnBattleIntroRequested != null)
+        {
+            OnBattleIntroRequested.Invoke(StartCombat);
+        }
+        else if (UIManager.instance != null)
         {
             GameObject noticeUI = UIManager.instance.OpenUI("UIBattleNotice", UILayerType.Popup, true);
             if (noticeUI != null && noticeUI.TryGetComponent<UIBattleNotice>(out var battleNotice))
@@ -156,55 +165,51 @@ public class BattleManager : IInitializable, IDisposable
         float maxOverflow = float.MinValue;
         bool isPlayerOverflow = false;
 
-        // 1. 플레이어 팀 틱
-        for (int i = 0; i < playerTeam.Count; i++)
-        {
-            var combatant = playerTeam[i];
-            if (combatant?.controlledCharacter == null || combatant.controlledCharacter.isDead) continue;
+        // 플레이어 팀 및 적 팀 틱 순차 진행 (단일 헬퍼 호출로 코드 중복 및 Fake Null 위험 제거)
+        TickTeamCombatants(playerTeam, scaledDt, isPlayerTeam: true, ref highestOverflowCombatant, ref maxOverflow, ref isPlayerOverflow);
+        TickTeamCombatants(enemyTeam, scaledDt, isPlayerTeam: false, ref highestOverflowCombatant, ref maxOverflow, ref isPlayerOverflow);
 
-            combatant.controlledCharacter.BattleTick(scaledDt);
-            if (combatant.controlledCharacter.curCharacterStat != null)
-            {
-                if (combatant.controlledCharacter.curStamina >= combatant.controlledCharacter.curCharacterStat.maxStamina)
-                {
-                    float overflow = combatant.controlledCharacter.overflowStamina;
-                    if (highestOverflowCombatant == null || overflow > maxOverflow)
-                    {
-                        maxOverflow = overflow;
-                        highestOverflowCombatant = combatant;
-                        isPlayerOverflow = true;
-                    }
-                }
-            }
-        }
-
-        // 2. 적 팀 틱
-        for (int i = 0; i < enemyTeam.Count; i++)
-        {
-            var combatant = enemyTeam[i];
-            if (combatant?.controlledCharacter == null || combatant.controlledCharacter.isDead) continue;
-
-            combatant.controlledCharacter.BattleTick(scaledDt);
-            if (combatant.controlledCharacter.curCharacterStat != null)
-            {
-                if (combatant.controlledCharacter.curStamina >= combatant.controlledCharacter.curCharacterStat.maxStamina)
-                {
-                    float overflow = combatant.controlledCharacter.overflowStamina;
-                    // 동률일 경우 플레이어 우선권 유지 (isPlayerOverflow && overflow <= maxOverflow 인 경우 교체 안 함)
-                    if (highestOverflowCombatant == null || (!isPlayerOverflow && overflow > maxOverflow) || (isPlayerOverflow && overflow > maxOverflow + 0.0001f))
-                    {
-                        maxOverflow = overflow;
-                        highestOverflowCombatant = combatant;
-                        isPlayerOverflow = false;
-                    }
-                }
-            }
-        }
-
-        // 3. 턴 획득 조건을 만족한 전투원 중 최대 초과자에게 턴 부여
+        // 턴 획득 조건을 만족한 전투원 중 최대 초과자에게 턴 부여
         if (highestOverflowCombatant != null)
         {
             RequestTurnStart(highestOverflowCombatant.controlledCharacter);
+        }
+    }
+
+    private void TickTeamCombatants(List<ICharacterController> team, float scaledDt, bool isPlayerTeam,
+        ref ICharacterController highestOverflowCombatant, ref float maxOverflow, ref bool isPlayerOverflow)
+    {
+        for (int i = 0; i < team.Count; i++)
+        {
+            var combatant = team[i];
+            if (combatant == null || combatant.controlledCharacter == null || combatant.controlledCharacter.isDead) continue;
+
+            combatant.controlledCharacter.BattleTick(scaledDt);
+            if (combatant.controlledCharacter.curCharacterStat == null) continue;
+
+            if (combatant.controlledCharacter.curStamina >= combatant.controlledCharacter.curCharacterStat.maxStamina)
+            {
+                float overflow = combatant.controlledCharacter.overflowStamina;
+                bool shouldReplace;
+                if (isPlayerTeam)
+                {
+                    shouldReplace = (highestOverflowCombatant == null || overflow > maxOverflow);
+                }
+                else
+                {
+                    // 동률일 경우 플레이어 우선권 유지 (isPlayerOverflow && overflow <= maxOverflow 인 경우 교체 안 함)
+                    shouldReplace = (highestOverflowCombatant == null || 
+                                    (!isPlayerOverflow && overflow > maxOverflow) || 
+                                    (isPlayerOverflow && overflow > maxOverflow + 0.0001f));
+                }
+
+                if (shouldReplace)
+                {
+                    maxOverflow = overflow;
+                    highestOverflowCombatant = combatant;
+                    isPlayerOverflow = isPlayerTeam;
+                }
+            }
         }
     }
 

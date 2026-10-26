@@ -640,7 +640,7 @@ public class GameMap : MonoBehaviour
             SetEffectAreaFromTargetDistance(newCardData.targetType,
                                             newCardData.targetMinDistance,
                                             newCardData.targetMaxDistance,
-                                            TileType.TargetTile);
+                                            AreaIndicatorChannel.TargetTile);
         }
 
         if (newCardData.additionalEffectAreaList != null && additionalEffectAreaTile != null)
@@ -651,7 +651,7 @@ public class GameMap : MonoBehaviour
                 SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
                                                 Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
                                                 additionalEffectArea.distance,
-                                                TileType.AdditionalEffectTile);
+                                                AreaIndicatorChannel.AdditionalEffectTile);
             }
         }
     }
@@ -687,7 +687,7 @@ public class GameMap : MonoBehaviour
         }
     }
 
-    public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, TileType type)
+    public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, AreaIndicatorChannel type)
     {
         if (effectAreaTile == null) return;
 
@@ -695,7 +695,7 @@ public class GameMap : MonoBehaviour
         effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
     }
 
-    public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
+    public void SetEffectAreaFromShapeGenerator(string shapeName, int shapeLength, int radius, AreaIndicatorChannel type)
     {
         if (additionalEffectAreaTile == null) return;
 

@@ -252,10 +252,10 @@ public class DialogueActionExecutor
             return;
         }
 
-        RewardItemType rType = RewardItemType.Card;
+        RewardType rType = RewardType.Card;
         if (rewardTypeStr.Equals("relic", StringComparison.OrdinalIgnoreCase))
         {
-            rType = RewardItemType.Relic;
+            rType = RewardType.Relic;
         }
 
         // 1. 전달받은 rarityStr 자체가 ModLoader의 DropTableDatabase에 등록된 테이블 ID라면 직접 우선 사용
@@ -268,7 +268,7 @@ public class DialogueActionExecutor
         else
         {
             // 2. 기본 희귀도 매핑 (폴백)
-            if (rType == RewardItemType.Relic)
+            if (rType == RewardType.Relic)
             {
                 dropTableID = "Default_Relic_Table";
                 if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))

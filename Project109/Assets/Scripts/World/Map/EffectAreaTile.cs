@@ -2,11 +2,23 @@ using UnityEngine;
 using System.Collections.Generic;
 using CardTypes;
 
-public enum TileType
+/// <summary>
+/// 타일 효과 영역 셰이더 마스크 텍스처의 제어 채널 타입
+/// </summary>
+public enum AreaIndicatorChannel
 {
     Empty,
-    TargetTile,
-    AdditionalEffectTile
+    TargetTile,          // R 채널: 타깃 타일 영역
+    AdditionalEffectTile // G 채널: 추가 효과(AoE) 영역
+}
+
+// 하위 호환성을 위한 별칭
+[System.Obsolete("타일 종류(Tile.cs의 TileState)와의 혼동을 방지하기 위해 AreaIndicatorChannel을 사용하십시오.")]
+public enum TileType
+{
+    Empty = AreaIndicatorChannel.Empty,
+    TargetTile = AreaIndicatorChannel.TargetTile,
+    AdditionalEffectTile = AreaIndicatorChannel.AdditionalEffectTile
 }
 
 public class EffectAreaTile : MonoBehaviour
@@ -45,78 +57,54 @@ public class EffectAreaTile : MonoBehaviour
         centerHeight = textureHeight / 2;
 
         gridAreaSearch = new GridAreaSearch();
-
     }
 
-    public void SetTileColor(int x, int y, TileType type)
+    private Color GetChannelColor(AreaIndicatorChannel channel)
     {
-        Color controlColor = Color.clear;
-
-        switch(type)
+        return channel switch
         {
-            case TileType.Empty:                controlColor = new Color(0, 0, 0, 0); break;
-            case TileType.TargetTile:           controlColor = new Color(1, 0, 0, 0); break;    //R 채널에 타켓 타일 활성화
-            case TileType.AdditionalEffectTile: controlColor = new Color(0, 1, 0, 0); break;    //G 채널에 추가 효과 타일 활성화
-        }
+            AreaIndicatorChannel.TargetTile => new Color(1, 0, 0, 0),          // R 채널에 타겟 타일 활성화
+            AreaIndicatorChannel.AdditionalEffectTile => new Color(0, 1, 0, 0),// G 채널에 추가 효과 타일 활성화
+            _ => Color.clear
+        };
+    }
 
-        texture.SetPixel(x, y, controlColor);
+    public void SetTileColor(int x, int y, AreaIndicatorChannel type)
+    {
+        texture.SetPixel(x, y, GetChannelColor(type));
         texture.Apply();
     }
 
-    public void SetTileFromTargetDistance(TargetType cardTargetType, int minDistance, int maxDistance, TileType type)
+    public void SetTileFromTargetDistance(TargetType cardTargetType, int minDistance, int maxDistance, AreaIndicatorChannel type)
     {
-        if(gridAreaSearch == null)
-            return;
+        if (gridAreaSearch == null) return;
 
-        // 특정 거리 범위 내의 타일 좌표들을 가져옴
         List<Vector2Int> areaTiles = gridAreaSearch.GetGridArea(cardTargetType, new Vector2Int(textureWidth, textureHeight), centerWidth, centerHeight, minDistance, maxDistance);
+        Color controlColor = GetChannelColor(type);
 
-        //쉐이더에 맞는 색상 설정
-        Color controlColor = Color.clear;
-        switch (type)
-        {
-            case TileType.Empty:                controlColor = new Color(0, 0, 0, 0); break;
-            case TileType.TargetTile:           controlColor = new Color(1, 0, 0, 0); break;    //R 채널에 타켓 타일 활성화
-            case TileType.AdditionalEffectTile: controlColor = new Color(0, 1, 0, 0); break;    //G 채널에 추가 효과 타일 활성화
-        }
-
-        //타일 변경 진행
         foreach (var coord in areaTiles)
         {
             texture.SetPixel(coord.x, coord.y, controlColor);
         }
-
         texture.Apply();
     }
 
-    public void SetTileFromShapeGenerator(string shapeName, int shapeLength, int radius, TileType type)
+    public void SetTileFromShapeGenerator(string shapeName, int shapeLength, int radius, AreaIndicatorChannel type)
     {
-        if (gridAreaSearch == null)
-            return;
+        if (gridAreaSearch == null) return;
 
-        // 특정 거리 범위 내의 타일 좌표들을 가져옴
         List<Vector2Int> areaTiles = EffectAreaShapeGenerator.GetShapePositions(shapeName, 
                                                                                 new Vector2Int(textureWidth, textureHeight),
                                                                                 shapeLength,
                                                                                 centerWidth,
                                                                                 centerHeight,
                                                                                 radius);
+        Color controlColor = GetChannelColor(type);
 
-        //쉐이더에 맞는 색상 설정
-        Color controlColor = Color.clear;
-        switch (type)
-        {
-            case TileType.Empty: controlColor = new Color(0, 0, 0, 0); break;
-            case TileType.TargetTile: controlColor = new Color(1, 0, 0, 0); break;    //R 채널에 타켓 타일 활성화
-            case TileType.AdditionalEffectTile: controlColor = new Color(0, 1, 0, 0); break;    //G 채널에 추가 효과 타일 활성화
-        }
-
-        //타일 변경 진행
         foreach (var coord in areaTiles)
         {
             texture.SetPixel(coord.x, coord.y, controlColor);
         }
-
         texture.Apply();
     }
 

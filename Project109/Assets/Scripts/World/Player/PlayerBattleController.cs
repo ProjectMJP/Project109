@@ -137,7 +137,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public int GetTurnDrawCount()
     {
-        int baseCount = player?.playerStat != null ? player.playerStat.BaseDrawCount : 5;
+        int baseCount = (player != null && player.playerStat != null) ? player.playerStat.BaseDrawCount : 5;
         return Mathf.Max(0, baseCount + bonusDrawThisTurn);
     }
 
@@ -529,7 +529,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
         else if (controlState == PlayerControlState.Move)
         {
-            playerMove?.ClearCanMoveTiles();
+            if (playerMove != null)
+            {
+                playerMove.ClearCanMoveTiles();
+            }
         }
 
         controlState = PlayerControlState.Normal;

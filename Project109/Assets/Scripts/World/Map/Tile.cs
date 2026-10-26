@@ -3,9 +3,12 @@ using UnityEngine;
 public enum TileState
 {
     Empty,
-    Full,
-    Trap,
-    Obstacle
+    Full,        // 통행 불가능한 벽 (Wall)
+    Trap,        // 함정
+    Obstacle,    // 장애물 (파괴 가능한 상자 등)
+
+    // 가독성 및 의도 명확화를 위한 별칭
+    Wall = Full
 }
 
 public class Tile : MonoBehaviour
@@ -20,7 +23,8 @@ public class Tile : MonoBehaviour
         {
             if (_ownerMap == null)
             {
-                _ownerMap = GetComponentInParent<GameMap>() ?? GameMap.current;
+                var parentMap = GetComponentInParent<GameMap>();
+                _ownerMap = parentMap != null ? parentMap : GameMap.current;
             }
             return _ownerMap;
         }
@@ -38,6 +42,12 @@ public class Tile : MonoBehaviour
             UpdateLayerByState();
         }
     }
+
+    /// <summary>벽(Full) 또는 장애물(Obstacle)로 인해 통행이 차단된 타일인지 여부</summary>
+    public bool isBlocked => _tileState == TileState.Full || _tileState == TileState.Obstacle;
+
+    /// <summary>기본적으로 보행 가능한 타일인지 여부 (Empty 또는 Trap)</summary>
+    public bool isWalkable => !isBlocked;
 
     private Character _occupyingCharacter;
     public Character occupyingCharacter

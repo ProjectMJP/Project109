@@ -391,7 +391,7 @@ public class GameItemRewardManager : MonoBehaviour
         return list[Random.Range(0, list.Count)];
     }
 
-    public void InstantiateItemReward(RewardItemType rewardType, string dropTableID, Vector3 spawnPosition)
+    public void InstantiateItemReward(RewardType rewardType, string dropTableID, Vector3 spawnPosition)
     {
         if (rewardBoxPrefab == null)
             return;
@@ -402,7 +402,7 @@ public class GameItemRewardManager : MonoBehaviour
         {
             RewardData tempReward = new RewardData();
             RewardItemConfig config = new RewardItemConfig();
-            config.rewardType = (rewardType == RewardItemType.Card) ? RewardType.CardChoice : RewardType.Relic;
+            config.rewardType = (rewardType == RewardType.Card || rewardType == RewardType.CardChoice) ? RewardType.CardChoice : rewardType;
             config.minValue = 1;
             config.maxValue = 1;
             config.referenceID = dropTableID;
