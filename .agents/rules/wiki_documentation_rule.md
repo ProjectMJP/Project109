@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: 게임 기획, 세계관, 스토리, 캐릭터 설정, 시스템 스펙 문서를 참조하거나 GitLab Wiki를 작성·수정할 때 적용
+---
+
 # 기획 문서 및 GitLab Wiki 관리 규칙 (Planning Documentation & GitLab Wiki Rule)
 
 본 문서는 Project109 프로젝트에서 게임 기획, 세계관, 스토리, 캐릭터 설정, 시스템 스펙 문서를 참조하거나 작성·수정할 때 에이전트가 반드시 준수해야 하는 행동 규칙을 정의한다.
@@ -47,7 +52,7 @@
    - GitLab Wiki Git 저장소(`https://gitlab-siryu.com/SIRYU/Project109.wiki.git`)에서 최신 상태를 `pull` 또는 `fetch`하여 기존 문서의 작성 현황과 맥락을 파악한다.
 2. **문서 작성 및 갱신 (Edit)**:
    - 아래 §4의 [Wiki 디렉터리 및 네비게이션 표준]에 맞춰 적절한 경로에 마크다운 문서를 작성/수정한다.
-   - 새 문서를 생성한 경우 반드시 최상위 [`Home.md`](file:///c:/Users/siryu/fork/Project109/README.md)의 목차(Index)에 링크를 추가하여 고립된 페이지(Orphan Page)가 발생하지 않도록 한다.
+   - 새 문서를 생성한 경우 반드시 위키 저장소 최상위 `Home.md` 및 `_sidebar.md`의 목차(Index)에 링크를 추가하여 고립된 페이지(Orphan Page)가 발생하지 않도록 한다.
 3. **커밋 및 원격 푸시 (Commit & Push)**:
    - Wiki 저장소에 명확한 커밋 메시지(예: `[docs] 전투 시스템 기획서 추가`, `[story] 챕터 1 인카운터 대사 수정`)로 커밋 후 `master` 브랜치에 푸시한다.
    - 원격 푸시 즉시 GitLab 웹 Wiki 인터페이스에 반영되었음을 사용자에게 보고한다.
@@ -58,7 +63,7 @@
 
 GitLab Wiki의 기본 알파벳 정렬로 인한 순서 꼬임을 방지하고, 직관적인 계층 탐색을 보장하기 위해 **커스텀 사이드바(`_sidebar.md`)**와 **넘버링 접두사**를 의무 적용한다:
 
-```text
+~~~text
 Project109.wiki/
 ├── Home.md                     # 위키 대문 및 전체 목차/네비게이션 인덱스
 ├── _sidebar.md                 # GitLab 웹 사이드바 커스텀 네비게이션 (Home 최상단 고정)
@@ -76,8 +81,7 @@ Project109.wiki/
 └── 04-balance-and-data/        # 밸런스 설계 및 데이터 명세
     ├── status-effects.md       # 상태이상(버프/디버프) 기획 정의
     └── relics-and-items.md     # 유물 및 소모품 컨셉 정의
-```
-
+~~~
 
 ---
 
@@ -87,6 +91,6 @@ Project109.wiki/
 2. **언어**: 프로젝트 기본 기획 및 설정 문서는 **한국어** 작성을 원칙으로 한다.
 3. **상호 링크(Inter-wiki Links)**:
    - 위키 내 다른 페이지로 연결할 때는 상대 경로 마크다운 링크 또는 GitLab 위키 링크 문법을 사용한다.
-   - 예: `[전투 시스템](game-design/combat-system.md)`
+   - 예: `[전투 시스템](03-game-design/combat-system.md)`
 4. **다이어그램 표기**:
    - 구조나 흐름을 도식화할 때는 `.agents/rules/mermaid-diagram-rule.md`를 엄격히 준수하여 Mermaid 구문 오류가 발생하지 않도록 주의한다.
