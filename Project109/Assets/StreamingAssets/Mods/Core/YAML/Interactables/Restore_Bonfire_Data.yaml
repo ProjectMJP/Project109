@@ -1,5 +1,6 @@
 interactableID: Restore_Bonfire_Data
 interactableName: 모닥불
+interactableType: RestoreBonfire
 modelPrefabPath: NPC_Restore_Bonfire_Model
 eventAppearLevels:
 - 1

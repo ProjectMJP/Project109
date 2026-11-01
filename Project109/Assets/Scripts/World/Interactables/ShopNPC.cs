@@ -15,6 +15,12 @@ public class ShopNPC : InteractableObject
 
     private bool isInitialized = false;
 
+    public override void SetInteractableData(InteractableData data)
+    {
+        base.SetInteractableData(data);
+        InitializeShop();
+    }
+
     public override void OnInteract()
     {
         if (interactableData != null && !string.IsNullOrEmpty(interactableData.targetDialogueID))

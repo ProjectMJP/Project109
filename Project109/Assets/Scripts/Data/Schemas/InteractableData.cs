@@ -19,4 +19,37 @@ public class InteractableData : IIdentifiable
 
 
     public string ID => interactableID;
+
+    public string LocalizedName => LocalizationManager.GetOrDefault($"{interactableID}.name", interactableName);
+
+    /// <summary>
+    /// 스테이지 인카운터 타입과 데이터의 명시적 설정을 기반으로 실제 상호작용 컴포넌트 타입을 결정합니다.
+    /// </summary>
+    public static InteractableType ResolveType(EncountType encountType, InteractableData eventData)
+    {
+        if (eventData != null)
+        {
+            if (eventData.interactableType != InteractableType.Normal)
+            {
+                return eventData.interactableType;
+            }
+
+            if (eventData.rewardData != null && eventData.rewardData.rewards != null && eventData.rewardData.rewards.Count > 0)
+            {
+                return InteractableType.Chest;
+            }
+        }
+
+        switch (encountType)
+        {
+            case EncountType.Store:
+                return InteractableType.Shop;
+            case EncountType.Restore:
+                return InteractableType.RestoreBonfire;
+            case EncountType.SecretBox:
+                return InteractableType.Chest;
+            default:
+                return InteractableType.Normal;
+        }
+    }
 }

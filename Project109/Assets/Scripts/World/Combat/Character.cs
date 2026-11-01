@@ -105,6 +105,11 @@ public class Character : MonoBehaviour, IDamageable
     public event Action<Character> OnCharacterStaminaChanged;
     public event Action<Character> OnCharacterShieldChanged;
     public event Action<Character> OnCharacterDied;
+    public event Action<Character> OnCharacterJoinedBattle;
+    public event Action<Character> OnCharacterLeftBattle;
+
+    public void NotifyJoinedBattle() => OnCharacterJoinedBattle?.Invoke(this);
+    public void NotifyLeftBattle() => OnCharacterLeftBattle?.Invoke(this);
 
     public event Action<Character, CharacterState> OnCharacterStateChanged;
 

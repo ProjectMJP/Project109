@@ -9,6 +9,73 @@ public class InteractableObject : MonoBehaviour, IInteractable
 
     public bool RequiresCameraFocus => true;
 
+    /// <summary>
+    /// 스폰된 베이스 오브젝트에 상호작용 타입에 맞는 컴포넌트를 구성하고 데이터를 초기화합니다.
+    /// 기본 Normal 타입일 경우 프리팹에 부착된 기존 InteractableObject 컴포넌트를 그대로 재사용합니다.
+    /// </summary>
+    public static InteractableObject ConfigureOnGameObject(GameObject target, CardTypes.InteractableType type, InteractableData eventData)
+    {
+        if (target == null) return null;
+
+        InteractableObject existing = target.GetComponent<InteractableObject>();
+        InteractableObject instance = null;
+
+        switch (type)
+        {
+            case CardTypes.InteractableType.Chest:
+                if (existing != null && !(existing is RewardChest))
+                {
+                    DestroyImmediate(existing);
+                }
+                instance = target.GetComponent<RewardChest>();
+                if (instance == null)
+                {
+                    instance = target.AddComponent<RewardChest>();
+                }
+                break;
+
+            case CardTypes.InteractableType.Shop:
+                if (existing != null && !(existing is ShopNPC))
+                {
+                    DestroyImmediate(existing);
+                }
+                instance = target.GetComponent<ShopNPC>();
+                if (instance == null)
+                {
+                    instance = target.AddComponent<ShopNPC>();
+                }
+                break;
+
+            case CardTypes.InteractableType.RestoreBonfire:
+                if (existing != null && !(existing is RestoreBonfire))
+                {
+                    DestroyImmediate(existing);
+                }
+                instance = target.GetComponent<RestoreBonfire>();
+                if (instance == null)
+                {
+                    instance = target.AddComponent<RestoreBonfire>();
+                }
+                break;
+
+            default:
+                if (existing != null && existing.GetType() != typeof(InteractableObject))
+                {
+                    DestroyImmediate(existing);
+                    existing = null;
+                }
+                instance = existing != null ? existing : target.AddComponent<InteractableObject>();
+                break;
+        }
+
+        if (instance != null)
+        {
+            instance.SetInteractableData(eventData);
+        }
+
+        return instance;
+    }
+
     public virtual void SetInteractableData(InteractableData data)
     {
         interactableData = data;

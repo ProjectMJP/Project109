@@ -294,7 +294,12 @@ public class UIManager : MonoBehaviour
             go.name = $"CharacterStatusBar_{targetName}";
             SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             statusBarUI = go.GetComponent<CharacterStatusBarUI>();
-            if (statusBarUI == null) statusBarUI = go.AddComponent<CharacterStatusBarUI>();
+            if (statusBarUI == null)
+            {
+                Debug.LogError($"[UIManager] 프리팹({UIConstants.PREFAB_CHARACTER_STATUS_BAR})에 CharacterStatusBarUI 컴포넌트가 누락되어 있습니다!");
+                Destroy(go);
+                return null;
+            }
         }
         else
         {
@@ -335,7 +340,12 @@ public class UIManager : MonoBehaviour
             go.name = $"CharacterEffectList_{targetName}";
             SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
             effectListUI = go.GetComponent<CharacterEffectListUI>();
-            if (effectListUI == null) effectListUI = go.AddComponent<CharacterEffectListUI>();
+            if (effectListUI == null)
+            {
+                Debug.LogError($"[UIManager] 프리팹({UIConstants.PREFAB_CHARACTER_EFFECT_LIST})에 CharacterEffectListUI 컴포넌트가 누락되어 있습니다!");
+                Destroy(go);
+                return null;
+            }
         }
         else
         {
@@ -627,7 +637,7 @@ public class UIManager : MonoBehaviour
 
         if (uiInstance != null)
         {
-            PushActiveUIPanel(uiInstance, layerType);
+            PushActiveUIPanel(uiInstance);
         }
 
         // 선제 락을 해제합니다.

@@ -12,6 +12,16 @@ public class RestoreBonfire : InteractableObject
     private bool isUsed = false;
     public bool IsUsed => isUsed;
 
+    public override void SetInteractableData(InteractableData data)
+    {
+        if (data == null && ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null)
+        {
+            ModLoader.Instance.InteractableDatabase.TryGetValue("Restore_Bonfire_Data", out data);
+        }
+        base.SetInteractableData(data);
+        CreateRestoreUI();
+    }
+
     public void MarkAsUsed()
     {
         isUsed = true;

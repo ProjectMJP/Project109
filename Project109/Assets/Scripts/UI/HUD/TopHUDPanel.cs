@@ -112,7 +112,8 @@ public class TopHUDPanel : UIPanelBase
             }
             else
             {
-                UIManager.instance.PushActiveUIPanel(_deckViewPanel.gameObject, UILayerType.Normal);
+                _deckViewPanel.uiLayerType = UILayerType.Normal;
+                UIManager.instance.PushActiveUIPanel(_deckViewPanel);
                 _deckViewPanel.OpenMasterDeck();
             }
         }
@@ -146,7 +147,8 @@ public class TopHUDPanel : UIPanelBase
         }
         else
         {
-            UIManager.instance.PushActiveUIPanel(exploreMapUI.gameObject, UILayerType.Top);
+            exploreMapUI.uiLayerType = UILayerType.Top;
+            UIManager.instance.PushActiveUIPanel(exploreMapUI);
         }
     }
 

@@ -123,6 +123,12 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         character.OnCharacterDied -= OnCharacterDied;
         character.OnCharacterDied += OnCharacterDied;
 
+        character.OnCharacterJoinedBattle -= OnJoinedBattle;
+        character.OnCharacterJoinedBattle += OnJoinedBattle;
+
+        character.OnCharacterLeftBattle -= OnLeftBattle;
+        character.OnCharacterLeftBattle += OnLeftBattle;
+
         if (character.effectManager != null)
         {
             character.effectManager.OnEffectAdded -= OnEffectAdded;
@@ -150,6 +156,8 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         character.OnCharacterShieldChanged -= OnShieldChanged;
         character.OnCharacterStaminaChanged -= OnStaminaChanged;
         character.OnCharacterDied -= OnCharacterDied;
+        character.OnCharacterJoinedBattle -= OnJoinedBattle;
+        character.OnCharacterLeftBattle -= OnLeftBattle;
 
         if (character.effectManager != null)
         {
@@ -200,6 +208,16 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     }
 
     private void OnCharacterDied(Character c)
+    {
+        HideUI();
+    }
+
+    private void OnJoinedBattle(Character c)
+    {
+        ShowUI();
+    }
+
+    private void OnLeftBattle(Character c)
     {
         HideUI();
     }

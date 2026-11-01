@@ -390,125 +390,27 @@ public class StageManager : IInitializable, System.IDisposable
             cell.position.y * mapData.cellSize + mapData.gridOffset.z
         );
 
-        GameObject npcObj = null;
-
-        // [단일 베이스 프리팹 사용]
-        // 모든 NPC는 "EventObject" 프리팹을 공통 기반으로 생성하며, 
-        // 런타임에 필요한 컴포넌트를 추가하여 역할을 분화합니다.
         GameObject basePrefab = null;
         if (AssetCacheManager.instance != null)
         {
             AssetCacheManager.instance.TryGetModel("EventObject", out basePrefab);
         }
 
-        if (basePrefab != null)
-        {
-            GameObject spawned = UnityEngine.Object.Instantiate(basePrefab, worldPos, Quaternion.identity);
-
-            // 기존 프리팹에 이미 부착되어 있을 수 있는 기본 InteractableObject 컴포넌트 제거
-            var existing = spawned.GetComponent<InteractableObject>();
-            if (existing != null)
-            {
-                UnityEngine.Object.DestroyImmediate(existing);
-            }
-
-            InteractableObject newNPC = null;
-
-            // EncountType 및 eventData에 맞춰 알맞은 컴포넌트 타입 판단
-            bool isRestore = (EncountType == EncountType.Restore);
-            bool isShop = (EncountType == EncountType.Store);
-            bool isChest = (EncountType == EncountType.SecretBox);
-
-            if (eventData != null)
-            {
-                if (eventData.interactableType == InteractableType.Chest || 
-                    (eventData.rewardData != null && eventData.rewardData.rewards != null && eventData.rewardData.rewards.Count > 0))
-                {
-                    isChest = true;
-                }
-                else if (eventData.interactableType == InteractableType.Shop)
-                {
-                    isShop = true;
-                }
-                else if (eventData.interactableType == InteractableType.RestoreBonfire)
-                {
-                    isRestore = true;
-                }
-                else if (EncountType == EncountType.Secret)
-                {
-                    // 레거시 하위 호환 매칭: 오작동을 유발하는 임의의 부분일치(store, rest) 대신 경계 단어 매칭
-                    string idLower = !string.IsNullOrEmpty(eventData.interactableID) ? eventData.interactableID.ToLower() : "";
-                    if (idLower.StartsWith("shop") || idLower.EndsWith("_shop") || idLower.Contains("_shop_") || idLower == "shop")
-                    {
-                        isShop = true;
-                    }
-                    else if (idLower.StartsWith("bonfire") || idLower.EndsWith("_bonfire") || idLower.Contains("restore_bonfire"))
-                    {
-                        isRestore = true;
-                    }
-                }
-            }
-
-            // 컴포넌트 할당 및 초기화
-            if (isChest)
-            {
-                var chest = spawned.AddComponent<RewardChest>();
-                if (eventData != null)
-                {
-                    chest.SetInteractableData(eventData);
-                }
-                newNPC = chest;
-            }
-            else if (isShop)
-            {
-                var shop = spawned.AddComponent<ShopNPC>();
-                if (eventData != null)
-                {
-                    shop.SetInteractableData(eventData);
-                }
-                shop.InitializeShop();
-                newNPC = shop;
-            }
-            else if (isRestore)
-            {
-                var restore = spawned.AddComponent<RestoreBonfire>();
-                if (eventData != null)
-                {
-                    restore.SetInteractableData(eventData);
-                }
-                else if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Restore_Bonfire_Data", out var fallbackData))
-                {
-                    restore.SetInteractableData(fallbackData);
-                }
-                restore.CreateRestoreUI();
-                newNPC = restore;
-            }
-            else
-            {
-                var normalNPC = spawned.AddComponent<InteractableObject>();
-                if (eventData != null)
-                {
-                    normalNPC.SetInteractableData(eventData);
-                }
-                newNPC = normalNPC;
-            }
-
-            if (newNPC != null)
-            {
-                npcObj = spawned;
-            }
-        }
-        else
+        if (basePrefab == null)
         {
             Debug.LogError("[StageManager] EventObject 프리팹을 Addressables 캐시에서 찾을 수 없습니다!");
+            return;
         }
 
-        if (npcObj != null)
+        GameObject spawned = UnityEngine.Object.Instantiate(basePrefab, worldPos, Quaternion.identity);
+        InteractableType resolvedType = InteractableData.ResolveType(EncountType, eventData);
+        InteractableObject newNPC = InteractableObject.ConfigureOnGameObject(spawned, resolvedType, eventData);
+
+        if (newNPC != null)
         {
-            RegisterSpawnNPC(npcObj);
+            RegisterSpawnNPC(spawned);
         }
     }
-
     public void SpawnPlayerInMap(MapDataSO mapData, Character playerCharacter, int spawnCount)
     {
         if (spawnPlayerCells.Count == 0)
@@ -608,7 +510,8 @@ public class StageManager : IInitializable, System.IDisposable
                 currentMapData = AssetCacheManager.instance.mapList[0];
             }
 
-            Debug.LogWarning($"[StageManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({currentMapData?.stageName})에서 Fallback했습니다.");
+            string fallbackStageName = currentMapData != null ? currentMapData.stageName : "null";
+            Debug.LogWarning($"[StageManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({fallbackStageName})에서 Fallback했습니다.");
         }
 
         if (currentMapData != null)
