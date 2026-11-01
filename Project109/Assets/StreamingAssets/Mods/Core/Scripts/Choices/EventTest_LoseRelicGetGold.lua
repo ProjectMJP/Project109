@@ -10,7 +10,7 @@ function GetDescription(dm)
         return "제거할 유물이 없습니다."
     end
     if selectedIndex == -1 then
-        selectedIndex = CS.UnityEngine.Random.Range(0, dm:GetRelicCount())
+        selectedIndex = UnityEngine.Random.Range(0, dm:GetRelicCount())
     end
     local relicName = dm:GetRelicNameAt(selectedIndex)
     return "<color=red>" .. relicName .. " 제거</color>, 재화를 100 획득합니다."

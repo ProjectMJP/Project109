@@ -8,10 +8,21 @@ using YamlDotNet.Serialization;
 
 public class CardData : IModAssetResolver, IIdentifiable
 {
+    private static readonly string[] _luaFallbackGlobals = { "card" };
+
     // cardName이 고유 식별자(ID) 역할을 겸합니다.
     public string cardName { get; set; }
 
+    // 다국어 미사용 시 표시될 선택적 표시 이름 (미지정 시 cardName 사용)
+    public string displayName { get; set; }
+
     public string ID => cardName;
+
+    [YamlIgnore]
+    public string LocalizedName => LocalizationManager.GetOrDefault($"{ID}.name", !string.IsNullOrEmpty(displayName) ? displayName : cardName);
+
+    [YamlIgnore]
+    public string LocalizedDescription => LocalizationManager.GetOrDefault($"{ID}.desc", description);
 
     // 카드가 속한 영웅 클래스 (공용 카드일 경우 비어있거나 "All")
     public List<string> classTypes { get; set; } = new List<string>();
@@ -72,107 +83,33 @@ public class CardData : IModAssetResolver, IIdentifiable
 
     public string GetDescription()
     {
-        if (string.IsNullOrEmpty(description)) return string.Empty;
+        if (string.IsNullOrEmpty(LocalizedDescription)) return string.Empty;
         if (_dummyInstance == null)
         {
             LuaTable dummyLua = null;
-            if (luaPrototype != null)
+            if (luaPrototype != null && LuaManager.Instance != null)
             {
-                try
-                {
-                    var newInstanceFunc = LuaManager.Instance?.luaEnv.Global.Get<Func<LuaTable, LuaTable>>("NewInstance");
-                    if (newInstanceFunc != null)
-                    {
-                        dummyLua = newInstanceFunc(luaPrototype);
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"[CardData.GetDescription] '{cardName}' 임시 Lua 인스턴스 생성 실패:\n{e.Message}");
-                }
+                dummyLua = LuaManager.Instance.NewInstance(luaPrototype);
             }
             _dummyInstance = new Card(this, null, dummyLua, -1);
         }
         return _dummyInstance.GetDescription();
     }
 
-
     public bool ResolveAndValidate(string modDirectory)
     {
-        bool isValid = true;
-
-        // 1. 카드 일러스트/아이콘 로드 (cardName으로 자동 매핑)
-        string expectedImagePath = Path.Combine(modDirectory, "Icons", "Cards", cardName + ".png");
-        if (File.Exists(expectedImagePath))
-        {
-            this.cardSprite = ImageLoader.LoadCustomSprite(expectedImagePath, 256);
-        }
-        else
-        {
-            // 폴백 이미지 로드
-            string defaultImagePath = Path.Combine(modDirectory, "Icons", "Cards", "Default.png");
-            if (File.Exists(defaultImagePath))
-            {
-                this.cardSprite = ImageLoader.LoadCustomSprite(defaultImagePath, 256);
-            }
-            else
-            {
-                Debug.LogWarning($"[CardData: {cardName}] 일러스트를 찾을 수 없지만 실행을 계속합니다.");
-            }
-        }
+        // 1. 카드 일러스트/아이콘 로드 (Default.png 폴백 지원)
+        ModAssetLoader.TryLoadIconWithFallback(modDirectory, "Cards", cardName, 256, out Sprite sprite);
+        this.cardSprite = sprite;
 
         // 2. Lua 스크립트 검증 및 사전 로딩 (cardName으로 경로 자동 추론)
         string expectedScriptPath = Path.Combine(modDirectory, "Scripts", "Cards", cardName + ".lua");
-        if (File.Exists(expectedScriptPath))
+        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, cardName, "CardData", _luaFallbackGlobals, null, out LuaTable proto))
         {
-            try
-            {
-                byte[] scriptBytes = File.ReadAllBytes(expectedScriptPath);
-
-                // 루아 스크립트 실행 (컴파일 및 프로토타입 획득)
-
-                object[] results = LuaManager.Instance.luaEnv.DoString(scriptBytes, cardName);
-
-
-                LuaTable proto = null;
-                if (results != null && results.Length > 0)
-                {
-                    proto = results[0] as LuaTable;
-                }
-
-                // [폴백] return이 누락되었을 경우를 대비하여 전역 환경에서 변수 검색
-                if (proto == null)
-                {
-                    proto = LuaManager.Instance.luaEnv.Global.Get<LuaTable>("card");
-                    proto ??= LuaManager.Instance.luaEnv.Global.Get<LuaTable>(cardName);
-                }
-
-                if (proto != null)
-                {
-                    this.luaPrototype = proto;
-                }
-                else
-                {
-                    Debug.LogError($"[CardData: {cardName}] 루아 파일 로드 실패: 테이블 형식이 아닙니다.");
-                    isValid = false;
-                }
-
-                // 글로벌 오염 방지를 위해 임시 등록 변수 해제
-                LuaManager.Instance.luaEnv.Global.Set<string, object>("card", null);
-                LuaManager.Instance.luaEnv.Global.Set<string, object>(cardName, null);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[CardData: {cardName}] 루아 구문 오류:\n{e.Message}");
-                isValid = false;
-            }
-        }
-        else
-        {
-            Debug.LogError($"[CardData: {cardName}] 연동할 루아 스크립트 파일을 찾을 수 없습니다: {expectedScriptPath}");
-            isValid = false;
+            this.luaPrototype = proto;
+            return true;
         }
 
-        return isValid;
+        return false;
     }
 }

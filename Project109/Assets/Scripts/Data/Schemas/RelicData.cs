@@ -6,10 +6,23 @@ using YamlDotNet.Serialization;
 
 public class RelicData : IModAssetResolver, IIdentifiable
 {
+    private static readonly string[] _luaFallbackGlobals = { "relic" };
+
     // relicName이 고유 식별자(ID) 역할을 겸합니다.
     public string relicName { get; set; }
 
     public string ID => relicName;
+
+    public string displayName { get; set; }
+
+    [YamlIgnore]
+    public string LocalizedName => LocalizationManager.GetOrDefault($"{ID}.name", !string.IsNullOrEmpty(displayName) ? displayName : relicName);
+
+    [YamlIgnore]
+    public string LocalizedDescription => LocalizationManager.GetOrDefault($"{ID}.desc", description);
+
+    [YamlIgnore]
+    public string LocalizedFlavorText => LocalizationManager.GetOrDefault($"{ID}.flavor", flavorText);
 
     // 등장 가능한 캐릭터 클래스 목록.
     // 비어있거나 "All" 또는 "None" 포함 시 공용 유물로 취급됩니다.
@@ -48,90 +61,18 @@ public class RelicData : IModAssetResolver, IIdentifiable
 
     public bool ResolveAndValidate(string modDirectory)
     {
-        bool isValid = true;
-
-        // 1. 아이콘 스프라이트 링크 (relicName으로 자동 추론)
-        string expectedImagePath = Path.Combine(modDirectory, "Icons", "Relics", relicName + ".png");
-
-        if (File.Exists(expectedImagePath))
-        {
-            // 최대 128x128 픽셀로 제한하여 로드
-            this.iconSprite = ImageLoader.LoadCustomSprite(expectedImagePath, 128);
-        }
-        else
-        {
-            // 전용 아이콘이 없을 경우 기본 아이콘(Default.png)으로 대체
-            string defaultImagePath = Path.Combine(modDirectory, "Icons", "Relics", "Default.png");
-            if (File.Exists(defaultImagePath))
-            {
-                this.iconSprite = ImageLoader.LoadCustomSprite(defaultImagePath, 128);
-            }
-            else
-            {
-                Debug.LogWarning($"[RelicData: {relicName}] 전용 아이콘 및 기본 아이콘(Default.png)을 찾을 수 없지만 실행을 계속합니다.");
-            }
-        }
+        // 1. 아이콘 스프라이트 링크 (Default.png 폴백 지원)
+        ModAssetLoader.TryLoadIconWithFallback(modDirectory, "Relics", relicName, 128, out Sprite sprite);
+        this.iconSprite = sprite;
 
         // 2. 루아 스크립트 검증 및 사전 로딩 (relicName으로 경로 자동 추론)
         string expectedScriptPath = Path.Combine(modDirectory, "Scripts", "Relics", relicName + ".lua");
-        if (File.Exists(expectedScriptPath))
+        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, relicName, "RelicData", _luaFallbackGlobals, "OnInit", out LuaTable proto))
         {
-            try
-            {
-                byte[] scriptBytes = File.ReadAllBytes(expectedScriptPath);
-
-                // 루아 스크립트 실행 (컴파일 및 프로토타입 획득)
-                object[] results = LuaManager.Instance.luaEnv.DoString(scriptBytes, relicName);
-
-                LuaTable proto = null;
-                if (results != null && results.Length > 0)
-                {
-                    proto = results[0] as LuaTable;
-                }
-
-                // [폴백] return이 누락되었을 경우를 대비하여 전역 환경에서 변수 검색
-                if (proto == null)
-                {
-                    proto = LuaManager.Instance.luaEnv.Global.Get<LuaTable>("relic");
-                    if (proto == null)
-                    {
-                        proto = LuaManager.Instance.luaEnv.Global.Get<LuaTable>(relicName);
-                    }
-                }
-
-                if (proto != null)
-                {
-                    // [경고 검증] 필수 함수 정의 검사 (차단하지 않고 경고만 출력)
-                    var onInit = proto.Get<LuaFunction>("OnInit");
-                    if (onInit == null)
-                    {
-                        Debug.LogWarning($"[RelicData: {relicName}] 경고: 필수 함수 'OnInit'이 누락되었습니다. 게임 내에서 정상 작동하지 않을 수 있습니다.");
-                    }
-
-                    this.luaPrototype = proto;
-                }
-                else
-                {
-                    Debug.LogError($"[RelicData: {relicName}] 루아 파일 로드 실패: 테이블 형식이 아닙니다.");
-                    isValid = false;
-                }
-
-                // 글로벌 오염 방지를 위해 임시 등록 변수 해제
-                LuaManager.Instance.luaEnv.Global.Set<string, object>("relic", null);
-                LuaManager.Instance.luaEnv.Global.Set<string, object>(relicName, null);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[RelicData: {relicName}] 루아 구문 오류:\n{e.Message}");
-                isValid = false;
-            }
-        }
-        else
-        {
-            Debug.LogError($"[RelicData: {relicName}] 연동할 루아 스크립트 파일을 찾을 수 없습니다: {expectedScriptPath}");
-            isValid = false;
+            this.luaPrototype = proto;
+            return true;
         }
 
-        return isValid;
+        return false;
     }
 }

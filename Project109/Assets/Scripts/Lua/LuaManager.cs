@@ -33,6 +33,9 @@ public class LuaManager : MonoBehaviour
     // 외부(ModLoader 등)에서 동적으로 추가해줄 루아 스크립트 검색 경로들
     private List<string> searchPaths = new List<string>();
 
+    // Key: 파일명(예: "Strike.lua"), Value: 전체 디스크 경로 (런타임 디스크 전수 스캔 방지용 O(1) 인덱스)
+    private readonly Dictionary<string, string> _scriptPathIndex = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
     // Key: tagName, Value: 프로토타입 LuaTable
     private Dictionary<string, LuaTable> cardTagPrototypes = new Dictionary<string, LuaTable>();
 
@@ -172,13 +175,29 @@ public class LuaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 모드 로딩 시 루아 스크립트가 존재하는 폴더 경로를 등록합니다.
+    /// 모드 로딩 시 루아 스크립트가 존재하는 폴더 경로를 등록하고 파일명 인덱스를 구축합니다.
+    /// (나중에 로드된 유저 모드가 동일 키를 덮어써 오버라이드를 보장합니다.)
     /// </summary>
     public void AddSearchPath(string path)
     {
+        if (string.IsNullOrEmpty(path)) return;
+
         if (!searchPaths.Contains(path))
         {
             searchPaths.Add(path);
+        }
+
+        if (Directory.Exists(path))
+        {
+            string[] luaFiles = Directory.GetFiles(path, "*.lua", SearchOption.AllDirectories);
+            for (int i = 0; i < luaFiles.Length; i++)
+            {
+                string fileName = Path.GetFileName(luaFiles[i]);
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    _scriptPathIndex[fileName] = luaFiles[i];
+                }
+            }
         }
     }
 
@@ -190,15 +209,21 @@ public class LuaManager : MonoBehaviour
             fileName += ".lua";
         }
 
-        // 등록된 모든 검색 경로를 순회하며 파일을 찾음
+        string justFileName = Path.GetFileName(fileName);
+        if (!string.IsNullOrEmpty(justFileName) && _scriptPathIndex.TryGetValue(justFileName, out string indexedPath) && File.Exists(indexedPath))
+        {
+            return File.ReadAllBytes(indexedPath);
+        }
+
+        // 인덱스에 없을 경우 검색 경로 순회 후 캐싱
         foreach (string searchPath in searchPaths)
         {
             if (Directory.Exists(searchPath))
             {
-                // 해당 모드 경로 내 모든 하위 디렉토리에서 검색
-                string[] files = Directory.GetFiles(searchPath, fileName, SearchOption.AllDirectories);
+                string[] files = Directory.GetFiles(searchPath, justFileName, SearchOption.AllDirectories);
                 if (files.Length > 0)
                 {
+                    _scriptPathIndex[justFileName] = files[0];
                     return File.ReadAllBytes(files[0]);
                 }
             }
@@ -209,7 +234,6 @@ public class LuaManager : MonoBehaviour
 
     /// <summary>
     /// XLua 내부의 가비지 컬렉션을 수행합니다.
-    /// 어딘가(예: RunManager의 Update)에서 주기적으로 호출해주는 것이 좋습니다.
     /// </summary>
     public void Tick()
     {
@@ -302,8 +326,13 @@ public class LuaManager : MonoBehaviour
             return proto;
         }
 
-        // 사전 등록되지 않은 태그에 대한 런타임 온디맨드 검색 (폴백)
+        // 사전 등록되지 않은 태그에 대한 런타임 온디맨드 검색 (인덱스 O(1) 조회 우선)
         string scriptFileName = tagName + ".lua";
+        if (_scriptPathIndex.TryGetValue(scriptFileName, out string indexedPath) && File.Exists(indexedPath))
+        {
+            return LoadCardTagScript(indexedPath);
+        }
+
         foreach (string searchPath in searchPaths)
         {
             if (Directory.Exists(searchPath))
@@ -311,6 +340,7 @@ public class LuaManager : MonoBehaviour
                 string[] files = Directory.GetFiles(searchPath, scriptFileName, SearchOption.AllDirectories);
                 if (files.Length > 0)
                 {
+                    _scriptPathIndex[scriptFileName] = files[0];
                     return LoadCardTagScript(files[0]);
                 }
             }
@@ -327,6 +357,7 @@ public class LuaManager : MonoBehaviour
     {
         _cachedNewInstance = null;
         cardTagPrototypes.Clear();
+        _scriptPathIndex.Clear();
 
         if (luaEnv != null)
         {

@@ -10,7 +10,7 @@ function GetDescription(dm)
         return "제거할 카드가 없습니다."
     end
     if selectedIndex == -1 then
-        selectedIndex = CS.UnityEngine.Random.Range(0, dm:GetCardCount())
+        selectedIndex = UnityEngine.Random.Range(0, dm:GetCardCount())
     end
     local cardName = dm:GetCardNameAt(selectedIndex)
     return "<color=red>" .. cardName .. " 제거</color>, 재화를 100 획득합니다."

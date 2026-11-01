@@ -31,6 +31,10 @@ public class ModLoader
     // Key: dropTableID (고유 ID), Value: DropTableData
     public Dictionary<string, DropTableData> DropTableDatabase { get; private set; } = new Dictionary<string, DropTableData>();
 
+    private static readonly IDeserializer _yamlDeserializer = new DeserializerBuilder()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
+
     private static ModLoader _instance;
     public static ModLoader Instance
     {
@@ -56,6 +60,7 @@ public class ModLoader
         DialogueDatabase.Clear();
         InteractableDatabase.Clear();
         DropTableDatabase.Clear();
+        LocalizationManager.Clear();
 
         // 1. 바닐라(Core) 모드 로딩
         // 경로: Assets/StreamingAssets/Mods/Core
@@ -162,13 +167,17 @@ public class ModLoader
         {
             LoadDataFromPath(dropTablesPath, modDir, DropTableDatabase, d => d.dropTableID, "드롭 테이블");
         }
+        LocalizationManager.LoadFromModDirectory(modDir);
+        if (false)
+        {
+        }
     }
 
     private void LoadDataFromPath<T>(string dataPath, string modRootPath, Dictionary<string, T> targetDict, System.Func<T, string> keySelector, string typeName) where T : class
     {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
+        var deserializer = _yamlDeserializer;
+
+
 
         string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
 

@@ -181,7 +181,7 @@ public class Card : IDescribable
         LuaTable luaInstance = null;
         if (cardData != null && cardData.luaPrototype != null)
         {
-            luaInstance = LuaManager.Instance?.NewInstance(cardData.luaPrototype);
+            if (LuaManager.Instance != null) luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
         }
 
         // 2. Card 인스턴스 생성 (식별자 충돌 방지를 위해 newRuntimeID가 지정되지 않으면 음수 전역 고유 시퀀스 ID 자동 순차 발급)
@@ -301,7 +301,7 @@ public class Card : IDescribable
     /// </summary>
     public string GetDescription()
     {
-        string template = cardData?.description ?? string.Empty;
+        string template = cardData?.LocalizedDescription ?? string.Empty;
 
         var luaFunc = luaTable?.Get<Func<LuaTable, Card, string, string>>("GetDescription");
         if (luaFunc != null)
