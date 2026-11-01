@@ -22,7 +22,7 @@ public class RelicManager : IDisposable
             relics.Add(relic);
             
             // Player's event bus triggers (using RelicData for backward compatibility)
-            owner.eventBus.Invoke<IOnAddRelic>(c => c.OnAddRelic(relic.Data));
+            PlayerEventDispatcher.DispatchAddRelic(owner.eventBus, relic.Data);
             
             OnRelicAddedEvent?.Invoke(relic);
             UnityEngine.Debug.Log($"Relic Added : {relic.Data.relicName}");
@@ -35,7 +35,7 @@ public class RelicManager : IDisposable
         if (relic != null)
         {
             relics.Remove(relic);
-            owner.eventBus.Invoke<IOnRemoveRelic>(c => c.OnRemoveRelic(relic.Data));
+            PlayerEventDispatcher.DispatchRemoveRelic(owner.eventBus, relic.Data);
             relic.Dispose();
             OnRelicRemovedEvent?.Invoke(relic);
             UnityEngine.Debug.Log($"Relic Removed : {relic.Data.relicName}");

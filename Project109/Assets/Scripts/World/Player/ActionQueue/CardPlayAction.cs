@@ -30,7 +30,7 @@ public class CardPlayAction : BattleAction
 
         // 1. 카드 발동 이벤트 Payload 송출
         CardInfo info = new CardInfo(caster, targets, targetPosition, card, CardFlag.Normal);
-        caster.eventBus.Invoke<IOnBeforeUseCard>(c => c.OnBeforeUseCard(info));
+        CombatEventDispatcher.DispatchBeforeUseCard(caster.eventBus, info);
 
         // 2. 캐릭터 공격/스킬 애니메이션 트리거 및 상태 전이
         caster.currentState = CharacterState.Skill;
@@ -118,7 +118,7 @@ public class CardPlayAction : BattleAction
         if (caster != null && !caster.isDead)
         {
             caster.currentState = CharacterState.Idle;
-            caster.eventBus.Invoke<IOnAfterUseCard>(c => c.OnAfterUseCard(info));
+            CombatEventDispatcher.DispatchAfterUseCard(caster.eventBus, info);
         }
     }
 

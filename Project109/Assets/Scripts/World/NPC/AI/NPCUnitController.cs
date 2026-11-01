@@ -80,7 +80,7 @@ public class NPCUnitController : ICharacterController, IDisposable
     public void OnTurnStart()
     {
         // 1. 이벤트 버스 트리거
-        controlledCharacter.eventBus.Invoke<IOnTurnStart>(a => a.OnTurnStart());
+        CombatEventDispatcher.DispatchTurnStart(controlledCharacter.eventBus);
 
         // 2. 의도 최종 확정
         EvaluateNextIntent();
@@ -192,7 +192,7 @@ public class NPCUnitController : ICharacterController, IDisposable
 
     public void OnTurnEnd()
     {
-        controlledCharacter.eventBus.Invoke<IOnTurnEnd>(a => a.OnTurnEnd());
+        CombatEventDispatcher.DispatchTurnEnd(controlledCharacter.eventBus);
     }
 
     private void HandleCharacterDied(Character deadChar)

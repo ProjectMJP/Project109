@@ -121,7 +121,7 @@ public class BattleDeck
 
             if (owner != null)
             {
-                owner.eventBus.Invoke<IOnDrawCard>(c => c.OnDrawCard(card));
+                CombatEventDispatcher.DispatchDrawCard(owner.eventBus, card);
             }
 
             hand.Add(card);
@@ -142,7 +142,7 @@ public class BattleDeck
     {
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnShuffleDeck>(c => c.OnShuffleDeck(drawPile));
+            CombatEventDispatcher.DispatchShuffleDeck(owner.eventBus, drawPile);
         }
 
         drawPile.Shuffle();
@@ -173,7 +173,7 @@ public class BattleDeck
             CardInfo info = EnsureCardInfo(card, null, initialFlags);
             if (owner != null)
             {
-                owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(info));
+                CombatEventDispatcher.DispatchDiscardCard(owner.eventBus, info);
             }
 
             // NoDiscard 플래그가 세팅되어 있다면 버리지 않고 보존
@@ -217,7 +217,7 @@ public class BattleDeck
         CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnEraseCard>(c => c.OnEraseCard(finalInfo));
+            CombatEventDispatcher.DispatchEraseCard(owner.eventBus, finalInfo);
         }
 
         hand.Remove(card);
@@ -235,7 +235,7 @@ public class BattleDeck
         CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnDiscardCard>(c => c.OnDiscardCard(finalInfo));
+            CombatEventDispatcher.DispatchDiscardCard(owner.eventBus, finalInfo);
         }
 
         discardPile.Add(card);
@@ -254,7 +254,7 @@ public class BattleDeck
         CardInfo finalInfo = EnsureCardInfo(card, info);
         if (owner != null)
         {
-            owner.eventBus.Invoke<IOnExhaustCard>(c => c.OnExhaustCard(finalInfo));
+            CombatEventDispatcher.DispatchExhaustCard(owner.eventBus, finalInfo);
         }
 
         exhaustPile.Add(card);

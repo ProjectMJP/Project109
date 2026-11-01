@@ -121,9 +121,9 @@ public class BattleManager : IInitializable, IDisposable
 
         // BattleStart 이벤트 (플레이어 우선) - 실제 전투 개시 시점에 호출
         foreach (var combatant in playerTeam)
-            combatant.controlledCharacter.eventBus.Invoke<IOnBattleStart>(a => a.OnBattleStart());
+            CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
         foreach (var combatant in enemyTeam)
-            combatant.controlledCharacter.eventBus.Invoke<IOnBattleStart>(a => a.OnBattleStart());
+            CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
 
         battleState = BattleState.Combat;
         Debug.Log("[BattleManager] Battle start intro finished. Combat began.");
@@ -140,18 +140,14 @@ public class BattleManager : IInitializable, IDisposable
             enemyTeam.Add(controller);
 
         InitCombatant(controller);
-        controller.controlledCharacter.eventBus.Invoke<IOnBattleStart>(a => a.OnBattleStart());
+        CombatEventDispatcher.DispatchBattleStart(controller.controlledCharacter.eventBus);
     }
 
     private void InitCombatant(ICharacterController combatant)
     {
         combatant.controlledCharacter.ResetCharacterForBattle();
         combatant.controlledCharacter.OnCharacterDied += OnCharacterDied;
-        var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
-        if (uiCtrl != null)
-        {
-            uiCtrl.ShowUI();
-        }
+        combatant.controlledCharacter.NotifyJoinedBattle();
     }
 
     public void Update(float dt)
@@ -393,15 +389,11 @@ public class BattleManager : IInitializable, IDisposable
 
             if (combatant.controlledCharacter.eventBus != null)
             {
-                combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+                CombatEventDispatcher.DispatchBattleEnd(combatant.controlledCharacter.eventBus);
             }
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
-            if (uiCtrl != null)
-            {
-                uiCtrl.HideUI();
-            }
+            combatant.controlledCharacter.NotifyLeftBattle();
         }
         foreach (var combatant in enemyTeam)
         {
@@ -409,15 +401,11 @@ public class BattleManager : IInitializable, IDisposable
 
             if (combatant.controlledCharacter.eventBus != null)
             {
-                combatant.controlledCharacter.eventBus.Invoke<IOnBattleEnd>(a => a.OnBattleEnd());
+                CombatEventDispatcher.DispatchBattleEnd(combatant.controlledCharacter.eventBus);
             }
             combatant.controlledCharacter.ResetCharacterForBattle();
             combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            var uiCtrl = combatant.controlledCharacter.GetComponent<CharacterUIController>();
-            if (uiCtrl != null)
-            {
-                uiCtrl.HideUI();
-            }
+            combatant.controlledCharacter.NotifyLeftBattle();
         }
 
         playerTeam.Clear();

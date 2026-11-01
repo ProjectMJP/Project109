@@ -20,9 +20,9 @@ public class PlayerStat
             if (player != null && player.eventBus != null)
             {
                 if (diff > 0)
-                    player.eventBus.Invoke<IOnAddGold>(a => a.OnAddGold(diff));
+                    PlayerEventDispatcher.DispatchAddGold(player.eventBus, diff);
                 else if (diff < 0)
-                    player.eventBus.Invoke<IOnRemoveGold>(a => a.OnRemoveGold(-diff));
+                    PlayerEventDispatcher.DispatchRemoveGold(player.eventBus, -diff);
             }
         } 
     }
@@ -40,9 +40,9 @@ public class PlayerStat
             if (player != null && player.eventBus != null)
             {
                 if (diff > 0)
-                    player.eventBus.Invoke<IOnAddMemorySharp>(a => a.OnAddMemorySharp(diff));
+                    PlayerEventDispatcher.DispatchAddMemorySharp(player.eventBus, diff);
                 else if (diff < 0)
-                    player.eventBus.Invoke<IOnRemoveMemorySharp>(a => a.OnRemoveMemorySharp(-diff));
+                    PlayerEventDispatcher.DispatchRemoveMemorySharp(player.eventBus, -diff);
             }
         } 
     }

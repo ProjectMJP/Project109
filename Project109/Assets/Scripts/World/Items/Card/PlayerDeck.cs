@@ -70,7 +70,7 @@ public class PlayerDeck
         Card newCard = CreateNewCard(cardData);
         cards.Add(newCard);
         
-        owner.eventBus.Invoke<IOnAddCard>(c => c.OnAddCard(newCard));
+        PlayerEventDispatcher.DispatchAddCard(owner.eventBus, newCard);
         return newCard;
     }
 
@@ -89,7 +89,7 @@ public class PlayerDeck
         }
 
         cards.Add(card);
-        owner.eventBus.Invoke<IOnAddCard>(c => c.OnAddCard(card));
+        PlayerEventDispatcher.DispatchAddCard(owner.eventBus, card);
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ public class PlayerDeck
         {
             if (cards.Remove(cardToRemove))
             {
-                owner.eventBus.Invoke<IOnRemoveCard>(c => c.OnRemoveCard(cardToRemove));
+                PlayerEventDispatcher.DispatchRemoveCard(owner.eventBus, cardToRemove);
                 cardToRemove.Dispose();
             }
         }
@@ -115,7 +115,7 @@ public class PlayerDeck
     {
         if (cards.Remove(card))
         {
-            owner.eventBus.Invoke<IOnRemoveCard>(c => c.OnRemoveCard(card));
+            PlayerEventDispatcher.DispatchRemoveCard(owner.eventBus, card);
             card.Dispose();
         }
     }
@@ -167,7 +167,7 @@ public class PlayerDeck
                         cardToUpgrade.Dispose();
                     }
 
-                    owner.eventBus.Invoke<IOnCardUpgrade>(c => c.OnCardUpgrade(newCard));
+                    PlayerEventDispatcher.DispatchCardUpgrade(owner.eventBus, newCard);
                 }
             }
         }
@@ -194,7 +194,7 @@ public class PlayerDeck
             }
         }
 
-        owner.eventBus.Invoke<IOnCardMasteryUpgrade>(c => c.OnCardMasteryUpgrade(card, masteryId));
+        PlayerEventDispatcher.DispatchCardMasteryUpgrade(owner.eventBus, card, masteryId);
     }
 
     /// <summary>
@@ -227,7 +227,7 @@ public class PlayerDeck
     /// </summary>
     public void RequestAllCardRefresh()
     {
-        owner.eventBus.Invoke<IOnCardsRefreshed>(c => c.OnCardsRefreshed());
+        PlayerEventDispatcher.DispatchCardsRefreshed(owner.eventBus);
     }
 
     private Card CreateNewCard(CardData cardData, int? customRuntimeID = null)
@@ -235,7 +235,7 @@ public class PlayerDeck
         LuaTable luaInstance = null;
         if (cardData.luaPrototype != null)
         {
-            luaInstance = LuaManager.Instance?.NewInstance(cardData.luaPrototype);
+            if (LuaManager.Instance != null) luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
         }
 
         int id = customRuntimeID ?? nextRuntimeID++;

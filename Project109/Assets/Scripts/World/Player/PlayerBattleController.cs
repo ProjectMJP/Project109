@@ -165,7 +165,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void OnTurnStart()
     {
         // 1. 이벤트 버스 — 등록된 IOnTurnStart들 호출 (버프, 유물 등에서 AddBonusDrawThisTurn 호출 가능)
-        controlledCharacter.eventBus.Invoke<IOnTurnStart>(a => a.OnTurnStart());
+        CombatEventDispatcher.DispatchTurnStart(controlledCharacter.eventBus);
 
         // 2. 카드 드로우 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
         battleDeck.DrawCards(GetTurnDrawCount());
@@ -192,7 +192,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void OnTurnEnd()
     {
         // 1. 이벤트 버스 — 등록된 IOnTurnEnd들 호출
-        controlledCharacter.eventBus.Invoke<IOnTurnEnd>(a => a.OnTurnEnd());
+        CombatEventDispatcher.DispatchTurnEnd(controlledCharacter.eventBus);
 
         // 2. 손패 → 묘지 이동 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
         battleDeck.DiscardHand();
@@ -309,7 +309,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         // 사용 시도 이벤트 발동 (IOnTryUseCard)
         CardInfo tryInfo = new CardInfo(controlledCharacter, card, CardFlag.Normal);
-        controlledCharacter.eventBus.Invoke<IOnTryUseCard>(c => c.OnTryUseCard(tryInfo));
+        CombatEventDispatcher.DispatchTryUseCard(controlledCharacter.eventBus, tryInfo);
 
         Vector2Int casterPos = Vector2Int.zero;
         if (controlledCharacter.characterMove != null && controlledCharacter.characterMove.GetCurrentTile() != null)
@@ -622,7 +622,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// <summary>
     /// 지정된 타일 좌표 목록에 위치한 모든 적 캐릭터를 수집합니다.
     /// </summary>
-    private List<Character> CollectCharactersInCoords(HashSet<Vector2Int> targetCoords)
+    public List<Character> CollectCharactersInCoords(HashSet<Vector2Int> targetCoords)
     {
         List<Character> foundCharacters = new List<Character>();
         if (targetCoords == null || targetCoords.Count == 0) return foundCharacters;
