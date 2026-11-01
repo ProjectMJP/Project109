@@ -76,10 +76,10 @@ crashlytics-build.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
 
-# Ignore all dot-directories (e.g. .Docs, .vscode) except .agents
+# Ignore all dot-directories (e.g. .Docs, .vscode, .agents)
 .*/
-!.agents/
-!.agents/**
+
+
 
 
 # EventBinderGenerator build folders
@@ -93,3 +93,6 @@ Project109/Assets/XLua/Gen.meta
 # Backup files
 BackupFile/
 
+
+# Local AI Workflow Guide
+AI_WORKFLOW_GUIDE.md
