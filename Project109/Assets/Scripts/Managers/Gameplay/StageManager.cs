@@ -347,8 +347,7 @@ public class StageManager : IInitializable, System.IDisposable
                         maxHealth = 50f,
                         maxStamina = 100f,
                         staminaRegenPerSecond = 10f,
-                        maxMoveCount = 3,
-                        maxTilesPerMove = 2
+                        moveRange = 2,
                     };
                 enemyCharacter.InitializeStat(enemyStat);
 

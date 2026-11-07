@@ -18,8 +18,7 @@ public class CombatPipelineTests
             maxHealth = 100f,
             maxStamina = 100f,
             staminaRegenPerSecond = 10f,
-            maxMoveCount = 3,
-            maxTilesPerMove = 2
+            moveRange = 2,
         });
     }
 
@@ -144,5 +143,52 @@ public class CombatPipelineTests
 
         // Assert: 130까지 초과 회복 허용
         Assert.AreEqual(130f, _character.curHealth);
+    }
+
+    [Test]
+    public void UpdateShieldDuration_ExpiresWhenDurationReachesZero()
+    {
+        // Arrange: 1턴 지속 실드 30 부여
+        _character.TakeShield(new ShieldInfo(null, _character, 30f, 1));
+        Assert.AreEqual(30f, _character.shield);
+        Assert.AreEqual(1, _character.shieldDurationTurns);
+
+        // Act: 다음 자신의 턴 시작 시 만료 정산 호출
+        _character.UpdateShieldDuration();
+
+        // Assert: 1턴이 차감되어 0이 되므로 실드 소멸
+        Assert.AreEqual(0f, _character.shield);
+        Assert.AreEqual(0, _character.shieldDurationTurns);
+    }
+
+    [Test]
+    public void UpdateShieldDuration_MultiTurnShield_DecrementsWithoutExpiringUntilZero()
+    {
+        // Arrange: 2턴 지속 실드 40 부여
+        _character.TakeShield(new ShieldInfo(null, _character, 40f, 2));
+
+        // Act 1: 첫 번째 턴 시작 정산 (남은 턴 2 -> 1, 실드 40 유지)
+        _character.UpdateShieldDuration();
+        Assert.AreEqual(40f, _character.shield);
+        Assert.AreEqual(1, _character.shieldDurationTurns);
+
+        // Act 2: 두 번째 턴 시작 정산 (남은 턴 1 -> 0, 실드 소멸)
+        _character.UpdateShieldDuration();
+        Assert.AreEqual(0f, _character.shield);
+        Assert.AreEqual(0, _character.shieldDurationTurns);
+    }
+
+    [Test]
+    public void ResetMoveStat_RestoresCurMoveRangeToStatMoveRange()
+    {
+        // Arrange: 초기 moveRange(2)에서 이동으로 소모된 상태 시뮬레이션
+        Assert.AreEqual(2, _character.curMoveRange);
+        _character.curMoveRange = 0;
+
+        // Act: 턴 시작 시 이동력 리셋
+        _character.ResetMoveStat();
+
+        // Assert: 기본 moveRange(2)로 복원
+        Assert.AreEqual(2, _character.curMoveRange);
     }
 }

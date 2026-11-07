@@ -118,12 +118,9 @@ public static class AIPositionPlanner
         Tile currentTile = (caster.characterMove != null) ? caster.characterMove.GetCurrentTile() : null;
         if (currentTile == null || currentTile == finalDestination) return currentTile;
 
-        // 최대 이동 횟수 * 1회당 이동 제한
-        int maxMoveRange = 3; 
-        if (caster.curCharacterStat != null)
-        {
-            maxMoveRange = caster.curCharacterStat.maxMoveCount * caster.curCharacterStat.maxTilesPerMove;
-        }
+        // 이번 턴 남은 이동 가능 칸수 확인 (0 이하이면 이동 불가)
+        int maxMoveRange = caster.curMoveRange;
+        if (maxMoveRange <= 0) return currentTile;
 
         List<List<Tile>> tileMap = gameMap.GetTileMap();
         RoutePathfinding pathfinder = RoutePathfinding.Shared;

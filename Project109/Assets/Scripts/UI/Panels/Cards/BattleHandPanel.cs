@@ -89,9 +89,9 @@ public class BattleHandPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 이동 모드 상태와 덱 버튼의 MoveCount 표시를 상호 전환합니다.
+    /// 이동 모드 상태와 덱 버튼의 남은 이동력 표시를 상호 전환합니다.
     /// </summary>
-    public void SetMoveMode(bool isMoveMode, int moveCount = 0)
+    public void SetMoveMode(bool isMoveMode, int remainingTiles = 0)
     {
         _isMoveMode = isMoveMode;
 
@@ -107,12 +107,12 @@ public class BattleHandPanel : UIPanelBase
             modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
         }
 
-        // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 횟수, 카드 모드: 드로우 덱 수)
+        // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 가능 칸수, 카드 모드: 드로우 덱 수)
         if (isMoveMode)
         {
             if (drawCountText != null)
             {
-                drawCountText.text = moveCount.ToString();
+                drawCountText.text = remainingTiles.ToString();
             }
         }
         else
@@ -122,13 +122,13 @@ public class BattleHandPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 이동 모드 중 실시간으로 남은 이동 횟수를 갱신합니다.
+    /// 이동 모드 중 실시간으로 남은 이동 가능 칸수를 갱신합니다.
     /// </summary>
-    public void UpdateMoveCount(int moveCount)
+    public void UpdateMoveRange(int remainingTiles)
     {
         if (_isMoveMode && drawCountText != null)
         {
-            drawCountText.text = moveCount.ToString();
+            drawCountText.text = remainingTiles.ToString();
         }
     }
 

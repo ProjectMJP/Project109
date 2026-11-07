@@ -29,8 +29,8 @@ public class PlayerBattleMove
         GameMap gameMap = currentTile.ownerMap != null ? currentTile.ownerMap : GameMap.current;
         if (gameMap == null) return;
 
-        int maxDistance = (characterMove.character != null && characterMove.character.curCharacterStat != null)
-            ? characterMove.character.curCharacterStat.maxTilesPerMove
+        int maxDistance = (characterMove.character != null)
+            ? characterMove.character.curMoveRange
             : 0;
         canMoveTiles = gameMap.GetReachableTiles(currentTile, maxDistance, characterMove);
 
@@ -87,9 +87,9 @@ public class PlayerBattleMove
 
         if (canMoveTiles.Contains(targetTile))
         {
-            if (characterMove.character != null && characterMove.character.curMoveCount <= 0)
+            if (characterMove.character != null && characterMove.character.curMoveRange <= 0)
             {
-                Debug.LogWarning("[PlayerBattleMove] 이동 횟수가 부족하여 이동할 수 없습니다.");
+                Debug.LogWarning("[PlayerBattleMove] 이동 가능 거리가 부족하여 이동할 수 없습니다.");
                 return false;
             }
 
@@ -107,10 +107,10 @@ public class PlayerBattleMove
                 List<Tile> movePath = gameMap.FindPath(startTile, targetTile, caps);
                 if (movePath != null && movePath.Count > 0)
                 {
-                    // 전투 이동 횟수 차감 (턴제 규칙 적용)
+                    // 전투 이동 거리 차감 (실제 이동한 타일 수만큼 차감)
                     if (characterMove.character != null)
                     {
-                        characterMove.character.curMoveCount--;
+                        characterMove.character.curMoveRange = Mathf.Max(0, characterMove.character.curMoveRange - movePath.Count);
                     }
                     characterMove.MoveAlongPath(movePath, targetTile);
                     return true;

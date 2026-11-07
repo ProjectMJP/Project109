@@ -195,12 +195,12 @@ public class BattleUIPanel : UIPanelBase
     {
         currentMode = BattleUIMode.Move;
 
-        int moveCount = _boundCharacter != null ? _boundCharacter.curMoveCount : 0;
+        int remainingTiles = _boundCharacter != null ? _boundCharacter.curMoveRange : 0;
 
         if (battleHandPanel != null)
         {
             battleHandPanel.gameObject.SetActive(true);
-            battleHandPanel.SetMoveMode(true, moveCount);
+            battleHandPanel.SetMoveMode(true, remainingTiles);
         }
 
         if (battleMovePanel != null)
@@ -244,7 +244,7 @@ public class BattleUIPanel : UIPanelBase
 
             if (battleHandPanel != null)
             {
-                battleHandPanel.UpdateMoveCount(_boundCharacter.curMoveCount);
+                battleHandPanel.UpdateMoveRange(_boundCharacter.curMoveRange);
             }
         }
     }

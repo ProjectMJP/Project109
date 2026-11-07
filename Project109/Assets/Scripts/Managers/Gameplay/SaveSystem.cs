@@ -276,8 +276,7 @@ public static class SaveSystem
                 maxHealth = 100,
                 maxStamina = 120,
                 staminaRegenPerSecond = 40,
-                maxMoveCount = 1,
-                maxTilesPerMove = 3
+                moveRange = 3,
             };
         }
 
@@ -324,7 +323,7 @@ public static class SaveSystem
             }
         }
 
-        Debug.Log($"[SaveSystem] 신규 플레이어 기본 스탯 및 시작 키트 초기화 완료 (키트: '{kitId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동횟수: {initialStat.maxMoveCount}, 최대이동타일: {initialStat.maxTilesPerMove}).");
+        Debug.Log($"[SaveSystem] 신규 플레이어 기본 스탯 및 시작 키트 초기화 완료 (키트: '{kitId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동력: {initialStat.moveRange}).");
     }
 
     /// <summary>
@@ -454,8 +453,7 @@ public static class SaveSystem
                 maxHealth = 100f,
                 maxStamina = 100f,
                 staminaRegenPerSecond = 10f,
-                maxMoveCount = 2,
-                maxTilesPerMove = 3
+                moveRange = 3,
             };
         }
 
@@ -464,8 +462,7 @@ public static class SaveSystem
             maxHealth = source.maxHealth,
             maxStamina = source.maxStamina,
             staminaRegenPerSecond = source.staminaRegenPerSecond,
-            maxMoveCount = source.maxMoveCount,
-            maxTilesPerMove = source.maxTilesPerMove
+            moveRange = source.moveRange
         };
     }
 

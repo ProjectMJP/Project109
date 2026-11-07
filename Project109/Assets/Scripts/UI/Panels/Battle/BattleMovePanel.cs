@@ -51,28 +51,28 @@ public class BattleMovePanel : UIPanelBase
     }
 
     /// <summary>
-    /// 캐릭터의 현재 이동 횟수 및 1회 최대 이동 거리를 받아 텍스트를 갱신합니다.
+    /// 캐릭터의 현재 남은 이동 가능 칸수 및 최대 이동 거리를 받아 텍스트를 갱신합니다.
     /// </summary>
     public void RefreshMoveInfo(Character character)
     {
         if (character == null) return;
 
-        int moveCount = character.curMoveCount;
+        int remainingTiles = character.curMoveRange;
         int maxTiles = (character.curCharacterStat != null)
-            ? character.curCharacterStat.maxTilesPerMove
-            : character.curTilesPerMove;
+            ? character.curCharacterStat.moveRange
+            : character.curMoveRange;
 
-        RefreshMoveInfo(moveCount, maxTiles);
+        RefreshMoveInfo(remainingTiles, maxTiles);
     }
 
     /// <summary>
-    /// 이동 횟수와 최대 타일 수를 직접 전달받아 UI를 갱신합니다.
+    /// 남은 이동 칸수와 최대 타일 수를 직접 전달받아 UI를 갱신합니다.
     /// </summary>
-    public void RefreshMoveInfo(int moveCount, int maxTiles)
+    public void RefreshMoveInfo(int remainingTiles, int maxTiles)
     {
         if (moveCountText != null)
         {
-            moveCountText.text = moveCount.ToString();
+            moveCountText.text = remainingTiles.ToString();
         }
 
         if (maxTilesText != null)

@@ -234,7 +234,11 @@ public class BattleManager : IInitializable, IDisposable
             }
         }
 
-        controller.controlledCharacter.ResetMoveStat();
+        if (controller.controlledCharacter != null)
+        {
+            controller.controlledCharacter.UpdateShieldDuration(); // 턴 시작 시 실드 지속 시간 갱신 (만료 정산)
+            controller.controlledCharacter.ResetMoveStat();
+        }
 
         controller.OnTurnStart();
     }
@@ -257,7 +261,7 @@ public class BattleManager : IInitializable, IDisposable
         currentTurnController.OnTurnEnd();
 
         currentTurnController.controlledCharacter.ResetStamina();
-        currentTurnController.controlledCharacter.UpdateShieldDuration(); // 턴 종료 시 실드 지속 시간 업데이트
+        // 실드 지속시간 차감은 다음 턴 시작(StartTurn) 시점으로 이관됨
 
         currentTurnController = null;
         battleState = BattleState.Combat;

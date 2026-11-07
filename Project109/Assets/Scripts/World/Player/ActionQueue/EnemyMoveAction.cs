@@ -39,7 +39,7 @@ public class EnemyMoveAction : BattleAction
 
             if (movePath != null && movePath.Count > 0)
             {
-                caster.curMoveCount--;
+                caster.curMoveRange = Mathf.Max(0, caster.curMoveRange - movePath.Count);
                 bool isMoveCompleted = false;
 
                 caster.characterMove.MoveAlongPath(movePath, TargetTile, onComplete: () =>

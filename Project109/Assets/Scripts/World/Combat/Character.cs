@@ -13,7 +13,6 @@ public enum CharacterState
     Die
 }
 
-
 public enum CharacterFaction
 {
     Player,
@@ -90,8 +89,8 @@ public class Character : MonoBehaviour, IDamageable
             curHealth = characterStat.maxHealth;
             curStamina = 0f;
 
-            curMoveCount = characterStat.maxMoveCount;
-            curTilesPerMove = characterStat.maxTilesPerMove;
+            curMoveRange = characterStat.moveRange;
+
         }
     }
 
@@ -122,12 +121,11 @@ public class Character : MonoBehaviour, IDamageable
     #region CurrentStatValues
 
     [SerializeField]
-    private int _curMoveCount;
-    public int curMoveCount { get { return _curMoveCount; } set { _curMoveCount = value; } }
-
-    [SerializeField]
-    private int _curTilesPerMove;
-    public int curTilesPerMove { get { return _curTilesPerMove; } set { _curTilesPerMove = value; } }
+    private int _curMoveRange;
+    /// <summary>
+    /// 현재 턴 동안 남은 이동 가능 칸수 (이동 포인트)
+    /// </summary>
+    public int curMoveRange { get { return _curMoveRange; } set { _curMoveRange = value; } }
 
     [SerializeField]
     private CharacterState _currentState = CharacterState.Idle;
@@ -143,7 +141,6 @@ public class Character : MonoBehaviour, IDamageable
             }
         }
     }
-
 
     public bool isDead = false;
     bool IDamageable.isDead => isDead;
@@ -264,7 +261,7 @@ public class Character : MonoBehaviour, IDamageable
     {
         if (curCharacterStat != null)
         {
-            curMoveCount = curCharacterStat.maxMoveCount;
+            curMoveRange = curCharacterStat.moveRange;
         }
     }
 
@@ -515,15 +512,6 @@ public class Character : MonoBehaviour, IDamageable
     }
 
     /// <summary>
-    /// 하위 호환성을 위해 남겨둔 TakeShield 오버로드 데코레이터입니다.
-    /// </summary>
-    public void TakeShield(ShieldInfo info, int durationTurns)
-    {
-        info.durationTurns = durationTurns;
-        TakeShield(info);
-    }
-
-    /// <summary>
     /// 대상에게 간단하게 스태미나를 부여합니다. (편의성 오버로드)
     /// </summary>
     public void TakeStamina(Character caster, float baseStaminaAmount, StaminaFlag flags = StaminaFlag.Normal)
@@ -542,7 +530,7 @@ public class Character : MonoBehaviour, IDamageable
     #endregion
 
     /// <summary>
-    /// 턴 종료 시 호출하여 실드 지속 시간을 1 감소시킵니다.
+    /// 턴 시작 시 호출하여 실드 지속 시간을 1 감소시킵니다.
     /// 0 이하가 되면 실드 값을 0으로 만들고 지속 시간을 0으로 리셋합니다.
     /// </summary>
     public void UpdateShieldDuration()

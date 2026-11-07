@@ -7,7 +7,6 @@ characterStat:
   maxHealth: 30
   maxStamina: 100
   staminaRegenPerSecond: 30
-  maxMoveCount: 1
-  maxTilesPerMove: 3
+  moveRange: 3
 minDropGoldAmount: 5
 maxDropGoldAmount: 15

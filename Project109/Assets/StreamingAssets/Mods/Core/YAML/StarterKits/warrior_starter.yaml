@@ -6,8 +6,7 @@ characterStat:
   maxHealth: 100
   maxStamina: 120
   staminaRegenPerSecond: 40
-  maxMoveCount: 1
-  maxTilesPerMove: 3
+  moveRange: 3
 startCards:
   - "검격"
   - "검격"
