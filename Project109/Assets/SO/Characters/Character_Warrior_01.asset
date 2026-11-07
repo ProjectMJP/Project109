@@ -22,8 +22,7 @@ MonoBehaviour:
     maxHealth: 100
     maxStamina: 120
     staminaRegenPerSecond: 30
-    maxMoveCount: 1
-    maxTilesPerMove: 3
+    moveRange: 3
   startRelic:
   - "\uC7AC\uC0DD\uC131 \uCCA0\uD310"
   startCards:

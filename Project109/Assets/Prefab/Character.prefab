@@ -63,10 +63,8 @@ MonoBehaviour:
     maxHealth: 100
     maxStamina: 120
     staminaRegenPerSecond: 40
-    maxMoveCount: 1
-    maxTilesPerMove: 3
-  _curMoveCount: 0
-  _curTilesPerMove: 0
+    moveRange: 3
+  _curMoveRange: 0
   _currentState: 0
   isDead: 0
   _curHealth: 0
