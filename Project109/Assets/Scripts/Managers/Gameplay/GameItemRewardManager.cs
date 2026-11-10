@@ -439,14 +439,6 @@ public class GameItemRewardManager : MonoBehaviour
         }
     }
 
-    public List<CardData> GetCommonCardList() { return commonCardList; }
-    public List<CardData> GetRareCardList() { return rareCardList; }
-    public List<CardData> GetUniqueCardList() { return uniqueCardList; }
-
-    public List<RelicData> GetCommonRelicList() { return commonRelicList; }
-    public List<RelicData> GetRareRelicList() { return rareRelicList; }
-    public List<RelicData> GetUniqueRelicList() { return uniqueRelicList; }
-
     /// <summary>
     /// 드롭 테이블을 기반으로 중복 없는 무작위 카드 목록을 지정한 개수만큼 추첨합니다.
     /// </summary>

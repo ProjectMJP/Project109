@@ -74,7 +74,7 @@ public class CardMasteryManager : MonoBehaviour
     {
         if (card == null) return;
 
-        Debug.Log($"Reporting action {triggerType} for card {card.path} with amount {amount}");
+        Debug.Log($"Reporting action {triggerType} for card {card.cardName} with amount {amount}");
 
         float xpGain = 0;
         switch (triggerType)

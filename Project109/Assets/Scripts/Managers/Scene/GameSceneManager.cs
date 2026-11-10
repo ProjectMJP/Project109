@@ -137,17 +137,6 @@ public class GameSceneManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 동기적 초기화 호출이 필요할 때 코루틴을 시작하는 진입점입니다.
-    /// </summary>
-    public void InitializePlayer()
-    {
-        if (player == null)
-        {
-            StartCoroutine(InitializePlayerCoroutine());
-        }
-    }
-
-    /// <summary>
     /// 세션 상주 TopHUD를 생성하고 Player의 스탯 및 유물 이벤트를 바인딩합니다.
     /// </summary>
     public void InitializeTopHUD()

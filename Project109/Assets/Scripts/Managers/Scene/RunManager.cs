@@ -90,14 +90,6 @@ public class RunManager : MonoBehaviour
         }
     }
 
-    public void InitRun()
-    {
-        if (playerBattleController != null)
-        {
-            playerBattleController.OnTurnStart();
-        }
-    }
-
     /// <summary>
     /// 던전 런 종료 시 또는 은신처 복귀 시 층수, 노드, 맵 데이터를 완전히 리셋합니다.
     /// </summary>
@@ -121,33 +113,6 @@ public class RunManager : MonoBehaviour
     {
         int slot = GameSceneManager.instance != null ? GameSceneManager.instance.currentSaveSlot : 1;
         SaveSystem.SaveGame(this, slot);
-    }
-
-    public void LoadRun()
-    {
-        int slot = GameSceneManager.instance != null ? GameSceneManager.instance.currentSaveSlot : 1;
-        LoadRun(slot);
-    }
-
-    public void LoadRun(int slotIndex)
-    {
-        RunSaveData data = SaveSystem.LoadGameData(slotIndex);
-        if (data == null)
-        {
-            Debug.LogWarning($"[RunManager] 슬롯 {slotIndex}에 로드할 게임 데이터가 존재하지 않습니다.");
-            return;
-        }
-
-        // 1. 던전 런 진행도 메타 복구 (SaveSystem에 위임)
-        SaveSystem.RestoreRunData(data, this);
-
-        // 2. 던전 인필드/맵 상태 재개
-        ResumeRunAfterLoad();
-
-        if (SceneLoadManager.instance != null)
-        {
-            SceneLoadManager.instance.FadeIn();
-        }
     }
 
     /// <summary>
@@ -174,24 +139,6 @@ public class RunManager : MonoBehaviour
         else
         {
             LoadCurrentNodeDataInMap();
-        }
-    }
-
-    public void AddInGame_Currency(CurrencyType type, int amount)
-    {
-        Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
-        if (player == null || player.playerStat == null) return;
-
-        switch (type)
-        {
-            case CurrencyType.Gold:
-                player.playerStat.InGameCurrencyGold += amount;
-                break;
-            case CurrencyType.MemorySharp:
-                player.playerStat.InGameCurrencyMemorySharp += amount;
-                break;
-            default:
-                break;
         }
     }
 

@@ -56,7 +56,6 @@ public class Card : IDescribable
 
     // 하위 호환성 및 Lua 모딩용 프록시 프로퍼티
     public string cardName => cardData != null ? cardData.cardName : string.Empty;
-    public string path => cardData != null ? cardData.cardName : string.Empty;
 
     /// <summary>
     /// 카드가 사용 시 무덤 대신 소멸(Exhaust)되는 태그를 보유하고 있는지 여부를 반환합니다.
@@ -393,20 +392,6 @@ public class Card : IDescribable
 
         currentMasteryXP += amount;
         UnityEngine.Debug.Log($"Added {amount} mastery points to card {cardData?.cardName}. Current: {currentMasteryXP}/{maxMasteryXP}");
-
-        // 테스트를 위해 마스터리 업그레이드 UI 트리거를 일시적으로 비활성화합니다.
-        // if (currentMasteryXP >= maxMasteryXP)
-        // {
-        //     TriggerMasteryUpgradeUI();
-        // }
-    }
-
-    private void TriggerMasteryUpgradeUI()
-    {
-        if (CardMasteryManager.instance != null)
-        {
-            CardMasteryManager.instance.ProcessMasteryUpgrade(this);
-        }
     }
 
     /// <summary>
