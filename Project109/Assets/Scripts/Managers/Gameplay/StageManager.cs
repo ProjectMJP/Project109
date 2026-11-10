@@ -1,8 +1,8 @@
+using CardTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using CardTypes;
 using Random = UnityEngine.Random;
 
 
@@ -311,7 +311,13 @@ public class StageManager : IInitializable, System.IDisposable
             string monsterId = spawnMonsterList[i];
 
             NPCUnitData aiData = ResolveNPCUnitData(monsterId);
-            string modelAddress = (aiData != null && !string.IsNullOrEmpty(aiData.prefabAddress))
+            if (aiData == null || aiData.characterStat == null)
+            {
+                Debug.LogError($"[StageManager] 몬스터 데이터(NPCUnitData 또는 CharacterStat)를 찾을 수 없어 스폰을 건너뜁니다: {monsterId}");
+                continue;
+            }
+
+            string modelAddress = !string.IsNullOrEmpty(aiData.prefabAddress)
                 ? aiData.prefabAddress
                 : monsterId;
 
@@ -340,23 +346,8 @@ public class StageManager : IInitializable, System.IDisposable
             if (enemyCharacter != null)
             {
                 enemyCharacter.faction = CharacterFaction.Enemy;
-                CharacterStat enemyStat = (aiData != null && aiData.characterStat != null)
-                    ? aiData.characterStat
-                    : new CharacterStat
-                    {
-                        maxHealth = 50f,
-                        maxStamina = 100f,
-                        staminaRegenPerSecond = 10f,
-                        moveRange = 2,
-                    };
-                enemyCharacter.InitializeStat(enemyStat);
-
-                NPCUnitData targetAiData = aiData ?? new NPCUnitData
-                {
-                    unitId = monsterId,
-                    characterStat = enemyStat
-                };
-                enemyController = new NPCUnitController(enemyCharacter, targetAiData);
+                enemyCharacter.InitializeStat(aiData.characterStat);
+                enemyController = new NPCUnitController(enemyCharacter, aiData);
 
                 if (enemyCharacter.characterMove != null)
                 {
@@ -671,18 +662,6 @@ public class StageManager : IInitializable, System.IDisposable
                 {
                     prefab = m;
                     break;
-                }
-            }
-
-            if (prefab == null)
-            {
-                foreach (var m in AssetCacheManager.instance.modelList)
-                {
-                    if (m != null && m.name.ToLower().Contains("monster"))
-                    {
-                        prefab = m;
-                        break;
-                    }
                 }
             }
         }

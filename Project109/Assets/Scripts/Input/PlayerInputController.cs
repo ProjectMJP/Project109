@@ -7,6 +7,12 @@ public class PlayerInputController : MonoBehaviour
     private static PlayerInputController _instance;
     private static bool _isShuttingDown = false;
 
+    /// <summary>
+    /// 지연 생성(Lazy Instantiation)을 유발하지 않고 현재 활성 인스턴스가 존재하는지 확인합니다.
+    /// OnDisable / OnDestroy / Dispose 등 해제 시점에 안전하게 구독 해제할 때 사용합니다.
+    /// </summary>
+    public static bool HasInstance => _instance != null && !_isShuttingDown;
+
     public static PlayerInputController instance
     {
         get
@@ -42,6 +48,18 @@ public class PlayerInputController : MonoBehaviour
     /// </summary>
     public bool IsWorldInputBlocked { get; set; } = false;
 
+    /// <summary>
+    /// OnCancelEvent가 발행되는 시점에 월드 입력이 차단 상태였는지 여부입니다.
+    /// ESC 1회 입력으로 최상위 팝업이 닫히면서 IsWorldInputBlocked가 해제되더라도,
+    /// 동일 이벤트 호출 체인 내의 월드 조작(타깃팅/이동) 취소가 중복 실행되지 않도록 방어합니다.
+    /// </summary>
+    public bool WasWorldInputBlockedOnCancel { get; private set; } = false;
+
+    /// <summary>
+    /// 현재 발행 중인 OnCancelEvent가 ESC 키 입력에 의한 것인지 여부입니다. (우클릭에 의해 UI 팝업이 닫히는 현상 방어)
+    /// </summary>
+    public bool IsEscapeCancel { get; private set; } = false;
+
     private Vector2 startTouchPos;
     private Vector2 lastTouchPos;
     private Vector2 lastHoverPos;
@@ -60,18 +78,21 @@ public class PlayerInputController : MonoBehaviour
             }
         }
 
-        // 마우스 우클릭 혹은 ESC(취소) 입력 감지 (월드 조작 취소)
+        // ESC(전역 취소) 또는 마우스 우클릭(월드 비차단 시 조작 취소) 입력 감지
+        bool isEscapePressed = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+        bool isRightClickPressed = !IsWorldInputBlocked && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+
+        if (isEscapePressed || isRightClickPressed)
+        {
+            WasWorldInputBlockedOnCancel = IsWorldInputBlocked;
+            IsEscapeCancel = isEscapePressed;
+            OnCancelEvent?.Invoke();
+            WasWorldInputBlockedOnCancel = false;
+            IsEscapeCancel = false;
+        }
+
         if (!IsWorldInputBlocked)
         {
-            if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
-            {
-                OnCancelEvent?.Invoke();
-            }
-            else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-            {
-                OnCancelEvent?.Invoke();
-            }
-
             // 실시간 포인터 이동 감지 (호버 타깃팅용)
             Vector2 currentPointerPos = GetCurrentPointerPosition();
             if (currentPointerPos != lastHoverPos)

@@ -1,6 +1,6 @@
+using CardTypes;
 using EventStructs;
 using GameItem.Types;
-using CardTypes;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -26,11 +26,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     {
         OnBattleEnd();
 
-        if (PlayerInputController.instance != null)
+        if (PlayerInputController.HasInstance)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
-            PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
+            PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
         }
     }
 
@@ -178,7 +178,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         {
             PlayerInputController.instance.OnTouchClickEvent += HandleGlobalClick;
             PlayerInputController.instance.OnPointerHoverEvent += HandlePointerHover;
-            PlayerInputController.instance.OnCancelEvent += CancelCurrentState;
+            PlayerInputController.instance.OnCancelEvent += HandleCancelInput;
         }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
@@ -204,11 +204,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         // 4. 이벤트 구독 해제
-        if (PlayerInputController.instance != null)
+        if (PlayerInputController.HasInstance)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
-            PlayerInputController.instance.OnCancelEvent -= CancelCurrentState;
+            PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
         }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
@@ -329,7 +329,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
             if (UIManager.instance != null)
             {
-                UIManager.instance.UpdateEffectAreaUI(card);
+                UIManager.instance.UpdateEffectAreaUI(casterPos, card);
             }
 
             Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
@@ -470,6 +470,27 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
+    /// 입력 컨트롤러의 취소(ESC/우클릭) 이벤트 수신 시 호출됩니다.
+    /// 모달 팝업이 열려 있거나 동일 프레임에 팝업 닫기가 먼저 소비된 경우 타깃팅/이동 취소가 중복 실행되지 않도록 방어합니다.
+    /// </summary>
+    private void HandleCancelInput()
+    {
+        if (PlayerInputController.instance != null &&
+            (PlayerInputController.instance.IsWorldInputBlocked || PlayerInputController.instance.WasWorldInputBlockedOnCancel))
+        {
+            return;
+        }
+
+        if (UIManager.instance != null &&
+            (UIManager.instance.IsWorldInputBlocked || UIManager.instance.HasActivePopup || UIManager.instance.IsCancelConsumedThisFrame))
+        {
+            return;
+        }
+
+        CancelCurrentState();
+    }
+
+    /// <summary>
     /// 현재 조작 상태(이동 모드 또는 타겟 모드) 취소
     /// </summary>
     public void CancelCurrentState()
@@ -593,8 +614,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
         _lastHoveredCoord = hoveredCoord;
 
-        Tile playerTile = controlledCharacter != null && controlledCharacter.characterMove != null 
-            ? controlledCharacter.characterMove.GetCurrentTile() 
+        Tile playerTile = controlledCharacter != null && controlledCharacter.characterMove != null
+            ? controlledCharacter.characterMove.GetCurrentTile()
             : null;
         Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : Vector2Int.zero;
 
@@ -701,71 +722,71 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                     Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
                     break;
 
-                    case PlayerControlState.Move:
-                        // 이동 모드: playerMove에게 이동 지시 (성공 시에만 이동 모드 해제 및 핸드 복귀)
-                        if (playerMove != null)
+                case PlayerControlState.Move:
+                    // 이동 모드: playerMove에게 이동 지시 (성공 시에만 이동 모드 해제 및 핸드 복귀)
+                    if (playerMove != null)
+                    {
+                        if (playerMove.ExecuteMoveToTile(targetTile))
                         {
-                            if (playerMove.ExecuteMoveToTile(targetTile))
+                            playerMove.ClearCanMoveTiles();
+                            controlState = PlayerControlState.Normal;
+                            if (_battleUI != null)
                             {
-                                playerMove.ClearCanMoveTiles();
-                                controlState = PlayerControlState.Normal;
-                                if (_battleUI != null)
+                                _battleUI.RefreshMoveStats();
+                                _battleUI.SwitchToHandMode();
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[PlayerBattleController] 유효하지 않은 이동 타일이거나 이동할 수 없습니다. (이동 모드 유지)");
+                        }
+                    }
+                    break;
+
+                case PlayerControlState.TargetSelection:
+                    // 타겟팅 모드: 사거리 유효성 검사 후 최종 시전
+                    if (activeCardForTargeting != null)
+                    {
+                        Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                            ? controlledCharacter.characterMove.GetCurrentTile()
+                            : null;
+                        if (currentTile != null)
+                        {
+                            int distance = Tile.GetDistance(currentTile, targetTile);
+                            int minDistance = activeCardForTargeting.cardData.targetMinDistance;
+                            int maxDistance = activeCardForTargeting.cardData.targetMaxDistance;
+
+                            if (distance >= minDistance && distance <= maxDistance)
+                            {
+                                TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
+                                ITargetingStrategy strategy = GetTargetingStrategy(targetType);
+
+                                if (strategy.TryCollectTargetsOnTileClicked(this, activeCardForTargeting, targetTile, out List<Character> targets, out Vector2Int targetPos))
                                 {
-                                    _battleUI.RefreshMoveStats();
-                                    _battleUI.SwitchToHandMode();
+                                    UseCard(activeCardForTargeting, targets, targetPos);
+
+                                    activeCardForTargeting = null;
+                                    _lastHoveredCoord = new Vector2Int(-999, -999);
+
+                                    if (UIManager.instance != null)
+                                    {
+                                        UIManager.instance.ClearEffectAreaTiles();
+                                    }
+                                    else if (GameMap.current != null)
+                                    {
+                                        GameMap.current.ClearCardRange();
+                                    }
+                                    controlState = PlayerControlState.Normal;
                                 }
                             }
                             else
                             {
-                                Debug.LogWarning("[PlayerBattleController] 유효하지 않은 이동 타일이거나 이동할 수 없습니다. (이동 모드 유지)");
+                                Debug.LogWarning("사거리를 벗어난 타겟 타일입니다.");
                             }
                         }
-                        break;
-
-                    case PlayerControlState.TargetSelection:
-                        // 타겟팅 모드: 사거리 유효성 검사 후 최종 시전
-                        if (activeCardForTargeting != null)
-                        {
-                            Tile currentTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
-                                ? controlledCharacter.characterMove.GetCurrentTile()
-                                : null;
-                            if (currentTile != null)
-                            {
-                                int distance = Tile.GetDistance(currentTile, targetTile);
-                                int minDistance = activeCardForTargeting.cardData.targetMinDistance;
-                                int maxDistance = activeCardForTargeting.cardData.targetMaxDistance;
-
-                                if (distance >= minDistance && distance <= maxDistance)
-                                {
-                                    TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
-                                    ITargetingStrategy strategy = GetTargetingStrategy(targetType);
-
-                                    if (strategy.TryCollectTargetsOnTileClicked(this, activeCardForTargeting, targetTile, out List<Character> targets, out Vector2Int targetPos))
-                                    {
-                                        UseCard(activeCardForTargeting, targets, targetPos);
-
-                                        activeCardForTargeting = null;
-                                        _lastHoveredCoord = new Vector2Int(-999, -999);
-
-                                        if (UIManager.instance != null)
-                                        {
-                                            UIManager.instance.ClearEffectAreaTiles();
-                                        }
-                                        else if (GameMap.current != null)
-                                        {
-                                            GameMap.current.ClearCardRange();
-                                        }
-                                        controlState = PlayerControlState.Normal;
-                                    }
-                                }
-                                else
-                                {
-                                    Debug.LogWarning("사거리를 벗어난 타겟 타일입니다.");
-                                }
-                            }
-                        }
-                        break;
-                }
+                    }
+                    break;
+            }
         }
     }
 

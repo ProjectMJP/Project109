@@ -99,7 +99,7 @@ public class BattleManager : IInitializable, IDisposable
         }
         else if (UIManager.instance != null)
         {
-            GameObject noticeUI = UIManager.instance.OpenUI("UIBattleNotice", UILayerType.Popup, true);
+            GameObject noticeUI = UIManager.instance.OpenUI(UIConstants.PANEL_BATTLE_NOTICE, UILayerType.Popup, true);
             if (noticeUI != null && noticeUI.TryGetComponent<UIBattleNotice>(out var battleNotice))
             {
                 battleNotice.ShowNotice(BattleNoticeType.BattleStart, StartCombat);
@@ -194,8 +194,8 @@ public class BattleManager : IInitializable, IDisposable
                 else
                 {
                     // 동률일 경우 플레이어 우선권 유지 (isPlayerOverflow && overflow <= maxOverflow 인 경우 교체 안 함)
-                    shouldReplace = (highestOverflowCombatant == null || 
-                                    (!isPlayerOverflow && overflow > maxOverflow) || 
+                    shouldReplace = (highestOverflowCombatant == null ||
+                                    (!isPlayerOverflow && overflow > maxOverflow) ||
                                     (isPlayerOverflow && overflow > maxOverflow + 0.0001f));
                 }
 

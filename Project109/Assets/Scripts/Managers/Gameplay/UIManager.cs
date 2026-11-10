@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
@@ -66,6 +65,33 @@ public class UIManager : MonoBehaviour
     private readonly Stack<UIPanelBase> _popupStack = new Stack<UIPanelBase>();
 
     private int _asyncLoadLockCount = 0;
+    private int _lastCancelConsumedFrame = -1;
+
+    /// <summary>
+    /// 현재 화면에 활성화된 모달 팝업이 하나라도 열려 있는지 여부입니다.
+    /// </summary>
+    public bool HasActivePopup
+    {
+        get
+        {
+            if (_popupStack.Count > 0)
+            {
+                foreach (var panel in _popupStack)
+                {
+                    if (panel != null && panel.gameObject.activeInHierarchy)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 이번 프레임에 팝업이 취소(ESC) 입력을 소비하여 닫기 동작을 수행했는지 여부입니다.
+    /// </summary>
+    public bool IsCancelConsumedThisFrame => _lastCancelConsumedFrame == Time.frameCount;
 
     /// <summary>
     /// 모달 팝업 스택에 입력을 차단하는 창(blockWorldInput == true)이 떠 있거나 비동기 UI 로딩 중이어서 배경 월드 입력이 차단되어야 하는지 여부입니다.
@@ -90,22 +116,57 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        SubscribeCancelEvent();
+    }
+
+    private void OnEnable()
+    {
+        SubscribeCancelEvent();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeCancelEvent();
+    }
 
     private void OnDestroy()
     {
+        UnsubscribeCancelEvent();
+
         if (instance == this)
         {
             instance = null;
         }
     }
 
-    private void Update()
+    private void SubscribeCancelEvent()
     {
-        // ESC(취소) 키 입력 감지 시 최상위 팝업에 닫기 요청 전달
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (PlayerInputController.instance != null)
         {
-            CloseTopPopup();
+            PlayerInputController.instance.OnCancelEvent -= HandleCancelEvent;
+            PlayerInputController.instance.OnCancelEvent += HandleCancelEvent;
         }
+    }
+
+    private void UnsubscribeCancelEvent()
+    {
+        if (PlayerInputController.HasInstance)
+        {
+            PlayerInputController.instance.OnCancelEvent -= HandleCancelEvent;
+        }
+    }
+
+    private void HandleCancelEvent()
+    {
+        // 우클릭(월드 조작 취소)이 아닌 ESC 키 입력일 때만 최상위 팝업 닫기 수행
+        if (PlayerInputController.HasInstance && !PlayerInputController.instance.IsEscapeCancel)
+        {
+            return;
+        }
+
+        CloseTopPopup();
     }
 
     /// <summary>
@@ -113,10 +174,18 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void CloseTopPopup()
     {
-        if (_popupStack.Count > 0)
+        while (_popupStack.Count > 0)
         {
             UIPanelBase topPanel = _popupStack.Peek();
+            if (topPanel == null || !topPanel.gameObject.activeInHierarchy)
+            {
+                _popupStack.Pop();
+                continue;
+            }
+
+            _lastCancelConsumedFrame = Time.frameCount;
             topPanel.OnCancelInput();
+            break;
         }
     }
 
@@ -552,26 +621,41 @@ public class UIManager : MonoBehaviour
     #endregion
     #region 카드 범위확인 UI (GameMap으로 위임)
 
+    private Vector2Int GetPlayerOriginCoord()
+    {
+        if (GameMap.current != null && GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            return GameMap.current.GetCharacterCoordinate(GameSceneManager.instance.player.character);
+        }
+        return Vector2Int.zero;
+    }
+
     /// <summary>
     /// 카드 데이터의 효과 범위를 표시합니다. 실제 타일맵 제어는 World 계층인 GameMap.current가 전담합니다.
     /// </summary>
     public void UpdateEffectAreaUI(CardData newCardData)
     {
+        UpdateEffectAreaUI(GetPlayerOriginCoord(), newCardData);
+    }
+
+    public void UpdateEffectAreaUI(Vector2Int originCoord, CardData newCardData)
+    {
         if (GameMap.current != null)
         {
-            GameMap.current.UpdateEffectArea(newCardData);
+            GameMap.current.UpdateEffectArea(originCoord, newCardData);
         }
     }
 
     public void UpdateEffectAreaUI(Card card)
     {
+        UpdateEffectAreaUI(GetPlayerOriginCoord(), card);
+    }
+
+    public void UpdateEffectAreaUI(Vector2Int originCoord, Card card)
+    {
         if (GameMap.current != null)
         {
-            GameMap.current.UpdateEffectArea(card);
-        }
-        else if (card != null && card.cardData != null)
-        {
-            UpdateEffectAreaUI(card.cardData);
+            GameMap.current.UpdateEffectArea(originCoord, card);
         }
     }
 

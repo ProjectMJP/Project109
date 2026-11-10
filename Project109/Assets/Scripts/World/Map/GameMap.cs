@@ -1,6 +1,6 @@
+using CardTypes;
 using System.Collections.Generic;
 using UnityEngine;
-using CardTypes;
 
 public class GameMap : MonoBehaviour
 {
@@ -13,17 +13,6 @@ public class GameMap : MonoBehaviour
 
     public int mapColumn;
     public int mapRow;
-
-    private readonly List<Tile> _playerSpawnTiles = new();
-    private readonly List<Tile> _enemySpawnTiles = new();
-    private readonly List<Tile> _npcSpawnTiles = new();
-
-    /// <summary>플레이어 스폰 위치 타일 목록</summary>
-    public IReadOnlyList<Tile> PlayerSpawnTiles => _playerSpawnTiles;
-    /// <summary>적 스폰 위치 타일 목록</summary>
-    public IReadOnlyList<Tile> EnemySpawnTiles => _enemySpawnTiles;
-    /// <summary>NPC/이벤트 오브젝트 스폰 위치 타일 목록</summary>
-    public IReadOnlyList<Tile> NPCSpawnTiles => _npcSpawnTiles;
 
     /// <summary>
     /// 현재 활성화된 씬의 GameMap 인스턴스 (단일 접근 창구)
@@ -249,11 +238,6 @@ public class GameMap : MonoBehaviour
             moveRangeIndicator = null;
         }
 
-        // 스폰 타일 목록 초기화
-        _playerSpawnTiles.Clear();
-        _enemySpawnTiles.Clear();
-        _npcSpawnTiles.Clear();
-
         // 3. 자식 오브젝트 중 혹시 남아있는 타일이나 인디케이터가 있다면 안전하게 정리
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
@@ -324,30 +308,9 @@ public class GameMap : MonoBehaviour
 
     private void ProcessTileSetting(MapDataSO mapData)
     {
-        _playerSpawnTiles.Clear();
-        _enemySpawnTiles.Clear();
-        _npcSpawnTiles.Clear();
-
         //생성된 타일에 알맞은 정보 추가
         foreach (CellData cell in mapData.cells)
         {
-            Tile tile = tileMap[cell.position.x][cell.position.y];
-            if (tile != null)
-            {
-                switch (cell.eventID)
-                {
-                    case "PlayerSpawn":
-                        _playerSpawnTiles.Add(tile);
-                        break;
-                    case "EnemySpawn":
-                        _enemySpawnTiles.Add(tile);
-                        break;
-                    case "NPCSpawn":
-                        _npcSpawnTiles.Add(tile);
-                        break;
-                }
-            }
-
             // eventID가 Trap이거나 objectID가 Trap으로 시작하는 경우 이동 가능(Trap)
             if (cell.eventID == "Trap" || cell.objectID.StartsWith("Trap"))
             {
@@ -456,15 +419,6 @@ public class GameMap : MonoBehaviour
     [SerializeField] private EffectAreaTile effectAreaTile;
     [SerializeField] private EffectAreaTile additionalEffectAreaTile;
 
-    public EffectAreaTile MainEffectAreaTile => effectAreaTile;
-    public EffectAreaTile AdditionalEffectAreaTile => additionalEffectAreaTile;
-
-    public void RegisterEffectAreaTiles(EffectAreaTile mainTile, EffectAreaTile additionalTile)
-    {
-        effectAreaTile = mainTile;
-        additionalEffectAreaTile = additionalTile;
-    }
-
     /// <summary>
     /// 카드 데이터의 문자열 형태 targetType을 TargetType enum으로 안전하게 변환합니다.
     /// "Enemy", "Single", "Target" 등의 동의어를 TargetType.Target으로 정규화합니다.
@@ -509,26 +463,22 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 활성 플레이어의 타일 그리드 좌표를 가져옵니다.
+    /// 지정된 캐릭터의 현재 타일 그리드 좌표를 가져옵니다.
     /// </summary>
-    public Vector2Int GetPlayerCoordinate()
+    public Vector2Int GetCharacterCoordinate(Character character)
     {
-        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        if (character != null)
         {
-            var pChar = GameSceneManager.instance.player.character;
-            if (pChar != null)
+            if (character.characterMove != null && character.characterMove.GetCurrentTile() != null)
             {
-                if (pChar.characterMove != null && pChar.characterMove.GetCurrentTile() != null)
-                {
-                    return pChar.characterMove.GetCurrentTile().GetCoord();
-                }
+                return character.characterMove.GetCurrentTile().GetCoord();
+            }
 
-                // 폴백: 월드 좌표로부터 현재 타일 탐색
-                Tile tileAtPos = GetTileAtWorldPosition(pChar.transform.position);
-                if (tileAtPos != null)
-                {
-                    return tileAtPos.GetCoord();
-                }
+            // 폴백: 월드 좌표로부터 현재 타일 탐색
+            Tile tileAtPos = GetTileAtWorldPosition(character.transform.position);
+            if (tileAtPos != null)
+            {
+                return tileAtPos.GetCoord();
             }
         }
         return Vector2Int.zero;
@@ -623,15 +573,14 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 카드 데이터의 사거리 및 효과 범위를 월드 타일맵과 프리뷰에 시각화합니다.
+    /// 지정된 시전자 원점 좌표를 기준으로 카드 데이터의 사거리 및 효과 범위를 월드 타일맵과 프리뷰에 시각화합니다.
     /// </summary>
-    public void UpdateEffectArea(CardData newCardData)
+    public void UpdateEffectArea(Vector2Int originCoord, CardData newCardData)
     {
         if (newCardData == null) return;
 
         // 1. 실제 월드 타일맵에 사거리 하이라이트 표시
-        Vector2Int playerCoord = GetPlayerCoordinate();
-        ShowCardRange(playerCoord, newCardData);
+        ShowCardRange(originCoord, newCardData);
 
         // 2. 레거시 3D 스튜디오(CardDetailUI 호환용) 업데이트 유지
         if (effectAreaTile != null)
@@ -657,13 +606,13 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 카드 객체로부터 효과 범위를 월드 타일맵에 시각화합니다.
+    /// 지정된 시전자 원점 좌표를 기준으로 카드 객체로부터 효과 범위를 월드 타일맵에 시각화합니다.
     /// </summary>
-    public void UpdateEffectArea(Card card)
+    public void UpdateEffectArea(Vector2Int originCoord, Card card)
     {
         if (card != null && card.cardData != null)
         {
-            UpdateEffectArea(card.cardData);
+            UpdateEffectArea(originCoord, card.cardData);
         }
     }
 
