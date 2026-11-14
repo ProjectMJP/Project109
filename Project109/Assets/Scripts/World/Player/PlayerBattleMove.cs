@@ -32,7 +32,8 @@ public class PlayerBattleMove
         int maxDistance = (characterMove.character != null)
             ? characterMove.character.curMoveRange
             : 0;
-        canMoveTiles = gameMap.GetReachableTiles(currentTile, maxDistance, characterMove);
+        if (canMoveTiles == null) canMoveTiles = new List<Tile>();
+        gameMap.GetReachableTiles(currentTile, maxDistance, characterMove, canMoveTiles);
 
         var indicator = gameMap.GetMoveRangeIndicator();
         if (indicator != null)

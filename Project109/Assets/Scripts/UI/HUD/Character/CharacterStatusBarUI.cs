@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 캐릭터의 체력/방어막/스태미나 게이지(GaugeUI) 및 위치 추적을 전담하는 순수 상태바 View 컴포넌트입니다.
 /// </summary>
-public class CharacterStatusBarUI : MonoBehaviour
+public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
 {
     [Header("Target & Position Settings")]
     [SerializeField] private Transform targetTransform;

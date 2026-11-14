@@ -96,11 +96,7 @@ public class MapPainterEditor : EditorWindow
         // 2. 새 오브젝트 생성 및 추적 딕셔너리에 등록
         if (prefab != null)
         {
-            Vector3 pos = new Vector3(
-                cell.position.x * targetMapData.cellSize + targetMapData.gridOffset.x,
-                targetMapData.gridOffset.y,
-                cell.position.y * targetMapData.cellSize + targetMapData.gridOffset.z
-            );
+            Vector3 pos = targetMapData.CellToWorld(cell.position);
 
             GameObject spawned = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             spawned.transform.position = pos;
@@ -374,15 +370,12 @@ public class MapPainterEditor : EditorWindow
             Vector3 hitPoint = ray.GetPoint(enter);
 
             // 셀 크기와 오프셋을 반영하여 마우스 좌표를 인덱스로 변환
-            int gridX = Mathf.FloorToInt((hitPoint.x - targetMapData.gridOffset.x) / targetMapData.cellSize + 0.5f);
-            int gridY = Mathf.FloorToInt((hitPoint.z - targetMapData.gridOffset.z) / targetMapData.cellSize + 0.5f);
+            Vector2Int gridCoord = targetMapData.WorldToCell(hitPoint);
+            int gridX = gridCoord.x;
+            int gridY = gridCoord.y;
 
             // 하이라이트 박스 크기 cellSize에 맞게 조절
-            Vector3 snappedPos = new Vector3(
-                gridX * targetMapData.cellSize + targetMapData.gridOffset.x,
-                targetMapData.gridOffset.y,
-                gridY * targetMapData.cellSize + targetMapData.gridOffset.z
-            );
+            Vector3 snappedPos = targetMapData.CellToWorld(gridCoord);
 
             // 마우스 커서 위치에 하이라이트 박스 그리기
             Handles.color = new Color(1, 1, 0, 0.5f); // 반투명 노란색
@@ -445,11 +438,7 @@ public class MapPainterEditor : EditorWindow
         {
             if (cell.eventID != "Empty")
             {
-                Vector3 pos = new Vector3(
-                    cell.position.x * targetMapData.cellSize + targetMapData.gridOffset.x,
-                    targetMapData.gridOffset.y,
-                    cell.position.y * targetMapData.cellSize + targetMapData.gridOffset.z
-                );
+                Vector3 pos = targetMapData.CellToWorld(cell.position);
 
                 // 프리팹 위에 둥둥 떠 있도록 높이(Y)를 1.5만큼 올려줍니다.
                 Vector3 floatingPos = pos + Vector3.up * (targetMapData.cellSize * 1.5f);

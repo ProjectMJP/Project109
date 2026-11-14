@@ -166,7 +166,7 @@ public class Tile : MonoBehaviour
         // 장애물(Obstacle) 타일 위에 올라서려면 PassObstacles 비트가 켜져 있어야 합니다.
         if (tileState == TileState.Obstacle)
         {
-            return mover.capabilities.HasFlag(MoverCapability.PassObstacles);
+            return (mover.capabilities & MoverCapability.PassObstacles) != 0;
         }
 
         // 다른 생존 유닛이 이미 점유 중인 타일에는 올라설 수 없음 (자기 자신 제외)

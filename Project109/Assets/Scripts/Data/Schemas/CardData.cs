@@ -1,4 +1,5 @@
 using System;
+using CardTypes;
 using GameItem.Types;
 using System.Collections.Generic;
 using System.IO;
@@ -28,7 +29,21 @@ public class CardData : IModAssetResolver, IIdentifiable
     public List<string> classTypes { get; set; } = new List<string>();
 
     public string cardType { get; set; }
-    public string targetType { get; set; }
+
+    private string _targetType;
+    public string targetType
+    {
+        get => _targetType;
+        set
+        {
+            _targetType = value;
+            parsedTargetType = ParseTargetType(value);
+        }
+    }
+
+    // YAML 로드 시 파싱되어 캐싱되는 타깃팅 타입 (런타임 문자열 파싱 제거)
+    [YamlIgnore]
+    public TargetType parsedTargetType { get; set; } = TargetType.SingleEnemy;
     public int targetMinDistance { get; set; }
     public int targetMaxDistance { get; set; }
     public int targetCount { get; set; } = 1;
@@ -96,8 +111,33 @@ public class CardData : IModAssetResolver, IIdentifiable
         return _dummyInstance.GetDescription();
     }
 
+    /// <summary>
+    /// 카드 데이터의 문자열 형태 targetType을 TargetType 열거형으로 안전하게 변환합니다.
+    /// YAML 내 레거시 표기("Enemy", "Single", "Target", "Area" 등)도 표준 열거형으로 정규화합니다.
+    /// </summary>
+    public static TargetType ParseTargetType(string targetTypeStr)
+    {
+        if (string.IsNullOrEmpty(targetTypeStr)) return TargetType.SingleEnemy;
+        string lower = targetTypeStr.Trim().ToLowerInvariant();
+        switch (lower)
+        {
+            case "self": return TargetType.Self;
+            case "areaself": case "area": case "pbaoe": return TargetType.AreaSelf;
+            case "areaground": case "ground": case "tile": return TargetType.AreaGround;
+            case "randomenemy": case "random": return TargetType.RandomEnemy;
+            case "multienemy": case "multi": return TargetType.MultiEnemy;
+            case "allenemies": case "all": return TargetType.AllEnemies;
+            case "singleally": case "ally": return TargetType.SingleAlly;
+            case "allallies": return TargetType.AllAllies;
+            case "singleenemy": case "enemy": case "single": case "target": default: return TargetType.SingleEnemy;
+        }
+    }
+
     public bool ResolveAndValidate(string modDirectory)
     {
+        // 0. 타깃팅 타입 문자열 사전 파싱 및 캐싱
+        this.parsedTargetType = ParseTargetType(this.targetType);
+
         // 1. 카드 일러스트/아이콘 로드 (Default.png 폴백 지원)
         ModAssetLoader.TryLoadIconWithFallback(modDirectory, "Cards", cardName, 256, out Sprite sprite);
         this.cardSprite = sprite;

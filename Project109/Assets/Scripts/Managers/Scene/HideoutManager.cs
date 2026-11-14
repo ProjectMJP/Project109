@@ -134,11 +134,7 @@ public class HideoutManager : MonoBehaviour
 
     private Vector3 GetCellWorldPosition(Vector2Int cellPos)
     {
-        return new Vector3(
-            cellPos.x * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.x,
-            _hideoutMapData.gridOffset.y,
-            cellPos.y * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.z
-        );
+        return _hideoutMapData.CellToWorld(cellPos);
     }
 
     /// <summary>
@@ -169,11 +165,7 @@ public class HideoutManager : MonoBehaviour
 
     private void ApplyPlayerSetup(Player player, Vector2Int spawnCoord)
     {
-        Vector3 spawnWorldPos = new Vector3(
-            spawnCoord.x * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.x,
-            _hideoutMapData.gridOffset.y,
-            spawnCoord.y * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.z
-        );
+        Vector3 spawnWorldPos = _hideoutMapData.CellToWorld(spawnCoord);
 
         player.character.transform.position = spawnWorldPos;
 

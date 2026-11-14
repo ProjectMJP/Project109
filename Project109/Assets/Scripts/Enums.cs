@@ -74,12 +74,7 @@ namespace CardTypes
         MultiEnemy,    // 사거리 내 적 N명 순차 수동 지정
         AllEnemies,    // 전장의 모든 적 즉시 타격
         SingleAlly,    // 사거리 내 아군 1명 수동 지정 (미래 확장용)
-        AllAllies,     // 전장의 모든 아군 즉시 적용 (미래 확장용)
-
-        // 레거시 하위 호환 별칭
-        Target = SingleEnemy,
-        Area = AreaSelf,
-        All = AllEnemies
+        AllAllies      // 전장의 모든 아군 즉시 적용 (미래 확장용)
     }
 
     public enum CardMasteryType

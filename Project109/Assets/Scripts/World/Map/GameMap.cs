@@ -75,35 +75,31 @@ public class GameMap : MonoBehaviour
     /// <summary>
     /// 월드 3D 좌표에 가장 가까운 타일을 검색하여 반환합니다.
     /// </summary>
+    private float _cellSize = 1.0f;
+    private Vector3 _gridOffset = Vector3.zero;
+
+    private static readonly int[] _dirX = { 0, 0, 1, -1 };
+    private static readonly int[] _dirY = { 1, -1, 0, 0 };
+
+    private readonly Queue<Tile> _bfsCurrentQueue = new Queue<Tile>(32);
+    private readonly Queue<Tile> _bfsNextQueue = new Queue<Tile>(32);
+    private readonly HashSet<Tile> _bfsVisited = new HashSet<Tile>();
+
+    /// <summary>
+    /// 월드 좌표를 그리드 오프셋 및 셀 크기 기반 O(1) 산술 인덱싱으로 변환하여 타일을 반환합니다.
+    /// 그리드 범위를 벗어나거나 타일이 null이면 null을 반환합니다.
+    /// </summary>
     public Tile GetTileAtWorldPosition(Vector3 worldPos)
     {
-        if (tileMap == null || tileMap.Count == 0) return null;
+        if (tileMap == null || tileMap.Count == 0 || _cellSize <= 0f) return null;
 
-        Tile closestTile = null;
-        float minDistanceSqr = float.MaxValue;
+        Vector3 localPos = transform.InverseTransformPoint(worldPos);
+        Vector2Int coord = MapDataSO.WorldToCell(localPos, _gridOffset, _cellSize);
 
-        for (int col = 0; col < tileMap.Count; col++)
-        {
-            if (tileMap[col] == null) continue;
-            for (int row = 0; row < tileMap[col].Count; row++)
-            {
-                Tile t = tileMap[col][row];
-                if (t != null)
-                {
-                    float dx = t.transform.position.x - worldPos.x;
-                    float dz = t.transform.position.z - worldPos.z;
-                    float distSqr = dx * dx + dz * dz;
+        if (!IsValidCoordinate(coord.x, coord.y)) return null;
+        if (coord.x >= tileMap.Count || tileMap[coord.x] == null || coord.y >= tileMap[coord.x].Count) return null;
 
-                    if (distSqr < minDistanceSqr)
-                    {
-                        minDistanceSqr = distSqr;
-                        closestTile = t;
-                    }
-                }
-            }
-        }
-
-        return closestTile;
+        return tileMap[coord.x][coord.y];
     }
 
     /// <summary>
@@ -249,8 +245,13 @@ public class GameMap : MonoBehaviour
             }
         }
 
-        // 4. 경로 탐색 인스턴스 및 맵 크기 초기화
+        // 4. 경로 탐색 인스턴스, BFS 버퍼 및 맵 크기/메트릭 초기화
         _routePathfinding = null;
+        _bfsCurrentQueue.Clear();
+        _bfsNextQueue.Clear();
+        _bfsVisited.Clear();
+        _cellSize = 1.0f;
+        _gridOffset = Vector3.zero;
         mapColumn = 0;
         mapRow = 0;
     }
@@ -258,9 +259,10 @@ public class GameMap : MonoBehaviour
     public void TileCreateByMapData(MapDataSO mapData)
     {
         ClearTiles();
+        if (mapData == null) return;
 
-        float startX = mapData.gridOffset.x;
-        float startZ = mapData.gridOffset.z;
+        _cellSize = mapData.cellSize;
+        _gridOffset = mapData.gridOffset;
 
         tileMap = new List<List<Tile>>();
         for (int columnIndex = 0; columnIndex < mapData.width; columnIndex++)
@@ -269,9 +271,9 @@ public class GameMap : MonoBehaviour
             for (int rowIndex = 0; rowIndex < mapData.height; rowIndex++)
             {
                 Tile tile = Instantiate(prefabTile, transform).GetComponent<Tile>();
-                tile.transform.localPosition = new Vector3(startX + (columnIndex) * mapData.cellSize,
-                                                         0.01f,
-                                                         startZ + (rowIndex) * mapData.cellSize);
+                Vector3 tileLocalPos = mapData.CellToWorld(columnIndex, rowIndex);
+                tileLocalPos.y = 0.01f;
+                tile.transform.localPosition = tileLocalPos;
 
                 // 타일의 콜라이더 크기를 현재 맵의 cellSize에 맞춰 동기화 (콜라이더 중첩 방지)
                 BoxCollider col = tile.GetComponent<BoxCollider>();
@@ -288,7 +290,7 @@ public class GameMap : MonoBehaviour
 
         //맵 크기 저장
         mapColumn = tileMap.Count;
-        mapRow = tileMap[0].Count;
+        mapRow = mapColumn > 0 ? tileMap[0].Count : 0;
 
         Debug.Log($"GameMap Column: {mapColumn}, Row: {mapRow}");
 
@@ -347,68 +349,85 @@ public class GameMap : MonoBehaviour
     public List<Tile> GetReachableTiles(Tile moveStart, int canMoveDistance, CharacterMove mover)
     {
         List<Tile> checkList = new List<Tile>();
-        if (mover == null || moveStart == null || tileMap == null) return checkList;
+        GetReachableTiles(moveStart, canMoveDistance, mover, checkList);
+        return checkList;
+    }
 
-        Queue<Tile> checkNextTiles = new Queue<Tile>();
-        Queue<Tile> checkCurrentTiles = new Queue<Tile>();
-        checkCurrentTiles.Enqueue(moveStart);
+    /// <summary>
+    /// 이동 가능한 타일 목록을 힙 할당 없이 전달받은 리스트에 채웁니다.
+    /// (비주얼 인디케이터 표시는 MapMoveRangeIndicator가 별도로 처리합니다.)
+    /// </summary>
+    public void GetReachableTiles(Tile moveStart, int canMoveDistance, CharacterMove mover, List<Tile> results)
+    {
+        if (results == null) return;
+        results.Clear();
+        if (mover == null || moveStart == null || tileMap == null || canMoveDistance <= 0) return;
 
-        int column = mapColumn;
-        int row = mapRow;
+        Queue<Tile> currentQueue = _bfsCurrentQueue;
+        Queue<Tile> nextQueue = _bfsNextQueue;
+        currentQueue.Clear();
+        nextQueue.Clear();
+        _bfsVisited.Clear();
 
-        HashSet<Tile> visited = new HashSet<Tile>();
-        visited.Add(moveStart);
-
-        for (int currentDistance = 0; currentDistance < canMoveDistance; currentDistance++)
+        try
         {
-            while (checkCurrentTiles.Count != 0)
+            currentQueue.Enqueue(moveStart);
+            _bfsVisited.Add(moveStart);
+
+            for (int currentDistance = 0; currentDistance < canMoveDistance; currentDistance++)
             {
-                Tile t = checkCurrentTiles.Dequeue();
-
-                // 상,하,좌,우 순으로 탐색
-                int[] dirX = { 0, 0, 1, -1 };
-                int[] dirY = { 1, -1, 0, 0 };
-
-                for (int i = 0; i < 4; i++)
+                while (currentQueue.Count != 0)
                 {
-                    int x = t.GetCoord().x + dirX[i];
-                    int y = t.GetCoord().y + dirY[i];
+                    Tile t = currentQueue.Dequeue();
+                    Vector2Int tCoord = t.GetCoord();
 
-                    // 맵 범위 검사
-                    if (!IsValidCoordinate(x, y)) continue;
-
-                    Tile nextTile = tileMap[x][y];
-                    if (nextTile == null || visited.Contains(nextTile)) continue;
-
-                    // 시작 위치 제외
-                    if (nextTile.GetCoord() == moveStart.GetCoord()) continue;
-
-                    // 이동 및 전파 가능 여부 판단
-                    if (nextTile.tileState == TileState.Full)
+                    // 상,하,좌,우 순으로 탐색
+                    for (int i = 0; i < 4; i++)
                     {
-                        if (!mover.capabilities.HasFlag(MoverCapability.PassWalls)) continue;
-                    }
-                    else if (nextTile.tileState == TileState.Obstacle)
-                    {
-                        if (!mover.capabilities.HasFlag(MoverCapability.PassObstacles)) continue;
-                    }
+                        int x = tCoord.x + _dirX[i];
+                        int y = tCoord.y + _dirY[i];
 
-                    visited.Add(nextTile);
-                    checkNextTiles.Enqueue(nextTile);
+                        // 맵 범위 검사
+                        if (!IsValidCoordinate(x, y)) continue;
+                        if (x >= tileMap.Count || tileMap[x] == null || y >= tileMap[x].Count) continue;
 
-                    // 멈춰설 수 있는 타일만 최종 이동 범위에 추가 (비주얼 표시는 MapMoveRangeIndicator 전담)
-                    if (nextTile.CanEnter(mover))
-                    {
-                        checkList.Add(nextTile);
+                        Tile nextTile = tileMap[x][y];
+                        if (nextTile == null || _bfsVisited.Contains(nextTile)) continue;
+
+                        // 이동 및 전파 가능 여부 판단 (HasFlag 박싱 회피용 비트 연산)
+                        if (nextTile.tileState == TileState.Full)
+                        {
+                            if ((mover.capabilities & MoverCapability.PassWalls) == 0) continue;
+                        }
+                        else if (nextTile.tileState == TileState.Obstacle)
+                        {
+                            if ((mover.capabilities & MoverCapability.PassObstacles) == 0) continue;
+                        }
+
+                        _bfsVisited.Add(nextTile);
+                        nextQueue.Enqueue(nextTile);
+
+                        // 멈춰설 수 있는 타일만 최종 이동 범위에 추가 (비주얼 표시는 MapMoveRangeIndicator 전담)
+                        if (nextTile.CanEnter(mover))
+                        {
+                            results.Add(nextTile);
+                        }
                     }
                 }
+
+                // 큐 참조 스왑으로 힙 할당 없이 다음 깊이 탐색 준비
+                Queue<Tile> temp = currentQueue;
+                currentQueue = nextQueue;
+                nextQueue = temp;
+                nextQueue.Clear();
             }
-
-            checkCurrentTiles = new Queue<Tile>(checkNextTiles);
-            checkNextTiles.Clear();
         }
-
-        return checkList;
+        finally
+        {
+            _bfsCurrentQueue.Clear();
+            _bfsNextQueue.Clear();
+            _bfsVisited.Clear();
+        }
     }
 
     #endregion
@@ -418,49 +437,6 @@ public class GameMap : MonoBehaviour
     [Header("Effect Area Tiles")]
     [SerializeField] private EffectAreaTile effectAreaTile;
     [SerializeField] private EffectAreaTile additionalEffectAreaTile;
-
-    /// <summary>
-    /// 카드 데이터의 문자열 형태 targetType을 TargetType enum으로 안전하게 변환합니다.
-    /// "Enemy", "Single", "Target" 등의 동의어를 TargetType.Target으로 정규화합니다.
-    /// </summary>
-    public static TargetType ParseTargetType(string targetTypeStr)
-    {
-        if (string.IsNullOrEmpty(targetTypeStr)) return TargetType.SingleEnemy;
-        string lower = targetTypeStr.Trim().ToLowerInvariant();
-        switch (lower)
-        {
-            case "self":
-                return TargetType.Self;
-            case "areaself":
-            case "area":
-            case "pbaoe":
-                return TargetType.AreaSelf;
-            case "areaground":
-            case "ground":
-            case "tile":
-                return TargetType.AreaGround;
-            case "randomenemy":
-            case "random":
-                return TargetType.RandomEnemy;
-            case "multienemy":
-            case "multi":
-                return TargetType.MultiEnemy;
-            case "allenemies":
-            case "all":
-                return TargetType.AllEnemies;
-            case "singleally":
-            case "ally":
-                return TargetType.SingleAlly;
-            case "allallies":
-                return TargetType.AllAllies;
-            case "singleenemy":
-            case "enemy":
-            case "single":
-            case "target":
-            default:
-                return TargetType.SingleEnemy;
-        }
-    }
 
     /// <summary>
     /// 지정된 캐릭터의 현재 타일 그리드 좌표를 가져옵니다.
@@ -491,7 +467,7 @@ public class GameMap : MonoBehaviour
     {
         if (cardData == null) return new List<Vector2Int>();
 
-        TargetType parsedTargetType = ParseTargetType(cardData.targetType);
+        TargetType parsedTargetType = cardData.parsedTargetType;
         GridAreaSearch search = new GridAreaSearch();
         return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance);
     }
@@ -586,7 +562,7 @@ public class GameMap : MonoBehaviour
         if (effectAreaTile != null)
         {
             effectAreaTile.ClearAllTiles();
-            SetEffectAreaFromTargetDistance(newCardData.targetType,
+            SetEffectAreaFromTargetDistance(newCardData.parsedTargetType,
                                             newCardData.targetMinDistance,
                                             newCardData.targetMaxDistance,
                                             AreaIndicatorChannel.TargetTile);
@@ -636,11 +612,10 @@ public class GameMap : MonoBehaviour
         }
     }
 
-    public void SetEffectAreaFromTargetDistance(string cardTargetType, int minDistance, int maxDistance, AreaIndicatorChannel type)
+    public void SetEffectAreaFromTargetDistance(TargetType parsedTargetType, int minDistance, int maxDistance, AreaIndicatorChannel type)
     {
         if (effectAreaTile == null) return;
 
-        TargetType parsedTargetType = ParseTargetType(cardTargetType);
         effectAreaTile.SetTileFromTargetDistance(parsedTargetType, minDistance, maxDistance, type);
     }
 

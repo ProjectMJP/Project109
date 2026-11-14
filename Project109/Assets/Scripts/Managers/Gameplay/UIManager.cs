@@ -6,6 +6,14 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 타깃 트랜스폼을 추적하는 월드 UI 컴포넌트 공통 인터페이스입니다.
+/// </summary>
+public interface IWorldFollowUI
+{
+    void SetTarget(Transform target, Vector3? offset = null);
+}
+
 public class UIManager : MonoBehaviour
 {
     public static UIManager instance { get; private set; }
@@ -410,47 +418,58 @@ public class UIManager : MonoBehaviour
     /// <summary>
     /// 캐릭터의 머리 위 상태바(CharacterStatusBarUI)를 World UI Layer 하위에 생성하여 반환합니다.
     /// </summary>
-    public CharacterStatusBarUI CreateStatusBarUI(Transform target, Vector3 offset)
+    /// <summary>
+    /// 월드 UI 레이어에 지정한 프리팹을 생성하고 공통 설정(레이어, 스케일, 추적 타깃, 활성 목록 등록)을 적용합니다.
+    /// </summary>
+    public T CreateWorldUI<T>(string prefabKey, Transform target, Vector3 offset) where T : Component
     {
+        if (string.IsNullOrEmpty(prefabKey))
+        {
+            Debug.LogError("[UIManager] CreateWorldUI에 전달된 prefabKey가 비어 있습니다.");
+            return null;
+        }
 
         Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
         GameObject prefab = null;
 
         if (AssetCacheManager.instance != null)
         {
-            AssetCacheManager.instance.TryGetUI(UIConstants.PREFAB_CHARACTER_STATUS_BAR, out prefab);
+            AssetCacheManager.instance.TryGetUI(prefabKey, out prefab);
         }
 
-        CharacterStatusBarUI statusBarUI = null;
-        string targetName = target != null ? target.name : "Target";
-        if (prefab != null)
+        if (prefab == null)
         {
-            GameObject go = Instantiate(prefab, parentTransform);
-            go.name = $"CharacterStatusBar_{targetName}";
-            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
-            statusBarUI = go.GetComponent<CharacterStatusBarUI>();
-            if (statusBarUI == null)
-            {
-                Debug.LogError($"[UIManager] 프리팹({UIConstants.PREFAB_CHARACTER_STATUS_BAR})에 CharacterStatusBarUI 컴포넌트가 누락되어 있습니다!");
-                Destroy(go);
-                return null;
-            }
-        }
-        else
-        {
-            Debug.LogError($"[UIManager] 필수 프리팹({UIConstants.PREFAB_CHARACTER_STATUS_BAR})이 AssetCacheManager에 로드되지 않았습니다.");
+            Debug.LogError($"[UIManager] 필수 프리팹({prefabKey})이 AssetCacheManager에 로드되지 않았습니다.");
             return null;
         }
 
-        if (statusBarUI != null)
+        string targetName = target != null ? target.name : "Target";
+        GameObject go = Instantiate(prefab, parentTransform);
+        go.name = $"{typeof(T).Name}_{targetName}";
+        SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
+
+        T uiComponent = go.GetComponent<T>();
+        if (uiComponent == null)
         {
-            // World Space 캔버스의 scale이 0.01f이므로 자식 UI의 기본 scale을 (1, 1, 1)로 보장합니다.
-            statusBarUI.transform.localScale = Vector3.one;
-            statusBarUI.SetTarget(target, offset);
-            activeWorldUIs.Add(statusBarUI);
+            Debug.LogError($"[UIManager] 프리팹({prefabKey})에 {typeof(T).Name} 컴포넌트가 누락되어 있습니다!");
+            Destroy(go);
+            return null;
         }
 
-        return statusBarUI;
+        // World Space 캔버스의 scale이 0.01f이므로 자식 UI의 기본 scale을 (1, 1, 1)로 보장합니다.
+        uiComponent.transform.localScale = Vector3.one;
+        if (uiComponent is IWorldFollowUI followUI)
+        {
+            followUI.SetTarget(target, offset);
+        }
+
+        activeWorldUIs.Add(uiComponent);
+        return uiComponent;
+    }
+
+    public CharacterStatusBarUI CreateStatusBarUI(Transform target, Vector3 offset)
+    {
+        return CreateWorldUI<CharacterStatusBarUI>(UIConstants.PREFAB_CHARACTER_STATUS_BAR, target, offset);
     }
 
     /// <summary>
@@ -458,44 +477,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public CharacterEffectListUI CreateEffectListUI(Transform target, Vector3 offset)
     {
-
-        Transform parentTransform = (_worldLayerRect != null) ? _worldLayerRect : ((worldUILayer != null) ? worldUILayer.transform : transform);
-        GameObject prefab = null;
-
-        if (AssetCacheManager.instance != null)
-        {
-            AssetCacheManager.instance.TryGetUI(UIConstants.PREFAB_CHARACTER_EFFECT_LIST, out prefab);
-        }
-
-        CharacterEffectListUI effectListUI = null;
-        string targetName = target != null ? target.name : "Target";
-        if (prefab != null)
-        {
-            GameObject go = Instantiate(prefab, parentTransform);
-            go.name = $"CharacterEffectList_{targetName}";
-            SetLayerRecursively(go, LayerMask.NameToLayer("WorldUI"));
-            effectListUI = go.GetComponent<CharacterEffectListUI>();
-            if (effectListUI == null)
-            {
-                Debug.LogError($"[UIManager] 프리팹({UIConstants.PREFAB_CHARACTER_EFFECT_LIST})에 CharacterEffectListUI 컴포넌트가 누락되어 있습니다!");
-                Destroy(go);
-                return null;
-            }
-        }
-        else
-        {
-            Debug.LogError($"[UIManager] 필수 프리팹({UIConstants.PREFAB_CHARACTER_EFFECT_LIST})이 AssetCacheManager에 로드되지 않았습니다.");
-            return null;
-        }
-
-        if (effectListUI != null)
-        {
-            effectListUI.transform.localScale = Vector3.one;
-            effectListUI.SetTarget(target, offset);
-            activeWorldUIs.Add(effectListUI);
-        }
-
-        return effectListUI;
+        return CreateWorldUI<CharacterEffectListUI>(UIConstants.PREFAB_CHARACTER_EFFECT_LIST, target, offset);
     }
 
     /// <summary>

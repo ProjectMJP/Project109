@@ -20,25 +20,29 @@ public class TargetingValidationTests
     [Test]
     public void ParseTargetType_CorrectlyNormalizesAllSynonyms()
     {
-        Assert.AreEqual(TargetType.SingleEnemy, GameMap.ParseTargetType("Enemy"));
-        Assert.AreEqual(TargetType.SingleEnemy, GameMap.ParseTargetType("Single"));
-        Assert.AreEqual(TargetType.SingleEnemy, GameMap.ParseTargetType("Target"));
-        Assert.AreEqual(TargetType.SingleEnemy, GameMap.ParseTargetType("SingleEnemy"));
+        Assert.AreEqual(TargetType.SingleEnemy, CardData.ParseTargetType("Enemy"));
+        Assert.AreEqual(TargetType.SingleEnemy, CardData.ParseTargetType("Single"));
+        Assert.AreEqual(TargetType.SingleEnemy, CardData.ParseTargetType("Target"));
+        Assert.AreEqual(TargetType.SingleEnemy, CardData.ParseTargetType("SingleEnemy"));
 
-        Assert.AreEqual(TargetType.Self, GameMap.ParseTargetType("Self"));
-        Assert.AreEqual(TargetType.AreaSelf, GameMap.ParseTargetType("Area"));
-        Assert.AreEqual(TargetType.AreaSelf, GameMap.ParseTargetType("AreaSelf"));
-        Assert.AreEqual(TargetType.AreaGround, GameMap.ParseTargetType("Ground"));
-        Assert.AreEqual(TargetType.AreaGround, GameMap.ParseTargetType("AreaGround"));
-        Assert.AreEqual(TargetType.RandomEnemy, GameMap.ParseTargetType("Random"));
-        Assert.AreEqual(TargetType.RandomEnemy, GameMap.ParseTargetType("RandomEnemy"));
-        Assert.AreEqual(TargetType.MultiEnemy, GameMap.ParseTargetType("Multi"));
-        Assert.AreEqual(TargetType.MultiEnemy, GameMap.ParseTargetType("MultiEnemy"));
-        Assert.AreEqual(TargetType.AllEnemies, GameMap.ParseTargetType("All"));
-        Assert.AreEqual(TargetType.AllEnemies, GameMap.ParseTargetType("AllEnemies"));
-        Assert.AreEqual(TargetType.SingleAlly, GameMap.ParseTargetType("Ally"));
-        Assert.AreEqual(TargetType.SingleAlly, GameMap.ParseTargetType("SingleAlly"));
-        Assert.AreEqual(TargetType.AllAllies, GameMap.ParseTargetType("AllAllies"));
+        Assert.AreEqual(TargetType.Self, CardData.ParseTargetType("Self"));
+        Assert.AreEqual(TargetType.AreaSelf, CardData.ParseTargetType("Area"));
+        Assert.AreEqual(TargetType.AreaSelf, CardData.ParseTargetType("AreaSelf"));
+        Assert.AreEqual(TargetType.AreaGround, CardData.ParseTargetType("Ground"));
+        Assert.AreEqual(TargetType.AreaGround, CardData.ParseTargetType("AreaGround"));
+        Assert.AreEqual(TargetType.RandomEnemy, CardData.ParseTargetType("Random"));
+        Assert.AreEqual(TargetType.RandomEnemy, CardData.ParseTargetType("RandomEnemy"));
+        Assert.AreEqual(TargetType.MultiEnemy, CardData.ParseTargetType("Multi"));
+        Assert.AreEqual(TargetType.MultiEnemy, CardData.ParseTargetType("MultiEnemy"));
+        Assert.AreEqual(TargetType.AllEnemies, CardData.ParseTargetType("All"));
+        Assert.AreEqual(TargetType.AllEnemies, CardData.ParseTargetType("AllEnemies"));
+        Assert.AreEqual(TargetType.SingleAlly, CardData.ParseTargetType("Ally"));
+        Assert.AreEqual(TargetType.SingleAlly, CardData.ParseTargetType("SingleAlly"));
+        Assert.AreEqual(TargetType.AllAllies, CardData.ParseTargetType("AllAllies"));
+
+        // CardData.targetType 설정 시 parsedTargetType이 즉시 동기화되어야 합니다.
+        var cardData = new CardData { targetType = "Area" };
+        Assert.AreEqual(TargetType.AreaSelf, cardData.parsedTargetType);
     }
 
     [Test]

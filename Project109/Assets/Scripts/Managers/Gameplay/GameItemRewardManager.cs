@@ -34,6 +34,19 @@ public class GameItemRewardManager : MonoBehaviour
     private List<RelicData> uniqueRelicList = new List<RelicData>();
     private List<RelicData> bossRelicList = new List<RelicData>();
 
+    // 드롭 테이블 필터링 시 힙 할당 제거용 재사용 버퍼 및 소유 유물 조회 캐시
+    private readonly List<CardData> _filteredCommonCards = new List<CardData>();
+    private readonly List<CardData> _filteredUncommonCards = new List<CardData>();
+    private readonly List<CardData> _filteredRareCards = new List<CardData>();
+    private readonly List<CardData> _filteredUniqueCards = new List<CardData>();
+
+    private readonly List<RelicData> _filteredCommonRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredRareRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredUniqueRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredBossRelics = new List<RelicData>();
+
+    private readonly HashSet<string> _ownedRelicNameSet = new HashSet<string>();
+
     public void UpdateItemList()
     {
         // 이전 목록 비우기 (누적 증식 방지)
@@ -99,58 +112,25 @@ public class GameItemRewardManager : MonoBehaviour
 
     public CardData GetRandomCardDataByDropTable(string dropTableID)
     {
-        DropTableData dropTable = null;
-        if (ModLoader.Instance != null)
+        var cardDatabase = ModLoader.Instance != null ? ModLoader.Instance.CardDatabase : null;
+        if (TryResolveDropTableAndSpecific(dropTableID, cardDatabase, out DropTableData dropTable, out CardData specificCard))
         {
-            ModLoader.Instance.DropTableDatabase.TryGetValue(dropTableID, out dropTable);
+            return specificCard;
         }
 
-        if (dropTable != null && dropTable.specificItemIDs != null && dropTable.specificItemIDs.Count > 0)
-        {
-            string randomName = dropTable.specificItemIDs[Random.Range(0, dropTable.specificItemIDs.Count)];
-            if (ModLoader.Instance.CardDatabase.TryGetValue(randomName, out CardData specificCard))
-            {
-                return specificCard;
-            }
-        }
+        _filteredCommonCards.Clear();
+        _filteredUncommonCards.Clear();
+        _filteredRareCards.Clear();
+        _filteredUniqueCards.Clear();
 
-        // 필터링 적용
-        List<CardData> filteredCommon = new List<CardData>();
-        List<CardData> filteredUncommon = new List<CardData>();
-        List<CardData> filteredRare = new List<CardData>();
-        List<CardData> filteredUnique = new List<CardData>();
-
-        if (ModLoader.Instance != null)
+        if (cardDatabase != null)
         {
-            foreach (var card in ModLoader.Instance.CardDatabase.Values)
+            foreach (var card in cardDatabase.Values)
             {
                 if (card.isUpgraded) continue;
+                if (!PassesDropTableFilter(card.cardName, card.classTypes, dropTable)) continue;
 
-                // 1. 제외 카드 필터
-                if (dropTable != null && dropTable.excludedItemIDs != null && dropTable.excludedItemIDs.Contains(card.cardName))
-                {
-                    continue;
-                }
-
-                // 2. 직업 카드 필터
-                if (dropTable != null && dropTable.allowedClassTypes != null && dropTable.allowedClassTypes.Count > 0)
-                {
-                    bool classMatched = false;
-                    if (card.classTypes != null)
-                    {
-                        foreach (var cls in card.classTypes)
-                        {
-                            if (dropTable.allowedClassTypes.Contains(cls))
-                            {
-                                classMatched = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!classMatched) continue;
-                }
-
-                // 3. 카드 타입 필터
+                // 카드 타입 필터
                 if (dropTable != null && dropTable.allowedCardTypes != null && dropTable.allowedCardTypes.Count > 0)
                 {
                     if (string.IsNullOrEmpty(card.cardType) || !dropTable.allowedCardTypes.Contains(card.cardType))
@@ -159,230 +139,222 @@ public class GameItemRewardManager : MonoBehaviour
                     }
                 }
 
-                // 등급별 리스트에 분류
                 switch (card.rarity)
                 {
                     case CardRarity.Common:
-                        filteredCommon.Add(card);
+                        _filteredCommonCards.Add(card);
                         break;
                     case CardRarity.Uncommon:
-                        filteredUncommon.Add(card);
+                        _filteredUncommonCards.Add(card);
                         break;
                     case CardRarity.Rare:
-                        filteredRare.Add(card);
+                        _filteredRareCards.Add(card);
                         break;
                     case CardRarity.Unique:
-                        filteredUnique.Add(card);
+                        _filteredUniqueCards.Add(card);
                         break;
                 }
             }
         }
 
-        // 가중치 결정
-        int commonRate = 60;
-        int uncommonRate = 40;
-        int rareRate = 0;
-        int uniqueRate = 0;
+        int commonRate = dropTable != null ? dropTable.commonWeight : 60;
+        int uncommonRate = dropTable != null ? dropTable.uncommonWeight : 40;
+        int rareRate = dropTable != null ? dropTable.rareWeight : 0;
+        int uniqueRate = dropTable != null ? dropTable.uniqueWeight : 0;
 
-        if (dropTable != null)
-        {
-            commonRate = dropTable.commonWeight;
-            uncommonRate = dropTable.uncommonWeight;
-            rareRate = dropTable.rareWeight;
-            uniqueRate = dropTable.uniqueWeight;
-        }
-
-        int totalWeight = commonRate + uncommonRate + rareRate + uniqueRate;
-        if (totalWeight <= 0) totalWeight = 100;
-
-        int pickNumber = Random.Range(1, totalWeight + 1);
-        CardData cardData = null;
-
-        if (pickNumber <= uniqueRate)
-        {
-            cardData = PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUncommon)
-                ?? PickRandomFromList(filteredCommon);
-        }
-        else if (pickNumber > uniqueRate && pickNumber <= uniqueRate + rareRate)
-        {
-            cardData = PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredUncommon)
-                ?? PickRandomFromList(filteredCommon);
-        }
-        else if (pickNumber > uniqueRate + rareRate && pickNumber <= uniqueRate + rareRate + uncommonRate)
-        {
-            cardData = PickRandomFromList(filteredUncommon)
-                ?? PickRandomFromList(filteredCommon)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUnique);
-        }
-        else
-        {
-            cardData = PickRandomFromList(filteredCommon)
-                ?? PickRandomFromList(filteredUncommon)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUnique);
-        }
-
-        // 필터링 조건 때문에 아무 카드도 뽑지 못했다면 전체 카드 풀에서 폴백
-        if (cardData == null)
-        {
-            cardData = PickRandomFromList(commonCardList)
-                ?? PickRandomFromList(uncommonCardList)
-                ?? PickRandomFromList(rareCardList)
-                ?? PickRandomFromList(uniqueCardList);
-        }
-
-        return cardData;
+        return PickWeightedByRarity(
+            commonRate, uncommonRate, rareRate, uniqueRate,
+            _filteredCommonCards, _filteredUncommonCards, _filteredRareCards, _filteredUniqueCards,
+            commonCardList, uncommonCardList, rareCardList, uniqueCardList);
     }
 
     public RelicData GetRandomRelicDataByDropTable(string dropTableID)
     {
-        DropTableData dropTable = null;
-        if (ModLoader.Instance != null)
+        var relicDatabase = ModLoader.Instance != null ? ModLoader.Instance.RelicDatabase : null;
+        if (TryResolveDropTableAndSpecific(dropTableID, relicDatabase, out DropTableData dropTable, out RelicData specificRelic))
+        {
+            return specificRelic;
+        }
+
+        _filteredCommonRelics.Clear();
+        _filteredRareRelics.Clear();
+        _filteredUniqueRelics.Clear();
+        _filteredBossRelics.Clear();
+        RefreshOwnedRelicCache();
+
+        if (relicDatabase != null)
+        {
+            foreach (var relic in relicDatabase.Values)
+            {
+                if (_ownedRelicNameSet.Contains(relic.relicName)) continue;
+                if (!PassesDropTableFilter(relic.relicName, relic.classTypes, dropTable)) continue;
+
+                switch (relic.rarity)
+                {
+                    case RelicRarity.Common:
+                        _filteredCommonRelics.Add(relic);
+                        break;
+                    case RelicRarity.Rare:
+                        _filteredRareRelics.Add(relic);
+                        break;
+                    case RelicRarity.Unique:
+                        _filteredUniqueRelics.Add(relic);
+                        break;
+                    case RelicRarity.Boss:
+                        _filteredBossRelics.Add(relic);
+                        break;
+                }
+            }
+        }
+
+        int commonRate = dropTable != null ? dropTable.commonWeight : 70;
+        int rareRate = dropTable != null ? dropTable.rareWeight : 30;
+        int uniqueRate = dropTable != null ? dropTable.uniqueWeight : 0;
+        int bossRate = dropTable != null ? dropTable.uncommonWeight : 0; // Relic의 경우 uncommonWeight를 Boss 가중치로 맵핑
+
+        return PickWeightedByRarity(
+            commonRate, rareRate, uniqueRate, bossRate,
+            _filteredCommonRelics, _filteredRareRelics, _filteredUniqueRelics, _filteredBossRelics,
+            commonRelicList, rareRelicList, uniqueRelicList, bossRelicList);
+    }
+
+    private void RefreshOwnedRelicCache()
+    {
+        _ownedRelicNameSet.Clear();
+        if (GameSceneManager.instance == null || GameSceneManager.instance.player == null || GameSceneManager.instance.player.relicManager == null)
+        {
+            return;
+        }
+
+        var ownedRelics = GameSceneManager.instance.player.relicManager.GetRelics();
+        for (int i = 0; i < ownedRelics.Count; i++)
+        {
+            var owned = ownedRelics[i];
+            if (owned != null && owned.Data != null && !string.IsNullOrEmpty(owned.Data.relicName))
+            {
+                _ownedRelicNameSet.Add(owned.Data.relicName);
+            }
+        }
+    }
+
+    private static bool TryResolveDropTableAndSpecific<T>(
+        string dropTableID,
+        Dictionary<string, T> database,
+        out DropTableData dropTable,
+        out T specificItem) where T : class
+    {
+        dropTable = null;
+        specificItem = null;
+
+        if (ModLoader.Instance != null && !string.IsNullOrEmpty(dropTableID))
         {
             ModLoader.Instance.DropTableDatabase.TryGetValue(dropTableID, out dropTable);
         }
 
-        if (dropTable != null && dropTable.specificItemIDs != null && dropTable.specificItemIDs.Count > 0)
+        if (dropTable != null && dropTable.specificItemIDs != null && dropTable.specificItemIDs.Count > 0 && database != null)
         {
             string randomName = dropTable.specificItemIDs[Random.Range(0, dropTable.specificItemIDs.Count)];
-            if (ModLoader.Instance.RelicDatabase.TryGetValue(randomName, out RelicData specificRelic))
+            if (database.TryGetValue(randomName, out specificItem) && specificItem != null)
             {
-                return specificRelic;
+                return true;
             }
         }
 
-        // 필터링 적용
-        List<RelicData> filteredCommon = new List<RelicData>();
-        List<RelicData> filteredRare = new List<RelicData>();
-        List<RelicData> filteredUnique = new List<RelicData>();
-        List<RelicData> filteredBoss = new List<RelicData>();
+        return false;
+    }
 
-        if (ModLoader.Instance != null)
+    private static bool PassesDropTableFilter(string itemID, List<string> itemClasses, DropTableData dropTable)
+    {
+        if (dropTable == null) return true;
+
+        // 1. 제외 아이템 필터
+        if (dropTable.excludedItemIDs != null && dropTable.excludedItemIDs.Contains(itemID))
         {
-            foreach (var relic in ModLoader.Instance.RelicDatabase.Values)
+            return false;
+        }
+
+        // 2. 직업 필터
+        if (dropTable.allowedClassTypes != null && dropTable.allowedClassTypes.Count > 0)
+        {
+            if (itemClasses == null) return false;
+
+            bool classMatched = false;
+            for (int i = 0; i < itemClasses.Count; i++)
             {
-                // 1. 제외 유물 필터
-                if (dropTable != null && dropTable.excludedItemIDs != null && dropTable.excludedItemIDs.Contains(relic.relicName))
+                if (dropTable.allowedClassTypes.Contains(itemClasses[i]))
                 {
-                    continue;
-                }
-
-                // 플레이어가 소유한 유물 제외
-                if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.relicManager != null)
-                {
-                    bool alreadyOwned = false;
-                    foreach (var ownedRelic in GameSceneManager.instance.player.relicManager.GetRelics())
-                    {
-                        if (ownedRelic.Data != null && ownedRelic.Data.relicName == relic.relicName)
-                        {
-                            alreadyOwned = true;
-                            break;
-                        }
-                    }
-                    if (alreadyOwned) continue;
-                }
-
-                // 2. 직업 유물 필터
-                if (dropTable != null && dropTable.allowedClassTypes != null && dropTable.allowedClassTypes.Count > 0)
-                {
-                    bool classMatched = false;
-                    if (relic.classTypes != null)
-                    {
-                        foreach (var cls in relic.classTypes)
-                        {
-                            if (dropTable.allowedClassTypes.Contains(cls))
-                            {
-                                classMatched = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!classMatched) continue;
-                }
-
-                // 등급별 리스트에 분류
-                switch (relic.rarity)
-                {
-                    case GameItem.Types.RelicRarity.Common:
-                        filteredCommon.Add(relic);
-                        break;
-                    case GameItem.Types.RelicRarity.Rare:
-                        filteredRare.Add(relic);
-                        break;
-                    case GameItem.Types.RelicRarity.Unique:
-                        filteredUnique.Add(relic);
-                        break;
-                    case GameItem.Types.RelicRarity.Boss:
-                        filteredBoss.Add(relic);
-                        break;
+                    classMatched = true;
+                    break;
                 }
             }
+            if (!classMatched) return false;
         }
 
-        // 가중치 결정
-        int commonRate = 70;
-        int rareRate = 30;
-        int uniqueRate = 0;
-        int bossRate = 0;
+        return true;
+    }
 
-        if (dropTable != null)
-        {
-            commonRate = dropTable.commonWeight;
-            rareRate = dropTable.rareWeight;
-            uniqueRate = dropTable.uniqueWeight;
-            bossRate = dropTable.uncommonWeight; // Relic의 경우 uncommonWeight를 Boss 가중치로 맵핑
-        }
-
-        int totalWeight = commonRate + rareRate + uniqueRate + bossRate;
+    /// <summary>
+    /// 4단계 희귀도 가중치에 따라 아이템을 추첨하고, 해당 풀과 폴백 풀에서 순차적으로 대체 아이템을 선택합니다.
+    /// </summary>
+    private T PickWeightedByRarity<T>(
+        int tier1Rate,
+        int tier2Rate,
+        int tier3Rate,
+        int tier4Rate,
+        List<T> tier1List,
+        List<T> tier2List,
+        List<T> tier3List,
+        List<T> tier4List,
+        List<T> fallback1List,
+        List<T> fallback2List,
+        List<T> fallback3List,
+        List<T> fallback4List) where T : class
+    {
+        int totalWeight = tier1Rate + tier2Rate + tier3Rate + tier4Rate;
         if (totalWeight <= 0) totalWeight = 100;
 
         int pickNumber = Random.Range(1, totalWeight + 1);
-        RelicData relicData = null;
+        T picked = null;
 
-        if (pickNumber <= bossRate)
+        if (pickNumber <= tier4Rate)
         {
-            relicData = PickRandomFromList(filteredBoss)
-                ?? PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredCommon);
+            picked = PickRandomFromList(tier4List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List);
         }
-        else if (pickNumber > bossRate && pickNumber <= bossRate + uniqueRate)
+        else if (pickNumber <= tier4Rate + tier3Rate)
         {
-            relicData = PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredCommon)
-                ?? PickRandomFromList(filteredBoss);
+            picked = PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List);
         }
-        else if (pickNumber > bossRate + uniqueRate && pickNumber <= bossRate + uniqueRate + rareRate)
+        else if (pickNumber <= tier4Rate + tier3Rate + tier2Rate)
         {
-            relicData = PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredCommon)
-                ?? PickRandomFromList(filteredBoss);
+            picked = PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List);
         }
         else
         {
-            relicData = PickRandomFromList(filteredCommon)
-                ?? PickRandomFromList(filteredRare)
-                ?? PickRandomFromList(filteredUnique)
-                ?? PickRandomFromList(filteredBoss);
+            picked = PickRandomFromList(tier1List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List);
         }
 
-        // 폴백
-        if (relicData == null)
+        // 필터링 조건 때문에 아무 아이템도 뽑지 못했다면 전체 풀에서 폴백
+        if (picked == null)
         {
-            relicData = PickRandomFromList(commonRelicList)
-                ?? PickRandomFromList(rareRelicList)
-                ?? PickRandomFromList(uniqueRelicList)
-                ?? PickRandomFromList(bossRelicList);
+            picked = PickRandomFromList(fallback1List)
+                ?? PickRandomFromList(fallback2List)
+                ?? PickRandomFromList(fallback3List)
+                ?? PickRandomFromList(fallback4List);
         }
 
-        return relicData;
+        return picked;
     }
 
     private T PickRandomFromList<T>(List<T> list) where T : class

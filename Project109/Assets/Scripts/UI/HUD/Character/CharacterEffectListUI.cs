@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// 캐릭터의 버프/디버프(이펙트) 아이콘 목록 및 쿨다운 링을 화면에 렌더링하고 위치를 추적하는 독립 View 컴포넌트입니다.
 /// </summary>
-public class CharacterEffectListUI : MonoBehaviour
+public class CharacterEffectListUI : MonoBehaviour, IWorldFollowUI
 {
     [Header("Target & Position Settings")]
     [SerializeField] private Transform targetTransform;

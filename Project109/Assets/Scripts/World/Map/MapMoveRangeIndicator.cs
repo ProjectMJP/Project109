@@ -57,22 +57,27 @@ public class MapMoveRangeIndicator : MonoBehaviour
 
     public void ShowWalkableTiles(List<Tile> walkableTiles, List<List<Tile>> tileMap, bool useTargetStyle = true)
     {
+        if (texture == null || tileMap == null) return;
+
         // R, G 하이라이트 리셋 및 B 채널 유지
         for (int col = 0; col < gridColumns; col++)
         {
+            if (col >= tileMap.Count || tileMap[col] == null) continue;
             for (int row = 0; row < gridRows; row++)
             {
+                if (row >= tileMap[col].Count) continue;
                 Tile tile = tileMap[col][row];
-                float baseMaskVal = (tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
                 // 기존의 R, G 상태를 제거한 상태로 리셋
                 texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
             }
         }
 
         // 이동 범위 타일 R채널 설정
+        if (walkableTiles != null)
         foreach (var tile in walkableTiles)
         {
-            if (tile.tileState == TileState.Full || tile.tileState == TileState.Obstacle)
+            if (tile == null || tile.tileState == TileState.Full || tile.tileState == TileState.Obstacle)
                 continue;
 
             int col = tile.GetCoord().x;

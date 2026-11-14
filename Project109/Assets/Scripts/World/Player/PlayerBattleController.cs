@@ -288,7 +288,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             return;
         }
 
-        TargetType parsedTargetType = GameMap.ParseTargetType(card.cardData != null ? card.cardData.targetType : null);
+        TargetType parsedTargetType = card.cardData != null ? card.cardData.parsedTargetType : TargetType.SingleEnemy;
 
         // 3. [★ 핵심] 사거리 내 유효 대상 존재 여부 사전 검증 (Fail-Fast)
         if (!HasValidTargetsInRange(card, parsedTargetType))
@@ -771,7 +771,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
                             if (distance >= minDistance && distance <= maxDistance)
                             {
-                                TargetType targetType = GameMap.ParseTargetType(activeCardForTargeting.cardData?.targetType);
+                                TargetType targetType = activeCardForTargeting.cardData != null ? activeCardForTargeting.cardData.parsedTargetType : TargetType.SingleEnemy;
                                 ITargetingStrategy strategy = GetTargetingStrategy(targetType);
 
                                 if (strategy.TryCollectTargetsOnTileClicked(this, activeCardForTargeting, targetTile, out List<Character> targets, out Vector2Int targetPos))
