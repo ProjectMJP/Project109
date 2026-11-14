@@ -222,6 +222,7 @@ public class GameMap : MonoBehaviour
                     Tile tile = tileMap[col][row];
                     if (tile != null)
                     {
+                        tile.ClearTile();
                         Destroy(tile.gameObject);
                     }
                 }
@@ -395,10 +396,9 @@ public class GameMap : MonoBehaviour
                     visited.Add(nextTile);
                     checkNextTiles.Enqueue(nextTile);
 
-                    // 멈춰설 수 있는 타일만 최종 이동 범위에 추가하고 visual indicator 활성화
+                    // 멈춰설 수 있는 타일만 최종 이동 범위에 추가 (비주얼 표시는 MapMoveRangeIndicator 전담)
                     if (nextTile.CanEnter(mover))
                     {
-                        nextTile.SetMoveIndicator(true);
                         checkList.Add(nextTile);
                     }
                 }

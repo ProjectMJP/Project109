@@ -26,6 +26,9 @@ public class BattleUIPanel : UIPanelBase
 
     public BattleUIMode currentMode { get; private set; } = BattleUIMode.Hand;
 
+    public override bool DestroyOnClose => false;
+    public override bool CanCloseByCancel => false;
+
     private Player _boundPlayer;
     private PlayerBattleController _controller;
     private Character _boundCharacter;

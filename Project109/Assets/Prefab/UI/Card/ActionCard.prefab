@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2742698040176174491}
   - component: {fileID: 8738879886526210552}
-  - component: {fileID: 4401541317266710656}
   m_Layer: 5
   m_Name: ActionCard
   m_TagString: Untagged
@@ -57,7 +56,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b329e4534f3a8a4f833c39e9e06100b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardDescriptionHandler: {fileID: 4401541317266710656}
   cardName: {fileID: 6541454250587398306}
   cardDescription: {fileID: 5390516900839122266}
   useStamina: {fileID: 627217548329928733}
@@ -70,18 +68,11 @@ MonoBehaviour:
       m_Calls: []
   bIsCardHighlight: 1
   bShowEffectAreaUI: 0
---- !u!114 &4401541317266710656
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 91790796623287000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c5ef69417ca2bf44583ac24fa72dd2e5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  enableZoom: 0
+  zoomScale: 1.1
+  zoomYOffset: 90
+  hoverMotionDuration: 0.12
+  hoverMotionEase: 8
 --- !u!1 &1203608776902067929
 GameObject:
   m_ObjectHideFlags: 0

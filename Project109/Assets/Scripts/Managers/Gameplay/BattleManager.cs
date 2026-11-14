@@ -333,6 +333,16 @@ public class BattleManager : IInitializable, IDisposable
 
         deadCharacter.OnCharacterDied -= OnCharacterDied;
 
+        if (deadCharacter != null && deadCharacter.faction == CharacterFaction.Enemy)
+        {
+            if (deadCharacter.characterMove != null)
+            {
+                deadCharacter.characterMove.StopMoving();
+            }
+            deadCharacter.NotifyLeftBattle();
+            deadCharacter.gameObject.SetActive(false);
+        }
+
         // 사망한 캐릭터가 현재 턴 소유자일 경우 소프트락 방지를 위해 턴을 강제 종료 처리
         if (currentTurnController != null && currentTurnController.controlledCharacter == deadCharacter)
         {
@@ -407,9 +417,23 @@ public class BattleManager : IInitializable, IDisposable
             {
                 CombatEventDispatcher.DispatchBattleEnd(combatant.controlledCharacter.eventBus);
             }
-            combatant.controlledCharacter.ResetCharacterForBattle();
-            combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
-            combatant.controlledCharacter.NotifyLeftBattle();
+
+            if (combatant.controlledCharacter.isDead)
+            {
+                if (combatant.controlledCharacter.characterMove != null)
+                {
+                    combatant.controlledCharacter.characterMove.StopMoving();
+                }
+                combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+                combatant.controlledCharacter.NotifyLeftBattle();
+                combatant.controlledCharacter.gameObject.SetActive(false);
+            }
+            else
+            {
+                combatant.controlledCharacter.ResetCharacterForBattle();
+                combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+                combatant.controlledCharacter.NotifyLeftBattle();
+            }
         }
 
         playerTeam.Clear();

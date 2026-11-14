@@ -9,6 +9,7 @@ public class PlayerRelicUI : MonoBehaviour
     [Header("InGame Relic UI")]
     public GameObject relicUIPrefab;
     public Transform relicSpawnTransform;
+    [SerializeField] private float relicIconSize = 44f;
     
     private Dictionary<string, GameObject> relicUIObjects = new Dictionary<string, GameObject>();
     private Player boundPlayer;
@@ -76,6 +77,13 @@ public class PlayerRelicUI : MonoBehaviour
             RelicUI relicUI = Instantiate(relicUIPrefab, relicSpawnTransform).GetComponent<RelicUI>();
             if (relicUI != null)
             {
+                RectTransform relicRect = relicUI.GetComponent<RectTransform>();
+                if (relicRect != null)
+                {
+                    // TopHUD 유물 영역(50px) 내에 맞춰 아이콘 크기 정규화 (ShopNPCUI는 GridLayoutGroup 100x100 유지)
+                    relicRect.sizeDelta = new Vector2(relicIconSize, relicIconSize);
+                }
+
                 relicUIObjects.Add(newRelic.Data.relicName, relicUI.gameObject);
                 relicUI.UpdateRelicData(newRelic);
             }

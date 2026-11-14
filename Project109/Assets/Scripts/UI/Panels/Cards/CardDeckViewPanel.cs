@@ -437,7 +437,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
     {
         if (_cardDetailHandler == null && UIManager.instance != null)
         {
-            GameObject uiObj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DETAIL, UILayerType.Normal, false);
+            GameObject uiObj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DETAIL, this.uiLayerType, false);
             if (uiObj != null)
             {
                 _cardDetailHandler = uiObj.GetComponent<CardDetailPanel>();
@@ -446,6 +446,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
 
         if (_cardDetailHandler != null)
         {
+            _cardDetailHandler.uiLayerType = this.uiLayerType;
             _cardDetailHandler.OnCardCheckUI(card);
         }
         else

@@ -370,8 +370,13 @@ public static class SetupBattleUIPanelPrefab
         etTmp.alignment = TextAlignmentOptions.Center;
         etTmp.color = Color.white;
 
-        // 5. 루트 BattleUIPanel 직렬화 바인딩
+        // 5. 루트 BattleUIPanel 직렬화 바인딩 및 상시 Top 레이어 속성 동기화
+        battleUIPanel.uiLayerType = UILayerType.Top;
+        battleUIPanel.blockWorldInput = false;
+
         SerializedObject serializedRoot = new SerializedObject(battleUIPanel);
+        serializedRoot.FindProperty("uiLayerType").enumValueIndex = (int)UILayerType.Top;
+        serializedRoot.FindProperty("blockWorldInput").boolValue = false;
         serializedRoot.FindProperty("battleHandPanel").objectReferenceValue = handPanel;
         serializedRoot.FindProperty("battleMovePanel").objectReferenceValue = movePanel;
         serializedRoot.FindProperty("endTurnButton").objectReferenceValue = etButton;

@@ -898,6 +898,18 @@ MonoBehaviour:
   contentTransform: {fileID: 7522717362101696005}
   maxPanelWidth: 900
   defaultCardSpacing: 160
+  drawDuration: 0.28
+  drawStaggerInterval: 0.05
+  drawStartScale: 0.2
+  drawStartRotationZ: 15
+  layoutDuration: 0.2
+  discardDuration: 0.22
+  discardStaggerInterval: 0.03
+  maxDiscardStagger: 0.15
+  discardEndScale: 0.2
+  discardEndRotationZ: -15
+  fallbackDrawOffset: {x: -450, y: -120}
+  fallbackDiscardOffset: {x: 450, y: -120}
   drawPileButton: {fileID: 5997576620045139118}
   drawCountText: {fileID: 1599642005157703177}
   usedPileButton: {fileID: 6366624235829939412}
@@ -1551,8 +1563,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b1202ba6b7afbc4a890099068816767, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleUIPanel
-  uiLayerType: 1
-  blockWorldInput: 1
+  uiLayerType: 2
+  blockWorldInput: 0
   battleHandPanel: {fileID: 6679983572842491755}
   battleMovePanel: {fileID: 5079537147591078920}
   endTurnButton: {fileID: 7710902680627439301}

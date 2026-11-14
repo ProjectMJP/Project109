@@ -108,8 +108,10 @@ public class Card : IDescribable
 
     #endregion
 
-    public readonly LuaTable luaTable;
+    public LuaTable luaTable { get; private set; }
     private readonly List<object> activeProxies = new List<object>();
+    private bool _isDisposed = false;
+    public bool IsDisposed => _isDisposed;
 
     public Card(CardData data, Character owner, LuaTable luaLogic, int runtimeID)
     {
@@ -146,6 +148,9 @@ public class Card : IDescribable
 
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
+
         // 1. 장착된 모든 카드 태그 정리
         if (attachedTags != null)
         {
@@ -157,8 +162,11 @@ public class Card : IDescribable
         }
 
         // 2. Lua 측 OnRemoved 함수 호출
-        var luaOnRemoved = luaTable?.Get<Action<LuaTable, Card, Character>>("OnRemoved");
-        luaOnRemoved?.Invoke(luaTable, this, owner);
+        if (luaTable != null)
+        {
+            var luaOnRemoved = luaTable.Get<Action<LuaTable, Card, Character>>("OnRemoved");
+            luaOnRemoved?.Invoke(luaTable, this, owner);
+        }
 
         // 3. 캐릭터 이벤트 버스 구독 해제
         if (owner != null && owner.eventBus != null)
@@ -169,6 +177,7 @@ public class Card : IDescribable
         // 4. 리소스 정리
         activeProxies.Clear();
         luaTable?.Dispose();
+        luaTable = null;
     }
 
     /// <summary>

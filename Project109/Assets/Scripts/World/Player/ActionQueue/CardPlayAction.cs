@@ -88,9 +88,9 @@ public class CardPlayAction : BattleAction
             var battleDeck = GameSceneManager.instance.player.battleDeck;
             if (battleDeck != null)
             {
-                if (!info.cardFlags.HasFlag(CardFlag.NoDiscard))
+                if (card != null && !card.IsDisposed && !info.cardFlags.HasFlag(CardFlag.NoDiscard))
                 {
-                    bool isExhaustCard = (card != null && card.isExhaustOnPlay) || info.cardFlags.HasFlag(CardFlag.Exhaust);
+                    bool isExhaustCard = card.isExhaustOnPlay || info.cardFlags.HasFlag(CardFlag.Exhaust);
 
                     if (!info.cardFlags.HasFlag(CardFlag.NoExhaust) && isExhaustCard)
                     {
@@ -166,9 +166,13 @@ public class CardPlayAction : BattleAction
 
     private bool IsBattleEnded()
     {
-        return RunManager.instance != null &&
-               RunManager.instance.battleManager != null &&
-               RunManager.instance.battleManager.battleState == BattleState.BattleEnd;
+        if (RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return true;
+        }
+
+        BattleState state = RunManager.instance.battleManager.battleState;
+        return state == BattleState.BattleEnd || state == BattleState.None;
     }
 
     private void RestoreCasterState()

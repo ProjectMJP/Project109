@@ -646,10 +646,14 @@ public class Character : MonoBehaviour, IDamageable
 
         if (finalCoord != startCoord)
         {
-            Tile destTile = GameMap.current.GetTile(finalCoord);
+            List<Tile> directPath = BuildStepTilePath(GameMap.current, startCoord, finalCoord);
+            Tile destTile = directPath.Count > 0 ? directPath[directPath.Count - 1] : GameMap.current.GetTile(finalCoord);
             if (destTile != null)
             {
-                List<Tile> directPath = new List<Tile> { destTile };
+                if (directPath.Count == 0)
+                {
+                    directPath.Add(destTile);
+                }
                 characterMove.MoveAlongPath(directPath, destTile, null, MoveFlag.Forced, moveSpeedMultiplier);
             }
         }
@@ -666,15 +670,21 @@ public class Character : MonoBehaviour, IDamageable
     }
 
     /// <summary>
-    /// 목표 타일로 신속하게 돌진 이동합니다. 이동 완료 후 콜백을 실행합니다.
+    /// 목표 타일로 신속하게 돌진 이동합니다. 이동 절반 및 완료 시 콜백을 실행합니다.
     /// </summary>
-    public bool DashToTile(Tile targetTile, Action onComplete = null)
+    public bool DashToTile(Tile targetTile, Action onHalfway = null, Action onComplete = null)
     {
-        if (isDead || characterMove == null || targetTile == null || GameMap.current == null) return false;
+        if (isDead || characterMove == null || targetTile == null || GameMap.current == null)
+        {
+            onHalfway?.Invoke();
+            onComplete?.Invoke();
+            return false;
+        }
 
         Tile currentTile = characterMove.GetCurrentTile();
         if (currentTile == null || currentTile == targetTile)
         {
+            onHalfway?.Invoke();
             onComplete?.Invoke();
             return false;
         }
@@ -682,6 +692,8 @@ public class Character : MonoBehaviour, IDamageable
         // 다른 생존 유닛이 점유 중인 타일로는 돌진 불가
         if (targetTile.occupyingCharacter != null && !targetTile.occupyingCharacter.isDead && targetTile.occupyingCharacter != this)
         {
+            onHalfway?.Invoke();
+            onComplete?.Invoke();
             return false;
         }
 
@@ -691,23 +703,39 @@ public class Character : MonoBehaviour, IDamageable
             path = new List<Tile> { targetTile };
         }
 
-        characterMove.MoveAlongPath(path, targetTile, onComplete, MoveFlag.Normal, 2.5f);
+        characterMove.MoveAlongPath(path, targetTile, onComplete, MoveFlag.Normal, 2.5f, onHalfway);
         return true;
     }
 
     /// <summary>
     /// 대상 캐릭터와 인접한 빈 타일로 돌진하여 이동합니다.
+    /// 이미 인접해 있는 경우 대상 방향으로 짧게 파고들었다가 복귀하며 반쯤 이동한 시점에 콜백을 실행합니다.
     /// </summary>
-    public bool DashTo(Character target, Action onComplete = null)
+    public bool DashTo(Character target, Action onHalfway = null, Action onComplete = null)
     {
-        if (target == null || target.characterMove == null || GameMap.current == null) return false;
+        if (isDead || characterMove == null || target == null || target.characterMove == null || GameMap.current == null)
+        {
+            onHalfway?.Invoke();
+            onComplete?.Invoke();
+            return false;
+        }
 
         Tile targetTile = target.characterMove.GetCurrentTile();
-        Tile currentTile = (characterMove != null) ? characterMove.GetCurrentTile() : null;
-        if (targetTile == null || currentTile == null) return false;
+        Tile currentTile = characterMove.GetCurrentTile();
+        if (targetTile == null || currentTile == null)
+        {
+            onHalfway?.Invoke();
+            onComplete?.Invoke();
+            return false;
+        }
 
         List<List<Tile>> tileMap = GameMap.current.GetTileMap();
-        if (tileMap == null) return false;
+        if (tileMap == null)
+        {
+            onHalfway?.Invoke();
+            onComplete?.Invoke();
+            return false;
+        }
 
         Vector2Int tCoord = targetTile.GetCoord();
         Vector2Int[] dirs = { new Vector2Int(0, 1), new Vector2Int(0, -1), new Vector2Int(1, 0), new Vector2Int(-1, 0) };
@@ -734,10 +762,42 @@ public class Character : MonoBehaviour, IDamageable
 
         if (bestTile != null)
         {
-            return DashToTile(bestTile, onComplete);
+            if (bestTile == currentTile)
+            {
+                // 이미 적과 인접(거리 1)한 경우 대상 방향으로 반 칸 돌격 후 복귀하면서 중간 시점 콜백 실행
+                characterMove.LungeTowardsTile(targetTile, onHalfway, onComplete, 2.5f);
+                return true;
+            }
+
+            return DashToTile(bestTile, onHalfway, onComplete);
         }
 
+        onHalfway?.Invoke();
+        onComplete?.Invoke();
         return false;
+    }
+
+    private static List<Tile> BuildStepTilePath(GameMap map, Vector2Int startCoord, Vector2Int finalCoord)
+    {
+        List<Tile> path = new List<Tile>();
+        if (map == null || startCoord == finalCoord) return path;
+
+        Vector2Int delta = finalCoord - startCoord;
+        Vector2Int stepDir = new Vector2Int(
+            delta.x != 0 ? (delta.x > 0 ? 1 : -1) : 0,
+            delta.y != 0 ? (delta.y > 0 ? 1 : -1) : 0);
+
+        int steps = Mathf.Abs(delta.x) + Mathf.Abs(delta.y);
+        for (int i = 1; i <= steps; i++)
+        {
+            Tile stepTile = map.GetTile(startCoord + stepDir * i);
+            if (stepTile != null)
+            {
+                path.Add(stepTile);
+            }
+        }
+
+        return path;
     }
 
     #endregion
