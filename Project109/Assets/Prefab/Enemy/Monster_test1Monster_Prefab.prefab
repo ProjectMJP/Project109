@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 4266596084694226382}
   - component: {fileID: 6105330256909832546}
   - component: {fileID: 5777680851418840527}
+  - component: {fileID: -2103356234387019765}
   m_Layer: 7
   m_Name: Monster_test1Monster_Prefab
   m_TagString: Enemy
@@ -139,3 +140,18 @@ MonoBehaviour:
   _shield: 0
   shieldDurationTurns: 1
   currentTurn: 0
+--- !u!114 &-2103356234387019765
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5484325724739410140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30b194ed2caa5334eb7d1f833a0d83c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterUIController
+  character: {fileID: 5777680851418840527}
+  statusBarOffset: {x: 0, y: 0.81, z: 0}
+  effectListOffset: {x: 0, y: 1.1, z: 0}
