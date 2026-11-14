@@ -16,6 +16,10 @@ public class ExploreNode
     public bool isRevealed;    // 안개/가림이 해제되어 노드 정보가 시각적으로 공개되었는지 여부
     public bool isCleared;     // 해당 노드의 전투/이벤트가 클리어되었는지 여부
     
+    public ExploreNode()
+    {
+    }
+
     public ExploreNode(int floor, int index)
     {
         this.floor = floor;

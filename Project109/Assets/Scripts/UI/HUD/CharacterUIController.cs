@@ -17,6 +17,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     private CharacterStatusBarUI statusBarUI;
     private CharacterEffectListUI effectListUI;
     private bool _isBattleActive = false;
+    private bool _isEventBusRegistered = false;
 
     public Character Character => character;
     public CharacterStatusBarUI StatusBarUI => statusBarUI;
@@ -28,14 +29,26 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         {
             character = GetComponent<Character>();
         }
+
+        // 동적 스폰 프레임에 Start() 이전에 전투 합류(NotifyJoinedBattle) 이벤트가 발생할 수 있으므로 선등록
+        RegisterEvents();
     }
 
     private void Start()
     {
         RequestViewsFromUIManager();
         RegisterEvents();
-        // 초기 생성 시(은신처 및 필드 탐색)에는 머리 위 UI를 숨겨 시야와 가시성을 확보하고, 전투 시에만 켭니다.
-        HideUI();
+
+        // Start() 이전에 이미 전투 합류로 활성화된 경우 숨기지 않고 UI를 유지합니다.
+        if (_isBattleActive)
+        {
+            ShowUI();
+        }
+        else
+        {
+            // 초기 생성 시(은신처 및 필드 탐색)에는 머리 위 UI를 숨겨 시야와 가시성을 확보하고, 전투 시에만 켭니다.
+            HideUI();
+        }
     }
 
     private void OnDestroy()
@@ -141,10 +154,11 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             character.effectManager.OnEffectRemoved += OnEffectRemoved;
         }
 
-        if (character.eventBus != null)
+        if (!_isEventBusRegistered && character.eventBus != null)
         {
             character.eventBus.Add<IOnBattleStart>(this);
             character.eventBus.Add<IOnBattleEnd>(this);
+            _isEventBusRegistered = true;
         }
     }
 
@@ -166,10 +180,11 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             character.effectManager.OnEffectRemoved -= OnEffectRemoved;
         }
 
-        if (character.eventBus != null)
+        if (_isEventBusRegistered && character.eventBus != null)
         {
             character.eventBus.Remove<IOnBattleStart>(this);
             character.eventBus.Remove<IOnBattleEnd>(this);
+            _isEventBusRegistered = false;
         }
     }
 
@@ -295,6 +310,10 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     public void ShowUI()
     {
         _isBattleActive = true;
+        if ((statusBarUI == null || effectListUI == null) && UIManager.instance != null)
+        {
+            RequestViewsFromUIManager();
+        }
         if (statusBarUI != null) statusBarUI.Show();
         if (effectListUI != null) effectListUI.Show();
         RefreshAll();

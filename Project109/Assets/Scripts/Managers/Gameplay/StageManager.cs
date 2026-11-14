@@ -122,6 +122,11 @@ public class StageManager : IInitializable, System.IDisposable
             }
         }
 
+        if (enc.encountType.IsCombat() && battleData == null)
+        {
+            Debug.LogError($"[StageManager] 전투 노드({enc.encountType})에 해당하는 BattleData를 찾을 수 없습니다! (battleDataId='{enc.battleDataId}')");
+        }
+
         // 2. 인터랙터블/이벤트 데이터 획득
         InteractableData eventData = null;
         if (!string.IsNullOrEmpty(enc.interactableDataId) && ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null)
@@ -243,7 +248,7 @@ public class StageManager : IInitializable, System.IDisposable
             }
         }
 
-        if (battleData != null && battleData.monsterNames != null && (EncountType == EncountType.Battle || EncountType == EncountType.Elite || EncountType == EncountType.Boss))
+        if (battleData != null && battleData.monsterNames != null && EncountType.IsCombat())
         {
             spawnEnemyCells.Shuffle();
             int spawnEnemyCount = Mathf.Min(spawnEnemyCells.Count, battleData.monsterNames.Count);
@@ -252,7 +257,7 @@ public class StageManager : IInitializable, System.IDisposable
 
         SpawnPlayerInMap(currentMapData, targetPlayer, spawnPlayerCells.Count);
 
-        if (EncountType == EncountType.Store || EncountType == EncountType.Restore || EncountType == EncountType.Secret || EncountType == EncountType.SecretBox || EncountType == EncountType.None)
+        if (!EncountType.IsCombat())
         {
             InteractableData eventData = secretEventData;
             if (eventData == null && EncountType == EncountType.Restore)
@@ -277,7 +282,7 @@ public class StageManager : IInitializable, System.IDisposable
         }
 
         // 맵 상태 설정 자동화
-        if (EncountType == EncountType.Battle || EncountType == EncountType.Elite || EncountType == EncountType.Boss)
+        if (EncountType.IsCombat())
         {
             currentMapState = MapState.Battle;
         }
@@ -299,11 +304,7 @@ public class StageManager : IInitializable, System.IDisposable
         {
             GameObject spawned = UnityEngine.Object.Instantiate(prefab);
 
-            Vector3 worldPos = new Vector3(
-                        pos.x * currentMapData.cellSize + currentMapData.gridOffset.x,
-                        currentMapData.gridOffset.y,
-                        pos.y * currentMapData.cellSize + currentMapData.gridOffset.z
-                    );
+            Vector3 worldPos = currentMapData.CellToWorld(pos);
 
             spawned.transform.position = worldPos;
             spawned.transform.SetParent(currentGameMap.transform);
@@ -412,11 +413,7 @@ public class StageManager : IInitializable, System.IDisposable
                 continue;
             }
 
-            Vector3 worldPos = new Vector3(
-                cell.position.x * mapData.cellSize + mapData.gridOffset.x,
-                mapData.gridOffset.y,
-                cell.position.y * mapData.cellSize + mapData.gridOffset.z
-            );
+            Vector3 worldPos = mapData.CellToWorld(cell.position);
 
             GameObject newMonster = UnityEngine.Object.Instantiate(monsterPrefab, worldPos, Quaternion.identity);
             Character enemyCharacter = newMonster.GetComponent<Character>();
@@ -436,7 +433,9 @@ public class StageManager : IInitializable, System.IDisposable
                 if (enemyCharacter.characterMove != null)
                 {
                     enemyCharacter.characterMove.SetFacingDirection(LookDirection.Down);
-                    if (tileMap != null && cell.position.x < tileMap.Count && cell.position.y < tileMap[cell.position.x].Count)
+                    if (tileMap != null &&
+                        cell.position.x >= 0 && cell.position.x < tileMap.Count &&
+                        cell.position.y >= 0 && cell.position.y < tileMap[cell.position.x].Count)
                     {
                         enemyCharacter.characterMove.SetCurrentTile(tileMap[cell.position.x][cell.position.y]);
                     }
@@ -458,11 +457,7 @@ public class StageManager : IInitializable, System.IDisposable
         CellData cell = spawnNPCCells[0];
         spawnNPCCells.RemoveAt(0);
 
-        Vector3 worldPos = new Vector3(
-            cell.position.x * mapData.cellSize + mapData.gridOffset.x,
-            mapData.gridOffset.y,
-            cell.position.y * mapData.cellSize + mapData.gridOffset.z
-        );
+        Vector3 worldPos = mapData.CellToWorld(cell.position);
 
         GameObject basePrefab = null;
         if (AssetCacheManager.instance != null)
@@ -487,6 +482,12 @@ public class StageManager : IInitializable, System.IDisposable
     }
     public void SpawnPlayerInMap(MapDataSO mapData, Character playerCharacter, int spawnCount)
     {
+        if (playerCharacter == null || mapData == null)
+        {
+            Debug.LogError("[StageManager] SpawnPlayerInMap: playerCharacter 또는 mapData가 null입니다.");
+            return;
+        }
+
         if (spawnPlayerCells.Count == 0)
         {
             Debug.LogWarning("No Player Spawn Cells Found in Map Data!");
@@ -494,20 +495,28 @@ public class StageManager : IInitializable, System.IDisposable
         }
         spawnPlayerCells.Shuffle();
 
+        Vector2Int spawnCoord = spawnPlayerCells[0].position;
+
         // 셀의 그리드 좌표를 실제 월드 좌표로 변환 (셀 크기 및 오프셋 적용)
-        Vector3 worldPos = new Vector3(
-            spawnPlayerCells[0].position.x * mapData.cellSize + mapData.gridOffset.x,
-            mapData.gridOffset.y,
-            spawnPlayerCells[0].position.y * mapData.cellSize + mapData.gridOffset.z
-        );
+        Vector3 worldPos = mapData.CellToWorld(spawnCoord);
         // 플레이어 진영 설정
         playerCharacter.faction = CharacterFaction.Player;
 
         //플레이어 이동 및 타일 정보 업데이트
-        playerCharacter.transform.position = worldPos;
         if (playerCharacter.characterMove != null)
         {
-            playerCharacter.characterMove.SetCurrentTile(currentGameMap.GetTileMap()[spawnPlayerCells[0].position.x][spawnPlayerCells[0].position.y]);
+            playerCharacter.characterMove.StopMoving();
+        }
+        playerCharacter.transform.position = worldPos;
+        if (playerCharacter.characterMove != null && currentGameMap != null)
+        {
+            List<List<Tile>> tileMap = currentGameMap.GetTileMap();
+            if (tileMap != null &&
+                spawnCoord.x >= 0 && spawnCoord.x < tileMap.Count &&
+                spawnCoord.y >= 0 && spawnCoord.y < tileMap[spawnCoord.x].Count)
+            {
+                playerCharacter.characterMove.SetCurrentTile(tileMap[spawnCoord.x][spawnCoord.y]);
+            }
         }
 
         // 카메라를 새로운 스테이지의 플레이어 위치로 이동/포커싱

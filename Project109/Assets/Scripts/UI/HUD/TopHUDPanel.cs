@@ -157,27 +157,30 @@ public class TopHUDPanel : UIPanelBase
         if (GameSceneManager.instance != null && !GameSceneManager.instance.isInDungeon) return;
 
         ExploreMapUI exploreMapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
-        if (exploreMapUI == null)
+        if (exploreMapUI != null && exploreMapUI.gameObject.activeSelf)
         {
-            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Top, true);
-            if (exploreMapUI != null)
-            {
-                if (RunManager.instance != null)
-                {
-                    RunManager.instance.currentExploreUI = exploreMapUI;
-                }
-                exploreMapUI.CreateExploreMap(15);
-            }
+            exploreMapUI.Close();
             return;
         }
 
-        if (exploreMapUI.gameObject.activeSelf)
+        if (RunManager.instance != null)
         {
-            exploreMapUI.Close();
+            RunManager.instance.OpenOrShowExploreMap(15);
+            return;
         }
-        else
+
+        // RunManager가 존재하지 않는 예외 상황에서의 안전 폴백 (프리팹 기본 레이어 유지)
+        if (exploreMapUI == null)
         {
-            exploreMapUI.uiLayerType = UILayerType.Top;
+            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+        }
+
+        if (exploreMapUI != null)
+        {
+            if (exploreMapUI.MapNodes == null || exploreMapUI.MapNodes.Count == 0)
+            {
+                exploreMapUI.CreateExploreMap(15);
+            }
             UIManager.instance.PushActiveUIPanel(exploreMapUI);
         }
     }

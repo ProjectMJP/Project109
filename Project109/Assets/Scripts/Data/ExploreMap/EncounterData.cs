@@ -12,6 +12,22 @@ public enum EncountType
     Secret,     //비밀
 }
 
+/// <summary>
+/// EncountType 열거형 관련 판정 확장 메서드 모음입니다.
+/// </summary>
+public static class EncountTypeExtensions
+{
+    /// <summary>
+    /// 일반 전투, 엘리트, 보스 등 전투가 발생하는 조우 타입인지 여부를 반환합니다.
+    /// </summary>
+    public static bool IsCombat(this EncountType encountType)
+    {
+        return encountType == EncountType.Battle
+            || encountType == EncountType.Elite
+            || encountType == EncountType.Boss;
+    }
+}
+
 public enum ExtraEncountType
 {
     None,

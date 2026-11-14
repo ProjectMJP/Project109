@@ -8,6 +8,7 @@ public class ExploreMapManager
     private AssetCacheManager dataLoader;
     private RandomItemPicker<BattleData> battleItemPicker;
     private RandomItemPicker<InteractableData> eventItemPicker;
+    private int _cachedBattleListCount = 0;
 
     [Header("Map Setting")]
     public int StoreNumber = 1;
@@ -18,10 +19,28 @@ public class ExploreMapManager
 
     public ExploreMapManager()
     {
-        dataLoader = AssetCacheManager.instance;
-        if (dataLoader != null)
+        EnsureBattleItemPicker();
+    }
+
+    private void EnsureBattleItemPicker()
+    {
+        if (dataLoader == null)
         {
-            battleItemPicker = new RandomItemPicker<BattleData>(dataLoader.battleList ?? new List<BattleData>());
+            dataLoader = AssetCacheManager.instance;
+        }
+
+        if (dataLoader != null && dataLoader.battleList != null)
+        {
+            if (battleItemPicker == null || (_cachedBattleListCount == 0 && dataLoader.battleList.Count > 0))
+            {
+                battleItemPicker = new RandomItemPicker<BattleData>(dataLoader.battleList);
+                _cachedBattleListCount = dataLoader.battleList.Count;
+            }
+        }
+        else if (battleItemPicker == null)
+        {
+            battleItemPicker = new RandomItemPicker<BattleData>(new List<BattleData>());
+            _cachedBattleListCount = 0;
         }
     }
 
@@ -45,7 +64,8 @@ public class ExploreMapManager
         // 1. 노드 생성 레이아웃 배치
         for (int index = 0; index < mapLength; index++)
         {
-            MapData.mapNodes.Add(new List<ExploreNode>());
+            ExploreFloorData floorData = new ExploreFloorData();
+            MapData.floors.Add(floorData);
 
             if (index == 0)
             {
@@ -53,14 +73,14 @@ public class ExploreMapManager
                 node.encounterData.locationType = locationType;
                 node.encounterData.encountType = EncountType.None;
                 node.encounterData.interactableDataId = "Region_Start_Shrine_Data";
-                MapData.mapNodes[index].Add(node);
+                floorData.nodes.Add(node);
             }
             else if (index == mapLength - 1)
             {
                 ExploreNode node = new ExploreNode(index, 0);
                 node.encounterData.locationType = locationType;
                 node.encounterData.encountType = EncountType.Boss;
-                MapData.mapNodes[index].Add(node);
+                floorData.nodes.Add(node);
             }
             else if (index == mapLength / 2)
             {
@@ -68,13 +88,13 @@ public class ExploreMapManager
                 nodeRestore.encounterData.locationType = locationType;
                 nodeRestore.encounterData.encountType = EncountType.Restore;
                 nodeRestore.encounterData.interactableDataId = "Restore_Bonfire_Data";
-                MapData.mapNodes[index].Add(nodeRestore);
+                floorData.nodes.Add(nodeRestore);
 
                 ExploreNode nodeStore = new ExploreNode(index, 1);
                 nodeStore.encounterData.locationType = locationType;
                 nodeStore.encounterData.encountType = EncountType.Store;
                 nodeStore.encounterData.interactableDataId = "Shop_NPC_Data";
-                MapData.mapNodes[index].Add(nodeStore);
+                floorData.nodes.Add(nodeStore);
 
                 exploreNodeListInSection.Add(new List<ExploreNode>());
                 sectionIndex++;
@@ -87,18 +107,21 @@ public class ExploreMapManager
                     ExploreNode node = new ExploreNode(index, nIdx);
                     node.encounterData.locationType = locationType;
                     node.encounterData.encountType = EncountType.Battle;
-                    MapData.mapNodes[index].Add(node);
+                    floorData.nodes.Add(node);
                     exploreNodeListInSection[sectionIndex].Add(node);
                 }
             }
         }
 
         // 보스 전 무조건 휴식
-        foreach (ExploreNode node in MapData.mapNodes[mapLength - 2])
+        if (mapLength >= 2)
         {
-            node.encounterData.encountType = EncountType.Restore;
-            node.encounterData.interactableDataId = "Restore_Bonfire_Data";
-            node.isNodeChanged = true;
+            foreach (ExploreNode node in MapData.floors[mapLength - 2].nodes)
+            {
+                node.encounterData.encountType = EncountType.Restore;
+                node.encounterData.interactableDataId = "Restore_Bonfire_Data";
+                node.isNodeChanged = true;
+            }
         }
 
         // 2. 노드 타입 무작위 변경 (엘리트, 상자 등)
@@ -202,18 +225,25 @@ public class ExploreMapManager
         }
 
         // 일반 전투 노드 추가 보상 배정
-        for (int i = 0; i < MapData.mapNodes.Count; i++)
+        if (MapData != null && MapData.floors != null)
         {
-            for (int j = 0; j < MapData.mapNodes[i].Count; j++)
+            for (int i = 0; i < MapData.floors.Count; i++)
             {
-                if (MapData.mapNodes[i][j].encounterData.encountType == EncountType.Battle && !MapData.mapNodes[i][j].isNodeChanged)
-                {
-                    int randomVal = Random.Range(0, 3);
-                    BattleExtraRewardType rewardType = BattleExtraRewardType.Card;
-                    if (randomVal == 1) rewardType = BattleExtraRewardType.Relic;
-                    else if (randomVal == 2) rewardType = BattleExtraRewardType.Gold;
+                ExploreFloorData floorData = MapData.floors[i];
+                if (floorData == null || floorData.nodes == null) continue;
 
-                    MapData.mapNodes[i][j].encounterData.battleExtraRewardType = rewardType;
+                for (int j = 0; j < floorData.nodes.Count; j++)
+                {
+                    ExploreNode node = floorData.nodes[j];
+                    if (node != null && node.encounterData.encountType == EncountType.Battle && !node.isNodeChanged)
+                    {
+                        int randomVal = Random.Range(0, 3);
+                        BattleExtraRewardType rewardType = BattleExtraRewardType.Card;
+                        if (randomVal == 1) rewardType = BattleExtraRewardType.Relic;
+                        else if (randomVal == 2) rewardType = BattleExtraRewardType.Gold;
+
+                        node.encounterData.battleExtraRewardType = rewardType;
+                    }
                 }
             }
         }
@@ -273,12 +303,19 @@ public class ExploreMapManager
 
     private void SetBattleNodeData()
     {
-        for (int i = 0; i < MapData.mapNodes.Count; i++)
+        if (MapData == null || MapData.floors == null) return;
+        EnsureBattleItemPicker();
+
+        for (int i = 0; i < MapData.floors.Count; i++)
         {
-            for (int j = 0; j < MapData.mapNodes[i].Count; j++)
+            List<ExploreNode> floorNodes = MapData.floors[i] != null ? MapData.floors[i].nodes : null;
+            if (floorNodes == null) continue;
+
+            for (int j = 0; j < floorNodes.Count; j++)
             {
-                var enc = MapData.mapNodes[i][j].encounterData;
-                if (enc.encountType == EncountType.Battle || enc.encountType == EncountType.Elite || enc.encountType == EncountType.Boss)
+                if (floorNodes[j] == null || floorNodes[j].encounterData == null) continue;
+                var enc = floorNodes[j].encounterData;
+                if (enc.encountType.IsCombat())
                 {
                     if (battleItemPicker != null)
                     {
@@ -302,52 +339,63 @@ public class ExploreMapManager
 
     private void LinkNodes()
     {
-        for (int i = 0; i < MapData.mapNodes.Count - 1; i++)
+        if (MapData == null || MapData.floors == null) return;
+
+        for (int i = 0; i < MapData.floors.Count - 1; i++)
         {
-            if (MapData.mapNodes[i].Count == 1)
+            ExploreFloorData currentFloorData = MapData.floors[i];
+            ExploreFloorData nextFloorData = MapData.floors[i + 1];
+            List<ExploreNode> currentFloorNodes = currentFloorData != null ? currentFloorData.nodes : null;
+            List<ExploreNode> nextFloorNodes = nextFloorData != null ? nextFloorData.nodes : null;
+            if (currentFloorNodes == null || nextFloorNodes == null || currentFloorNodes.Count == 0 || nextFloorNodes.Count == 0)
+            {
+                continue;
+            }
+
+            if (currentFloorNodes.Count == 1)
             {
                 int currentNodeCount = 0;
                 int nextNodeCount = 0;
-                while (nextNodeCount < MapData.mapNodes[i + 1].Count)
+                while (nextNodeCount < nextFloorNodes.Count)
                 {
-                    MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                    currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                     nextNodeCount++;
                 }
             }
-            else if (MapData.mapNodes[i + 1].Count == 1)
+            else if (nextFloorNodes.Count == 1)
             {
                 int currentNodeCount = 0;
                 int nextNodeCount = 0;
-                while (currentNodeCount < MapData.mapNodes[i].Count)
+                while (currentNodeCount < currentFloorNodes.Count)
                 {
-                    MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                    currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                     currentNodeCount++;
                 }
             }
-            else if (MapData.mapNodes[i].Count < MapData.mapNodes[i + 1].Count)
+            else if (currentFloorNodes.Count < nextFloorNodes.Count)
             {
                 int currentNodeCount = 0;
                 int nextNodeCount = 0;
-                int randomNodeNumber = Random.Range(0, MapData.mapNodes[i].Count);
+                int randomNodeNumber = Random.Range(0, currentFloorNodes.Count);
 
-                while (currentNodeCount < MapData.mapNodes[i].Count && nextNodeCount < MapData.mapNodes[i + 1].Count)
+                while (currentNodeCount < currentFloorNodes.Count && nextNodeCount < nextFloorNodes.Count)
                 {
                     if (currentNodeCount == randomNodeNumber)
                     {
-                        while (MapData.mapNodes[i].Count - currentNodeCount + 1 < MapData.mapNodes[i + 1].Count - nextNodeCount)
+                        while (currentFloorNodes.Count - currentNodeCount + 1 < nextFloorNodes.Count - nextNodeCount)
                         {
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                             nextNodeCount++;
                         }
                     }
 
-                    MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                    currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                     
-                    if (nextNodeCount + 1 < MapData.mapNodes[i + 1].Count)
+                    if (nextNodeCount + 1 < nextFloorNodes.Count)
                     {
-                        if (Random.Range(0, 10) % 2 == 0 || currentNodeCount == 0 || currentNodeCount == MapData.mapNodes[i].Count - 1)
+                        if (Random.Range(0, 10) % 2 == 0 || currentNodeCount == 0 || currentNodeCount == currentFloorNodes.Count - 1)
                         {
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount + 1);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount + 1);
                             nextNodeCount++;
                         }
                         else
@@ -356,11 +404,11 @@ public class ExploreMapManager
                         }
                     }
 
-                    if (currentNodeCount == MapData.mapNodes[i].Count - 1 && nextNodeCount < MapData.mapNodes[i + 1].Count - 1)
+                    if (currentNodeCount == currentFloorNodes.Count - 1 && nextNodeCount < nextFloorNodes.Count - 1)
                     {
-                        while (nextNodeCount < MapData.mapNodes[i + 1].Count)
+                        while (nextNodeCount < nextFloorNodes.Count)
                         {
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                             nextNodeCount++;
                         }
                     }
@@ -373,38 +421,38 @@ public class ExploreMapManager
                 int currentNodeCount = 0;
                 int nextNodeCount = 0;
                 bool recentlyIgnoreNode = false;
-                int randomNodeNumber = Random.Range(0, MapData.mapNodes[i + 1].Count);
+                int randomNodeNumber = Random.Range(0, nextFloorNodes.Count);
 
-                while (currentNodeCount < MapData.mapNodes[i].Count && nextNodeCount < MapData.mapNodes[i + 1].Count)
+                while (currentNodeCount < currentFloorNodes.Count && nextNodeCount < nextFloorNodes.Count)
                 {
-                    MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                    currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                     
                     if (nextNodeCount == randomNodeNumber)
                     {
-                        while (MapData.mapNodes[i].Count - currentNodeCount > MapData.mapNodes[i + 1].Count - nextNodeCount)
+                        while (currentFloorNodes.Count - currentNodeCount > nextFloorNodes.Count - nextNodeCount)
                         {
-                            if (currentNodeCount + 1 < MapData.mapNodes[i].Count)
+                            if (currentNodeCount + 1 < currentFloorNodes.Count)
                             {
                                 currentNodeCount++;
-                                MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                                currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                             }
                             else
                             {
                                 break;
                             }
                         }
-                        if (currentNodeCount + 1 < MapData.mapNodes[i].Count)
+                        if (currentNodeCount + 1 < currentFloorNodes.Count)
                         {
                             currentNodeCount++;
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                         }
                     }
 
-                    if (nextNodeCount + 1 < MapData.mapNodes[i + 1].Count)
+                    if (nextNodeCount + 1 < nextFloorNodes.Count)
                     {
-                        if (Random.Range(0, 10) % 2 == 0 || recentlyIgnoreNode || currentNodeCount == 0 || currentNodeCount == MapData.mapNodes[i].Count - 1)
+                        if (Random.Range(0, 10) % 2 == 0 || recentlyIgnoreNode || currentNodeCount == 0 || currentNodeCount == currentFloorNodes.Count - 1)
                         {
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount + 1);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount + 1);
                             nextNodeCount++;
                             recentlyIgnoreNode = false;
                         }
@@ -414,11 +462,11 @@ public class ExploreMapManager
                         }
                     }
 
-                    if (currentNodeCount == MapData.mapNodes[i].Count - 1 && nextNodeCount < MapData.mapNodes[i + 1].Count - 1)
+                    if (currentNodeCount == currentFloorNodes.Count - 1 && nextNodeCount < nextFloorNodes.Count - 1)
                     {
-                        while (nextNodeCount < MapData.mapNodes[i + 1].Count)
+                        while (nextNodeCount < nextFloorNodes.Count)
                         {
-                            MapData.mapNodes[i][currentNodeCount].nextNodeIndices.Add(nextNodeCount);
+                            currentFloorNodes[currentNodeCount].nextNodeIndices.Add(nextNodeCount);
                             nextNodeCount++;
                         }
                     }
@@ -434,7 +482,7 @@ public class ExploreMapManager
     /// </summary>
     public void InitializeNodeVisibility(int mapLength)
     {
-        if (MapData == null || MapData.mapNodes == null) return;
+        if (MapData == null || MapData.floors == null) return;
 
         int checkLength = GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null
             ? GameSceneManager.instance.player.playerStat.MapFloorCheckLength
@@ -442,12 +490,18 @@ public class ExploreMapManager
 
         int midFloor = mapLength / 2;
 
-        for (int floor = 0; floor < MapData.mapNodes.Count; floor++)
+        for (int floor = 0; floor < MapData.floors.Count; floor++)
         {
+            ExploreFloorData floorData = MapData.floors[floor];
+            if (floorData == null || floorData.nodes == null) continue;
+
             bool shouldReveal = (floor < checkLength) || (floor == midFloor);
-            foreach (var node in MapData.mapNodes[floor])
+            foreach (var node in floorData.nodes)
             {
-                node.isRevealed = shouldReveal;
+                if (node != null)
+                {
+                    node.isRevealed = shouldReveal;
+                }
             }
         }
     }
@@ -457,13 +511,18 @@ public class ExploreMapManager
     /// </summary>
     public void RevealAllNodes()
     {
-        if (MapData == null || MapData.mapNodes == null) return;
+        if (MapData == null || MapData.floors == null) return;
 
-        foreach (var floorList in MapData.mapNodes)
+        foreach (var floorData in MapData.floors)
         {
-            foreach (var node in floorList)
+            if (floorData == null || floorData.nodes == null) continue;
+
+            foreach (var node in floorData.nodes)
             {
-                node.isRevealed = true;
+                if (node != null)
+                {
+                    node.isRevealed = true;
+                }
             }
         }
     }
@@ -473,13 +532,15 @@ public class ExploreMapManager
     /// </summary>
     public void RevealNodesByType(EncountType type)
     {
-        if (MapData == null || MapData.mapNodes == null) return;
+        if (MapData == null || MapData.floors == null) return;
 
-        foreach (var floorList in MapData.mapNodes)
+        foreach (var floorData in MapData.floors)
         {
-            foreach (var node in floorList)
+            if (floorData == null || floorData.nodes == null) continue;
+
+            foreach (var node in floorData.nodes)
             {
-                if (node.encounterData != null && node.encounterData.encountType == type)
+                if (node != null && node.encounterData != null && node.encounterData.encountType == type)
                 {
                     node.isRevealed = true;
                 }
@@ -492,14 +553,21 @@ public class ExploreMapManager
     /// </summary>
     public void RevealNodesByFloor(int currentFloor, int checkLength)
     {
-        if (MapData == null || MapData.mapNodes == null) return;
+        if (MapData == null || MapData.floors == null) return;
 
-        int endFloor = Mathf.Min(MapData.mapNodes.Count, currentFloor + checkLength);
-        for (int floor = currentFloor; floor < endFloor; floor++)
+        int startFloor = Mathf.Max(0, currentFloor);
+        int endFloor = Mathf.Min(MapData.floors.Count, currentFloor + checkLength);
+        for (int floor = startFloor; floor < endFloor; floor++)
         {
-            foreach (var node in MapData.mapNodes[floor])
+            ExploreFloorData floorData = MapData.floors[floor];
+            if (floorData == null || floorData.nodes == null) continue;
+
+            foreach (var node in floorData.nodes)
             {
-                node.isRevealed = true;
+                if (node != null)
+                {
+                    node.isRevealed = true;
+                }
             }
         }
     }
@@ -509,14 +577,16 @@ public class ExploreMapManager
     /// </summary>
     public void RevealRandomNode()
     {
-        if (MapData == null || MapData.mapNodes == null) return;
+        if (MapData == null || MapData.floors == null) return;
 
         List<ExploreNode> hiddenNodes = new List<ExploreNode>();
-        foreach (var floorList in MapData.mapNodes)
+        foreach (var floorData in MapData.floors)
         {
-            foreach (var node in floorList)
+            if (floorData == null || floorData.nodes == null) continue;
+
+            foreach (var node in floorData.nodes)
             {
-                if (!node.isRevealed)
+                if (node != null && !node.isRevealed)
                 {
                     hiddenNodes.Add(node);
                 }

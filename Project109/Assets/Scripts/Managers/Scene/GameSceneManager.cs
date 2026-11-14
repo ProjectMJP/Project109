@@ -49,6 +49,7 @@ public class GameSceneManager : MonoBehaviour
     public string DungeonScenePath => _dungeonScenePath;
 
     private GameObject _spawnedPlayerObject;
+    private RunSaveData _pendingSessionSaveData;
 
     private void Awake()
     {
@@ -56,6 +57,7 @@ public class GameSceneManager : MonoBehaviour
         {
             instance = this;
             currentSaveSlot = selectedSaveSlot;
+            _pendingSessionSaveData = null;
         }
         else
         {
@@ -65,6 +67,7 @@ public class GameSceneManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        _pendingSessionSaveData = null;
         if (_spawnedPlayerObject != null)
         {
             Addressables.ReleaseInstance(_spawnedPlayerObject);
@@ -125,13 +128,15 @@ public class GameSceneManager : MonoBehaviour
         player = new Player(character);
         Debug.Log("[GameSceneManager] Player Character AssetReference 인스턴스화 및 Player 바인딩 완료.");
 
-        // 세이브 데이터가 있으면 전체 세션 복원, 없으면 신규 플레이어 기본 초기화
-        if (SaveSystem.HasSaveData(currentSaveSlot))
+        // 세이브 데이터가 있으면 1회만 디스크에서 읽어 플레이어 복원 및 이후 서브씬 초기화에 재사용합니다.
+        if (SaveSystem.TryLoadGameData(currentSaveSlot, out RunSaveData loadedData))
         {
-            SaveSystem.RestoreSession(currentSaveSlot);
+            _pendingSessionSaveData = loadedData;
+            SaveSystem.RestoreSession(loadedData);
         }
         else
         {
+            _pendingSessionSaveData = null;
             SaveSystem.InitializeDefaultPlayer(player);
         }
     }
@@ -159,35 +164,28 @@ public class GameSceneManager : MonoBehaviour
     /// </summary>
     public void InitializeSubScene()
     {
-        bool savedInDungeon = false;
-
-        // 세이브 파일 존재 시 던전 진행 중이었는지 여부를 체크합니다.
-        if (SaveSystem.HasSaveData(currentSaveSlot))
+        RunSaveData saveData = _pendingSessionSaveData;
+        if (saveData == null)
         {
-            RunSaveData saveData = SaveSystem.LoadGameData(currentSaveSlot);
-            if (saveData != null)
-            {
-                savedInDungeon = saveData.isInDungeon;
-            }
+            SaveSystem.TryLoadGameData(currentSaveSlot, out saveData);
         }
+        _pendingSessionSaveData = null;
 
+        bool savedInDungeon = saveData != null && saveData.isInDungeon;
         string targetSubScenePath = savedInDungeon ? _dungeonScenePath : _hideoutScenePath;
         isInDungeon = savedInDungeon;
 
         if (SceneLoadManager.instance != null)
         {
+            RunSaveData capturedSaveData = saveData;
             SceneLoadManager.instance.LoadInitialSubScene(targetSubScenePath, () =>
             {
-                // 던전 서브씬 로드 완료 후 런 데이터 복원
-                if (isInDungeon && SaveSystem.HasSaveData(currentSaveSlot))
+                // 던전 서브씬 로드 완료 후 앞서 로드한 런 데이터를 그대로 재사용하여 복원
+                if (isInDungeon && capturedSaveData != null && currentDungeonManager != null)
                 {
-                    RunSaveData data = SaveSystem.LoadGameData(currentSaveSlot);
-                    if (data != null && currentDungeonManager != null)
-                    {
-                        SaveSystem.RestoreRunData(data, currentDungeonManager);
-                        currentDungeonManager.ResumeRunAfterLoad();
-                        Debug.Log($"[GameSceneManager] 서브씬 로드 완료 후 던전 런 데이터 복원 및 재개 완료 (슬롯 {currentSaveSlot})");
-                    }
+                    SaveSystem.RestoreRunData(capturedSaveData, currentDungeonManager);
+                    currentDungeonManager.ResumeRunAfterLoad();
+                    Debug.Log($"[GameSceneManager] 서브씬 로드 완료 후 던전 런 데이터 복원 및 재개 완료 (슬롯 {currentSaveSlot})");
                 }
                 OnSceneLocationChanged?.Invoke();
             });

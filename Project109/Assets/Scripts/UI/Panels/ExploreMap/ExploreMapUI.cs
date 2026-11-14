@@ -32,16 +32,18 @@ public class ExploreMapUI : UIPanelBase
 
         // SaveSystem 등을 통해 이미 맵 데이터가 있다면 GenerateMap을 생략할 수 있습니다. 
         // 일단 여기서는 맵 데이터가 비어있으면 생성하도록 합니다.
-        if (mapManager.MapData == null || mapManager.MapData.mapNodes.Count == 0)
+        if (mapManager.MapData == null || mapManager.MapData.floors == null || mapManager.MapData.floors.Count == 0)
         {
             mapManager.GenerateMap(mapLength, currentFloor);
         }
 
         ExploreMapData mapData = mapManager.MapData;
-        if (mapData == null || ViewLayout == null) return;
+        if (mapData == null || mapData.floors == null || ViewLayout == null) return;
+
+        int floorCount = mapData.floors.Count;
 
         // 노드들을 담아두는 Vertical Layout들을 미리 생성
-        for (int i = 0; i < mapLength; i++)
+        for (int i = 0; i < floorCount; i++)
         {
             GameObject verticalObj = GameObject.Instantiate(ExploreMapVerticalLayoutPrefab, ViewLayout.transform);
             VerticalLayoutGroup vlg = verticalObj.GetComponent<VerticalLayoutGroup>();
@@ -50,10 +52,11 @@ public class ExploreMapUI : UIPanelBase
         }
 
         // 데이터(ExploreMapData) 기반으로 UI 노드 프리팹 인스턴스화
-        for (int floor = 0; floor < mapData.mapNodes.Count; floor++)
+        for (int floor = 0; floor < floorCount; floor++)
         {
             _exploreMap.Add(new List<ExploreNodeUI>());
-            List<ExploreNode> floorNodes = mapData.mapNodes[floor];
+            ExploreFloorData floorData = mapData.floors[floor];
+            List<ExploreNode> floorNodes = floorData != null && floorData.nodes != null ? floorData.nodes : new List<ExploreNode>();
 
             for (int idx = 0; idx < floorNodes.Count; idx++)
             {
@@ -84,9 +87,9 @@ public class ExploreMapUI : UIPanelBase
         SetNextExploreNodeUI();
 
         // 시작 지점 지정 (이미 로드된 노드가 없다면)
-        if (RunManager.instance.currentExploreNode == null && mapData.mapNodes.Count > 0 && mapData.mapNodes[0].Count > 0)
+        if (RunManager.instance.currentExploreNode == null && mapData.floors.Count > 0 && mapData.floors[0] != null && mapData.floors[0].nodes != null && mapData.floors[0].nodes.Count > 0)
         {
-            RunManager.instance.currentExploreNode = mapData.mapNodes[0][0];
+            RunManager.instance.currentExploreNode = mapData.floors[0].nodes[0];
         }
 
         // 현재 노드 하이라이트 및 시각 요소 갱신
@@ -143,13 +146,36 @@ public class ExploreMapUI : UIPanelBase
         }
 
         // 2. 현재 노드 하이라이트 활성화
-        if (RunManager.instance.currentExploreNode != null)
+        ExploreNode currentNode = RunManager.instance.currentExploreNode;
+        if (currentNode != null)
         {
-            int curFloor = RunManager.instance.currentExploreNode.floor;
-            int curIndex = RunManager.instance.currentExploreNode.index;
-            if (curFloor < _exploreMap.Count && curIndex < _exploreMap[curFloor].Count)
+            int curFloor = currentNode.floor;
+            int curIndex = currentNode.index;
+            if (curFloor >= 0 && curFloor < _exploreMap.Count)
             {
-                var curNodeUI = _exploreMap[curFloor][curIndex];
+                ExploreNodeUI curNodeUI = null;
+                if (curIndex >= 0 && curIndex < _exploreMap[curFloor].Count)
+                {
+                    ExploreNodeUI indexedNodeUI = _exploreMap[curFloor][curIndex];
+                    if (indexedNodeUI != null && (indexedNodeUI.NodeData == currentNode || indexedNodeUI.NodeData == null))
+                    {
+                        curNodeUI = indexedNodeUI;
+                    }
+                }
+
+                if (curNodeUI == null)
+                {
+                    for (int i = 0; i < _exploreMap[curFloor].Count; i++)
+                    {
+                        ExploreNodeUI candidate = _exploreMap[curFloor][i];
+                        if (candidate != null && candidate.NodeData == currentNode)
+                        {
+                            curNodeUI = candidate;
+                            break;
+                        }
+                    }
+                }
+
                 if (curNodeUI != null && curNodeUI.ExploreNodeUICurrentHighlightCircleObject != null)
                 {
                     curNodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(true);

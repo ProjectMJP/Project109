@@ -81,8 +81,39 @@ public class BattleManager : IInitializable, IDisposable
         // 이전 전투 잔여 데이터 강제 정리
         ClearBattle();
 
-        playerTeam = new List<ICharacterController>(players);
-        enemyTeam = new List<ICharacterController>(enemies);
+        playerTeam = new List<ICharacterController>();
+        if (players != null)
+        {
+            foreach (var combatant in players)
+            {
+                if (combatant == null || combatant.controlledCharacter == null)
+                {
+                    Debug.LogError("[BattleManager] InitBattle: playerTeam에 null 컨트롤러 또는 controlledCharacter가 null인 요소가 전달되었습니다.");
+                    continue;
+                }
+                playerTeam.Add(combatant);
+            }
+        }
+
+        enemyTeam = new List<ICharacterController>();
+        if (enemies != null)
+        {
+            foreach (var combatant in enemies)
+            {
+                if (combatant == null || combatant.controlledCharacter == null)
+                {
+                    Debug.LogError("[BattleManager] InitBattle: enemyTeam에 null 컨트롤러 또는 controlledCharacter가 null인 요소가 전달되었습니다.");
+                    continue;
+                }
+                enemyTeam.Add(combatant);
+            }
+        }
+
+        if (playerTeam.Count == 0)
+        {
+            Debug.LogError("[BattleManager] InitBattle: 유효한 플레이어 전투원이 없어 전투 초기화를 중단합니다.");
+            return;
+        }
 
         // 스태미나 초기화 + 사망 이벤트 구독 (플레이어 → 적 순서)
         foreach (var combatant in playerTeam)
@@ -121,9 +152,19 @@ public class BattleManager : IInitializable, IDisposable
 
         // BattleStart 이벤트 (플레이어 우선) - 실제 전투 개시 시점에 호출
         foreach (var combatant in playerTeam)
-            CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
+        {
+            if (combatant != null && combatant.controlledCharacter != null && combatant.controlledCharacter.eventBus != null)
+            {
+                CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
+            }
+        }
         foreach (var combatant in enemyTeam)
-            CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
+        {
+            if (combatant != null && combatant.controlledCharacter != null && combatant.controlledCharacter.eventBus != null)
+            {
+                CombatEventDispatcher.DispatchBattleStart(combatant.controlledCharacter.eventBus);
+            }
+        }
 
         battleState = BattleState.Combat;
         Debug.Log("[BattleManager] Battle start intro finished. Combat began.");
@@ -134,17 +175,32 @@ public class BattleManager : IInitializable, IDisposable
     /// </summary>
     public void AddCombatant(ICharacterController controller, bool isPlayerTeam)
     {
+        if (controller == null || controller.controlledCharacter == null)
+        {
+            Debug.LogError("[BattleManager] AddCombatant: null 컨트롤러 또는 controlledCharacter가 null인 전투원은 추가할 수 없습니다.");
+            return;
+        }
+
         if (isPlayerTeam)
             playerTeam.Add(controller);
         else
             enemyTeam.Add(controller);
 
         InitCombatant(controller);
-        CombatEventDispatcher.DispatchBattleStart(controller.controlledCharacter.eventBus);
+        if (controller.controlledCharacter.eventBus != null)
+        {
+            CombatEventDispatcher.DispatchBattleStart(controller.controlledCharacter.eventBus);
+        }
     }
 
     private void InitCombatant(ICharacterController combatant)
     {
+        if (combatant == null || combatant.controlledCharacter == null)
+        {
+            Debug.LogError("[BattleManager] InitCombatant: combatant 또는 controlledCharacter가 null입니다.");
+            return;
+        }
+
         combatant.controlledCharacter.ResetCharacterForBattle();
         combatant.controlledCharacter.OnCharacterDied += OnCharacterDied;
         combatant.controlledCharacter.NotifyJoinedBattle();

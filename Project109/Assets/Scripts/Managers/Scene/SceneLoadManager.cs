@@ -112,19 +112,28 @@ public class SceneLoadManager : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    // 초기 서브씬 설정용 (최초 GameScene 진입 시 은신처 씬을 덧붙여 로드할 때 사용)
+    // 초기 서브씬 설정용 (최초 GameScene 진입 시 은신처 또는 던전 씬을 덧붙여 로드할 때 사용)
     public void LoadInitialSubScene(string subSceneName, System.Action onComplete = null)
     {
-        SceneManager.LoadSceneAsync(subSceneName, LoadSceneMode.Additive).completed += (op) =>
+        StartCoroutine(CoLoadInitialSubScene(subSceneName, onComplete));
+    }
+
+    private IEnumerator CoLoadInitialSubScene(string subSceneName, System.Action onComplete)
+    {
+        AsyncOperation loadOp = SceneManager.LoadSceneAsync(subSceneName, LoadSceneMode.Additive);
+        yield return loadOp;
+
+        Scene loadedScene = SceneManager.GetSceneByPath(subSceneName);
+        if (loadedScene.IsValid() && loadedScene.isLoaded)
         {
-            Scene loadedScene = SceneManager.GetSceneByPath(subSceneName);
-            if (loadedScene.IsValid())
-            {
-                SceneManager.SetActiveScene(loadedScene);
-                currentLoadedSubScene = subSceneName;
-            }
-            onComplete?.Invoke();
-        };
+            SceneManager.SetActiveScene(loadedScene);
+            currentLoadedSubScene = subSceneName;
+        }
+
+        // 새로 활성화된 서브씬 내 모든 MonoBehaviour의 Start() 실행을 보장하기 위해 1프레임 대기
+        yield return null;
+
+        onComplete?.Invoke();
     }
 
     private void OnDestroy()

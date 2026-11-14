@@ -57,6 +57,31 @@ public class RunSaveData
 /// </summary>
 public static class SaveSystem
 {
+    // 슬롯별 세이브 데이터 메모리 캐시 (중복 디스크 I/O 및 JSON 파싱 제거)
+    private static readonly Dictionary<int, RunSaveData> _saveDataCache = new Dictionary<int, RunSaveData>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticCache()
+    {
+        _saveDataCache.Clear();
+    }
+
+    /// <summary>
+    /// 특정 슬롯의 캐시된 세이브 데이터를 무효화합니다.
+    /// </summary>
+    public static void InvalidateCache(int slotIndex)
+    {
+        _saveDataCache.Remove(slotIndex);
+    }
+
+    /// <summary>
+    /// 모든 슬롯의 캐시된 세이브 데이터를 무효화합니다.
+    /// </summary>
+    public static void InvalidateAllCaches()
+    {
+        _saveDataCache.Clear();
+    }
+
     private static string GetSavePath(int slotIndex)
     {
         return Path.Combine(Application.persistentDataPath, $"save_{slotIndex}.json");
@@ -167,6 +192,7 @@ public static class SaveSystem
             string json = JsonUtility.ToJson(data, true);
             string savePath = GetSavePath(slotIndex);
             File.WriteAllText(savePath, json, System.Text.Encoding.UTF8);
+            InvalidateCache(slotIndex);
             Debug.Log($"[SaveSystem] 게임 상태가 '{savePath}'에 정상적으로 저장되었습니다.");
         }
         catch (Exception e)
@@ -180,32 +206,69 @@ public static class SaveSystem
     /// </summary>
     public static bool HasSaveData(int slotIndex)
     {
-        return File.Exists(GetSavePath(slotIndex));
+        bool exists = File.Exists(GetSavePath(slotIndex));
+        if (!exists)
+        {
+            _saveDataCache.Remove(slotIndex);
+        }
+        return exists;
+    }
+
+    /// <summary>
+    /// 특정 슬롯 저장소로부터 데이터를 조회합니다. 캐시에 이미 로드되어 있으면 디스크 I/O와 역직렬화를 생략합니다.
+    /// </summary>
+    public static bool TryLoadGameData(int slotIndex, out RunSaveData data, bool forceReload = false)
+    {
+        if (!forceReload && _saveDataCache.TryGetValue(slotIndex, out data) && data != null)
+        {
+            return true;
+        }
+
+        string savePath = GetSavePath(slotIndex);
+        if (!File.Exists(savePath))
+        {
+            _saveDataCache.Remove(slotIndex);
+            data = null;
+            return false;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(savePath, System.Text.Encoding.UTF8);
+            data = JsonUtility.FromJson<RunSaveData>(json);
+            if (data != null)
+            {
+                _saveDataCache[slotIndex] = data;
+                return true;
+            }
+
+            _saveDataCache.Remove(slotIndex);
+            return false;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[SaveSystem] 로드 중 예외 발생: {e.Message}");
+            _saveDataCache.Remove(slotIndex);
+            data = null;
+            return false;
+        }
     }
 
     /// <summary>
     /// 특정 슬롯 저장소로부터 데이터를 읽어 RunSaveData 객체로 역직렬화합니다.
     /// </summary>
-    public static RunSaveData LoadGameData(int slotIndex)
+    public static RunSaveData LoadGameData(int slotIndex, bool forceReload = false)
     {
-        if (!HasSaveData(slotIndex))
+        if (TryLoadGameData(slotIndex, out RunSaveData data, forceReload))
         {
-            Debug.LogWarning($"[SaveSystem] 슬롯 {slotIndex}에 로드할 세이브 파일이 존재하지 않습니다.");
-            return null;
-        }
-
-        try
-        {
-            string savePath = GetSavePath(slotIndex);
-            string json = File.ReadAllText(savePath, System.Text.Encoding.UTF8);
-            RunSaveData data = JsonUtility.FromJson<RunSaveData>(json);
             return data;
         }
-        catch (Exception e)
+
+        if (!File.Exists(GetSavePath(slotIndex)))
         {
-            Debug.LogError($"[SaveSystem] 로드 중 예외 발생: {e.Message}");
-            return null;
+            Debug.LogWarning($"[SaveSystem] 슬롯 {slotIndex}에 로드할 세이브 파일이 존재하지 않습니다.");
         }
+        return null;
     }
 
     /// <summary>
@@ -213,16 +276,31 @@ public static class SaveSystem
     /// </summary>
     public static bool RestoreSession(int slotIndex)
     {
-        if (!HasSaveData(slotIndex))
+        if (!TryLoadGameData(slotIndex, out RunSaveData data))
         {
-            Debug.LogWarning($"[SaveSystem] 슬롯 {slotIndex}에 로드할 세이브 데이터가 존재하지 않습니다.");
+            if (!File.Exists(GetSavePath(slotIndex)))
+            {
+                Debug.LogWarning($"[SaveSystem] 슬롯 {slotIndex}에 로드할 세이브 데이터가 존재하지 않습니다.");
+            }
+            else
+            {
+                Debug.LogError($"[SaveSystem] 슬롯 {slotIndex}의 세이브 데이터 역직렬화에 실패했습니다.");
+            }
             return false;
         }
 
-        RunSaveData data = LoadGameData(slotIndex);
+        RestoreSession(data);
+        Debug.Log($"[SaveSystem] 슬롯 {slotIndex}로부터 게임 세션 복원을 성공적으로 완료했습니다.");
+        return true;
+    }
+
+    /// <summary>
+    /// 이미 로드된 RunSaveData 객체를 재사용하여 현재 게임 세션(Player, RunManager 등)에 주입 및 복원합니다.
+    /// </summary>
+    public static bool RestoreSession(RunSaveData data)
+    {
         if (data == null)
         {
-            Debug.LogError($"[SaveSystem] 슬롯 {slotIndex}의 세이브 데이터 역직렬화에 실패했습니다.");
             return false;
         }
 
@@ -240,7 +318,6 @@ public static class SaveSystem
             RestoreRunData(data, runManager);
         }
 
-        Debug.Log($"[SaveSystem] 슬롯 {slotIndex}로부터 게임 세션 복원을 성공적으로 완료했습니다.");
         return true;
     }
 
@@ -556,26 +633,60 @@ public static class SaveSystem
         {
             runManager.exploreMapManager.RestoreMapData(data.exploreMapData);
 
-            if (data.exploreMapData != null && data.currentExploreNodeFloor >= 0 && data.currentExploreNodeIndex >= 0)
-            {
-                if (data.currentExploreNodeFloor < data.exploreMapData.mapNodes.Count && 
-                    data.currentExploreNodeIndex < data.exploreMapData.mapNodes[data.currentExploreNodeFloor].Count)
-                {
-                    runManager.currentExploreNode = data.exploreMapData.mapNodes[data.currentExploreNodeFloor][data.currentExploreNodeIndex];
-                }
-            }
+            runManager.currentExploreNode = FindExploreNode(
+                data.exploreMapData,
+                data.currentExploreNodeFloor,
+                data.currentExploreNodeIndex);
 
-            if (data.exploreMapData != null && data.beforeExploreNodeFloor >= 0 && data.beforeExploreNodeIndex >= 0)
-            {
-                if (data.beforeExploreNodeFloor < data.exploreMapData.mapNodes.Count && 
-                    data.beforeExploreNodeIndex < data.exploreMapData.mapNodes[data.beforeExploreNodeFloor].Count)
-                {
-                    runManager.beforeExploreNode = data.exploreMapData.mapNodes[data.beforeExploreNodeFloor][data.beforeExploreNodeIndex];
-                }
-            }
+            runManager.beforeExploreNode = FindExploreNode(
+                data.exploreMapData,
+                data.beforeExploreNodeFloor,
+                data.beforeExploreNodeIndex);
+        }
+        else
+        {
+            runManager.currentExploreNode = null;
+            runManager.beforeExploreNode = null;
         }
 
         Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={data.currentMapName}, Stage={data.currentStageLevel}, Floor={data.currentExploreMapFloor}");
+    }
+
+    /// <summary>
+    /// 직렬화된 탐험 맵 데이터에서 층(floor)과 순번(index)에 일치하는 실제 ExploreNode 인스턴스를 찾아 반환합니다.
+    /// </summary>
+    private static ExploreNode FindExploreNode(ExploreMapData mapData, int floor, int index)
+    {
+        if (mapData == null || mapData.floors == null) return null;
+        if (floor < 0 || index < 0 || floor >= mapData.floors.Count) return null;
+
+        ExploreFloorData floorData = mapData.floors[floor];
+        if (floorData == null || floorData.nodes == null) return null;
+
+        if (index < floorData.nodes.Count)
+        {
+            ExploreNode directMatch = floorData.nodes[index];
+            if (directMatch != null && directMatch.floor == floor && directMatch.index == index)
+            {
+                return directMatch;
+            }
+        }
+
+        for (int i = 0; i < floorData.nodes.Count; i++)
+        {
+            ExploreNode candidate = floorData.nodes[i];
+            if (candidate != null && candidate.floor == floor && candidate.index == index)
+            {
+                return candidate;
+            }
+        }
+
+        if (index < floorData.nodes.Count)
+        {
+            return floorData.nodes[index];
+        }
+
+        return null;
     }
 
     public static CharacterStat CloneCharacterStat(CharacterStat source)
@@ -605,7 +716,8 @@ public static class SaveSystem
     /// </summary>
     public static void DeleteSaveFile(int slotIndex)
     {
-        if (HasSaveData(slotIndex))
+        InvalidateCache(slotIndex);
+        if (File.Exists(GetSavePath(slotIndex)))
         {
             try
             {
@@ -625,6 +737,7 @@ public static class SaveSystem
     /// </summary>
     public static void DeleteAllSaveFiles()
     {
+        InvalidateAllCaches();
         try
         {
             string saveDir = Application.persistentDataPath;

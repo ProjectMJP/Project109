@@ -33,6 +33,8 @@ public class RunManager : MonoBehaviour
             currentStage.Initialize(sceneGameMap);
 
             exploreMapManager = new ExploreMapManager();
+
+            EnsurePlayerInstancesInitialized();
         }
         else
         {
@@ -64,7 +66,13 @@ public class RunManager : MonoBehaviour
     private void Start()
     {
         // 1. 플레이어 컨트롤러 인스턴스 초기화 (Player 자체는 GameSceneManager가 소유)
-        InitializePlayerInstances();
+        EnsurePlayerInstancesInitialized();
+        if (_activePlayerController == playerExploreController &&
+            playerExploreController != null &&
+            (currentStage == null || currentStage.currentMapState != MapState.Battle))
+        {
+            playerExploreController.Activate();
+        }
         OnRunLocationChanged?.Invoke();
 
         // 2. 리워드 매니저 아이템 목록 동기화
@@ -74,15 +82,44 @@ public class RunManager : MonoBehaviour
         }
     }
 
-    private void InitializePlayerInstances()
+    /// <summary>
+    /// 플레이어 배틀/탐색 컨트롤러가 아직 생성되지 않은 경우 1회만 생성합니다. (멱등 보장)
+    /// Start() 이전의 세이브 복원 또는 맵 상태 전환 시점에서도 안전하게 선초기화되며,
+    /// 이미 활성화된 _activePlayerController를 덮어쓰지 않습니다.
+    /// </summary>
+    public bool EnsurePlayerInstancesInitialized()
     {
+        if (playerBattleController != null && playerExploreController != null)
+        {
+            if (_activePlayerController == null)
+            {
+                _activePlayerController = playerExploreController;
+            }
+            return true;
+        }
+
         Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
-        if (player != null)
+        if (player == null)
+        {
+            return false;
+        }
+
+        if (playerBattleController == null)
         {
             playerBattleController = new PlayerBattleController(player);
-            playerExploreController = new PlayerExploreController(player);
-            _activePlayerController = playerExploreController; // 기본적으로 탐색 컨트롤러가 액티브
         }
+
+        if (playerExploreController == null)
+        {
+            playerExploreController = new PlayerExploreController(player);
+        }
+
+        if (_activePlayerController == null)
+        {
+            _activePlayerController = playerExploreController;
+        }
+
+        return true;
     }
 
     private void Update()
@@ -120,26 +157,46 @@ public class RunManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 탐험 맵 UI가 생성되지 않았거나 노드가 비어 있으면 생성·초기화하고, 화면에 표시되도록 엽니다.
+    /// </summary>
+    public ExploreMapUI OpenOrShowExploreMap(int mapLength = 15)
+    {
+        if (UIManager.instance == null) return null;
+
+        ExploreMapUI exploreMapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
+        if (exploreMapUI == null)
+        {
+            // 비활성 상태로 먼저 생성하여 CreateExploreMap 이후 PushActiveUIPanel 시 OnOpen(화살표/시각 동기화)이 한 번에 실행되도록 함
+            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+        }
+
+        if (exploreMapUI == null) return null;
+
+        currentExploreUI = exploreMapUI;
+
+        if (exploreMapUI.MapNodes == null || exploreMapUI.MapNodes.Count == 0)
+        {
+            exploreMapUI.CreateExploreMap(mapLength);
+        }
+
+        if (!exploreMapUI.gameObject.activeSelf)
+        {
+            UIManager.instance.PushActiveUIPanel(exploreMapUI);
+        }
+
+        return exploreMapUI;
+    }
+
+    /// <summary>
     /// 세이브 데이터 복원 후 노드 진행 상태에 맞춰 스테이지를 재구축하거나 맵 창을 엽니다.
     /// </summary>
     public void ResumeRunAfterLoad()
     {
+        EnsurePlayerInstancesInitialized();
         OnRunLocationChanged?.Invoke();
-        if (currentExploreNode == null)
+        if (currentExploreNode == null || currentExploreNode.isCleared)
         {
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.OpenUI(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
-            }
-            return;
-        }
-
-        if (currentExploreNode.isCleared)
-        {
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.OpenUI(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
-            }
+            OpenOrShowExploreMap();
         }
         else
         {
@@ -149,6 +206,8 @@ public class RunManager : MonoBehaviour
 
     public void OnMapStateChanged(MapState newState)
     {
+        EnsurePlayerInstancesInitialized();
+
         // 이전 탐색 컨트롤러 해제
         if (_activePlayerController == playerExploreController && playerExploreController != null)
         {
@@ -157,6 +216,12 @@ public class RunManager : MonoBehaviour
 
         if (newState == MapState.Battle)
         {
+            if (playerBattleController == null)
+            {
+                Debug.LogError("[RunManager] playerBattleController가 초기화되지 않아 전투 상태 전환을 중단합니다.");
+                return;
+            }
+
             _activePlayerController = playerBattleController;
 
             // 전투 매니저 시작!
@@ -172,10 +237,7 @@ public class RunManager : MonoBehaviour
                 battleManager.InitBattle(players, enemies);
             }
 
-            if (playerBattleController != null)
-            {
-                playerBattleController.OnBattleStart();
-            }
+            playerBattleController.OnBattleStart();
 
             foreach (var enemy in enemies)
             {

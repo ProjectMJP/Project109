@@ -33,6 +33,8 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
     {
         if (PlayerInputController.instance != null)
         {
+            // 중복 구독 방지 (Idempotent)
+            PlayerInputController.instance.OnTouchClickEvent -= HandleExploreClick;
             PlayerInputController.instance.OnTouchClickEvent += HandleExploreClick;
         }
     }
@@ -42,7 +44,7 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
     /// </summary>
     public void Deactivate()
     {
-        if (PlayerInputController.instance != null)
+        if (PlayerInputController.HasInstance)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleExploreClick;
         }
@@ -56,6 +58,7 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         // 플레이어 캐릭터 상태가 Idle 또는 Move(이동 중 경로 변경 허용)가 아니면 조작 무시
         if (controlledCharacter == null || (controlledCharacter.currentState != CharacterState.Idle && controlledCharacter.currentState != CharacterState.Move)) return;
 
+        if (Camera.main == null) return;
         Ray ray = Camera.main.ScreenPointToRay(screenPos);
 
         // 1차 레이캐스트: 캐릭터 및 상호작용 가능한 대상(Player, Enemy, NPC) 우선 스캔
