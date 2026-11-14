@@ -27,7 +27,7 @@ Transform:
   m_GameObject: {fileID: 4545089466341251758}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.5, y: 2.5, z: -0.2}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -76,6 +76,7 @@ MonoBehaviour:
   interactableData:
     interactableID: 
     interactableName: 
+    interactableType: 0
     modelPrefabPath: 
     eventAppearLevels: 
     targetDialogueID: 
@@ -109,8 +110,8 @@ Transform:
   m_GameObject: {fileID: 6275552680531389485}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 2.5, z: 0}
-  m_LocalScale: {x: 5, y: 5, z: 5}
+  m_LocalPosition: {x: 0, y: 0.45, z: 0}
+  m_LocalScale: {x: 0.8, y: 0.9, z: 0.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 703472337311011646}

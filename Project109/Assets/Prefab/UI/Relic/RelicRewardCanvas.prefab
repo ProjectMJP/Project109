@@ -71,7 +71,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1526067669910218674}
-  - component: {fileID: 9118789356008861281}
   m_Layer: 5
   m_Name: RelicRewardCanvas
   m_TagString: Untagged
@@ -102,21 +101,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &9118789356008861281
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5189864430361618581}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ebdb92cfa643694d88715dc199740f3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rootObject: {fileID: 0}
-  relicObjectPrefab: {fileID: 6225195064851442074, guid: d29586c2d5bc7a048a5262f2cd432c66, type: 3}
-  relicSpawnTransform: {fileID: 7517771288039022028}
 --- !u!1 &5353238265319754307
 GameObject:
   m_ObjectHideFlags: 0

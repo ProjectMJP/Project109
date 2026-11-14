@@ -4,9 +4,9 @@ className: "Goblin"
 monsterType: "Normal"
 appearLevel: 1
 characterStat:
-  maxHealth: 30
+  maxHealth: 40
   maxStamina: 100
-  staminaRegenPerSecond: 30
-  moveRange: 3
-minDropGoldAmount: 5
-maxDropGoldAmount: 15
+  staminaRegenPerSecond: 25
+  moveRange: 2
+minDropGoldAmount: 10
+maxDropGoldAmount: 20

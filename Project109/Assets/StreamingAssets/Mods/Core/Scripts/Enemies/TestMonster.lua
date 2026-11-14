@@ -1,14 +1,20 @@
 local enemy = {}
 
--- 1. 초기화
-function enemy:OnInit(enemyBase)
-    self.base = enemyBase
+function enemy:OnInit(character, controller)
+    self.character = character
+    self.controller = controller
 end
 
--- 2. AI 행동 패턴 또는 의도 결정 (Intent)
--- NPCUnitController 등에서 활용할 콜백 함수 정의
-function enemy:EvaluateNextIntent(controller)
-    print("[Lua Enemy] TestMonster의 의도를 평가합니다.")
+-- NPCUnitController의 AI 의도 결정 함수
+function enemy:ChooseCard(character)
+    -- 플레이어에게 시전할 카드로 "몬스터 강타" 선택
+    return "몬스터 강타"
+end
+
+function enemy:Evaluate(character)
+    return {
+        cardId = "몬스터 강타"
+    }
 end
 
 return enemy
