@@ -247,7 +247,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
                     cardUI.bIsCardHighlight = false;
                 }
 
-                if (ObjectPoolManager.instance != null)
+                if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
                 {
                     ObjectPoolManager.instance.ReturnCardUI(cardUIObject);
                 }
@@ -536,7 +536,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         {
             if (cardUIObject != null)
             {
-                if (ObjectPoolManager.instance != null)
+                if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
                 {
                     ObjectPoolManager.instance.ReturnCardUI(cardUIObject);
                 }

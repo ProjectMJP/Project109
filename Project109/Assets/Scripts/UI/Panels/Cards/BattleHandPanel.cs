@@ -336,7 +336,7 @@ public class BattleHandPanel : UIPanelBase
             return;
         }
 
-        bool hasPoolManager = ObjectPoolManager.instance != null;
+        bool hasPoolManager = gameObject.scene.isLoaded && ObjectPoolManager.instance != null;
         bool loggedMissingPool = false;
 
         // 새 손패 순서대로 기존 카드는 유지하고 신규 드로우 카드는 풀에서 생성
@@ -865,7 +865,7 @@ public class BattleHandPanel : UIPanelBase
             cardUI.ResetForPool();
         }
 
-        if (ObjectPoolManager.instance != null)
+        if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
         {
             ObjectPoolManager.instance.ReturnCardUI(cardObj);
         }

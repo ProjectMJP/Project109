@@ -110,6 +110,8 @@ public class Card : IDescribable
 
     public LuaTable luaTable { get; private set; }
     private readonly List<object> activeProxies = new List<object>();
+    private Func<LuaTable, Card, Character, bool> _luaCanPlay;
+    private Action<LuaTable, Card, Character> _luaSpendCosts;
     private bool _isDisposed = false;
     public bool IsDisposed => _isDisposed;
 
@@ -138,7 +140,14 @@ public class Card : IDescribable
         var luaOnInit = luaTable?.Get<Action<LuaTable, Card, Character>>("OnInit");
         luaOnInit?.Invoke(luaTable, this, owner);
 
-        // 2. 캐릭터 이벤트 자동 바인딩
+        // 2. 고빈도 호출 Lua 델리게이트 사전 캐싱
+        if (luaTable != null)
+        {
+            _luaCanPlay = luaTable.Get<Func<LuaTable, Card, Character, bool>>("CanPlay");
+            _luaSpendCosts = luaTable.Get<Action<LuaTable, Card, Character>>("SpendCosts");
+        }
+
+        // 3. 캐릭터 이벤트 자동 바인딩
         if (owner != null && owner.eventBus != null)
         {
             LuaEventBinder.BindCharacterEvents(luaTable, owner.eventBus, activeProxies);
@@ -161,8 +170,10 @@ public class Card : IDescribable
             attachedTags.Clear();
         }
 
+        bool isLuaValid = LuaManager.IsLuaEnvValid;
+
         // 2. Lua 측 OnRemoved 함수 호출
-        if (luaTable != null)
+        if (luaTable != null && isLuaValid)
         {
             var luaOnRemoved = luaTable.Get<Action<LuaTable, Card, Character>>("OnRemoved");
             luaOnRemoved?.Invoke(luaTable, this, owner);
@@ -176,8 +187,16 @@ public class Card : IDescribable
 
         // 4. 리소스 정리
         activeProxies.Clear();
-        luaTable?.Dispose();
-        luaTable = null;
+        _luaCanPlay = null;
+        _luaSpendCosts = null;
+        if (luaTable != null)
+        {
+            if (isLuaValid)
+            {
+                luaTable.Dispose();
+            }
+            luaTable = null;
+        }
     }
 
     /// <summary>
@@ -333,7 +352,7 @@ public class Card : IDescribable
     /// </summary>
     public bool CanPlay(Character caster)
     {
-        if (caster == null) return false;
+        if (_isDisposed || caster == null) return false;
 
         // 1. 스태미나 기본 비용 유효성 검증
         if (caster.curStamina < currentCost)
@@ -341,20 +360,16 @@ public class Card : IDescribable
             return false;
         }
 
-        // 2. Lua 스크립트에 CanPlay 함수가 정의되어 있다면 호출하여 최종 검증 진행
-        if (luaTable != null)
+        // 2. 캐싱된 Lua CanPlay 델리게이트가 있다면 호출하여 최종 검증 진행
+        if (luaTable != null && _luaCanPlay != null)
         {
-            var luaCanPlay = luaTable.Get<Func<LuaTable, Card, Character, bool>>("CanPlay");
-            if (luaCanPlay != null)
+            try
             {
-                try
-                {
-                    return luaCanPlay.Invoke(luaTable, this, caster);
-                }
-                catch (Exception e)
-                {
-                    UnityEngine.Debug.LogError($"[Card.CanPlay] '{cardName}' Lua CanPlay 실행 실패:\n{e.Message}");
-                }
+                return _luaCanPlay.Invoke(luaTable, this, caster);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[Card.CanPlay] '{cardName}' Lua CanPlay 실행 실패:\n{e.Message}");
             }
         }
 
@@ -366,7 +381,7 @@ public class Card : IDescribable
     /// </summary>
     public void SpendCosts(Character caster)
     {
-        if (caster == null) return;
+        if (_isDisposed || caster == null) return;
 
         // 1. 기본 스태미나 소모 차감
         if (currentCost > 0)
@@ -374,20 +389,16 @@ public class Card : IDescribable
             caster.SpendStamina(new StaminaInfo(caster, caster, currentCost, StaminaFlag.Normal));
         }
 
-        // 2. Lua 스크립트에 SpendCosts 함수가 정의되어 있다면 호출하여 커스텀 비용 소모 진행
-        if (luaTable != null)
+        // 2. 캐싱된 Lua SpendCosts 델리게이트가 있다면 호출하여 커스텀 비용 소모 진행
+        if (luaTable != null && _luaSpendCosts != null)
         {
-            var luaSpendCosts = luaTable.Get<Action<LuaTable, Card, Character>>("SpendCosts");
-            if (luaSpendCosts != null)
+            try
             {
-                try
-                {
-                    luaSpendCosts.Invoke(luaTable, this, caster);
-                }
-                catch (Exception e)
-                {
-                    UnityEngine.Debug.LogError($"[Card.SpendCosts] '{cardName}' Lua SpendCosts 실행 실패:\n{e.Message}");
-                }
+                _luaSpendCosts.Invoke(luaTable, this, caster);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[Card.SpendCosts] '{cardName}' Lua SpendCosts 실행 실패:\n{e.Message}");
             }
         }
     }

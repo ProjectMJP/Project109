@@ -101,11 +101,16 @@ public class Effect : IDescribable
 
     public void OnRemoved()
     {
+        bool isLuaValid = LuaManager.IsLuaEnvValid;
+
         if (luaTable != null)
         {
             // 1. Lua 측 OnRemoved 실행
-            var luaOnRemoved = luaTable.Get<Action<LuaTable, Effect>>("OnRemoved");
-            luaOnRemoved?.Invoke(luaTable, this);
+            if (isLuaValid)
+            {
+                var luaOnRemoved = luaTable.Get<Action<LuaTable, Effect>>("OnRemoved");
+                luaOnRemoved?.Invoke(luaTable, this);
+            }
 
             // 2. 이벤트 버스 구독 해제
             if (target != null && target.eventBus != null)
@@ -116,7 +121,14 @@ public class Effect : IDescribable
 
         // 3. 리소스 정리
         activeProxies.Clear();
-        luaTable?.Dispose();
+        if (luaTable != null)
+        {
+            if (isLuaValid)
+            {
+                luaTable.Dispose();
+            }
+            luaTable = null;
+        }
 
         caster = null;
         target = null;

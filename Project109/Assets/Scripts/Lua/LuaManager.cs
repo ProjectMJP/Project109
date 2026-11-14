@@ -8,11 +8,28 @@ public class LuaManager : MonoBehaviour
     private static LuaManager _instance;
     private static bool _isShuttingDown = false;
 
+    /// <summary>애플리케이션 종료 진행 여부.</summary>
+    public static bool IsShuttingDown => _isShuttingDown;
+
+    /// <summary>싱글턴과 LuaEnv 네이티브 상태가 모두 유효한지 안전하게 확인합니다. (Instance 생성 부수효과 없음)</summary>
+    public static bool IsLuaEnvValid =>
+        _instance != null &&
+        !_isShuttingDown &&
+        _instance.luaEnv != null &&
+        _instance.luaEnv.rawL != System.IntPtr.Zero;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        _isShuttingDown = false;
+        _instance = null;
+    }
+
     public static LuaManager Instance 
     { 
         get 
         { 
-            if (_isShuttingDown) return null;
+            if (_isShuttingDown || !Application.isPlaying) return null;
 
             if (_instance == null)
             {
@@ -77,8 +94,14 @@ public class LuaManager : MonoBehaviour
     {
         if (_instance == this)
         {
-            Dispose();
-            _instance = null;
+            try
+            {
+                Dispose();
+            }
+            finally
+            {
+                _instance = null;
+            }
         }
     }
 
@@ -237,7 +260,10 @@ public class LuaManager : MonoBehaviour
     /// </summary>
     public void Tick()
     {
-        luaEnv?.Tick();
+        if (luaEnv != null && luaEnv.rawL != System.IntPtr.Zero)
+        {
+            luaEnv.Tick();
+        }
     }
 
     /// <summary>
@@ -361,8 +387,13 @@ public class LuaManager : MonoBehaviour
 
         if (luaEnv != null)
         {
-            luaEnv.Dispose();
+            LuaEnv envToDispose = luaEnv;
             luaEnv = null;
+
+            if (envToDispose.rawL != System.IntPtr.Zero)
+            {
+                envToDispose.Dispose();
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ public class Relic : IDescribable
     public int Counter { get; set; }
 
     private readonly Player owner;
-    private readonly LuaTable luaLogic;
+    private LuaTable luaLogic;
 
     // 이벤트 구독 해제를 위해 만들어진 프록시 객체들을 담아둘 리스트
 
@@ -40,25 +40,39 @@ public class Relic : IDescribable
 
     public void Dispose()
     {
-        // 1. Lua 측 OnRemoved 함수 호출 (유물이 파괴되거나 게임오버 시)
-        var luaOnRemoved = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnRemoved");
-        luaOnRemoved?.Invoke(luaLogic, this, owner);
+        bool isLuaValid = LuaManager.IsLuaEnvValid;
 
-        // 2. 이벤트 버스 구독 해제
-        if (owner.character != null)
+        // 1. Lua 측 OnRemoved 함수 호출 (유물이 파괴되거나 게임오버 시)
+        if (luaLogic != null && isLuaValid)
         {
-            LuaEventBinder.UnbindCharacterEvents(owner.character.eventBus, activeProxies);
+            var luaOnRemoved = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnRemoved");
+            luaOnRemoved?.Invoke(luaLogic, this, owner);
         }
 
-
-        if (owner.eventBus != null)
+        // 2. 이벤트 버스 구독 해제
+        if (owner != null)
         {
-            LuaEventBinder.UnbindPlayerEvents(owner.eventBus, activeProxies);
+            if (owner.character != null && owner.character.eventBus != null)
+            {
+                LuaEventBinder.UnbindCharacterEvents(owner.character.eventBus, activeProxies);
+            }
+
+            if (owner.eventBus != null)
+            {
+                LuaEventBinder.UnbindPlayerEvents(owner.eventBus, activeProxies);
+            }
         }
 
         // 3. 리소스 정리
         activeProxies.Clear();
-        luaLogic?.Dispose();
+        if (luaLogic != null)
+        {
+            if (isLuaValid)
+            {
+                luaLogic.Dispose();
+            }
+            luaLogic = null;
+        }
     }
 
     /// <summary>

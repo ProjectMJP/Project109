@@ -24,7 +24,9 @@ public class CardUpgradePanel : UIPanelBase
     {
         foreach (GameObject uiObject in activeCardUIs.Values)
         {
-            if (ObjectPoolManager.instance != null)
+            if (uiObject == null) continue;
+
+            if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
             {
                 ObjectPoolManager.instance.ReturnCardUI(uiObject);
             }
@@ -59,7 +61,9 @@ public class CardUpgradePanel : UIPanelBase
     {
         foreach (GameObject cardUIObject in activeCardUIs.Values)
         {
-            if (ObjectPoolManager.instance != null)
+            if (cardUIObject == null) continue;
+
+            if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
             {
                 ObjectPoolManager.instance.ReturnCardUI(cardUIObject);
             }

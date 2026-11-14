@@ -6,10 +6,27 @@ using System;
 public class ObjectPoolManager : MonoBehaviour
 {
     private static ObjectPoolManager _instance;
+    private static bool _isShuttingDown = false;
+
+    /// <summary>애플리케이션 종료 진행 여부.</summary>
+    public static bool IsShuttingDown => _isShuttingDown;
+
+    /// <summary>싱글턴 인스턴스 생성 부수효과 없이 활성 풀 매니저 존재 여부를 확인합니다.</summary>
+    public static bool HasInstance => _instance != null && !_isShuttingDown && Application.isPlaying;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        _isShuttingDown = false;
+        _instance = null;
+    }
+
     public static ObjectPoolManager instance
     {
         get
         {
+            if (_isShuttingDown || !Application.isPlaying) return null;
+
             if (_instance == null)
             {
                 _instance = FindFirstObjectByType<ObjectPoolManager>();
@@ -43,6 +60,11 @@ public class ObjectPoolManager : MonoBehaviour
         {
             Destroy(this.gameObject);
         }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isShuttingDown = true;
     }
 
     private void OnDestroy()
@@ -199,6 +221,12 @@ public class ObjectPoolManager : MonoBehaviour
     public void ReturnCardUI(GameObject uiObject)
     {
         if (uiObject == null) return;
+
+        if (_isShuttingDown || !Application.isPlaying)
+        {
+            Destroy(uiObject);
+            return;
+        }
 
         EnsurePoolInitialized();
 

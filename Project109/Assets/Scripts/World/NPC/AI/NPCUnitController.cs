@@ -214,8 +214,14 @@ public class NPCUnitController : ICharacterController, IDisposable
         }
         _cardPool.Clear();
 
-        _luaTable?.Dispose();
-        _luaTable = null;
+        if (_luaTable != null)
+        {
+            if (LuaManager.IsLuaEnvValid)
+            {
+                _luaTable.Dispose();
+            }
+            _luaTable = null;
+        }
     }
 
     /// <summary>

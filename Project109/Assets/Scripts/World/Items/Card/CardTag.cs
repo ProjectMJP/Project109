@@ -13,7 +13,7 @@ public class CardTag
     // 태그 고유 명칭 (예: "Preserve", "DiscardReduce")
     public string tagName { get; private set; }
 
-    private readonly LuaTable luaTable;
+    private LuaTable luaTable;
     private readonly List<object> activeProxies = new List<object>();
 
     public CardTag(string tagName, LuaTable luaLogic)
@@ -50,11 +50,16 @@ public class CardTag
     /// </summary>
     public void OnDetached()
     {
+        bool isLuaValid = LuaManager.IsLuaEnvValid;
+
         if (luaTable != null)
         {
             // 1. Lua 측 OnRemoved 실행
-            var luaOnRemoved = luaTable.Get<Action<LuaTable, CardTag>>("OnRemoved");
-            luaOnRemoved?.Invoke(luaTable, this);
+            if (isLuaValid)
+            {
+                var luaOnRemoved = luaTable.Get<Action<LuaTable, CardTag>>("OnRemoved");
+                luaOnRemoved?.Invoke(luaTable, this);
+            }
 
             // 2. 캐릭터 이벤트 버스 구독 해제
             if (owner != null && owner.eventBus != null)
@@ -65,7 +70,14 @@ public class CardTag
 
         // 3. 리소스 정리
         activeProxies.Clear();
-        luaTable?.Dispose();
+        if (luaTable != null)
+        {
+            if (isLuaValid)
+            {
+                luaTable.Dispose();
+            }
+            luaTable = null;
+        }
 
         targetCard = null;
     }
