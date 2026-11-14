@@ -1,0 +1,17 @@
+cardName: "밀치기"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Enemy"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 30
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "적에게 {damage}의 피해를 입히고 1칸 밀쳐냅니다.\n벽이나 다른 유닛과 충돌 시 {collisionDamage}의 추가 충돌 피해를 입힙니다."
+baseValues:
+  damage: 8
+

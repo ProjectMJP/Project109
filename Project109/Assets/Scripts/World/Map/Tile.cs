@@ -63,6 +63,20 @@ public class Tile : MonoBehaviour
         set => _occupyingDestructible = value;
     }
 
+    private ITileHazard _occupyingHazard;
+    public ITileHazard occupyingHazard
+    {
+        get
+        {
+            if (!IsHazardAlive(_occupyingHazard))
+            {
+                _occupyingHazard = null;
+            }
+            return _occupyingHazard;
+        }
+        set => _occupyingHazard = value;
+    }
+
     public GameObject canMoveAreaTextureObject;
 
     private void Awake()
@@ -70,11 +84,21 @@ public class Tile : MonoBehaviour
         UpdateLayerByState();
     }
 
+    private void OnDestroy()
+    {
+        ClearTile();
+    }
+
     private void Start()
     {
         if (transform.childCount > 0)
         {
             canMoveAreaTextureObject = transform.GetChild(0).gameObject;
+            // 구형 10x10 CanMoveArea Plane이 이동 인디케이터와 중복 표시되지 않도록 비활성화 보장
+            if (canMoveAreaTextureObject != null)
+            {
+                canMoveAreaTextureObject.SetActive(false);
+            }
         }
     }
 
@@ -175,5 +199,51 @@ public class Tile : MonoBehaviour
     public int GetDistanceTo(Tile other)
     {
         return GetDistance(this, other);
+    }
+
+    /// <summary>
+    /// 유닛이 이 타일에 진입했을 때 점유 중인 위험 요소(함정 등)에 알립니다.
+    /// </summary>
+    public void NotifyUnitEntered(Character unit)
+    {
+        if (unit == null) return;
+        ITileHazard hazard = occupyingHazard;
+        if (hazard != null && hazard.IsActive)
+        {
+            hazard.OnUnitEnter(unit);
+        }
+    }
+
+    /// <summary>
+    /// 유닛이 이 타일에서 이탈했을 때 점유 중인 위험 요소(함정 등)에 알립니다.
+    /// </summary>
+    public void NotifyUnitExited(Character unit)
+    {
+        if (unit == null) return;
+        ITileHazard hazard = occupyingHazard;
+        if (hazard != null)
+        {
+            hazard.OnUnitExit(unit);
+        }
+    }
+
+    /// <summary>
+    /// 타일이 리셋/정리될 때 모든 점유 참조를 해제합니다.
+    /// </summary>
+    public void ClearTile()
+    {
+        _occupyingCharacter = null;
+        _occupyingDestructible = null;
+        _occupyingHazard = null;
+    }
+
+    private static bool IsHazardAlive(ITileHazard hazard)
+    {
+        if (hazard == null) return false;
+        if (hazard is UnityEngine.Object unityObj)
+        {
+            return unityObj != null;
+        }
+        return true;
     }
 }

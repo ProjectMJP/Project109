@@ -1,0 +1,17 @@
+cardName: "연속 충격"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Enemy"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Uncommon"
+stamina: 30
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[cardtag.Echo]\n적에게 {damage}의 피해를 입히고 1칸 밀쳐냅니다.\n충돌 시 {collisionDamage}의 추가 피해를 입힙니다.\n사용한 턴에 한해 다시 사용할 수 있습니다."
+baseValues:
+  damage: 6
+

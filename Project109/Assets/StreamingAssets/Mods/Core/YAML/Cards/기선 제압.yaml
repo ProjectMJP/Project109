@@ -1,0 +1,18 @@
+cardName: "기선 제압"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Enemy"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 35
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[cardtag.Vanguard]\n적에게 {damage}의 피해를 입힙니다.\n턴의 첫 카드로 사용 시 피해량이 {vanguardBonus} 증가하고 적을 1칸 밀쳐냅니다.\n충돌 시 {collisionDamage}의 추가 피해를 입힙니다."
+baseValues:
+  damage: 9
+  vanguardBonus: 5
+

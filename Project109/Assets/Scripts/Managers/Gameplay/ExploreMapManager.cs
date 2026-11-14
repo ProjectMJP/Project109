@@ -52,6 +52,7 @@ public class ExploreMapManager
                 ExploreNode node = new ExploreNode(index, 0);
                 node.encounterData.locationType = locationType;
                 node.encounterData.encountType = EncountType.None;
+                node.encounterData.interactableDataId = "Region_Start_Shrine_Data";
                 MapData.mapNodes[index].Add(node);
             }
             else if (index == mapLength - 1)

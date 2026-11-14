@@ -1,0 +1,25 @@
+dialogueID: Region_Start_Shrine_Dialogue
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 고대의 축복 제단
+  lines:
+  - "새로운 지역에 진입하기 전 고대의 제단이 빛을 발하며 세 가지 축복 중 하나를 선택하라고 속삭입니다."
+  choices:
+  - description: 생명의 축복을 받는다.
+    nextNodeID: END_BLESSING
+    luaScript: StartShrine_BlessingLife
+  - description: 전술의 축복을 받는다.
+    nextNodeID: END_BLESSING
+    luaScript: StartShrine_BlessingCard
+  - description: 유물의 축복을 받는다.
+    nextNodeID: END_BLESSING
+    luaScript: StartShrine_BlessingRelic
+- nodeID: END_BLESSING
+  speakerName: 고대의 축복 제단
+  lines:
+  - "축복의 힘이 스며들며 제단의 빛이 사그라듭니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

@@ -208,6 +208,31 @@ public class DialogueActionExecutor
         }
     }
 
+    public void HealWithOverhealToMaxHealth(int healAmount, float overhealRatio)
+    {
+        var p = GetPlayer();
+        var character = p != null ? p.character : null;
+        if (character == null || character.curCharacterStat == null || healAmount <= 0) return;
+
+        float curHp = character.curHealth;
+        float maxHp = character.curCharacterStat.maxHealth;
+        float missingHp = Mathf.Max(0f, maxHp - curHp);
+        float actualHeal = Mathf.Min(healAmount, missingHp);
+        float overheal = Mathf.Max(0f, healAmount - missingHp);
+
+        if (actualHeal > 0f)
+        {
+            character.TakeHeal(new EventStructs.HealInfo(null, character, Mathf.RoundToInt(actualHeal), EventStructs.HealFlag.Normal));
+        }
+
+        int bonusMaxHp = Mathf.RoundToInt(overheal * Mathf.Clamp01(overhealRatio));
+        if (bonusMaxHp > 0)
+        {
+            character.curCharacterStat.maxHealth += bonusMaxHp;
+            character.curHealth = Mathf.Min(character.curCharacterStat.maxHealth, character.curHealth + bonusMaxHp);
+        }
+    }
+
     #endregion
 
     #region Battle & Map Progression

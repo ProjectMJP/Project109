@@ -10,6 +10,7 @@ using YamlDotNet.Serialization;
 public struct StageMapDataBundle : IIdentifiable
 {
     public string stageName;
+    public List<MapDataSO> startMapDataList;
     public List<MapDataSO> battleMapDataList;
     public List<MapDataSO> eliteMapDataList;
     public List<MapDataSO> bossMapDataList;
@@ -97,6 +98,7 @@ public class AssetCacheManager : MonoBehaviour
                     stageMapDataDict[mapData.locationType.ToString()] = new StageMapDataBundle
                     {
                         stageName = mapData.stageName,
+                        startMapDataList = new List<MapDataSO>(),
                         battleMapDataList = new List<MapDataSO>(),
                         eliteMapDataList = new List<MapDataSO>(),
                         bossMapDataList = new List<MapDataSO>(),
@@ -107,6 +109,9 @@ public class AssetCacheManager : MonoBehaviour
                 }
                 switch (mapData.EncountType)
                 {
+                    case EncountType.None:
+                        stageMapDataDict[mapData.locationType.ToString()].startMapDataList.Add(mapData);
+                        break;
                     case EncountType.Battle:
                         stageMapDataDict[mapData.locationType.ToString()].battleMapDataList.Add(mapData);
                         break;

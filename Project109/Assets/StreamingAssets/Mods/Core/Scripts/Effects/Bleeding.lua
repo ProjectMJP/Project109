@@ -21,7 +21,7 @@ function effect:OnTurnEnd()
     local caster = self.base.caster
     
     local stack = self.base.currentStack
-    local dmg = 1 + math.pow(2, stack)
+    local dmg = 1 + (2 ^ stack)
     
     local dmgInfo = EventStructs.DamageInfo(caster, target, dmg, EventStructs.DamageFlag.HPLoss)
     target:TakeDamage(dmgInfo)
@@ -34,7 +34,7 @@ end
 
 function effect:GetDescription(effectBase, template)
     local stack = effectBase.currentStack
-    local dmg = 1 + math.pow(2, stack)
+    local dmg = 1 + (2 ^ stack)
     return (template:gsub("{damage}", tostring(math.floor(dmg))))
 end
 

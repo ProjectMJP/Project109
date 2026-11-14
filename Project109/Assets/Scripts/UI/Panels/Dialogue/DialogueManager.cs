@@ -393,6 +393,7 @@ public class DialogueManager : MonoBehaviour
     public void HealPlayer(int amount) => actionExecutor.HealPlayer(amount);
     public void DamagePlayer(int amount) => actionExecutor.DamagePlayer(amount);
     public void ModifyMaxHealth(int amount) => actionExecutor.ModifyMaxHealth(amount);
+    public void HealWithOverhealToMaxHealth(int healAmount, float overhealRatio) => actionExecutor.HealWithOverhealToMaxHealth(healAmount, overhealRatio);
 
     public void StartBattle(string battleName) => actionExecutor.StartBattle(battleName);
     public void RevealAllNodes() => actionExecutor.RevealAllNodes();

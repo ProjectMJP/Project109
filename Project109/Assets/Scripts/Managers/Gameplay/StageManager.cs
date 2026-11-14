@@ -184,14 +184,39 @@ public class StageManager : IInitializable, System.IDisposable
                 GenerateObjectInMap(cell.terrainID, cell.position);
             }
 
+            GameObject spawnedObj = null;
             if (cell.objectID != "Empty")
             {
-                GenerateObjectInMap(cell.objectID, cell.position);
+                spawnedObj = GenerateObjectInMap(cell.objectID, cell.position);
+
+                // 장애물 타일 상태 동기화 (Trap 계열은 제외)
+                bool isTrapObj = !string.IsNullOrEmpty(cell.objectID) && cell.objectID.StartsWith("Trap", StringComparison.OrdinalIgnoreCase);
+                if (!isTrapObj)
+                {
+                    bool isObstacle = (!string.IsNullOrEmpty(cell.objectID) && cell.objectID.StartsWith("Obstacle", StringComparison.OrdinalIgnoreCase))
+                                      || (spawnedObj != null && spawnedObj.GetComponent<DestructibleObject>() != null);
+                    if (isObstacle && currentGameMap != null)
+                    {
+                        currentGameMap.SetTileState(cell.position, TileState.Obstacle);
+                    }
+                }
+            }
+
+            bool isTrapCell = (!string.IsNullOrEmpty(cell.objectID) && cell.objectID.StartsWith("Trap", StringComparison.OrdinalIgnoreCase))
+                              || string.Equals(cell.eventID, "Trap", StringComparison.OrdinalIgnoreCase);
+            if (isTrapCell && currentGameMap != null)
+            {
+                currentGameMap.SetTileState(cell.position, TileState.Trap);
+                if (spawnedObj != null)
+                {
+                    BindTrapToTile(spawnedObj, cell.position);
+                }
             }
 
             switch (cell.eventID)
             {
                 case "EnemySpawn":
+                case "BossSpawn":
                     spawnEnemyCells.Add(cell);
                     break;
                 case "PlayerSpawn":
@@ -200,19 +225,21 @@ public class StageManager : IInitializable, System.IDisposable
                 case "NPCSpawn":
                     spawnNPCCells.Add(cell);
                     break;
+                case "Block":
+                    if (currentGameMap != null)
+                    {
+                        currentGameMap.SetTileState(cell.position, TileState.Obstacle);
+                    }
+                    break;
             }
         }
 
-        // 파괴 가능한 장애물(DestructibleObject)이 배치된 타일의 상태를 Obstacle로 동기화
-        foreach (GameObject etcObj in currentSpawnEtcList)
+        if (currentGameMap != null)
         {
-            if (etcObj != null && etcObj.TryGetComponent<DestructibleObject>(out var _))
+            MapMoveRangeIndicator rangeIndicator = currentGameMap.GetMoveRangeIndicator();
+            if (rangeIndicator != null)
             {
-                Vector2Int cellPos = new Vector2Int(
-                    Mathf.RoundToInt((etcObj.transform.position.x - currentMapData.gridOffset.x) / currentMapData.cellSize),
-                    Mathf.RoundToInt((etcObj.transform.position.z - currentMapData.gridOffset.z) / currentMapData.cellSize)
-                );
-                currentGameMap.SetTileState(cellPos, TileState.Obstacle);
+                rangeIndicator.RefreshBaseMap(currentGameMap.GetTileMap());
             }
         }
 
@@ -225,7 +252,7 @@ public class StageManager : IInitializable, System.IDisposable
 
         SpawnPlayerInMap(currentMapData, targetPlayer, spawnPlayerCells.Count);
 
-        if (EncountType == EncountType.Store || EncountType == EncountType.Restore || EncountType == EncountType.Secret || EncountType == EncountType.SecretBox)
+        if (EncountType == EncountType.Store || EncountType == EncountType.Restore || EncountType == EncountType.Secret || EncountType == EncountType.SecretBox || EncountType == EncountType.None)
         {
             InteractableData eventData = secretEventData;
             if (eventData == null && EncountType == EncountType.Restore)
@@ -235,7 +262,18 @@ public class StageManager : IInitializable, System.IDisposable
                     eventData = restoreData;
                 }
             }
-            GenerateNPC(currentMapData, EncountType, eventData);
+            else if (eventData == null && EncountType == EncountType.None)
+            {
+                if (ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase.TryGetValue("Region_Start_Shrine_Data", out var shrineData))
+                {
+                    eventData = shrineData;
+                }
+            }
+
+            if (eventData != null || EncountType != EncountType.None)
+            {
+                GenerateNPC(currentMapData, EncountType, eventData);
+            }
         }
 
         // 맵 상태 설정 자동화
@@ -255,7 +293,7 @@ public class StageManager : IInitializable, System.IDisposable
         Debug.Log($"Map Generated Done : {EncountType}");
     }
 
-    private void GenerateObjectInMap(string objectID, Vector2Int pos)
+    private GameObject GenerateObjectInMap(string objectID, Vector2Int pos)
     {
         if (AssetCacheManager.instance.TryGetModel(objectID, out GameObject prefab))
         {
@@ -297,7 +335,53 @@ public class StageManager : IInitializable, System.IDisposable
                     }
                 };
             }
+
+            // 함정 오브젝트인 경우 타일 상태 및 점유 위험 요소 바인딩
+            if ((!string.IsNullOrEmpty(objectID) && objectID.StartsWith("Trap", StringComparison.OrdinalIgnoreCase))
+                || spawned.GetComponent<TrapObject>() != null)
+            {
+                if (currentGameMap != null)
+                {
+                    currentGameMap.SetTileState(pos, TileState.Trap);
+                }
+                BindTrapToTile(spawned, pos);
+            }
+
+            return spawned;
         }
+
+        return null;
+    }
+
+    private void BindTrapToTile(GameObject spawnedObj, Vector2Int pos)
+    {
+        if (spawnedObj == null || currentGameMap == null) return;
+
+        Tile tile = currentGameMap.GetTile(pos);
+        if (tile == null) return;
+
+        TrapObject trap = spawnedObj.GetComponent<TrapObject>();
+        if (trap == null)
+        {
+            trap = spawnedObj.AddComponent<TrapObject>();
+        }
+
+        if (!ReferenceEquals(tile.occupyingHazard, trap))
+        {
+            trap.InitializeOnTile(tile);
+        }
+        trap.SetTriggerCondition(IsBattleTrapActive);
+    }
+
+    private bool IsBattleTrapActive()
+    {
+        if (currentMapState != MapState.Battle) return false;
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            BattleState state = RunManager.instance.battleManager.battleState;
+            return state != BattleState.None && state != BattleState.BattleEnd;
+        }
+        return true;
     }
 
     public void GenerateEnemy(MapDataSO mapData, List<string> spawnMonsterList, int spawnCount)
@@ -449,8 +533,21 @@ public class StageManager : IInitializable, System.IDisposable
 
             switch (EncountType)
             {
-                case EncountType.Battle:
                 case EncountType.None:
+                    if (stageMapData.startMapDataList != null && stageMapData.startMapDataList.Count > 0)
+                    {
+                        targetList = stageMapData.startMapDataList;
+                    }
+                    else if (stageMapData.secretMapDataList != null && stageMapData.secretMapDataList.Count > 0)
+                    {
+                        targetList = stageMapData.secretMapDataList;
+                    }
+                    else
+                    {
+                        targetList = stageMapData.battleMapDataList;
+                    }
+                    break;
+                case EncountType.Battle:
                     targetList = stageMapData.battleMapDataList;
                     break;
                 case EncountType.Elite:

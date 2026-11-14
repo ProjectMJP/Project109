@@ -163,10 +163,10 @@ public class LuaManager : MonoBehaviour
 
             CS = nil
 
-            -- 샌드박스 보안 강화: 파일/프로세스/디버그 리플렉션 및 동적 로드 함수 차단
+            -- 샌드박스 보안 강화: 파일/프로세스/디버그 리플렉션 및 동적 로드 함수 차단 (XLua 에러 트레이스백만 유지)
             io = nil
             os = nil
-            debug = nil
+            debug = debug and { traceback = debug.traceback } or nil
             package = nil
             dofile = nil
             loadfile = nil
