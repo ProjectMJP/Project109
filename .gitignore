@@ -96,3 +96,9 @@ BackupFile/
 
 # Local AI Workflow Guide
 AI_WORKFLOW_GUIDE.md
+
+# Local Screenshots, Unity Asset Recovery, and Obsidian Notes
+Project109/Screenshots/
+Project109/Assets/_Recovery/
+Project109/Assets/_Recovery.meta
+obsidian/
