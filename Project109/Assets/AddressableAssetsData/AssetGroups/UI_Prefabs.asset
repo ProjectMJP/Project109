@@ -69,6 +69,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2607af12d43847438e779e256e80a159
+    m_Address: StarterKitShowcasePanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2710993ff82d4f047b68f319758af2e2
     m_Address: CardDetailUI
     m_ReadOnly: 0
@@ -125,6 +131,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 56e319e4c4cb8714097c59293af8ae52
     m_Address: CharacterEffectItemUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6a2d518132754fd191c88179273bd58e
+    m_Address: PauseMenuPanel
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI

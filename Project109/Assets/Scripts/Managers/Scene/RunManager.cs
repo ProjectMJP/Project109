@@ -59,10 +59,13 @@ public class RunManager : MonoBehaviour
     public ExploreMapManager exploreMapManager;
     public ExploreMapUI currentExploreUI;
 
+    public static event System.Action OnRunLocationChanged;
+
     private void Start()
     {
         // 1. 플레이어 컨트롤러 인스턴스 초기화 (Player 자체는 GameSceneManager가 소유)
         InitializePlayerInstances();
+        OnRunLocationChanged?.Invoke();
 
         // 2. 리워드 매니저 아이템 목록 동기화
         if (GameItemRewardManager.instance != null)
@@ -99,6 +102,7 @@ public class RunManager : MonoBehaviour
         currentExploreMapFloor = 0;
         currentExploreNode = null;
         beforeExploreNode = null;
+        OnRunLocationChanged?.Invoke();
 
         if (exploreMapManager != null)
         {
@@ -120,6 +124,7 @@ public class RunManager : MonoBehaviour
     /// </summary>
     public void ResumeRunAfterLoad()
     {
+        OnRunLocationChanged?.Invoke();
         if (currentExploreNode == null)
         {
             if (UIManager.instance != null)
@@ -285,6 +290,7 @@ public class RunManager : MonoBehaviour
         beforeExploreNode = currentExploreNode;
         currentExploreNode = nextNodeUI != null ? nextNodeUI.NodeData : null;
         currentExploreMapFloor += 1;
+        OnRunLocationChanged?.Invoke();
 
         // 다음 층으로 이동했으므로 플레이어 시야 범위 내의 노드 데이터 공개 상태 갱신
         if (exploreMapManager != null)
@@ -342,6 +348,7 @@ public class RunManager : MonoBehaviour
 
             // 맵 생성이 끝난 후 RunManager에게 상태 전이 알림
             OnMapStateChanged(currentStage.currentMapState);
+            OnRunLocationChanged?.Invoke();
         }
 
         if (SceneLoadManager.instance != null)

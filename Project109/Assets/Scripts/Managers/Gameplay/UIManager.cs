@@ -160,19 +160,46 @@ public class UIManager : MonoBehaviour
 
     private void HandleCancelEvent()
     {
-        // 우클릭(월드 조작 취소)이 아닌 ESC 키 입력일 때만 최상위 팝업 닫기 수행
+        // 우클릭(월드 조작 취소)이 아닌 ESC 키 입력일 때만 UI 취소/일시정지 메뉴 처리를 수행
         if (PlayerInputController.HasInstance && !PlayerInputController.instance.IsEscapeCancel)
         {
             return;
         }
 
-        CloseTopPopup();
+        // 1순위: 현재 열린 팝업/모달 스택 최상위 패널 닫기
+        if (TryHandleTopPopupCancel())
+        {
+            return;
+        }
+
+        // 2순위: 전투 중 이동/타깃 선택 취소 대상이 있거나 동일 프레임에 이미 취소된 경우 일시정지 메뉴를 열지 않음
+        if (IsBattleCancelActiveOrConsumedThisFrame())
+        {
+            return;
+        }
+
+        // 3순위: 활성 대화 중이거나 비동기 로딩/월드 입력 차단 상태에서는 일시정지 메뉴를 겹쳐 열지 않음
+        if ((DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive) ||
+            _asyncLoadLockCount > 0 ||
+            IsWorldInputBlocked ||
+            GameSceneManager.instance == null)
+        {
+            return;
+        }
+
+        // 4순위: 유휴 상태(은신처 / 탐험 / 전투 유휴)에서 ESC 입력 시 일시정지 메뉴 열기
+        OpenPauseMenu();
     }
 
     /// <summary>
     /// 최상위 모달 팝업에게 ESC 취소 입력을 전달합니다.
     /// </summary>
     public void CloseTopPopup()
+    {
+        TryHandleTopPopupCancel();
+    }
+
+    private bool TryHandleTopPopupCancel()
     {
         while (_popupStack.Count > 0)
         {
@@ -183,10 +210,49 @@ public class UIManager : MonoBehaviour
                 continue;
             }
 
+            if (!topPanel.CanCloseByCancel)
+            {
+                _popupStack.Pop();
+                continue;
+            }
+
             _lastCancelConsumedFrame = Time.frameCount;
+
+            // 활성 대화 진행 중에는 ESC로 DialogueUI만 단독 종료되어 대화가 고착되지 않도록 보호합니다.
+            if (topPanel is DialogueUI && DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return true;
+            }
+
             topPanel.OnCancelInput();
-            break;
+            return true;
         }
+
+        return false;
+    }
+
+    private bool IsBattleCancelActiveOrConsumedThisFrame()
+    {
+        if (RunManager.instance == null || RunManager.instance.activePlayerController == null)
+        {
+            return false;
+        }
+
+        PlayerBattleController battleController = RunManager.instance.activePlayerController as PlayerBattleController;
+        if (battleController == null)
+        {
+            return false;
+        }
+
+        return battleController.HasActiveBattleCancelTarget || battleController.IsBattleCancelConsumedThisFrame;
+    }
+
+    /// <summary>
+    /// 일시정지/설정 메뉴(PauseMenuPanel)를 Popup 레이어에 엽니다.
+    /// </summary>
+    public void OpenPauseMenu()
+    {
+        OpenUI(UIConstants.PANEL_PAUSE_MENU, UILayerType.Popup, true);
     }
 
 
@@ -487,8 +553,9 @@ public class UIManager : MonoBehaviour
 
         panel.transform.SetAsLastSibling();
 
-        // Normal 또는 Popup 레이어인 경우 모달 스택으로 관리
-        if (panel.uiLayerType == UILayerType.Normal || panel.uiLayerType == UILayerType.Popup)
+        // Normal 또는 Popup 레이어이면서 닫기 가능(또는 활성 대화창)인 경우에만 모달 스택으로 관리
+        if ((panel.uiLayerType == UILayerType.Normal || panel.uiLayerType == UILayerType.Popup) &&
+            (panel.CanCloseByCancel || panel is DialogueUI))
         {
             if (!_popupStack.Contains(panel))
             {

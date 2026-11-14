@@ -189,6 +189,7 @@ public class GameSceneManager : MonoBehaviour
                         Debug.Log($"[GameSceneManager] 서브씬 로드 완료 후 던전 런 데이터 복원 및 재개 완료 (슬롯 {currentSaveSlot})");
                     }
                 }
+                OnSceneLocationChanged?.Invoke();
             });
             Debug.Log($"[GameSceneManager] 세이브 데이터 검사 완료 (슬롯 {currentSaveSlot}, 던전 진입 상태: {isInDungeon}). 서브씬('{targetSubScenePath}') 로딩을 시작합니다.");
         }
@@ -196,7 +197,11 @@ public class GameSceneManager : MonoBehaviour
         {
             Debug.LogError("[GameSceneManager] SceneLoadManager 인스턴스를 찾을 수 없어 서브씬을 불러오지 못했습니다.");
         }
+
+        OnSceneLocationChanged?.Invoke();
     }
+
+    public static event System.Action OnSceneLocationChanged;
 
     /// <summary>
     /// 은신처에서 던전 서브씬으로 전환합니다. (단일 출격 창구)
@@ -210,6 +215,7 @@ public class GameSceneManager : MonoBehaviour
         }
 
         isInDungeon = true;
+        OnSceneLocationChanged?.Invoke();
         Debug.Log($"[GameSceneManager] 던전 서브씬('{_dungeonScenePath}')으로 전환을 시작합니다.");
 
         if (SceneLoadManager.instance != null)
@@ -218,6 +224,7 @@ public class GameSceneManager : MonoBehaviour
             {
                 // 던전 진입 세이브 저장
                 SaveSystem.SaveGame(currentDungeonManager, currentSaveSlot);
+                OnSceneLocationChanged?.Invoke();
                 onComplete?.Invoke();
             });
         }
@@ -239,6 +246,7 @@ public class GameSceneManager : MonoBehaviour
         }
 
         isInDungeon = false;
+        OnSceneLocationChanged?.Invoke();
         Debug.Log($"[GameSceneManager] 은신처 서브씬('{_hideoutScenePath}')으로 복귀를 시작합니다.");
 
         if (SceneLoadManager.instance != null)
@@ -247,6 +255,7 @@ public class GameSceneManager : MonoBehaviour
             {
                 // 던전에서 은신처로 복귀 시 던전 진입 플래그를 해제하고 은신처 상태로 세이브
                 SaveSystem.SaveGame(null, currentSaveSlot);
+                OnSceneLocationChanged?.Invoke();
                 onComplete?.Invoke();
             });
         }

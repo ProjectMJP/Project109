@@ -33,6 +33,10 @@ public class TooltipManager : MonoBehaviour
                 {
                     Debug.LogError("[TooltipManager] TooltipManager가 씬에 존재하지 않습니다! UIManager.prefab 구성을 확인하세요.");
                 }
+                else
+                {
+                    instance.EnsureInitialized();
+                }
             }
             return instance;
         }
@@ -58,6 +62,7 @@ public class TooltipManager : MonoBehaviour
     // 고정 배치 타겟 임시 보관
     private RectTransform currentTargetRect;
     private readonly Vector3[] cornersCache = new Vector3[4];
+    private bool isInitialized;
 
     /// <summary>
     /// [type.id] 키워드 텍스트를 유저 화면용 컬러/이름으로 치환해줍니다.
@@ -147,15 +152,23 @@ public class TooltipManager : MonoBehaviour
 
     private void Awake()
     {
-        if (instance == null)
+        // 비활성 상태로 시작해 TooltipManager.Instance가 먼저 호출된 경우에도 초기화가 누락되지 않도록 보장
+        if (instance == null || instance == this)
         {
             instance = this;
-            InitializeComponents();
+            EnsureInitialized();
         }
-        else if (instance != this)
+        else
         {
             Destroy(gameObject);
         }
+    }
+
+    private void EnsureInitialized()
+    {
+        if (isInitialized) return;
+        isInitialized = true;
+        InitializeComponents();
     }
 
     private void InitializeComponents()
@@ -199,96 +212,122 @@ public class TooltipManager : MonoBehaviour
         List<TooltipData> tooltips = new List<TooltipData> { new TooltipData(displayTitle, displayContent) };
         
         // 2. 원본 본문(content) 스캔 후 추가 키워드 검출
-        if (!string.IsNullOrEmpty(content))
+        AppendKeywordTooltips(content, tooltips);
+
+        ShowTooltips(tooltips, targetRect);
+    }
+
+    /// <summary>
+    /// 카드 UI 등 이미 제목과 본문이 표시된 대상에서 키워드([cardtag.*], [effect.*] 등) 서브 툴팁만 추출해 표시합니다.
+    /// </summary>
+    public void ShowKeywordTooltips(string content, RectTransform targetRect = null)
+    {
+        if (string.IsNullOrEmpty(content))
         {
-            MatchCollection matches = KeywordRegex.Matches(content);
-            HashSet<string> scannedKeywords = new HashSet<string>();
+            HideTooltip();
+            return;
+        }
 
-            foreach (Match match in matches)
-            {
-                string type = match.Groups[1].Value;
-                string id = match.Groups[2].Value;
-                string valueStr = match.Groups[3].Success ? match.Groups[3].Value : string.Empty;
-                
-                string uniqueKey = $"{type}.{id}".ToLower();
-                if (!scannedKeywords.Add(uniqueKey)) continue; // 중복 추가 방지
-
-                string subTitle = string.Empty;
-                string subDescription = string.Empty;
-
-                switch (type.ToLower())
-                {
-                    case "effect":
-                        if (ModLoader.Instance != null && ModLoader.Instance.EffectDatabase != null)
-                        {
-                            if (ModLoader.Instance.EffectDatabase.TryGetValue(id, out EffectData effectData))
-                            {
-                                subTitle = effectData.displayName;
-                                subDescription = effectData.description ?? string.Empty;
-
-                                // 이펙트 템플릿의 {stacks} 등 플레이스홀더 치환
-                                if (!string.IsNullOrEmpty(valueStr))
-                                {
-                                    subDescription = Regex.Replace(subDescription, @"\{stacks?\}", valueStr, RegexOptions.IgnoreCase);
-                                    subDescription = Regex.Replace(subDescription, @"\{values?\}", valueStr, RegexOptions.IgnoreCase);
-                                    subDescription = Regex.Replace(subDescription, @"\{amt\}", valueStr, RegexOptions.IgnoreCase);
-                                }
-                            }
-                        }
-                        break;
-
-                    case "card":
-                        if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
-                        {
-                            if (ModLoader.Instance.CardDatabase.TryGetValue(id, out CardData cardData))
-                            {
-                                subTitle = cardData.cardName;
-                                subDescription = cardData.GetDescription();
-                            }
-                        }
-                        break;
-
-                    case "relic":
-                        if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
-                        {
-                            if (ModLoader.Instance.RelicDatabase.TryGetValue(id, out RelicData relicData))
-                            {
-                                subTitle = relicData.relicName;
-                                subDescription = relicData.description ?? string.Empty;
-                            }
-                        }
-                        break;
-
-                    case "cardtag":
-                        if (LuaManager.Instance != null)
-                        {
-                            LuaTable proto = LuaManager.Instance.GetCardTagPrototype(id);
-                            if (proto != null)
-                            {
-                                var getDisplayName = proto.Get<System.Func<LuaTable, string>>("GetDisplayName");
-                                var getDescription = proto.Get<System.Func<LuaTable, string>>("GetDescription");
-                                
-                                string dispName = getDisplayName?.Invoke(proto);
-                                string descText = getDescription?.Invoke(proto);
-
-                                subTitle = !string.IsNullOrEmpty(dispName) ? dispName : id;
-                                subDescription = descText ?? string.Empty;
-                            }
-                        }
-                        break;
-                }
-
-                if (!string.IsNullOrEmpty(subTitle))
-                {
-                    // 서브 툴팁 본문에 포함된 키워드도 렌더링 치환 적용
-                    string finalSubTitle = ReplaceKeywordsForDisplay(subTitle);
-                    string finalSubDescription = ReplaceKeywordsForDisplay(subDescription);
-                    tooltips.Add(new TooltipData(finalSubTitle, finalSubDescription));
-                }
-            }
+        List<TooltipData> tooltips = new List<TooltipData>();
+        AppendKeywordTooltips(content, tooltips);
+        if (tooltips.Count == 0)
+        {
+            HideTooltip();
+            return;
         }
 
         ShowTooltips(tooltips, targetRect);
+    }
+
+    private void AppendKeywordTooltips(string content, List<TooltipData> tooltips)
+    {
+        if (string.IsNullOrEmpty(content) || tooltips == null) return;
+
+        MatchCollection matches = KeywordRegex.Matches(content);
+        HashSet<string> scannedKeywords = new HashSet<string>();
+
+        foreach (Match match in matches)
+        {
+            string type = match.Groups[1].Value;
+            string id = match.Groups[2].Value;
+            string valueStr = match.Groups[3].Success ? match.Groups[3].Value : string.Empty;
+
+            string uniqueKey = $"{type}.{id}".ToLower();
+            if (!scannedKeywords.Add(uniqueKey)) continue; // 중복 추가 방지
+
+            string subTitle = string.Empty;
+            string subDescription = string.Empty;
+
+            switch (type.ToLower())
+            {
+                case "effect":
+                    if (ModLoader.Instance != null && ModLoader.Instance.EffectDatabase != null)
+                    {
+                        if (ModLoader.Instance.EffectDatabase.TryGetValue(id, out EffectData effectData))
+                        {
+                            subTitle = effectData.displayName;
+                            subDescription = effectData.description ?? string.Empty;
+
+                            // 이펙트 템플릿의 {stacks} 등 플레이스홀더 치환
+                            if (!string.IsNullOrEmpty(valueStr))
+                            {
+                                subDescription = Regex.Replace(subDescription, @"\{stacks?\}", valueStr, RegexOptions.IgnoreCase);
+                                subDescription = Regex.Replace(subDescription, @"\{values?\}", valueStr, RegexOptions.IgnoreCase);
+                                subDescription = Regex.Replace(subDescription, @"\{amt\}", valueStr, RegexOptions.IgnoreCase);
+                            }
+                        }
+                    }
+                    break;
+
+                case "card":
+                    if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
+                    {
+                        if (ModLoader.Instance.CardDatabase.TryGetValue(id, out CardData cardData))
+                        {
+                            subTitle = cardData.cardName;
+                            subDescription = cardData.GetDescription();
+                        }
+                    }
+                    break;
+
+                case "relic":
+                    if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
+                    {
+                        if (ModLoader.Instance.RelicDatabase.TryGetValue(id, out RelicData relicData))
+                        {
+                            subTitle = relicData.relicName;
+                            subDescription = relicData.description ?? string.Empty;
+                        }
+                    }
+                    break;
+
+                case "cardtag":
+                    if (LuaManager.Instance != null)
+                    {
+                        LuaTable proto = LuaManager.Instance.GetCardTagPrototype(id);
+                        if (proto != null)
+                        {
+                            var getDisplayName = proto.Get<System.Func<LuaTable, string>>("GetDisplayName");
+                            var getDescription = proto.Get<System.Func<LuaTable, string>>("GetDescription");
+
+                            string dispName = getDisplayName?.Invoke(proto);
+                            string descText = getDescription?.Invoke(proto);
+
+                            subTitle = !string.IsNullOrEmpty(dispName) ? dispName : id;
+                            subDescription = descText ?? string.Empty;
+                        }
+                    }
+                    break;
+            }
+
+            if (!string.IsNullOrEmpty(subTitle))
+            {
+                // 서브 툴팁 본문에 포함된 키워드도 렌더링 치환 적용
+                string finalSubTitle = ReplaceKeywordsForDisplay(subTitle);
+                string finalSubDescription = ReplaceKeywordsForDisplay(subDescription);
+                tooltips.Add(new TooltipData(finalSubTitle, finalSubDescription));
+            }
+        }
     }
 
     public void ShowTooltips(List<TooltipData> tooltips, RectTransform targetRect = null)
@@ -300,6 +339,9 @@ public class TooltipManager : MonoBehaviour
         }
 
         gameObject.SetActive(true);
+        // 팝업 UI가 SetAsLastSibling()으로 최상단에 올라와도 툴팁 컨테이너가 항상 맨 앞에 렌더링되도록 보장
+        transform.SetAsLastSibling();
+        EnsureInitialized();
         ClearCurrentPanels();
 
         currentTargetRect = targetRect;
@@ -320,6 +362,10 @@ public class TooltipManager : MonoBehaviour
 
         // 레이아웃 즉시 계산 및 위치 지정
         Canvas.ForceUpdateCanvases();
+        if (rectTransform != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+        }
         UpdatePosition();
     }
 
@@ -388,6 +434,7 @@ public class TooltipManager : MonoBehaviour
             float scaleFactor = maxAvailableHeight / H;
             transform.localScale = Vector3.one * scaleFactor;
             H = maxAvailableHeight;
+            W *= scaleFactor;
         }
         else
         {
@@ -440,14 +487,15 @@ public class TooltipManager : MonoBehaviour
         }
 
         // 4. Y축 배치 결정 (상단 정렬 기본 적용 및 하단 이탈 시 피벗 반전 정렬)
+        float offsetY = Mathf.Abs(mouseOffset.y);
         float pivotY = 1f; // 기본: 상단 정렬
-        float finalY = targetCenterY;
+        float finalY = targetCenterY - offsetY;
 
         // 아래로 뻗은 툴팁이 화면 하단을 벗어나면 하단 정렬로 반전
         if (finalY - H < minScreenY + padding)
         {
             pivotY = 0f;
-            finalY = targetCenterY;
+            finalY = targetCenterY + offsetY;
         }
 
         // Y축 최종 화면 밖 이탈 Clamping 방어 코드 (캔버스 로컬 바운더리 기준)

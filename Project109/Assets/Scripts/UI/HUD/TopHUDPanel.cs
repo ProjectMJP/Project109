@@ -10,15 +10,8 @@ public class TopHUDPanel : UIPanelBase
 
     public PlayerRelicUI PlayerRelicUI => playerRelicUI;
 
-    private void Awake()
-    {
-        blockWorldInput = false;
-
-        if (playerRelicUI == null)
-        {
-            Debug.LogError("[TopHUDPanel] playerRelicUI가 바인딩되지 않았습니다! TopHUDPanel 프리팹 설정을 확인하세요.", this);
-        }
-    }
+    [Header("Location Display")]
+    [SerializeField] private TextMeshProUGUI locationFloorText;
 
     [Header("Currency TMP Texts")]
     [SerializeField] private TextMeshProUGUI goldText;
@@ -27,6 +20,7 @@ public class TopHUDPanel : UIPanelBase
     [Header("Action Buttons")]
     [SerializeField] private Button mapButton;
     [SerializeField] private Button deckButton;
+    [SerializeField] private Button pauseMenuButton;
 
     [Header("UI Texture")]
     [SerializeField] private Image currencyImage;
@@ -36,6 +30,39 @@ public class TopHUDPanel : UIPanelBase
 
     private Player _boundPlayer;
     private CardDeckViewPanel _deckViewPanel;
+
+    private void Awake()
+    {
+        blockWorldInput = false;
+
+        if (playerRelicUI == null)
+        {
+            Debug.LogError("[TopHUDPanel] playerRelicUI가 바인딩되지 않았습니다! TopHUDPanel 프리팹 설정을 확인하세요.", this);
+        }
+
+        EnsureTierLayoutReferences();
+    }
+
+    private void OnEnable()
+    {
+        GameSceneManager.OnSceneLocationChanged += RefreshLocationAndNavigationState;
+        RunManager.OnRunLocationChanged += RefreshLocationAndNavigationState;
+        EnsureTierLayoutReferences();
+        RefreshLocationAndNavigationState();
+    }
+
+    private void OnDisable()
+    {
+        GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
+        RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
+    }
+
+    public override void OnOpen()
+    {
+        base.OnOpen();
+        EnsureTierLayoutReferences();
+        RefreshLocationAndNavigationState();
+    }
 
     /// <summary>
     /// 플레이어 인스턴스를 HUD에 바인딩하여 재화 및 유물 갱신 이벤트를 직접 수신합니다.
@@ -63,6 +90,8 @@ public class TopHUDPanel : UIPanelBase
 
         // 기본 버튼 클릭 리스너 연결
         SetupHUD(ToggleExploreMap, ToggleDeckView);
+        EnsureTierLayoutReferences();
+        RefreshLocationAndNavigationState();
     }
 
     /// <summary>
@@ -125,6 +154,7 @@ public class TopHUDPanel : UIPanelBase
     public void ToggleExploreMap()
     {
         if (UIManager.instance == null) return;
+        if (GameSceneManager.instance != null && !GameSceneManager.instance.isInDungeon) return;
 
         ExploreMapUI exploreMapUI = UIManager.instance.GetUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP);
         if (exploreMapUI == null)
@@ -174,8 +204,132 @@ public class TopHUDPanel : UIPanelBase
             Debug.LogWarning("Deck button is not assigned");
         }
 
+        BindPauseMenuButton();
+
         if (AssetCacheManager.instance != null)
+        {
             UpdateUIImage();
+        }
+    }
+
+    private void BindPauseMenuButton()
+    {
+        if (pauseMenuButton != null)
+        {
+            pauseMenuButton.onClick.RemoveListener(OpenPauseMenu);
+            pauseMenuButton.onClick.AddListener(OpenPauseMenu);
+        }
+    }
+
+    /// <summary>
+    /// 일시정지/설정 메뉴(PauseMenuPanel)를 토글하거나 엽니다.
+    /// </summary>
+    public void OpenPauseMenu()
+    {
+        if (UIManager.instance == null) return;
+
+        PauseMenuPanel pausePanel = UIManager.instance.GetUI<PauseMenuPanel>(UIConstants.PANEL_PAUSE_MENU);
+        if (pausePanel != null && pausePanel.gameObject.activeInHierarchy)
+        {
+            pausePanel.Close();
+            return;
+        }
+
+        UIManager.instance.OpenPauseMenu();
+    }
+
+    /// <summary>
+    /// 현재 구역(은신처 vs 던전/층)에 따라 중앙 위치 표시 텍스트와 지도 버튼 활성 상태를 갱신합니다.
+    /// </summary>
+    public void RefreshLocationAndNavigationState()
+    {
+        bool inDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
+
+        if (mapButton != null)
+        {
+            mapButton.interactable = inDungeon;
+        }
+
+        if (locationFloorText == null)
+        {
+            return;
+        }
+
+        if (!inDungeon)
+        {
+            locationFloorText.text = "은신처 (Hideout)";
+            return;
+        }
+
+        string stageRaw = null;
+        int floor = 1;
+
+        if (RunManager.instance != null)
+        {
+            stageRaw = RunManager.instance.currentMapName;
+            floor = Mathf.Max(1, RunManager.instance.currentExploreMapFloor + 1);
+
+            if (string.IsNullOrEmpty(stageRaw) &&
+                RunManager.instance.currentStage != null &&
+                RunManager.instance.currentStage.currentMapData != null)
+            {
+                stageRaw = RunManager.instance.currentStage.currentMapData.locationType.ToString();
+            }
+        }
+
+        string stageDisplay = FormatStageDisplayName(stageRaw);
+        locationFloorText.text = $"{stageDisplay} - {floor}F";
+    }
+
+    private static string FormatStageDisplayName(string rawStage)
+    {
+        if (string.IsNullOrEmpty(rawStage))
+        {
+            return "던전";
+        }
+
+        switch (rawStage)
+        {
+            case "Temple":
+                return "사원 (Temple)";
+            case "Dungeon":
+                return "던전 (Dungeon)";
+            case "Dock":
+                return "항구 (Dock)";
+            case "Hideout":
+                return "은신처 (Hideout)";
+            default:
+                return rawStage;
+        }
+    }
+
+    private void EnsureTierLayoutReferences()
+    {
+        Transform hudPanel = transform.Find("HUDPanel");
+        if (hudPanel == null)
+        {
+            return;
+        }
+
+        if (locationFloorText == null)
+        {
+            Transform locTr = hudPanel.Find("LocationFloorText");
+            if (locTr != null)
+            {
+                locationFloorText = locTr.GetComponent<TextMeshProUGUI>();
+            }
+        }
+
+        if (pauseMenuButton == null)
+        {
+            Transform pauseTr = hudPanel.Find("PauseMenuButton");
+            if (pauseTr != null)
+            {
+                pauseMenuButton = pauseTr.GetComponent<Button>();
+            }
+        }
+
+        BindPauseMenuButton();
     }
 
     public void UpdateGold(int amount)
@@ -196,45 +350,58 @@ public class TopHUDPanel : UIPanelBase
 
     private void UpdateUIImage()
     {
-        if (AssetCacheManager.instance.TryGetTexture("Gold", out Sprite goldTexture))
+        if (AssetCacheManager.instance == null) return;
+
+        if (currencyImage != null)
         {
-            currencyImage.sprite = goldTexture;
-        }
-        else
-        {
-            Debug.LogWarning("Failed to load Texture_UI_Gold");
+            if (AssetCacheManager.instance.TryGetTexture("Gold", out Sprite goldTexture))
+            {
+                currencyImage.sprite = goldTexture;
+            }
+            else
+            {
+                Debug.LogWarning("Failed to load Texture_UI_Gold");
+            }
         }
 
-        if (AssetCacheManager.instance.TryGetTexture("MemoryShard", out Sprite shardTexture))
+        if (specialResourceImage != null)
         {
-            specialResourceImage.sprite = shardTexture;
-        }
-        else
-        {
-            Debug.LogWarning("Failed to load Texture_UI_MemoryShard");
-        }
-
-        if (AssetCacheManager.instance.TryGetTexture("MapButtonIcon", out Sprite mapButtonIconTexture))
-        {
-            mapButtonImage.sprite = mapButtonIconTexture;
-        }
-        else if (AssetCacheManager.instance.TryGetTexture("ExploreMapTexture", out Sprite exploreMapTexture))
-        {
-            mapButtonImage.sprite = exploreMapTexture;
-        }
-        else
-        {
-            Debug.LogWarning("Failed to load Texture_UI_MapButtonIcon");
+            if (AssetCacheManager.instance.TryGetTexture("MemoryShard", out Sprite shardTexture))
+            {
+                specialResourceImage.sprite = shardTexture;
+            }
+            else
+            {
+                Debug.LogWarning("Failed to load Texture_UI_MemoryShard");
+            }
         }
 
-        if (AssetCacheManager.instance.TryGetTexture("DeckButtonIcon", out Sprite deckButtonIconTexture))
+        if (mapButtonImage != null)
         {
-            deckButtonImage.sprite = deckButtonIconTexture;
+            if (AssetCacheManager.instance.TryGetTexture("MapButtonIcon", out Sprite mapButtonIconTexture))
+            {
+                mapButtonImage.sprite = mapButtonIconTexture;
+            }
+            else if (AssetCacheManager.instance.TryGetTexture("ExploreMapTexture", out Sprite exploreMapTexture))
+            {
+                mapButtonImage.sprite = exploreMapTexture;
+            }
+            else
+            {
+                Debug.LogWarning("Failed to load Texture_UI_MapButtonIcon");
+            }
         }
-        else
+
+        if (deckButtonImage != null)
         {
-            Debug.LogWarning("Failed to load Texture_UI_DeckButtonIcon");
+            if (AssetCacheManager.instance.TryGetTexture("DeckButtonIcon", out Sprite deckButtonIconTexture))
+            {
+                deckButtonImage.sprite = deckButtonIconTexture;
+            }
+            else
+            {
+                Debug.LogWarning("Failed to load Texture_UI_DeckButtonIcon");
+            }
         }
     }
 }
-

@@ -469,6 +469,18 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         return result;
     }
 
+    private int _lastBattleCancelFrame = -1;
+
+    /// <summary>
+    /// 현재 배틀 컨트롤러가 이동 또는 타깃팅 선택 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
+    /// </summary>
+    public bool HasActiveBattleCancelTarget => controlState != PlayerControlState.Normal;
+
+    /// <summary>
+    /// 현재 프레임에 배틀 타깃팅/이동 취소가 이미 소비되었는지 반환합니다.
+    /// </summary>
+    public bool IsBattleCancelConsumedThisFrame => _lastBattleCancelFrame == Time.frameCount;
+
     /// <summary>
     /// 입력 컨트롤러의 취소(ESC/우클릭) 이벤트 수신 시 호출됩니다.
     /// 모달 팝업이 열려 있거나 동일 프레임에 팝업 닫기가 먼저 소비된 경우 타깃팅/이동 취소가 중복 실행되지 않도록 방어합니다.
@@ -496,6 +508,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void CancelCurrentState()
     {
         if (controlState == PlayerControlState.Normal) return;
+        _lastBattleCancelFrame = Time.frameCount;
 
         Debug.Log($"[PlayerBattleController] 조작 취소. 이전 상태: {controlState}");
 
