@@ -45,6 +45,11 @@ public class RunSaveData
 
     public List<CardSaveEntry> playerDeckCards = new List<CardSaveEntry>();
     public List<string> playerRelicNames = new List<string>();
+
+    // 시작 무장(진열대) 선택 및 해금 상태 저장용
+    public string selectedStarterKitId;
+    public List<string> unlockedStarterKitIds = new List<string>();
+    public List<string> unlockedLoreKeys = new List<string>();
 }
 
 /// <summary>
@@ -155,6 +160,10 @@ public static class SaveSystem
                 }
             }
 
+            data.selectedStarterKitId = player.selectedStarterKitId;
+            data.unlockedStarterKitIds = new List<string>(player.unlockedStarterKitIds);
+            data.unlockedLoreKeys = new List<string>(player.unlockedLoreKeys);
+
             string json = JsonUtility.ToJson(data, true);
             string savePath = GetSavePath(slotIndex);
             File.WriteAllText(savePath, json, System.Text.Encoding.UTF8);
@@ -236,7 +245,7 @@ public static class SaveSystem
     }
 
     /// <summary>
-    /// 신규 플레이어에 대해 기본 스탯(또는 프리팹 설정값)을 안전하게 초기화합니다.
+    /// 신규 플레이어에 대해 기본 스탯(또는 선택된 시작 키트)을 안전하게 초기화합니다.
     /// </summary>
     public static void InitializeDefaultPlayer(Player player)
     {
@@ -259,8 +268,37 @@ public static class SaveSystem
             }
         }
 
+        if (kitData != null)
+        {
+            ApplyStarterKit(player, kitData, resetGold: true);
+            return;
+        }
+
+        CharacterStat fallbackStat = (player.character.curCharacterStat != null && player.character.curCharacterStat.maxHealth > 0f)
+            ? CloneCharacterStat(player.character.curCharacterStat)
+            : new CharacterStat
+            {
+                maxHealth = 100,
+                maxStamina = 120,
+                staminaRegenPerSecond = 40,
+                moveRange = 3,
+            };
+
+        player.character.InitializeStat(fallbackStat);
+        Debug.Log($"[SaveSystem] 시작 키트('{kitId}') 미발견으로 기본 폴백 스탯을 적용했습니다.");
+    }
+
+    /// <summary>
+    /// 지정된 시작 키트(무장)를 플레이어에게 적용합니다. 기억의 조각(MemorySharp)은 유지됩니다.
+    /// </summary>
+    public static bool ApplyStarterKit(Player player, StarterKitData kitData, bool resetGold = true)
+    {
+        if (player == null || player.character == null || kitData == null) return false;
+
+        player.selectedStarterKitId = kitData.loadoutId;
+
         CharacterStat initialStat = null;
-        if (kitData != null && kitData.characterStat != null)
+        if (kitData.characterStat != null)
         {
             initialStat = CloneCharacterStat(kitData.characterStat);
         }
@@ -270,7 +308,6 @@ public static class SaveSystem
         }
         else
         {
-            // 안전 fallback 기본 스탯 (YAML 로드 실패 시)
             initialStat = new CharacterStat
             {
                 maxHealth = 100,
@@ -282,22 +319,23 @@ public static class SaveSystem
 
         player.character.InitializeStat(initialStat);
 
-        // 시작 키트 구성품 (재화, 드로우 수, 카드, 유물) 지급
-        if (kitData != null)
+        // 재화(골드만 선택적으로 키트 기본값 적용, 기억의 조각은 보존) 및 기본 드로우 수 반영
+        if (player.playerStat != null)
         {
-            if (player.playerStat != null)
+            if (resetGold)
             {
                 player.playerStat.InGameCurrencyGold = kitData.startGold;
-                if (kitData.baseDrawCount > 0)
-                {
-                    player.playerStat.BaseDrawCount = kitData.baseDrawCount;
-                }
             }
 
-            // 시작 카드 덱 초기화
-            if (player.deck != null && kitData.startCards != null && kitData.startCards.Count > 0)
+            player.playerStat.BaseDrawCount = kitData.baseDrawCount > 0 ? kitData.baseDrawCount : 5;
+        }
+
+        // 시작 카드 덱 초기화
+        if (player.deck != null)
+        {
+            player.deck.Clear();
+            if (kitData.startCards != null)
             {
-                player.deck.Clear();
                 foreach (string cardId in kitData.startCards)
                 {
                     if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null &&
@@ -311,19 +349,82 @@ public static class SaveSystem
                     }
                 }
             }
+            player.deck.RequestAllCardRefresh();
+        }
 
-            // 시작 유물 초기화
-            if (player.relicManager != null && kitData.startRelics != null && kitData.startRelics.Count > 0)
+        // 시작 유물 초기화
+        if (player.relicManager != null)
+        {
+            player.relicManager.ClearRelics();
+            if (kitData.startRelics != null)
             {
-                player.relicManager.ClearRelics();
                 foreach (string relicId in kitData.startRelics)
                 {
-                    player.relicManager.AddRelic(relicId);
+                    player.AddRelic(relicId);
                 }
             }
         }
 
-        Debug.Log($"[SaveSystem] 신규 플레이어 기본 스탯 및 시작 키트 초기화 완료 (키트: '{kitId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동력: {initialStat.moveRange}).");
+        Debug.Log($"[SaveSystem] 시작 키트 적용 완료 (키트: '{kitData.loadoutId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동력: {initialStat.moveRange}).");
+        return true;
+    }
+
+    /// <summary>
+    /// 이미 해금된 시작 키트를 은신처 등에서 장착합니다.
+    /// </summary>
+    public static bool TryEquipStarterKit(Player player, StarterKitData kitData)
+    {
+        if (player == null || kitData == null) return false;
+        if (!player.IsStarterKitUnlocked(kitData)) return false;
+
+        bool applied = ApplyStarterKit(player, kitData, resetGold: true);
+        if (applied && GameSceneManager.instance != null && !GameSceneManager.instance.isInDungeon)
+        {
+            int slot = GameSceneManager.instance.currentSaveSlot;
+            if (HasSaveData(slot))
+            {
+                SaveGame(null, slot);
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// 잠긴 시작 키트를 기억의 조각으로 해금한 뒤 즉시 장착합니다.
+    /// </summary>
+    public static bool TryUnlockAndEquipStarterKit(Player player, StarterKitData kitData, out string failReason)
+    {
+        failReason = string.Empty;
+        if (player == null || kitData == null)
+        {
+            failReason = "플레이어 또는 무장 데이터가 유효하지 않습니다.";
+            return false;
+        }
+
+        if (player.IsStarterKitUnlocked(kitData))
+        {
+            return TryEquipStarterKit(player, kitData);
+        }
+
+        int cost = Mathf.Max(0, kitData.unlockShardCost);
+        int currentShards = player.playerStat != null ? player.playerStat.InGameCurrencyMemorySharp : 0;
+        if (player.playerStat == null || currentShards < cost)
+        {
+            failReason = $"기억의 조각이 부족합니다. (필요: {cost}, 보유: {currentShards})";
+            return false;
+        }
+
+        player.playerStat.InGameCurrencyMemorySharp -= cost;
+        player.UnlockStarterKit(kitData.loadoutId);
+
+        bool applied = ApplyStarterKit(player, kitData, resetGold: true);
+        if (applied && GameSceneManager.instance != null && !GameSceneManager.instance.isInDungeon)
+        {
+            SaveGame(null, GameSceneManager.instance.currentSaveSlot);
+        }
+
+        return applied;
     }
 
     /// <summary>
@@ -394,6 +495,39 @@ public static class SaveSystem
             foreach (var relicName in data.playerRelicNames)
             {
                 player.AddRelic(relicName);
+            }
+        }
+
+        // 5. 시작 무장 선택 및 해금 기록 복원
+        if (!string.IsNullOrEmpty(data.selectedStarterKitId))
+        {
+            player.selectedStarterKitId = data.selectedStarterKitId;
+            if (ModLoader.Instance != null && ModLoader.Instance.StarterKitDatabase != null &&
+                ModLoader.Instance.StarterKitDatabase.TryGetValue(data.selectedStarterKitId, out StarterKitData savedKit) &&
+                savedKit != null && savedKit.baseDrawCount > 0 && player.playerStat != null)
+            {
+                player.playerStat.BaseDrawCount = savedKit.baseDrawCount;
+            }
+        }
+
+        player.unlockedStarterKitIds.Clear();
+        if (data.unlockedStarterKitIds != null)
+        {
+            foreach (string unlockedId in data.unlockedStarterKitIds)
+            {
+                player.UnlockStarterKit(unlockedId);
+            }
+        }
+
+        player.unlockedLoreKeys.Clear();
+        if (data.unlockedLoreKeys != null)
+        {
+            foreach (string loreKey in data.unlockedLoreKeys)
+            {
+                if (!string.IsNullOrEmpty(loreKey))
+                {
+                    player.unlockedLoreKeys.Add(loreKey);
+                }
             }
         }
 

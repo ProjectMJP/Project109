@@ -1,6 +1,7 @@
 cardName: "회전베기"
 classTypes:
   - "Warrior"
+  - "TesterWarrior"
 cardType: "Attack"
 targetType: "Target"
 targetMinDistance: 0

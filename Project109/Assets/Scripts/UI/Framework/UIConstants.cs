@@ -27,6 +27,8 @@ public static class UIConstants
     public const string PANEL_ERASE_CARD_DECK = "EraseCardDeckCanvas";
     public const string PANEL_BATTLE_NOTICE = "UIBattleNotice";
     public const string PANEL_GAME_OVER = "GameOverPanel";
+    public const string PANEL_STARTER_KIT_SHOWCASE = "StarterKitShowcasePanel";
+    public const string PANEL_PAUSE_MENU = "PauseMenuPanel";
 
     // 기본 월드 위치 오프셋 (캐릭터 머리/발 위치 기준)
     public static readonly Vector3 DEFAULT_STATUS_BAR_OFFSET = new Vector3(0f, -2.2f, 0f);

@@ -27,6 +27,24 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 41182403ffafc7b47bf2ee2aeab49e9c
+    m_Address: Hideout_MemoryAltar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 426b54896745f374d864ed3e9916050a
+    m_Address: Hideout_Compendium
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5c54a7c93566a5b43b7763a445b4fcd0
+    m_Address: Hideout_WeaponShowcase
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5f50a2989c00f834880ee66529a80f6e
     m_Address: DungeonTile
     m_ReadOnly: 0

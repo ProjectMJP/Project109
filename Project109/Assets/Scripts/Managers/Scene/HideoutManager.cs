@@ -89,7 +89,7 @@ public class HideoutManager : MonoBehaviour
                 SpawnObjectAtCell(cell.terrainID, cell.position);
             }
 
-            // 오브젝트 스폰 (던전 게이트, 무기대 등)
+            // 오브젝트 스폰 (던전 게이트, 무기 진열대, 기억의 제단, 기록 보관소 등)
             if (!string.IsNullOrEmpty(cell.objectID) && cell.objectID != "Empty")
             {
                 GameObject spawned = SpawnObjectAtCell(cell.objectID, cell.position);
@@ -97,6 +97,10 @@ public class HideoutManager : MonoBehaviour
                 {
                     // 스폰된 사물 타일은 플레이어가 겹쳐 걷지 못하도록 Obstacle로 마킹
                     currentGameMap.SetTileState(cell.position, TileState.Obstacle);
+                }
+                else
+                {
+                    Debug.LogError($"[HideoutManager] '{cell.objectID}' 프리팹을 AssetCacheManager('Model')에서 찾지 못해 스폰할 수 없습니다. 셀({cell.position.x}, {cell.position.y})", this);
                 }
             }
 
@@ -123,15 +127,18 @@ public class HideoutManager : MonoBehaviour
         }
 
         GameObject spawned = Instantiate(prefab, currentGameMap.transform);
-        Vector3 worldPos = new Vector3(
+        spawned.transform.position = GetCellWorldPosition(cellPos);
+        _spawnedObjects.Add(spawned);
+        return spawned;
+    }
+
+    private Vector3 GetCellWorldPosition(Vector2Int cellPos)
+    {
+        return new Vector3(
             cellPos.x * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.x,
             _hideoutMapData.gridOffset.y,
             cellPos.y * _hideoutMapData.cellSize + _hideoutMapData.gridOffset.z
         );
-
-        spawned.transform.position = worldPos;
-        _spawnedObjects.Add(spawned);
-        return spawned;
     }
 
     /// <summary>

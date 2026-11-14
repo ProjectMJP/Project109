@@ -42,6 +42,45 @@ public class Player : IDisposable
     // 선택된 시작 키트(무기/로드아웃)
     public string selectedStarterKitId { get; set; } = "warrior_starter";
 
+    // 해금된 시작 키트 ID 및 무기 역사 스토리 키 집합 (스토리 키 형식: "{loadoutId}#{loreIndex}")
+    public HashSet<string> unlockedStarterKitIds { get; private set; } = new HashSet<string>();
+    public HashSet<string> unlockedLoreKeys { get; private set; } = new HashSet<string>();
+
+    public bool IsStarterKitUnlocked(StarterKitData kit)
+    {
+        if (kit == null) return false;
+        if (kit.isDefaultUnlocked || kit.unlockShardCost <= 0) return true;
+        return unlockedStarterKitIds.Contains(kit.loadoutId);
+    }
+
+    public void UnlockStarterKit(string loadoutId)
+    {
+        if (!string.IsNullOrEmpty(loadoutId))
+        {
+            unlockedStarterKitIds.Add(loadoutId);
+        }
+    }
+
+    public static string GetLoreUnlockKey(string loadoutId, int loreIndex)
+    {
+        return $"{loadoutId}#{loreIndex}";
+    }
+
+    public bool IsLoreUnlocked(string loadoutId, int loreIndex, WeaponLoreEntry lore)
+    {
+        if (lore == null) return false;
+        if (lore.isUnlockedByDefault) return true;
+        return unlockedLoreKeys.Contains(GetLoreUnlockKey(loadoutId, loreIndex));
+    }
+
+    public void UnlockLore(string loadoutId, int loreIndex)
+    {
+        if (!string.IsNullOrEmpty(loadoutId) && loreIndex >= 0)
+        {
+            unlockedLoreKeys.Add(GetLoreUnlockKey(loadoutId, loreIndex));
+        }
+    }
+
     public Player(Character character)
     {
         this.character = character;

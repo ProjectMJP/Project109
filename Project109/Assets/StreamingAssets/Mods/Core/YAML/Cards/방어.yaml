@@ -1,6 +1,7 @@
 cardName: "방어"
 classTypes:
   - "Warrior"
+  - "TesterWarrior"
 cardType: "Skill"
 targetType: "Self"
 targetMinDistance: 0

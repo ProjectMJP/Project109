@@ -1,0 +1,41 @@
+loadoutId: "tester_warrior_starter"
+displayName: "테스트 전사 (Tester Warrior)"
+classType: "TesterWarrior"
+startGold: 100
+baseDrawCount: 5
+isDefaultUnlocked: true
+unlockShardCost: 0
+sortOrder: 1
+characterStat:
+  maxHealth: 100
+  maxStamina: 120
+  staminaRegenPerSecond: 40
+  moveRange: 3
+startCards:
+  - "밀치기"
+  - "밀치기"
+  - "돌진"
+  - "어깨치기"
+  - "그래플링"
+  - "박치기"
+  - "방어"
+  - "방어"
+  - "아드레날린"
+  - "기선 제압"
+  - "연속 충격"
+startRelics: ["가죽 장갑"]
+startEffects: []
+loreEntries:
+  - title: "무기 스토리 1 : 훈련용 강철 건틀릿"
+    description: "적의 진형을 무너뜨리고 충돌 피해와 넉백 연계를 시험하기 위해 제작된 특수 무장입니다."
+    unlockConditionType: "None"
+    unlockConditionValue: ""
+    unlockHint: ""
+    isUnlockedByDefault: true
+  - title: "무기 스토리 2 : 충격파의 교범"
+    description: "벽과 적을 동시에 꿰뚫는 극한의 돌진술에 관한 비전서입니다."
+    unlockConditionType: "BossKill"
+    unlockConditionValue: "1"
+    unlockHint: "테스트 전사로 엘리트 3회 처치 시 해금"
+    isUnlockedByDefault: false
+

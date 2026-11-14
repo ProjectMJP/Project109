@@ -15,8 +15,8 @@ MonoBehaviour:
   stageName: Hideout
   locationType: 0
   incountType: 0
-  width: 10
-  height: 10
+  width: 9
+  height: 9
   cellSize: 1
   gridOffset: {x: 0, y: 0, z: 0}
   cells:
@@ -56,10 +56,6 @@ MonoBehaviour:
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
-  - position: {x: 0, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
   - position: {x: 1, y: 0}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
@@ -78,7 +74,7 @@ MonoBehaviour:
     eventID: Empty
   - position: {x: 1, y: 4}
     terrainID: Terrain_Temple_Floor
-    objectID: Empty
+    objectID: Hideout_MemoryAltar
     eventID: Empty
   - position: {x: 1, y: 5}
     terrainID: Terrain_Temple_Floor
@@ -93,10 +89,6 @@ MonoBehaviour:
     objectID: Empty
     eventID: Empty
   - position: {x: 1, y: 8}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 1, y: 9}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
@@ -136,10 +128,6 @@ MonoBehaviour:
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
-  - position: {x: 2, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
   - position: {x: 3, y: 0}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
@@ -176,10 +164,6 @@ MonoBehaviour:
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
-  - position: {x: 3, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
   - position: {x: 4, y: 0}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
@@ -210,13 +194,9 @@ MonoBehaviour:
     eventID: Empty
   - position: {x: 4, y: 7}
     terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 4, y: 8}
-    terrainID: Terrain_Temple_Floor
     objectID: DungeonEnteranceObject
     eventID: Empty
-  - position: {x: 4, y: 9}
+  - position: {x: 4, y: 8}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
@@ -256,10 +236,6 @@ MonoBehaviour:
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
-  - position: {x: 5, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
   - position: {x: 6, y: 0}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
@@ -296,10 +272,6 @@ MonoBehaviour:
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
-  - position: {x: 6, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
   - position: {x: 7, y: 0}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
@@ -318,7 +290,7 @@ MonoBehaviour:
     eventID: Empty
   - position: {x: 7, y: 4}
     terrainID: Terrain_Temple_Floor
-    objectID: Empty
+    objectID: Hideout_WeaponShowcase
     eventID: Empty
   - position: {x: 7, y: 5}
     terrainID: Terrain_Temple_Floor
@@ -330,13 +302,9 @@ MonoBehaviour:
     eventID: Empty
   - position: {x: 7, y: 7}
     terrainID: Terrain_Temple_Floor
-    objectID: Empty
+    objectID: Hideout_Compendium
     eventID: Empty
   - position: {x: 7, y: 8}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 7, y: 9}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty
@@ -373,50 +341,6 @@ MonoBehaviour:
     objectID: Empty
     eventID: Empty
   - position: {x: 8, y: 8}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 8, y: 9}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 0}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 1}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 2}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 3}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 4}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 5}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 6}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 7}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 8}
-    terrainID: Terrain_Temple_Floor
-    objectID: Empty
-    eventID: Empty
-  - position: {x: 9, y: 9}
     terrainID: Terrain_Temple_Floor
     objectID: Empty
     eventID: Empty

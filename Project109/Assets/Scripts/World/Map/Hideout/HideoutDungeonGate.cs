@@ -10,6 +10,8 @@ public class HideoutDungeonGate : MonoBehaviour, IInteractable
 {
     [Header("게이트 설정")]
     [SerializeField] private bool _requiresCameraFocus = false;
+    [SerializeField] private HideoutWorldLabel _worldLabel = null;
+    [SerializeField] private string _labelText = "던전 출격";
 
     public bool RequiresCameraFocus => _requiresCameraFocus;
 
@@ -20,6 +22,25 @@ public class HideoutDungeonGate : MonoBehaviour, IInteractable
         if (npcLayer != -1)
         {
             gameObject.layer = npcLayer;
+        }
+
+        if (_worldLabel == null)
+        {
+            TryGetComponent<HideoutWorldLabel>(out _worldLabel);
+        }
+    }
+
+    private void Start()
+    {
+        if (_worldLabel == null)
+        {
+            Debug.LogError($"[HideoutDungeonGate] '{gameObject.name}' 프리팹에 HideoutWorldLabel이 누락되었습니다.", this);
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(_labelText))
+        {
+            _worldLabel.SetLabelText(_labelText);
         }
     }
 

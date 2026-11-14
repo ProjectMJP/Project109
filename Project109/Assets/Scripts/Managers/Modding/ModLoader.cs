@@ -35,6 +35,8 @@ public class ModLoader
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
+    private int _starterKitLoadOrder;
+
     private static ModLoader _instance;
     public static ModLoader Instance
     {
@@ -65,7 +67,8 @@ public class ModLoader
         // 1. 바닐라(Core) 모드 로딩
         // 경로: Assets/StreamingAssets/Mods/Core
         string coreModPath = Path.Combine(Application.streamingAssetsPath, "Mods", "Core");
-        LoadModDirectory(coreModPath);
+        _starterKitLoadOrder = 0;
+        LoadModDirectory(coreModPath, true);
 
         // 2. 유저 모드 로딩
         // 경로: C:/Users/.../AppData/LocalLow/Company/Project109/mods
@@ -75,7 +78,7 @@ public class ModLoader
             string[] userModDirs = Directory.GetDirectories(userModsPath);
             foreach (string modDir in userModDirs)
             {
-                LoadModDirectory(modDir);
+                LoadModDirectory(modDir, false);
             }
         }
         else
@@ -89,7 +92,7 @@ public class ModLoader
         Debug.Log($"[ModLoader] 총 {EffectDatabase.Count}개의 이펙트 데이터, {RelicDatabase.Count}개의 유물 데이터, {CardDatabase.Count}개의 카드 데이터, {StarterKitDatabase.Count}개의 시작 키트 데이터, {InteractableDatabase.Count}개의 상호작용 데이터, {DropTableDatabase.Count}개의 드롭 테이블 데이터가 로드되었습니다.");
     }
 
-    private void LoadModDirectory(string modDir)
+    private void LoadModDirectory(string modDir, bool isCoreMod = false)
     {
         if (!Directory.Exists(modDir)) return;
 
@@ -137,7 +140,11 @@ public class ModLoader
         string starterKitsPath = Path.Combine(modDir, "YAML", "StarterKits");
         if (Directory.Exists(starterKitsPath))
         {
-            LoadDataFromPath(starterKitsPath, modDir, StarterKitDatabase, d => d.loadoutId, "시작 키트");
+            LoadDataFromPath(starterKitsPath, modDir, StarterKitDatabase, d => d.loadoutId, "시작 키트", kit =>
+            {
+                kit.isCoreMod = isCoreMod;
+                kit.loadOrder = _starterKitLoadOrder++;
+            });
         }
 
         // [적군 AI(Enemy) 로딩]
@@ -173,7 +180,7 @@ public class ModLoader
         }
     }
 
-    private void LoadDataFromPath<T>(string dataPath, string modRootPath, Dictionary<string, T> targetDict, System.Func<T, string> keySelector, string typeName) where T : class
+    private void LoadDataFromPath<T>(string dataPath, string modRootPath, Dictionary<string, T> targetDict, System.Func<T, string> keySelector, string typeName, System.Action<T> onLoaded = null) where T : class
     {
         var deserializer = _yamlDeserializer;
 
@@ -201,6 +208,7 @@ public class ModLoader
                     string key = keySelector(data);
                     if (!string.IsNullOrEmpty(key))
                     {
+                        onLoaded?.Invoke(data);
                         targetDict[key] = data;
                     }
                 }
