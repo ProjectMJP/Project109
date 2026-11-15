@@ -1,0 +1,18 @@
+cardName: "테스트 다중 지정"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "MultiEnemy"
+targetMinDistance: 1
+targetMaxDistance: 5
+targetCount: 2
+allowDuplicateTarget: false
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n사거리 내 적 최대 2명을 순차 지정해 각 {damage}의 피해를 줍니다.\n(시전 확정 시 자동 회전)"
+baseValues:
+  damage: 5

@@ -1,0 +1,19 @@
+cardName: "테스트 주변 원형"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "AreaSelf"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n자신 주변 반경 2칸에 {damage}의 피해를 줍니다.\n(허공 시전·호버 즉시 AoE)"
+baseValues:
+  damage: 5
+additionalEffectAreaList:
+  - areaType: "CircleFill"
+    distance: 2
