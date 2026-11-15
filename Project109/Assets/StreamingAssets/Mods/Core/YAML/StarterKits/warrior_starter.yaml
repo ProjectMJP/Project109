@@ -1,0 +1,44 @@
+loadoutId: "warrior_starter"
+displayName: "전투광 기본 키트"
+classType: "전투광"
+startGold: 100
+baseDrawCount: 5
+isDefaultUnlocked: true
+unlockShardCost: 0
+sortOrder: 0
+characterStat:
+  maxHealth: 100
+  maxStamina: 120
+  staminaRegenPerSecond: 40
+  moveRange: 3
+startCards:
+  - "검격"
+  - "검격"
+  - "검격"
+  - "검격"
+  - "땅울림"
+  - "방어"
+  - "방어"
+  - "방어"
+  - "방어"
+startRelics: ["가죽 장갑", "재생성 철판"]
+startEffects: []
+loreEntries:
+  - title: "무기 스토리 1 : 닳아버린 검자루"
+    description: "수많은 전투를 견뎌낸 전사의 기본 검과 가죽 장갑. 화려한 기교는 없지만 가장 정직한 일격을 날립니다."
+    unlockConditionType: "None"
+    unlockConditionValue: ""
+    unlockHint: ""
+    isUnlockedByDefault: true
+  - title: "무기 스토리 2 : 피의 서약"
+    description: "끝없는 전장에서 부서지지 않기 위해 벼려낸 결의의 기록입니다."
+    unlockConditionType: "BossKill"
+    unlockConditionValue: "1"
+    unlockHint: "1막 보스 처치 시 해금"
+    isUnlockedByDefault: false
+  - title: "무기 스토리 3 : 잊힌 전장의 메아리"
+    description: "승리 너머에 남은 기억의 파편이 검날에 새겨진 날의 진실입니다."
+    unlockConditionType: "RunClear"
+    unlockConditionValue: "1"
+    unlockHint: "전투광 기본 키트로 런 클리어 시 해금"
+    isUnlockedByDefault: false

@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
+  m_Name: PommelStrike+_Description
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
+  path: PommelStrike+
+  cardName: "\uC190\uC7A1\uC774 \uD0C0\uACA9+"
+  description: "\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4.\n\uCE74\uB4DC\uB97C [1]
+    \uC7A5 \uBF51\uC2B5\uB2C8\uB2E4."
+  extraDescriptions: []
+  masteryDescriptions: []

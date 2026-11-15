@@ -16,20 +16,21 @@ MonoBehaviour:
   path: WeaknessPierce
   className: Warrior
   cardName: "\uC57D\uC810 \uAD00\uD1B5"
+  bIsUpgradeCard: 0
   rarity: 2
-  stamina: 40
+  stamina: 60
   cardType: Attack
-  targetType: Area
+  targetType: Target
   targetMinDistance: 1
   targetMaxDistance: 2
   additionalEffectAreaList:
-  - areaType: None
+  - areaType: TargetLine
     distance: 0
   amountList: 0800000002000000
-  upgradeAmountList: 0300000001000000
   texturePath: Card_test_texture
   upgradeCardPath: 
-  maxMasteryPoint: 0
+  maxMasteryPoint: 250
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

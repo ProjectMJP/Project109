@@ -1,0 +1,6 @@
+effectName: "Frenzy"
+displayName: "광분"
+description: "공격 카드의 스태미너 소모를 5 감소시킵니다. 공격 카드 사용 시 스택을 1 소모합니다. 턴 종료 시 제거됩니다."
+effectType: "Buff"
+isPermanent: true
+isIndependent: false

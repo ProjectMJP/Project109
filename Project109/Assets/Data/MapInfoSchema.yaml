@@ -1,0 +1,34 @@
+# string이 아닌 int, float, bool형식은 !!int와 같이 변수의 타입을 강제 지정해주어야 문제가 안생김
+$schema:  "https://json-schema.org/draft/2020-12/schema" 
+
+type: object
+properties:
+  mapInfoCollection:
+    type: array
+    items:
+      type: object
+      properties:
+        mapName:
+          type: string
+        dataPath:
+          type: string
+        appearMonstersDataPath:
+          type: array
+          items:
+            type: string
+        appearObstaclesDataPath:
+          type: array
+          items:
+            type: string
+        appearTrapsDataPath:
+          type: array
+          items:
+            type: string
+      required:
+        - mapName
+        - dataPath
+        - appearMonstersDataPath
+        - appearObstaclesDataPath
+        - appearTrapsDataPath
+required:
+  - mapInfoCollection    

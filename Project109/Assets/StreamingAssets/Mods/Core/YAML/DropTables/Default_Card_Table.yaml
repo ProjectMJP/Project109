@@ -1,0 +1,25 @@
+# 드롭 테이블 고유 식별자 (ID)
+dropTableID: Default_Card_Table
+
+# 1. 등급별 등장 가중치 (값이 클수록 등장 확률이 높음)
+commonWeight: 60
+uncommonWeight: 40
+rareWeight: 0
+uniqueWeight: 0
+
+# 2. 동적 필터 조건 (비어있으면 전체 대상)
+# 허용할 직업군 (예: "Warrior", "All")
+allowedClassTypes:
+  - "Warrior"
+  - "All"
+
+# Attack, Skill 등 특정 카드 타입만 제한할 때 (비어있으면 전체 대상)
+allowedCardTypes: []
+
+# 3. 풀에서 명시적으로 제외할 기본/특수 카드 ID 목록
+excludedItemIDs:
+  - "슬래시"
+  - "방어"
+
+# 4. 고정/특정 아이템 풀 (여기에 ID를 작성하면 위의 가중치 및 필터 조건을 완전히 무시하고 이 목록 내에서만 선택)
+specificItemIDs: []

@@ -1,0 +1,21 @@
+cardName: "테스트 곡사 포격"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "AreaGround"
+targetMinDistance: 1
+targetMaxDistance: 5
+isPiercing: false
+ignoreObstacles: true
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n지정한 타일 십자 1칸에 {damage}의 피해를 줍니다.\n(빈 땅 시전·장애물 무시 곡사·자동 회전)"
+baseValues:
+  damage: 5
+additionalEffectAreaList:
+  - areaType: "Cross"
+    distance: 1

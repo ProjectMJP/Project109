@@ -1,0 +1,6 @@
+effectName: "Thorns"
+displayName: "가시"
+description: "지속 피해를 제외한 피해를 입힌 적에게 {stacks}만큼 피해를 줍니다."
+effectType: "Buff"
+isPermanent: true
+isIndependent: false

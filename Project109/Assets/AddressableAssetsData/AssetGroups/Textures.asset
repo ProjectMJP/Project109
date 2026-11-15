@@ -16,109 +16,211 @@ MonoBehaviour:
   m_GUID: 9285d8c6bd4490646b25ff3f5096d75e
   m_SerializeEntries:
   - m_GUID: 151299d45f12df94d9a93568feb59bc8
-    m_Address: Texture_Explore_ArrowLine
+    m_Address: ArrowLine
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 226c7ab3199cc6741994587dd1cb2a48
+    m_Address: IncountNodeBattleCardTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 26d88e5fd6e54154893926fab202ee54
+    m_Address: IncountNodeCardTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 34e34a9696486814881516f53fca0258
-    m_Address: Card_Highlight_Texture.png
+    m_Address: CardHighlightTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3cc2f15ef7335a3409f012136908f0d7
-    m_Address: Texture_Explore_IncountNode_SecretBox
+    m_Address: IncountNodeSecretBoxTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3ff6ed5f184b0d645b24c6748144865e
-    m_Address: Texture_Explore_IncountNode_Restore
+    m_Address: IncountNodeRestoreTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 447d3144f9f327a4d902d4951adb3cc2
-    m_Address: Texture_Explore_IncountNode_IconCover
+    m_Address: IncountNodeCoverTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 48d59bfcfd253b54db59187d455c54d9
+    m_Address: CardEffectAreaActiveBox
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4bb94b99c4e49bd4bbf7dac3a87e57ff
+    m_Address: Card_test_texture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 543315b7c8d54ad47980f2113c5c06da
-    m_Address: Texture_Explore_IncountNode_Base
+    m_Address: IncountNodeTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5b3383997f2c56347972974289835c38
-    m_Address: Texture_Explore_IncountNode_CommonBattle
+    m_Address: IncountNodeBattleTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 60953d217e31b8246be020b9579d5b35
+    m_Address: IncountNodeMoneyTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 61ff8f2f5a23aa142a9102f412ccc251
-    m_Address: Texture_Explore_IncountNode_IconHighlight
+    m_Address: IncountNodeHighlightTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6d0e7972fb906e9458c2c28aa96a94da
+    m_Address: AdditionalEffectAreaTileTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 717b8b49c9ad03442b91d239fa4f27c6
-    m_Address: Texture_Explore_ExploreMapBackground
+    m_Address: ExploreMapTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9ff32facd7db6da4485c763ac7dd8a63
+    m_Address: Gold
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a47d763e53f930640a36051b49bc1a2c
-    m_Address: Texture_UI_CloseButton
+    m_Address: CloseButton
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a817d5534486d034b8c8659edc227fd8
+    m_Address: IncountNodeBattleGoldTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bea77f445a6ab9a4e80b60191bfeb2e9
+    m_Address: CardEffectAreaDeactiveBox
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c27935d0109b6fb49b2d6f3094bcc22d
-    m_Address: Texture_Explore_ArrowHead
+    m_Address: ArrowHead
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c644a8a5536714246bd5cc674cb8b206
+    m_Address: Relic_RecoveryPlate_Texture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cbd6f65d0cbad5348bceb9b63a047591
-    m_Address: Texture_UI_DeckIcon
+    m_Address: DeckButtonIcon
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ce8bc5785b462e74b98d12e2174942af
+    m_Address: TargetAreaTileTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cfa7c5fab51f62943b6bdcf6b2427ff0
+    m_Address: EffectAreaMapTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d07c51985be464649ac940ddbcbb1253
-    m_Address: Texture_Explore_IncountNode_EliteBattle
+    m_Address: IncountNodeEliteEnemyTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d0a41eeb81acdd74e8e812042c35aaf3
+    m_Address: IncountNodeBattleRelicTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d27d938f5b9900849b45589ee2089931
-    m_Address: Texture_Explore_IncountNode_Insight
+    m_Address: IncountNodeInsightTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d4d43ffe8f0f25c4f894f2c657cb8219
+    m_Address: TransparentTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d5bc786523c44fb42b19de16a9e50869
-    m_Address: Texture_Explore_IncountNode_Store
+    m_Address: IncountNodeStoreTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ddcfb49bb650e674e8a70f3508cfd19d
+    m_Address: MemoryShard
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: df857b777c921a044adcb5a3aff5a48d
-    m_Address: Texture_Explore_IncountNode_BossBattle
+    m_Address: IncountNodeBossTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e5d37234b8516c149b7f4ac7cd3d80f4
-    m_Address: Texture_Explore_IncountNode_Event
+    m_Address: IncountNodeSecretTexture
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: e718b03967d6c804eb5f4a7c5f8617ee
-    m_Address: Card_AreaCheckBackground_Texture
+  - m_GUID: f0d6ff81b705a2c44a40cd8e895ad0ac
+    m_Address: EffectAreaTileTexture
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f3bfca659db987c44846fc0b62de350d
+    m_Address: TileBaseImage
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Texture
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f7bad2cca757a1043ab3fa217ac274b9
+    m_Address: CardEffectAreaBackground
     m_ReadOnly: 0
     m_SerializedLabels:
     - Texture

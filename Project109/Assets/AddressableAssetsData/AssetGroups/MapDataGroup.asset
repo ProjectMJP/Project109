@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: MapDataGroup
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: MapDataGroup
+  m_GUID: 6edbb1ba8392a5746bc7aaaae3efe084
+  m_SerializeEntries:
+  - m_GUID: 024cac44696cf6a40931141d11006092
+    m_Address: Map_Temple_Restore_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1d8e73d0711333f40ac4e6d325a1bcb2
+    m_Address: Map_Temple_Battle_2
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d0fe81d4d71fce449aaafb867f1e7f3
+    m_Address: Map_Hideout
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 47d029a701cdb434ab90ea8fa8e263f3
+    m_Address: Map_Temple_Store_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6913a27d2290be448bb3f630c9f85cfa
+    m_Address: Map_Temple_SecretBox_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 692e54366d6f9704a8283fb975dac979
+    m_Address: Map_Temple_Secret_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7c189f083c942a84380cb11e3c60099d
+    m_Address: Map_Temple_Battle_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 93b9d2ab8077478ba013048011faf85d
+    m_Address: Map_Temple_Start_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a34b61450151e224186cb8a4d80d8a27
+    m_Address: Map_Temple_Elite_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d0b3cc89d3b3daa43a09bbd73b8c2587
+    m_Address: Map_Temple_Boss_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 5d8d90ba6ee5baa43a476cbe63e7f022, type: 2}
+    - {fileID: 11400000, guid: c23ceabf2e8817444b59dca12f97bfde, type: 2}

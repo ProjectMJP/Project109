@@ -1,0 +1,7 @@
+relicName: "황금 거위"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "다음 칸으로 이동할 때 마다 골드를 10 잃습니다. 상점에서 어떤 방식으로든 골드를 사용하게 되면 이 유물을 통해 잃은 골드의 140%만큼 골드를 획득합니다."
+flavorText: ""

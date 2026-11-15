@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
   m_Name: BattleRoar_Description
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
   path: BattleRoar
   cardName: "\uC804\uD22C\uC758 \uD3EC\uD6A8"
   description: "\uCE74\uB4DC\uB97C [0] \uC7A5 \uBF51\uC2B5\uB2C8\uB2E4.\n\uBF51\uC740

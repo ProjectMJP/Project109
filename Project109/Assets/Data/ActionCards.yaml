@@ -3,8 +3,9 @@ cardCollection:
   - path: Slash
     className: Warrior
     cardName: 슬래시
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1 
-    stamina: !!int 40
+    stamina: !!int 60
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
@@ -13,14 +14,15 @@ cardCollection:
       - areaType: None
         distance: 0
     amountList: [8]
-    upgradeAmountList: [4]
+    upgradeCardPath: Slash+
     texturePath: Card_test_texture
 
-  - path: QuickSlash
+  - path: Slash+
     className: Warrior
-    cardName: 퀵 슬래시
-    rarity: !!int 1
-    stamina: !!int 0
+    cardName: 슬래시+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1 
+    stamina: !!int 60
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
@@ -28,47 +30,118 @@ cardCollection:
     additionalEffectAreaList:
       - areaType: None
         distance: 0
-    amountList: [4]
-    upgradeAmountList: [2]
+    amountList: [13]
+    upgradeCardPath: ""
+    texturePath: Card_test_texture
+
+  - path: QuickSlash
+    className: Warrior
+    cardName: 퀵 슬래시
+    bIsUpgradeCard: !!bool false
+    rarity: !!int 1
+    stamina: !!int 30
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 1
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [5]
+    upgradeCardPath: QuickSlash+
+    texturePath: Card_test_texture
+
+  - path: QuickSlash+
+    className: Warrior
+    cardName: 퀵 슬래시+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1
+    stamina: !!int 30
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 1
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [8]
+    upgradeCardPath: ""
     texturePath: Card_test_texture
 
   - path: ComboSlash
     className: Warrior
     cardName: 콤보 슬래시
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1
-    stamina: !!int 40
+    stamina: !!int 60
     cardType: Attack
-    targetType: Area
+    targetType: Target
     targetMinDistance: 1
     targetMaxDistance: 1
     additionalEffectAreaList:
       - areaType: None
         distance: 0
     amountList: [4, 4]
-    upgradeAmountList: [0, 2]
+    upgradeCardPath: ComboSlash+
+    texturePath: Card_test_texture
+
+  - path: ComboSlash+
+    className: Warrior
+    cardName: 콤보 슬래시+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1
+    stamina: !!int 60
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 1
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [4, 6]
+    upgradeCardPath: ""
     texturePath: Card_test_texture 
 
   - path: Rumbling
     className: Warrior
     cardName: 땅울림
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1
-    stamina: !!int 20
+    stamina: !!int 60
     cardType: Attack
-    targetType: All
+    targetType: Area
     targetMinDistance: 0
     targetMaxDistance: 0
     additionalEffectAreaList:
       - areaType: CircleFill
         distance: 3
-    amountList: [2, 1, 1]
-    upgradeAmountList: [0, 1, 1]
+    amountList: [4, 2, 2]
+    upgradeCardPath: Rumbling+
+    texturePath: Card_test_texture 
+
+  - path: Rumbling+
+    className: Warrior
+    cardName: 땅울림+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1
+    stamina: !!int 60
+    cardType: Attack
+    targetType: Area
+    targetMinDistance: 0
+    targetMaxDistance: 0
+    additionalEffectAreaList:
+      - areaType: CircleFill
+        distance: 3
+    amountList: [6, 3, 3]
+    upgradeCardPath: ""
     texturePath: Card_test_texture 
 
   - path: FalseSwipe
     className: Warrior
     cardName: 칼등 치기
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1
-    stamina: !!int 40
+    stamina: !!int 60
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
@@ -77,62 +150,66 @@ cardCollection:
       - areaType: None
         distance: 0
     amountList: [6, 5]
-    upgradeAmountList: [3, 3]
+    upgradeCardPath: FalseSwipe+
+    texturePath: Card_test_texture
+
+  - path: FalseSwipe+
+    className: Warrior
+    cardName: 칼등 치기+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1
+    stamina: !!int 60
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 1
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [9, 8]
+    upgradeCardPath: ""
     texturePath: Card_test_texture
 
   - path: FinishingBlow
     className: Warrior
     cardName: 마무리 타격
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1
-    stamina: !!int 30
+    stamina: !!int 60
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
-    targetMaxDistance: 2
+    targetMaxDistance: 3
     additionalEffectAreaList:
-      - areaType: None
+      - areaType: TargetLine
         distance: 0
     amountList: [6, 3]
-    upgradeAmountList: [0, 2]
+    upgradeCardPath: FinishingBlow+
     texturePath: Card_test_texture
 
-  - path: RisingStrike
+  - path: FinishingBlow+
     className: Warrior
-    cardName: 어퍼컷
+    cardName: 마무리 타격+
+    bIsUpgradeCard: !!bool true
     rarity: !!int 1
-    stamina: !!int 20
+    stamina: !!int 60
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
-    targetMaxDistance: 1
+    targetMaxDistance: 3
     additionalEffectAreaList:
-      - areaType: None
+      - areaType: TargetLine
         distance: 0
-    amountList: [4, 1]
-    upgradeAmountList: [0, 1]
-    texturePath: Card_test_texture
-
-  - path: Pummel
-    className: Warrior
-    cardName: 구타
-    rarity: !!int 1
-    stamina: !!int 10
-    cardType: Attack
-    targetType: Target
-    targetMinDistance: 1
-    targetMaxDistance: 1
-    additionalEffectAreaList:
-      - areaType: None
-        distance: 0
-    amountList: [3, 2]
-    upgradeAmountList: [0, 2]
+    amountList: [6, 5]
+    upgradeCardPath: ""
     texturePath: Card_test_texture
 
   - path: PommelStrike
     className: Warrior
     cardName: 손잡이 타격
+    bIsUpgradeCard: !!bool false
     rarity: !!int 1
-    stamina: !!int 30
+    stamina: !!int 40
     cardType: Attack
     targetType: Target
     targetMinDistance: 1
@@ -140,31 +217,68 @@ cardCollection:
     additionalEffectAreaList:
       - areaType: None
         distance: 0
-    amountList: [8, 1]
-    upgradeAmountList: [4, 1]
+    amountList: [6, 1]
+    upgradeCardPath: PommelStrike+
     texturePath: Card_test_texture
 
-  - path: BattleRoar
+  - path: PommelStrike+
     className: Warrior
-    cardName: 전투의 포효
+    cardName: 손잡이 타격+
+    bIsUpgradeCard: !!bool true
     rarity: !!int 1
     stamina: !!int 40
-    cardType: Skill
-    targetType: All
-    targetMinDistance: 0
-    targetMaxDistance: 0
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 1
     additionalEffectAreaList:
       - areaType: None
         distance: 0
-    amountList: [2, 10]
-    upgradeAmountList: [1, 10]
+    amountList: [9, 2]
+    upgradeCardPath: ""
+    texturePath: Card_test_texture
+
+  - path: SecretWeapon
+    className: Warrior
+    cardName: 비밀 무기
+    bIsUpgradeCard: !!bool false
+    rarity: !!int 1
+    stamina: !!int 40
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 3
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [8, 1]
+    upgradeCardPath: SecretWeapon+
+    specificProperties: [6]
+    texturePath: Card_test_texture
+
+  - path: SecretWeapon+
+    className: Warrior
+    cardName: 비밀 무기+
+    bIsUpgradeCard: !!bool true
+    rarity: !!int 1
+    stamina: !!int 40
+    cardType: Attack
+    targetType: Target
+    targetMinDistance: 1
+    targetMaxDistance: 3
+    additionalEffectAreaList:
+      - areaType: None
+        distance: 0
+    amountList: [10, 1]
+    upgradeCardPath: ""
     texturePath: Card_test_texture
 
   - path: Initiative
     className: Warrior
     cardName: 선수필승
+    bIsUpgradeCard: !!bool false
     rarity: !!int 2
-    stamina: !!int 40
+    stamina: !!int 60
     cardType: Attack
     targetType: Area
     targetMinDistance: 1
@@ -173,31 +287,34 @@ cardCollection:
       - areaType: Cross
         distance: 1
     amountList: [1, 8]
-    upgradeAmountList: [1, 0]
+    upgradeCardPath: ""
     maxMasteryPoint: !!int 250
+    specificProperties: [2]
     texturePath: Card_test_texture
 
   - path: Earthquake
     className: Warrior
     cardName: 땅 가르기
+    bIsUpgradeCard: !!bool false
     rarity: !!int 2
     stamina: !!int 60
     cardType: Attack
-    targetType: Area
+    targetType: Target
     targetMinDistance: 1
     targetMaxDistance: 3
     additionalEffectAreaList:
-      - areaType: None
-        distance: 0
+      - areaType: TargetLine
+        distance: 1
     amountList: [8, 2]
-    upgradeAmountList: [4, 1]
+    upgradeCardPath: ""
     maxMasteryPoint: !!int 250
     texturePath: Card_test_texture
 
   - path: SpinningSlash
     className: Warrior
     cardName: 회전베기
-    rarity: !!int 1
+    bIsUpgradeCard: !!bool false
+    rarity: !!int 2
     stamina: !!int 40
     cardType: Attack
     targetType: Target
@@ -207,38 +324,62 @@ cardCollection:
       - areaType: CircleFill
         distance: 2
     amountList: [6]
-    upgradeAmountList: [9]
+    upgradeCardPath: ""
+    maxMasteryPoint: !!int 250
+    specificProperties: [3]
     texturePath: Card_test_texture
 
   - path: SwiftSlash
     className: Warrior
     cardName: 스위프트 슬래시
+    bIsUpgradeCard: !!bool false
     rarity: !!int 2
-    stamina: !!int 30
+    stamina: !!int 40
     cardType: Attack
     targetType: Area
     targetMinDistance: 1
     targetMaxDistance: 1
     additionalEffectAreaList:
       - areaType: XShape
-        distance: 0
-    amountList: [8, 2, 3]
-    upgradeAmountList: [0, 4, 0]
+        distance: 1
+    amountList: [6, 2]
+    upgradeCardPath: ""
     maxMasteryPoint: !!int 250
+    specificProperties: [4]
     texturePath: Card_test_texture
 
   - path: WeaknessPierce
     className: Warrior
     cardName: 약점 관통
+    bIsUpgradeCard: !!bool false
     rarity: !!int 2
-    stamina: !!int 40
+    stamina: !!int 60
     cardType: Attack
-    targetType: Area
+    targetType: Target
     targetMinDistance: 1
     targetMaxDistance: 2
     additionalEffectAreaList:
-      - areaType: None
+      - areaType: TargetLine
         distance: 0
     amountList: [8, 2]
-    upgradeAmountList: [3, 1]
+    upgradeCardPath: ""
+    maxMasteryPoint: !!int 250
+    texturePath: Card_test_texture
+
+  - path: Earthquake
+    className: Warrior
+    cardName: 지진
+    bIsUpgradeCard: !!bool false
+    rarity: !!int 2
+    stamina: !!int 60
+    cardType: Attack
+    targetType: Area
+    targetMinDistance: 0
+    targetMaxDistance: 0
+    additionalEffectAreaList:
+      - areaType: CircleFill
+        distance: 3
+    amountList: [6, 20]
+    upgradeCardPath: ""
+    maxMasteryPoint: !!int 250
     texturePath: Card_test_texture

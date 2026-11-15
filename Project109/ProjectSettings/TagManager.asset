@@ -29,8 +29,8 @@ TagManager:
   - Enemy
   - NPC
   - Map
-  - 
-  - 
+  - Tile
+  - WorldUI
   - 
   - 
   - 

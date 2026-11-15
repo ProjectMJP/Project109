@@ -1,0 +1,40 @@
+local card = {}
+function card:OnInit(cardBase, owner)
+    self.base = cardBase
+end
+function card:GetDescription(cardBase, template)
+    local baseDamage = cardBase:GetFormattedValue("damage")
+    local bleedMultiplier = cardBase:GetFormattedValue("bleedMultiplier")
+    return (template:gsub("{damage}", tostring(baseDamage)):gsub("{bleedMultiplier}", tostring(bleedMultiplier)))
+end
+local function getEffectStack(character, effectName)
+    if character == nil or character.effectManager == nil then return 0 end
+    local effects = character.effectManager:GetEffects()
+    if effects == nil then return 0 end
+    for i = 0, effects.Count - 1 do
+        local eff = effects[i]
+        if eff.Data ~= nil and eff.Data.effectName == effectName then
+            return eff.currentStack
+        end
+    end
+    return 0
+end
+function card:Execute(cardInfo)
+    local caster = cardInfo.caster
+    if cardInfo.targets ~= nil and cardInfo.targets.Count > 0 then
+        local baseDamage = self.base:GetEffectiveValue("damage")
+        local bleedMultiplier = self.base:GetEffectiveValue("bleedMultiplier")
+        for i = 0, cardInfo.targets.Count - 1 do
+            local target = cardInfo.targets[i]
+            local bleedStack = getEffectStack(target, "Bleed")
+            local totalDamage = baseDamage
+            if bleedStack > 0 then
+                totalDamage = totalDamage * bleedMultiplier
+            end
+
+            local dmgInfo = EventStructs.DamageInfo(caster, target, totalDamage, EventStructs.DamageFlag.Normal)
+            target:TakeDamage(dmgInfo)
+        end
+    end
+end
+return card

@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
   m_Name: Initiative_Description
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
   path: Initiative
   cardName: "\uC120\uC218\uD54B\uC2B9"
   description: "<color=#0000CD>\uC120\uBD09\uB300\n[0] \uBC88 \uCD94\uAC00\uB85C
@@ -30,7 +30,7 @@ MonoBehaviour:
     description: "\uC120\uBD09\uB300 \uBC1C\uB3D9 \uC2DC \uD53C\uD574\uAC00 4 \uC99D\uAC00\uD569\uB2C8\uB2E4."
     maxUpgradeCount: 0
   - path: Initiative_Agility
-    name: "\uC2E0\uC18D"
+    name: "\uAC00\uBCBC\uC6B4 \uBAB8\uB180\uB9BC"
     description: "\uC18C\uBAA8 \uC2A4\uD0DC\uBBF8\uB108\uAC00 10 \uAC10\uC18C\uD569\uB2C8\uB2E4."
     maxUpgradeCount: 3
   - path: Initiative_ComboAttack

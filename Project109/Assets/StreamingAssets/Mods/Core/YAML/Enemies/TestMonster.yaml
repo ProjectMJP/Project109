@@ -1,0 +1,12 @@
+unitId: "TestMonster"
+prefabAddress: "Monster_testMonster_Prefab"
+className: "Goblin"
+monsterType: "Normal"
+appearLevel: 1
+characterStat:
+  maxHealth: 40
+  maxStamina: 100
+  staminaRegenPerSecond: 25
+  moveRange: 2
+minDropGoldAmount: 10
+maxDropGoldAmount: 20

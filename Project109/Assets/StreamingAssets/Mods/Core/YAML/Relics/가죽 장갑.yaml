@@ -1,0 +1,7 @@
+relicName: "가죽 장갑"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "전투 시작 시 [effect.Strength] 1을 얻습니다."
+flavorText: ""

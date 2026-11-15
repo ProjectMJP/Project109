@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: d95d70d3706113b459785feabe03a563
   m_currentHash:
     serializedVersion: 2
-    Hash: c524939cb48ab48ba7214918af49be58
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 0
   m_CatalogRequestsTimeout: 0
@@ -61,8 +61,15 @@ MonoBehaviour:
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
   - {fileID: 11400000, guid: 92bb2b690818ccc428a57226d90c97bd, type: 2}
+  - {fileID: 11400000, guid: a10e889243c01e84e96235b32169f387, type: 2}
+  - {fileID: 11400000, guid: cd8a0c6c3bca97848b7951b1f2c568e4, type: 2}
   - {fileID: 11400000, guid: 6ff77a25691bc694893fc49ef2838f0c, type: 2}
+  - {fileID: 11400000, guid: f178b63f9ca0e04439a342161230e291, type: 2}
+  - {fileID: 11400000, guid: d1aa95cb60067a24bb96e9fce5782f66, type: 2}
+  - {fileID: 11400000, guid: 1473e29102805b44db08da10f8250e20, type: 2}
   - {fileID: 11400000, guid: f3eedf95203fbab4b8776035e21277df, type: 2}
+  - {fileID: 11400000, guid: cd9d47f756a673e43804a22e09dd4156, type: 2}
+  - {fileID: 11400000, guid: 26c01af0ba107ac44b578fb99e9fe851, type: 2}
   - {fileID: 11400000, guid: e27a84d7b206fdd41b3dca73423bc70d, type: 2}
   - {fileID: 11400000, guid: 89ba430ff539a4c48829390413463b36, type: 2}
   - {fileID: 11400000, guid: 0c1fc380ca2d09f46a2ef76b5838153e, type: 2}
@@ -72,8 +79,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 3c62c1a869fb2e5448c37a153704600c, type: 2}
   - {fileID: 11400000, guid: 08f5f10ca0e8e674ab71846c89807604, type: 2}
   - {fileID: 11400000, guid: 30362488e0876114bacf2f4750135516, type: 2}
+  - {fileID: 11400000, guid: da43386111dbc8c4da3c5550fcf8fc79, type: 2}
   - {fileID: 11400000, guid: 793cc86cfe5a3814b8569652791f8118, type: 2}
   - {fileID: 11400000, guid: 27edf69e46087e145bedfffa890e1bdd, type: 2}
+  - {fileID: 11400000, guid: 9326dcd864d6b964cb0f3d707bb52739, type: 2}
   m_BuildSettings:
     m_LogResourceManagerExceptions: 1
     m_BundleBuildPath: Temp/com.unity.addressables/AssetBundles
@@ -123,6 +132,10 @@ MonoBehaviour:
     - Map
     - Reward
     - Texture
+    - Obstacle
+    - Trap
+    - MapData
+    - UI
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 9edc6ad1741e30e408ac61ec1c6e2997, type: 2}

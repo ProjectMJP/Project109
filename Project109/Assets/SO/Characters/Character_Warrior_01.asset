@@ -18,11 +18,11 @@ MonoBehaviour:
   assetPath: Character_Warrior_01
   level: 1
   description: "\uAE30\uBCF8\uC801\uC778 \uC804\uC0AC \uD074\uB798\uC2A4\uC785\uB2C8\uB2E4."
-  hp: 300
-  stamina: 120
-  staminaRegen: 40
-  strength: 0
-  armor: 0
+  characterStat:
+    maxHealth: 100
+    maxStamina: 120
+    staminaRegenPerSecond: 30
+    moveRange: 3
   startRelic:
   - "\uC7AC\uC0DD\uC131 \uCCA0\uD310"
   startCards:

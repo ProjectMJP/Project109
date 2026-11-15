@@ -16,8 +16,9 @@ MonoBehaviour:
   path: QuickSlash
   className: Warrior
   cardName: "\uD035 \uC2AC\uB798\uC2DC"
+  bIsUpgradeCard: 0
   rarity: 1
-  stamina: 0
+  stamina: 30
   cardType: Attack
   targetType: Target
   targetMinDistance: 1
@@ -25,11 +26,11 @@ MonoBehaviour:
   additionalEffectAreaList:
   - areaType: None
     distance: 0
-  amountList: 04000000
-  upgradeAmountList: 02000000
+  amountList: 05000000
   texturePath: Card_test_texture
-  upgradeCardPath: 
+  upgradeCardPath: QuickSlash+
   maxMasteryPoint: 0
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

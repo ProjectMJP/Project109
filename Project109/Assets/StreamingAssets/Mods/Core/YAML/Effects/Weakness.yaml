@@ -1,0 +1,6 @@
+effectName: "Weakness"
+displayName: "약화"
+description: "입히는 피해가 25% 감소합니다."
+effectType: "Debuff"
+isPermanent: true
+isIndependent: false

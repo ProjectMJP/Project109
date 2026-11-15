@@ -16,20 +16,21 @@ MonoBehaviour:
   path: FinishingBlow
   className: Warrior
   cardName: "\uB9C8\uBB34\uB9AC \uD0C0\uACA9"
+  bIsUpgradeCard: 0
   rarity: 1
-  stamina: 30
+  stamina: 60
   cardType: Attack
   targetType: Target
   targetMinDistance: 1
-  targetMaxDistance: 2
+  targetMaxDistance: 3
   additionalEffectAreaList:
-  - areaType: None
+  - areaType: TargetLine
     distance: 0
   amountList: 0600000003000000
-  upgradeAmountList: 0000000002000000
   texturePath: Card_test_texture
-  upgradeCardPath: 
+  upgradeCardPath: FinishingBlow+
   maxMasteryPoint: 0
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

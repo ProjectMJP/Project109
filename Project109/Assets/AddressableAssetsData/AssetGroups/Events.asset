@@ -15,14 +15,50 @@ MonoBehaviour:
   m_GroupName: Events
   m_GUID: e314322540a947248be9162ff69887c2
   m_SerializeEntries:
+  - m_GUID: 0d106ce78c66f7348ae172bdf72ce93a
+    m_Address: Altar_Gold_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1a053ba815d15b942a63529a71384fbc
+    m_Address: Ancient_Library_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 50326b35375db894c90dfc75fcb3b3fc
     m_Address: Mystery_Tombstone_Data
     m_ReadOnly: 0
     m_SerializedLabels:
     - Event
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5e4eb4f7af4ff4444aa61042f071d181
+    m_Address: Lake_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5e7c503a25abcc74eb55330e5d9d82b1
+    m_Address: Altar_Erase_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 63e55bbb8bc06c744b31af2f2142880c
+    m_Address: Suspicious_Door_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: adfb6ed0b4d931b45958d99a2e1987c7
     m_Address: Insight_Event_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Event
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: de33ecb55fc55b34db86d5ec4f4e7a19
+    m_Address: Altar_Upgrade_Event_Data
     m_ReadOnly: 0
     m_SerializedLabels:
     - Event

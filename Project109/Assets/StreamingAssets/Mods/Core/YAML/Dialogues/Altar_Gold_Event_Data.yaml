@@ -1,0 +1,34 @@
+dialogueID: Altar_Gold_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 이상한 제단
+  lines:
+  - "방에 수상해 보이는 제단을 발견했습니다."
+  - "제단 위에는 커다란 황금이 올려져 있으며, 주변에도 금화가 떨어져 있습니다."
+  choices:
+  - description: 황금을 들고간다.
+    nextNodeID: END_TAKE_GOLD_PROCESS
+    luaScript: AltarGold_TakeGold
+  - description: 바닥의 금화들을 줍는다.
+    nextNodeID: END_PICKUP_GOLD_PROCESS
+    luaScript: AltarGold_PickUpGold
+- nodeID: END_TAKE_GOLD_PROCESS
+  speakerName: 이상한 제단
+  lines:
+  - "제단 위의 황금을 들어올리자, 제단에서 보라색의 연기가 빠르게 퍼져나갑니다."
+  - "당신은 연기가 방을 채우기 전에 재빠르게 방에서 탈출하였지만, 몸 상태가 좋지는 않아 보이네요."
+  - "약간의 후회를 가진 채 자리를 떠났습니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_PICKUP_GOLD_PROCESS
+  speakerName: 이상한 제단
+  lines:
+  - "함정같은 물건을 손쉽게 만지지 않는 것이 좋아보입니다."
+  - "당신은 욕심내지 않고 주변의 금화를 주운 후 제단을 지나갑니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

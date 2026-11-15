@@ -15,21 +15,22 @@ MonoBehaviour:
   cardTexture: {fileID: 0}
   path: Earthquake
   className: Warrior
-  cardName: "\uB545 \uAC00\uB974\uAE30"
+  cardName: "\uC9C0\uC9C4"
+  bIsUpgradeCard: 0
   rarity: 2
   stamina: 60
   cardType: Attack
   targetType: Area
-  targetMinDistance: 1
-  targetMaxDistance: 3
+  targetMinDistance: 0
+  targetMaxDistance: 0
   additionalEffectAreaList:
-  - areaType: None
-    distance: 0
-  amountList: 0800000002000000
-  upgradeAmountList: 0400000001000000
+  - areaType: CircleFill
+    distance: 3
+  amountList: 0600000014000000
   texturePath: Card_test_texture
   upgradeCardPath: 
   maxMasteryPoint: 250
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

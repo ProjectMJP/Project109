@@ -11,10 +11,10 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
   m_Name: FalseSwipe_Description
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
   path: FalseSwipe
   cardName: "\uCE7C\uB4F1 \uCE58\uAE30"
-  description: "\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4.\n\uC784\uC2DC \uC274\uB4DC\uB97C
-    [1] \uC5BB\uC2B5\uB2C8\uB2E4."
+  description: "\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4.\n\uBC29\uC5B4\uB97C [1]
+    \uC5BB\uC2B5\uB2C8\uB2E4."
   extraDescriptions: []
   masteryDescriptions: []

@@ -1,0 +1,17 @@
+cardName: "아드레날린"
+classTypes:
+  - "TesterWarrior"
+cardType: "Skill"
+targetType: "Self"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Uncommon"
+stamina: 30
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "10초 동안 아드레날린 상태가 되어 초당 스태미나 회복량이 {bonusRegen} 증가합니다."
+baseValues:
+  bonusRegen: 20
+

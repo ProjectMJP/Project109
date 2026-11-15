@@ -3,21 +3,36 @@ battleMonsterCollection:
   - battleDataName: 예제 전투
     dataPath: Battle_Test_Data
     battleAppearLevel: !!int 1
-    battleMapVariationName: Battle1
+    battleLocation: Temple
     monsterNames:
       - Monster_testMonster_Data
+    rewards:
+      - name: Gold
+        value: !!int 50
+      - name: Card
+        value: !!int 1
   - battleDataName: 예제 전투 1
     dataPath: Battle_Test1_Data
     battleAppearLevel: !!int 2
-    battleMapVariationName: Battle2
+    battleLocation: Temple
     monsterNames:
       - Monster_testMonster_Data
       - Monster_test1Monster_Data
+    rewards:
+      - name: Gold
+        value: !!int 50
+      - name: Card
+        value: !!int 1
   - battleDataName: 예제 전투 2
     dataPath: Battle_Test2_Data
     battleAppearLevel: !!int 3
-    battleMapVariationName: Battle3
+    battleLocation: Temple
     monsterNames:
       - Monster_test1Monster_Data
       - Monster_testMonster_Data
       - Monster_testMonster_Data
+    rewards:
+      - name: Gold
+        value: !!int 50
+      - name: Card
+        value: !!int 1

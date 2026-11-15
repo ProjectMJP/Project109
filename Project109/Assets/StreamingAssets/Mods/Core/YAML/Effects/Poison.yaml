@@ -1,0 +1,6 @@
+effectName: "Poison"
+displayName: "맹독"
+description: "대상의 턴이 끝날 때마다 (현재 맹독 수치 + 이전 맹독에 의해 입은 데미지)만큼의 고정 데미지를 입힙니다."
+effectType: "Debuff"
+isPermanent: true
+isIndependent: false

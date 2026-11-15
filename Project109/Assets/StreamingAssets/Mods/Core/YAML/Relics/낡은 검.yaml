@@ -1,0 +1,7 @@
+relicName: "낡은 검"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "1칸 이내의 적을 공격할 때 주는 데미지가 2 증가합니다."
+flavorText: ""

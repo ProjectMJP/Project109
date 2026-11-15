@@ -16,20 +16,21 @@ MonoBehaviour:
   path: SwiftSlash
   className: Warrior
   cardName: "\uC2A4\uC704\uD504\uD2B8 \uC2AC\uB798\uC2DC"
+  bIsUpgradeCard: 0
   rarity: 2
-  stamina: 30
+  stamina: 40
   cardType: Attack
   targetType: Area
   targetMinDistance: 1
   targetMaxDistance: 1
   additionalEffectAreaList:
   - areaType: XShape
-    distance: 0
-  amountList: 080000000200000003000000
-  upgradeAmountList: 000000000400000000000000
+    distance: 1
+  amountList: 0600000002000000
   texturePath: Card_test_texture
   upgradeCardPath: 
   maxMasteryPoint: 250
+  specificProperties: 04000000
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

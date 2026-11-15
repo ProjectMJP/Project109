@@ -16,20 +16,21 @@ MonoBehaviour:
   path: ComboSlash
   className: Warrior
   cardName: "\uCF64\uBCF4 \uC2AC\uB798\uC2DC"
+  bIsUpgradeCard: 0
   rarity: 1
-  stamina: 40
+  stamina: 60
   cardType: Attack
-  targetType: Area
+  targetType: Target
   targetMinDistance: 1
   targetMaxDistance: 1
   additionalEffectAreaList:
   - areaType: None
     distance: 0
   amountList: 0400000004000000
-  upgradeAmountList: 0000000002000000
   texturePath: Card_test_texture
-  upgradeCardPath: 
+  upgradeCardPath: ComboSlash+
   maxMasteryPoint: 0
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

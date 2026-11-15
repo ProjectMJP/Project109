@@ -16,8 +16,9 @@ MonoBehaviour:
   path: Initiative
   className: Warrior
   cardName: "\uC120\uC218\uD544\uC2B9"
+  bIsUpgradeCard: 0
   rarity: 2
-  stamina: 40
+  stamina: 60
   cardType: Attack
   targetType: Area
   targetMinDistance: 1
@@ -26,10 +27,10 @@ MonoBehaviour:
   - areaType: Cross
     distance: 1
   amountList: 0100000008000000
-  upgradeAmountList: 0100000000000000
   texturePath: Card_test_texture
   upgradeCardPath: 
   maxMasteryPoint: 250
+  specificProperties: 02000000
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

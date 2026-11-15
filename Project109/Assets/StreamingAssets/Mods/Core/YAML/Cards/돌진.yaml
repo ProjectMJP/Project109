@@ -1,0 +1,17 @@
+cardName: "돌진"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Enemy"
+targetMinDistance: 1
+targetMaxDistance: 2
+rarity: "Common"
+stamina: 50
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "적을 향해 돌진하여 {damage}의 피해를 입히고 적을 1칸 밀쳐냅니다.\n충돌 시 {collisionDamage}의 추가 충돌 피해를 입힙니다."
+baseValues:
+  damage: 10
+

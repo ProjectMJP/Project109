@@ -1,0 +1,34 @@
+cardName: "약점 관통"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 2
+isPiercing: true
+rarity: "Uncommon"
+stamina: 60
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다.\n대상이 출혈 상태라면 피해량이 {bleedMultiplier}배 증가합니다."
+baseValues:
+  damage: 8
+  bleedMultiplier: 2
+additionalEffectAreaList:
+  - areaType: "DirectionalLine"
+    distance: 2
+masteryUpgrades:
+  WeaknessPierce_Agility:
+    cost: -10
+  WeaknessPierce_WeakPoint:
+    bleedMultiplier: 0.5
+  WeaknessPierce_DamageAmp:
+    damage: 2
+masteryMaxUpgrades:
+  WeaknessPierce_Agility: 3
+masteryNames:
+  WeaknessPierce_Agility: "가벼운 몸놀림"
+  WeaknessPierce_WeakPoint: "약점 포착"
+  WeaknessPierce_DamageAmp: "피해 증폭"

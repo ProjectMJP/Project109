@@ -1,0 +1,36 @@
+dialogueID: Suspicious_Door_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 수상한 문
+  lines:
+  - "작은 방에 수상한 문이 두 개가 있습니다."
+  - "한 쪽 문은 약한 흰색 빛을 내고 있었으며, 다른 한 쪽은 검은색 연기가 흘러나오고 있습니다."
+  - "다른 문은 보이지 않기에 한 곳을 선택하여 지나가야 할 것 같습니다."
+  choices:
+  - description: 약한 빛이 나는 문으로 간다.
+    nextNodeID: END_LESS_LIGHT_PROCESS
+    luaScript: SuspiciousDoor_Light
+  - description: 검은색 연기가 흐르는 문으로 간다.
+    nextNodeID: END_DARK_SMOKE_PROCESS
+    luaScript: SuspiciousDoor_Dark
+- nodeID: END_LESS_LIGHT_PROCESS
+  speakerName: 수상한 문
+  lines:
+  - "약한 빛이 나오는 문을 열고 들어가자, 빛이 당신의 몸을 감싸기 시작했습니다."
+  - "잠시 후 정신을 차리자 몸을 감싼 빛은 눈치채기도 전에 사라져 있었습니다."
+  - "눈 깜짝할 사이에 벌어진 일이였지만, 자신의 몸은 좀 더 활기가 돈다는 것을 알게 되었습니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_DARK_SMOKE_PROCESS
+  speakerName: 수상한 문
+  lines:
+  - "문을 열자, 어두운 연기가 당신의 몸을 감싸기 시작했으며 그 연기는 생각보다 고통스러웠습니다..."
+  - "시간이 흐르고 연기가 사라진 자리에는 특별한 유물 하나가 보입니다."
+  - "분명 문을 연 자의 자신감에 대한 보상이겠지요."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

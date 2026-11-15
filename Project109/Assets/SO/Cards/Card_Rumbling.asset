@@ -16,20 +16,21 @@ MonoBehaviour:
   path: Rumbling
   className: Warrior
   cardName: "\uB545\uC6B8\uB9BC"
+  bIsUpgradeCard: 0
   rarity: 1
-  stamina: 20
+  stamina: 60
   cardType: Attack
-  targetType: All
+  targetType: Area
   targetMinDistance: 0
   targetMaxDistance: 0
   additionalEffectAreaList:
   - areaType: CircleFill
     distance: 3
-  amountList: 020000000100000001000000
-  upgradeAmountList: 000000000100000001000000
+  amountList: 040000000200000002000000
   texturePath: Card_test_texture
-  upgradeCardPath: 
+  upgradeCardPath: Rumbling+
   maxMasteryPoint: 0
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

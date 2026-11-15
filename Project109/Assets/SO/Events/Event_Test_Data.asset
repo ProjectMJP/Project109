@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 76e2db4a4cbe7114582022c36bf6ac46, type: 3}
   m_Name: Event_Test_Data
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::EventData
   eventID: Event_Test_Data
   eventAppearLevel: 1
   eventAppearCondition:
@@ -26,23 +26,23 @@ MonoBehaviour:
       nextStageID: END_TEST
       useItems: []
       getItems:
-      - itemType: Money
+      - itemType: Gold
         value: 50
         name: 
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
     - description: "\uC7AC\uD654\uB97C \uC0AC\uC6A9\uD558\uC5EC \uCE74\uB4DC \uD68D\uB4DD"
       nextStageID: END_TEST
       useItems:
-      - itemType: Money
+      - itemType: Gold
         value: 50
         name: 
       getItems:
       - itemType: SpecificCard
         value: 1
         name: "\uC2AC\uB798\uC2DC"
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
     - description: "\uB79C\uB364\uD55C \uCE74\uB4DC\uB97C \uC18C\uBAA8\uD558\uC5EC
         \uACE8\uB4DC \uD68D\uB4DD"
       nextStageID: END_TEST
@@ -51,11 +51,11 @@ MonoBehaviour:
         value: 1
         name: 
       getItems:
-      - itemType: Money
+      - itemType: Gold
         value: 100
         name: 
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
     - description: "\uB79C\uB364\uD55C \uC720\uBB3C\uB97C \uC18C\uBAA8\uD558\uC5EC
         \uACE8\uB4DC \uD68D\uB4DD"
       nextStageID: END_TEST
@@ -64,11 +64,11 @@ MonoBehaviour:
         value: 1
         name: 
       getItems:
-      - itemType: Money
+      - itemType: Gold
         value: 100
         name: 
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
     - description: "\uC804\uD22C \uC9C4\uD589"
       nextStageID: BATTLE
       useItems: []
@@ -76,14 +76,14 @@ MonoBehaviour:
       - itemType: Battle
         value: 0
         name: 
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
     - description: "\uBB34\uC2DC\uD55C\uB2E4"
       nextStageID: END_TEST
       useItems: []
       getItems: []
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
   - stageID: END_TEST
     stageDescription: "\uC120\uD0DD\uC9C0 \uC120\uD0DD \uC644\uB8CC. \uD14C\uC2A4\uD2B8
       \uC885\uB8CC"
@@ -92,8 +92,8 @@ MonoBehaviour:
       nextStageID: 
       useItems: []
       getItems: []
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []
   - stageID: BATTLE
     stageDescription: "\uD2B9\uC815 \uC804\uD22C\uB97C \uC9C4\uD589\uD569\uB2C8\uB2E4."
     choices:
@@ -104,5 +104,5 @@ MonoBehaviour:
       - itemType: Battle
         value: 1
         name: Battle_Test_Data
-      randomLoseCard: {fileID: 0}
-      randomLoseRelic: {fileID: 0}
+      randomLoseCard: []
+      randomLoseRelic: []

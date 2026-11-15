@@ -1,0 +1,6 @@
+effectName: "Bleeding"
+displayName: "출혈"
+description: "대상의 턴이 끝날 때마다 (1 + 2^중첩횟수)만큼 피해를 입습니다. 2턴 동안 갱신되지 않으면 사라집니다."
+effectType: "Debuff"
+isPermanent: false
+isIndependent: false

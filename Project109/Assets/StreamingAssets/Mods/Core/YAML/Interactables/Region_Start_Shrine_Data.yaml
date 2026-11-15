@@ -1,0 +1,7 @@
+interactableID: Region_Start_Shrine_Data
+interactableName: 고대의 축복 제단
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 0
+targetDialogueID: Region_Start_Shrine_Dialogue
+rewardData: null

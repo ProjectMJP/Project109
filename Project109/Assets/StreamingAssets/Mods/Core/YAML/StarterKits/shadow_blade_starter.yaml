@@ -1,0 +1,43 @@
+loadoutId: "shadow_blade_starter"
+displayName: "그림자 칼날"
+classType: "전투광"
+startGold: 120
+baseDrawCount: 6
+isDefaultUnlocked: false
+unlockShardCost: 30
+sortOrder: 2
+characterStat:
+  maxHealth: 85
+  maxStamina: 140
+  staminaRegenPerSecond: 45
+  moveRange: 4
+startCards:
+  - "퀵 슬래시"
+  - "퀵 슬래시"
+  - "퀵 슬래시"
+  - "스위프트 슬래시"
+  - "약점 관통"
+  - "비밀 무기"
+  - "방어"
+  - "방어"
+startRelics: ["날카로운 날", "에어 러닝 슈즈"]
+startEffects: []
+loreEntries:
+  - title: "무기 스토리 1 : 바람을 가르는 단도"
+    description: "체력을 낮추는 대신 스태미나 회복과 기동력, 드로우 회전율을 극대화한 암살형 검술 무장입니다."
+    unlockConditionType: "None"
+    unlockConditionValue: ""
+    unlockHint: ""
+    isUnlockedByDefault: true
+  - title: "무기 스토리 2 : 그림자 교단"
+    description: "가장 어두운 탑 꼭대기에서 전승되었다는 은밀한 검법의 발자취입니다."
+    unlockConditionType: "BossKill"
+    unlockConditionValue: "1"
+    unlockHint: "그림자 칼날 장착 상태로 보스 처치 시 해금"
+    isUnlockedByDefault: false
+  - title: "무기 스토리 3 : 무형의 일섬"
+    description: "칼집에서 뽑히기도 전에 전투가 끝났다고 전해지는 마지막 기록입니다."
+    unlockConditionType: "RunClear"
+    unlockConditionValue: "1"
+    unlockHint: "그림자 칼날로 런 클리어 시 해금"
+    isUnlockedByDefault: false

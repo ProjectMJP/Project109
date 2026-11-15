@@ -16,8 +16,9 @@ MonoBehaviour:
   path: PommelStrike
   className: Warrior
   cardName: "\uC190\uC7A1\uC774 \uD0C0\uACA9"
+  bIsUpgradeCard: 0
   rarity: 1
-  stamina: 30
+  stamina: 40
   cardType: Attack
   targetType: Target
   targetMinDistance: 1
@@ -25,11 +26,11 @@ MonoBehaviour:
   additionalEffectAreaList:
   - areaType: None
     distance: 0
-  amountList: 0800000001000000
-  upgradeAmountList: 0400000001000000
+  amountList: 0600000001000000
   texturePath: Card_test_texture
-  upgradeCardPath: 
+  upgradeCardPath: PommelStrike+
   maxMasteryPoint: 0
+  specificProperties: 
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

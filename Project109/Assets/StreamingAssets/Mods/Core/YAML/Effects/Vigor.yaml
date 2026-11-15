@@ -1,0 +1,6 @@
+effectName: "Vigor"
+displayName: "활력"
+description: "턴이 종료된 후 (10 * 수치)만큼 스태미너를 회복 후 제거됩니다."
+effectType: "Buff"
+isPermanent: true
+isIndependent: false

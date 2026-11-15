@@ -15,6 +15,12 @@ MonoBehaviour:
   m_GroupName: Description
   m_GUID: b2aaaa9d73ca82c4b80a9f7790e0a564
   m_SerializeEntries:
+  - m_GUID: 039f68e0da04b5143a29f1b7a2df85e0
+    m_Address: Slash+_Description
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Description
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 112b4b5d949c7f6428ef56dc4f072146
     m_Address: Slash_Description
     m_ReadOnly: 0
@@ -23,6 +29,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 119870b60d9b0ef46923d5c5dbf338be
     m_Address: WeaknessPierce_Description
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Description
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2944014c16dab7a488c32d46ed4c9111
+    m_Address: PommelStrike+_Description
     m_ReadOnly: 0
     m_SerializedLabels:
     - Description
@@ -45,14 +57,14 @@ MonoBehaviour:
     m_SerializedLabels:
     - Description
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 52cabdc59c88feb44bda58e039f402e7
-    m_Address: RisingStrike_Description
+  - m_GUID: 719dd8201e91f0a45bf316ca73b163f9
+    m_Address: QuickSlash_Description
     m_ReadOnly: 0
     m_SerializedLabels:
     - Description
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 719dd8201e91f0a45bf316ca73b163f9
-    m_Address: QuickSlash_Description
+  - m_GUID: 75ba4f4943ce64f498488958de8ad669
+    m_Address: Rumbling+_Description
     m_ReadOnly: 0
     m_SerializedLabels:
     - Description
@@ -63,8 +75,8 @@ MonoBehaviour:
     m_SerializedLabels:
     - Description
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 8bf8dcd84640f5f4a8ee73d4f667e92b
-    m_Address: Pummel_Description
+  - m_GUID: 8875168ab7ee02641b7252d0b769aaee
+    m_Address: FalseSwipe+_Description
     m_ReadOnly: 0
     m_SerializedLabels:
     - Description
@@ -81,6 +93,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Description
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bcf4899cbce201347ac5dc403667368a
+    m_Address: QuickSlash+_Description
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Description
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c220d28a51fe4424ba8aff537d620d84
     m_Address: SwiftSlash_Description
     m_ReadOnly: 0
@@ -93,8 +111,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - Description
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cee8ea6c0f8a3214ba790935cb3fe13a
+    m_Address: FinishingBlow+_Description
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Description
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: dd6aa1d8be9c46c4790c1b868a4169c9
     m_Address: ComboSlash_Description
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Description
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f3759487be7af1a4684be924a9a2f60f
+    m_Address: ComboSlash+_Description
     m_ReadOnly: 0
     m_SerializedLabels:
     - Description

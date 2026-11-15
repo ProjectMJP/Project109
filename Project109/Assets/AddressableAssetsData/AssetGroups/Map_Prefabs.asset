@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Map_Prefabs
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Map_Prefabs
+  m_GUID: 105cd1d80df4fc04dbbee3a3a27a77f2
+  m_SerializeEntries:
+  - m_GUID: 29804a41504e1b744958695df356bf1e
+    m_Address: TileQuad
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 332f1c148c6f40d44b1e69a0bbe5d127
+    m_Address: MapSpawnRoot
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 41182403ffafc7b47bf2ee2aeab49e9c
+    m_Address: Hideout_MemoryAltar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 426b54896745f374d864ed3e9916050a
+    m_Address: Hideout_Compendium
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5c54a7c93566a5b43b7763a445b4fcd0
+    m_Address: Hideout_WeaponShowcase
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5f50a2989c00f834880ee66529a80f6e
+    m_Address: DungeonTile
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7ff058c37a295af4ebbee894a76b0c34
+    m_Address: Terrain_Temple_Floor
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81a86bf29e2d37547bece81e45ad5549
+    m_Address: CrackDungeonTile
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a634b971f20e384c8b4097adceb9201
+    m_Address: Tile
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a8d7fdb7f6c3f644fbc75c8a70b03a2d
+    m_Address: TempObject
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e4438e61199fcc645b4cb42e5d4124eb
+    m_Address: Obstacle_Temple_Pillar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ec51ced7d35cb094a9764750dd367443
+    m_Address: Trap_Temple_Spike
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f6073609bacba804792190f301237aad
+    m_Address: DungeonEnteranceObject
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa3670625aeeca54a9dd78de00f45d7c
+    m_Address: Obstacle_Forest_Pillar 1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: cba60f876f709f040b1ea73d2ef719ff, type: 2}
+    - {fileID: 11400000, guid: 21e08d6b06c30cd478e80a6874df96ec, type: 2}

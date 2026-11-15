@@ -1,53 +1,66 @@
 using UnityEngine;
 
+public enum LookDirection
+{
+    Up,
+    Down,
+    Left,
+    Right
+}
+
 namespace GameItem.Types
 {
-    public enum RewardItemType
+    public enum CardRarity
     {
-        Card,
-        Relic
+        Common = 1,
+        Uncommon = 2,
+        Rare = 3,
+        Unique = 4
     }
 
-    public enum ItemRewardUIType
+    public enum RelicRarity
+    {
+        Common = 1,
+        Rare = 2,
+        Unique = 3,
+        Boss = 4
+    }
+
+    public enum RewardType
     {
         Gold,
         MemorySharp,
-        Card,
-        Relic
+        CardChoice,     // 카드 선택지 제공 (DropTable 참조)
+        Relic,          // 유물 획득 (DropTable 참조)
+        SpecificCard,   // 특정 카드 획득
+        SpecificRelic,  // 특정 유물 획득
+        Potion,         // 포션 획득
+        Heal,           // 체력 회복
+
+        // 가독성 및 UI/아이템 일원화를 위한 별칭
+        Card = CardChoice
     }
 
-    public enum RandomCardPickupType
+    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
+    public enum RewardItemType
     {
-        Common,
-        Uncommon,
-        Rare,
-        Unique,
-        CommonToUncommon,
-        RareToUnique
+        Card = RewardType.CardChoice,
+        Relic = RewardType.Relic
     }
 
-    public enum RandomRelicPickupType
+    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
+    public enum ItemRewardUIType
     {
-        Common,
-        Rare,
-        Unique,
-        CommonToUnique,
-        CommonToRare,
-        RareToUnique,
-        Boss
-    }
-
-    public enum EvolveType
-    {
-        Cost,
-        Amount,
-        Custom
+        Gold = RewardType.Gold,
+        MemorySharp = RewardType.MemorySharp,
+        Card = RewardType.CardChoice,
+        Relic = RewardType.Relic
     }
 }
 
-namespace Card.Types
+namespace CardTypes
 {
-    public enum EffectType  //효과 타입
+    public enum CardType  //효과 타입
     {
         None,
         Damage,
@@ -59,43 +72,18 @@ namespace Card.Types
         Move
     }
 
-    public enum BuffType    //버프 타입
+    public enum TargetType  //공격 대상 및 타깃팅 방식 타입
     {
-        None,
-        Strength,       //힘
-        Armor,          //방어
-        Frenzy          //광분
-    }
-
-    public enum DebuffType    //디버프 타입
-    {
-        None,
-        Bleeding,       //출혈
-        Poison,         //독
-        DeadlyPoison,   //맹독
-        Debilitate,     //쇠약
-        Weaken,         //약화
-    }
-
-    public enum FeatureType //카드 특징 타입
-    {
-        None,
-        Start_Action,    //전투 시작 시 처음으로 뽑는 카드에 포함
-        Vanguard,        //턴의 가장 처음으로 사용되면 보너스 효과
-        Finale,          //턴이 종료되었을 때 손에 있을 경우 남은 스태미너를 전부 소모하여 스태미너 X당 한 번 씩 사용됨
-        Echo,            //이번 턴에 카드 사용 시 연속으로 사용 가능하지만 사용 할 때마다 비용 증가
-        Single_use,      //이번 전투에서 한 번만 사용 가능
-        Destroy,         //카드를 사용한 후 덱에서 없어짐
-        Divide,          //카드를 사용하면 두 장으로 늘어난 후 카드 무덤으로 이동
-        Chain,           //스태미너를 N만큼 더 소모한다면 추가로 효과가 발동함
-        Unavailable      //카드를 직접 사용할 수 없음
-    }
-
-    public enum TargetType  //공격 대상 타입
-    {
-        All,
-        Target,
-        Random
+        Self,          // 시전자 자신 대상 즉시 발동
+        SingleEnemy,   // 사거리 내 단일 적 수동 지정
+        AreaSelf,      // 시전자 중심 즉시 광역 발동 (회전베기, 지진 등)
+        AreaGround,    // 사거리 내 바닥 타일 수동 지정 광역
+        RandomEnemy,   // 사거리 내 무작위 적 N명 자동 타격
+        MultiEnemy,    // 사거리 내 적 N명 순차 수동 지정
+        AllEnemies,    // 전장의 모든 적 즉시 타격
+        SingleAlly,    // 사거리 내 아군 1명 수동 지정 (미래 확장용)
+        AllAllies,     // 전장의 모든 아군 즉시 적용 (미래 확장용)
+        Directional    // 시전자가 바라보는 방향(facingDirection) 기준 즉시 발동 (허공 시전 허용)
     }
 
     public enum CardMasteryType
@@ -108,9 +96,14 @@ namespace Card.Types
         DrawCard,
         UpgradeCard
     }
+
+    public enum InteractableType
+    {
+        Normal,         // 일반 대화 및 이벤트 인터랙터블
+        Chest,          // 보상 상자
+        Shop,           // 상점 NPC
+        RestoreBonfire  // 휴식/회복 모닥불
+    }
 }
 
-public class Enums
-{
-    
-}
+

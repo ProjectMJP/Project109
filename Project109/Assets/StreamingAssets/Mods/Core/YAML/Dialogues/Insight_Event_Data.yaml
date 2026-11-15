@@ -1,0 +1,23 @@
+dialogueID: Insight_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 기이한 현상
+  lines:
+  - "신단이 당신에게 다가와 속삭입니다. \"약간의 골드가 있다면 당신의 여정에 도움이 될 수 있도록 내가 빛을 비춰줄게요.\""
+  - "신단의 제안을 받아들이시겠습니까?"
+  choices:
+  - description: 받아드린다.
+    nextNodeID: END_PROCESS
+    luaScript: InsightEvent_Accept
+  - description: 무시한다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_PROCESS
+  speakerName: 기이한 현상
+  lines:
+  - "신단이 점점 빛으로 둘러싸이더니 자신의 소지품으로 빛이 들어옵니다.\n 이후 활기가 웃돌며 목표가 뚜렷해지는 느낌을 받습니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

@@ -1,0 +1,7 @@
+relicName: "할인 카드"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "상인의 물건 가격이 30% 감소합니다."
+flavorText: ""

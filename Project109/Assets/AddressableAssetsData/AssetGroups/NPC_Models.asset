@@ -15,20 +15,8 @@ MonoBehaviour:
   m_GroupName: NPC_Models
   m_GUID: db378e65d7549b046b7725a81bbddecc
   m_SerializeEntries:
-  - m_GUID: 2634d004684c91a459f0103c7ecc59dc
-    m_Address: NPC_Event_Tombstone_Model
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 334fa702f0f93e34da1c869f05859cdc
     m_Address: MemorySharp_Model
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 483804fe5a31926439b888af42e9f475
-    m_Address: NPC_Restore_Bonfire_Model
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model

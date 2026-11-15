@@ -1,0 +1,459 @@
+using UnityEngine;
+using System.Collections.Generic;
+using GameItem.Types;
+
+public class GameItemRewardManager : MonoBehaviour
+{
+    public static GameItemRewardManager instance { get; private set; }
+
+    private void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+            DontDestroyOnLoad(this.gameObject);
+        }
+        else
+        {
+            Destroy(this.gameObject);
+        }
+    }
+
+    [SerializeField] private GameObject rewardObjectPrefab;
+    [SerializeField] private GameObject rewardBoxPrefab;
+
+    // Cards
+    private List<CardData> commonCardList = new List<CardData>();
+    private List<CardData> uncommonCardList = new List<CardData>();
+    private List<CardData> rareCardList = new List<CardData>();
+    private List<CardData> uniqueCardList = new List<CardData>();
+
+    // Relics
+    private List<RelicData> commonRelicList = new List<RelicData>();
+    private List<RelicData> rareRelicList = new List<RelicData>();
+    private List<RelicData> uniqueRelicList = new List<RelicData>();
+    private List<RelicData> bossRelicList = new List<RelicData>();
+
+    // 드롭 테이블 필터링 시 힙 할당 제거용 재사용 버퍼 및 소유 유물 조회 캐시
+    private readonly List<CardData> _filteredCommonCards = new List<CardData>();
+    private readonly List<CardData> _filteredUncommonCards = new List<CardData>();
+    private readonly List<CardData> _filteredRareCards = new List<CardData>();
+    private readonly List<CardData> _filteredUniqueCards = new List<CardData>();
+
+    private readonly List<RelicData> _filteredCommonRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredRareRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredUniqueRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredBossRelics = new List<RelicData>();
+
+    private readonly HashSet<string> _ownedRelicNameSet = new HashSet<string>();
+
+    public void UpdateItemList()
+    {
+        // 이전 목록 비우기 (누적 증식 방지)
+        commonCardList.Clear();
+        uncommonCardList.Clear();
+        rareCardList.Clear();
+        uniqueCardList.Clear();
+
+        commonRelicList.Clear();
+        rareRelicList.Clear();
+        uniqueRelicList.Clear();
+        bossRelicList.Clear();
+
+        if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
+        {
+            foreach (CardData data in ModLoader.Instance.CardDatabase.Values)
+            {
+                if (data.isUpgraded)
+                {
+                    continue; // 업그레이드 카드들은 보상으로 등장하지 않음
+                }
+
+                switch (data.rarity)
+                {
+                    case CardRarity.Common:
+                        commonCardList.Add(data);
+                        break;
+                    case CardRarity.Uncommon:
+                        uncommonCardList.Add(data);
+                        break;
+                    case CardRarity.Rare:
+                        rareCardList.Add(data);
+                        break;
+                    case CardRarity.Unique:
+                        uniqueCardList.Add(data);
+                        break;
+                }
+            }
+        }
+
+        if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
+        {
+            foreach (RelicData data in ModLoader.Instance.RelicDatabase.Values)
+            {
+                switch (data.rarity)
+                {
+                    case GameItem.Types.RelicRarity.Common:
+                        commonRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Rare:
+                        rareRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Unique:
+                        uniqueRelicList.Add(data);
+                        break;
+                    case GameItem.Types.RelicRarity.Boss:
+                        bossRelicList.Add(data);
+                        break;
+                }
+            }
+        }
+    }
+
+    public CardData GetRandomCardDataByDropTable(string dropTableID)
+    {
+        var cardDatabase = ModLoader.Instance != null ? ModLoader.Instance.CardDatabase : null;
+        if (TryResolveDropTableAndSpecific(dropTableID, cardDatabase, out DropTableData dropTable, out CardData specificCard))
+        {
+            return specificCard;
+        }
+
+        _filteredCommonCards.Clear();
+        _filteredUncommonCards.Clear();
+        _filteredRareCards.Clear();
+        _filteredUniqueCards.Clear();
+
+        if (cardDatabase != null)
+        {
+            foreach (var card in cardDatabase.Values)
+            {
+                if (card.isUpgraded) continue;
+                if (!PassesDropTableFilter(card.cardName, card.classTypes, dropTable)) continue;
+
+                // 카드 타입 필터
+                if (dropTable != null && dropTable.allowedCardTypes != null && dropTable.allowedCardTypes.Count > 0)
+                {
+                    if (string.IsNullOrEmpty(card.cardType) || !dropTable.allowedCardTypes.Contains(card.cardType))
+                    {
+                        continue;
+                    }
+                }
+
+                switch (card.rarity)
+                {
+                    case CardRarity.Common:
+                        _filteredCommonCards.Add(card);
+                        break;
+                    case CardRarity.Uncommon:
+                        _filteredUncommonCards.Add(card);
+                        break;
+                    case CardRarity.Rare:
+                        _filteredRareCards.Add(card);
+                        break;
+                    case CardRarity.Unique:
+                        _filteredUniqueCards.Add(card);
+                        break;
+                }
+            }
+        }
+
+        int commonRate = dropTable != null ? dropTable.commonWeight : 60;
+        int uncommonRate = dropTable != null ? dropTable.uncommonWeight : 40;
+        int rareRate = dropTable != null ? dropTable.rareWeight : 0;
+        int uniqueRate = dropTable != null ? dropTable.uniqueWeight : 0;
+
+        return PickWeightedByRarity(
+            commonRate, uncommonRate, rareRate, uniqueRate,
+            _filteredCommonCards, _filteredUncommonCards, _filteredRareCards, _filteredUniqueCards,
+            commonCardList, uncommonCardList, rareCardList, uniqueCardList);
+    }
+
+    public RelicData GetRandomRelicDataByDropTable(string dropTableID)
+    {
+        var relicDatabase = ModLoader.Instance != null ? ModLoader.Instance.RelicDatabase : null;
+        if (TryResolveDropTableAndSpecific(dropTableID, relicDatabase, out DropTableData dropTable, out RelicData specificRelic))
+        {
+            return specificRelic;
+        }
+
+        _filteredCommonRelics.Clear();
+        _filteredRareRelics.Clear();
+        _filteredUniqueRelics.Clear();
+        _filteredBossRelics.Clear();
+        RefreshOwnedRelicCache();
+
+        if (relicDatabase != null)
+        {
+            foreach (var relic in relicDatabase.Values)
+            {
+                if (_ownedRelicNameSet.Contains(relic.relicName)) continue;
+                if (!PassesDropTableFilter(relic.relicName, relic.classTypes, dropTable)) continue;
+
+                switch (relic.rarity)
+                {
+                    case RelicRarity.Common:
+                        _filteredCommonRelics.Add(relic);
+                        break;
+                    case RelicRarity.Rare:
+                        _filteredRareRelics.Add(relic);
+                        break;
+                    case RelicRarity.Unique:
+                        _filteredUniqueRelics.Add(relic);
+                        break;
+                    case RelicRarity.Boss:
+                        _filteredBossRelics.Add(relic);
+                        break;
+                }
+            }
+        }
+
+        int commonRate = dropTable != null ? dropTable.commonWeight : 70;
+        int rareRate = dropTable != null ? dropTable.rareWeight : 30;
+        int uniqueRate = dropTable != null ? dropTable.uniqueWeight : 0;
+        int bossRate = dropTable != null ? dropTable.uncommonWeight : 0; // Relic의 경우 uncommonWeight를 Boss 가중치로 맵핑
+
+        return PickWeightedByRarity(
+            commonRate, rareRate, uniqueRate, bossRate,
+            _filteredCommonRelics, _filteredRareRelics, _filteredUniqueRelics, _filteredBossRelics,
+            commonRelicList, rareRelicList, uniqueRelicList, bossRelicList);
+    }
+
+    private void RefreshOwnedRelicCache()
+    {
+        _ownedRelicNameSet.Clear();
+        if (GameSceneManager.instance == null || GameSceneManager.instance.player == null || GameSceneManager.instance.player.relicManager == null)
+        {
+            return;
+        }
+
+        var ownedRelics = GameSceneManager.instance.player.relicManager.GetRelics();
+        for (int i = 0; i < ownedRelics.Count; i++)
+        {
+            var owned = ownedRelics[i];
+            if (owned != null && owned.Data != null && !string.IsNullOrEmpty(owned.Data.relicName))
+            {
+                _ownedRelicNameSet.Add(owned.Data.relicName);
+            }
+        }
+    }
+
+    private static bool TryResolveDropTableAndSpecific<T>(
+        string dropTableID,
+        Dictionary<string, T> database,
+        out DropTableData dropTable,
+        out T specificItem) where T : class
+    {
+        dropTable = null;
+        specificItem = null;
+
+        if (ModLoader.Instance != null && !string.IsNullOrEmpty(dropTableID))
+        {
+            ModLoader.Instance.DropTableDatabase.TryGetValue(dropTableID, out dropTable);
+        }
+
+        if (dropTable != null && dropTable.specificItemIDs != null && dropTable.specificItemIDs.Count > 0 && database != null)
+        {
+            string randomName = dropTable.specificItemIDs[Random.Range(0, dropTable.specificItemIDs.Count)];
+            if (database.TryGetValue(randomName, out specificItem) && specificItem != null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PassesDropTableFilter(string itemID, List<string> itemClasses, DropTableData dropTable)
+    {
+        if (dropTable == null) return true;
+
+        // 1. 제외 아이템 필터
+        if (dropTable.excludedItemIDs != null && dropTable.excludedItemIDs.Contains(itemID))
+        {
+            return false;
+        }
+
+        // 2. 직업 필터
+        if (dropTable.allowedClassTypes != null && dropTable.allowedClassTypes.Count > 0)
+        {
+            if (itemClasses == null) return false;
+
+            bool classMatched = false;
+            for (int i = 0; i < itemClasses.Count; i++)
+            {
+                if (dropTable.allowedClassTypes.Contains(itemClasses[i]))
+                {
+                    classMatched = true;
+                    break;
+                }
+            }
+            if (!classMatched) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 4단계 희귀도 가중치에 따라 아이템을 추첨하고, 해당 풀과 폴백 풀에서 순차적으로 대체 아이템을 선택합니다.
+    /// </summary>
+    private T PickWeightedByRarity<T>(
+        int tier1Rate,
+        int tier2Rate,
+        int tier3Rate,
+        int tier4Rate,
+        List<T> tier1List,
+        List<T> tier2List,
+        List<T> tier3List,
+        List<T> tier4List,
+        List<T> fallback1List,
+        List<T> fallback2List,
+        List<T> fallback3List,
+        List<T> fallback4List) where T : class
+    {
+        int totalWeight = tier1Rate + tier2Rate + tier3Rate + tier4Rate;
+        if (totalWeight <= 0) totalWeight = 100;
+
+        int pickNumber = Random.Range(1, totalWeight + 1);
+        T picked = null;
+
+        if (pickNumber <= tier4Rate)
+        {
+            picked = PickRandomFromList(tier4List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List);
+        }
+        else if (pickNumber <= tier4Rate + tier3Rate)
+        {
+            picked = PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List);
+        }
+        else if (pickNumber <= tier4Rate + tier3Rate + tier2Rate)
+        {
+            picked = PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier1List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List);
+        }
+        else
+        {
+            picked = PickRandomFromList(tier1List)
+                ?? PickRandomFromList(tier2List)
+                ?? PickRandomFromList(tier3List)
+                ?? PickRandomFromList(tier4List);
+        }
+
+        // 필터링 조건 때문에 아무 아이템도 뽑지 못했다면 전체 풀에서 폴백
+        if (picked == null)
+        {
+            picked = PickRandomFromList(fallback1List)
+                ?? PickRandomFromList(fallback2List)
+                ?? PickRandomFromList(fallback3List)
+                ?? PickRandomFromList(fallback4List);
+        }
+
+        return picked;
+    }
+
+    private T PickRandomFromList<T>(List<T> list) where T : class
+    {
+        if (list == null || list.Count == 0) return null;
+        return list[Random.Range(0, list.Count)];
+    }
+
+    public void InstantiateItemReward(RewardType rewardType, string dropTableID, Vector3 spawnPosition)
+    {
+        if (rewardBoxPrefab == null)
+            return;
+
+        RewardChest newRewardBox = Instantiate(rewardBoxPrefab, spawnPosition, Quaternion.identity).GetComponent<RewardChest>();
+
+        if (newRewardBox != null)
+        {
+            RewardData tempReward = new RewardData();
+            RewardItemConfig config = new RewardItemConfig();
+            config.rewardType = (rewardType == RewardType.Card || rewardType == RewardType.CardChoice) ? RewardType.CardChoice : rewardType;
+            config.minValue = 1;
+            config.maxValue = 1;
+            config.referenceID = dropTableID;
+            tempReward.rewards.Add(config);
+
+            newRewardBox.SetRewardData(tempReward);
+        }
+
+        // 맵 이동 시 지워질 오브젝트 목록으로 등록
+        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
+        {
+            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
+        }
+    }
+
+    public void SpawnRewardBox(Vector3 spawnPosition, int bonusGold = 0)
+    {
+        if (RunManager.instance == null || RunManager.instance.currentExploreNode == null)
+        {
+            return;
+        }
+
+        RewardChest newRewardBox = Instantiate(rewardBoxPrefab, spawnPosition, Quaternion.identity).GetComponent<RewardChest>();
+
+        if (newRewardBox != null)
+        {
+            newRewardBox.SetRewardItemList(bonusGold);
+        }
+
+        // 맵 이동 시 지워질 오브젝트 목록으로 등록
+        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
+        {
+            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// 드롭 테이블을 기반으로 중복 없는 무작위 카드 목록을 지정한 개수만큼 추첨합니다.
+    /// </summary>
+    public List<CardData> GetUniqueRandomCards(string dropTableID, int count)
+    {
+        List<CardData> result = new List<CardData>();
+        HashSet<string> pickedNames = new HashSet<string>();
+        int attempts = 0;
+        int maxAttempts = Mathf.Max(50, count * 20);
+
+        while (result.Count < count && attempts < maxAttempts)
+        {
+            attempts++;
+            var card = GetRandomCardDataByDropTable(dropTableID);
+            if (card == null) break;
+            if (pickedNames.Add(card.cardName))
+            {
+                result.Add(card);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 드롭 테이블을 기반으로 중복 없는 무작위 유물 목록을 지정한 개수만큼 추첨합니다.
+    /// </summary>
+    public List<RelicData> GetUniqueRandomRelics(string dropTableID, int count)
+    {
+        List<RelicData> result = new List<RelicData>();
+        HashSet<string> pickedNames = new HashSet<string>();
+        int attempts = 0;
+        int maxAttempts = Mathf.Max(50, count * 20);
+
+        while (result.Count < count && attempts < maxAttempts)
+        {
+            attempts++;
+            var relic = GetRandomRelicDataByDropTable(dropTableID);
+            if (relic == null) break;
+            if (pickedNames.Add(relic.relicName))
+            {
+                result.Add(relic);
+            }
+        }
+        return result;
+    }
+}

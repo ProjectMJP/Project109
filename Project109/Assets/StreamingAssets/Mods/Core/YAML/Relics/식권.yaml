@@ -1,0 +1,7 @@
+relicName: "식권"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "상점 칸에 진입할 경우 체력을 20 회복합니다."
+flavorText: ""

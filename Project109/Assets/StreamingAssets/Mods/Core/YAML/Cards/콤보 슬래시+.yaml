@@ -1,0 +1,17 @@
+cardName: "콤보 슬래시+"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 60
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: true
+upgradedCardName: ""
+description: "피해를 {damage} 만큼 {hits} 번 줍니다."
+baseValues:
+  hits: 6
+  damage: 4

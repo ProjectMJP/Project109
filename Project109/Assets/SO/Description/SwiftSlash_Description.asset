@@ -11,19 +11,19 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
   m_Name: SwiftSlash_Description
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
   path: SwiftSlash
   cardName: "\uC2A4\uC704\uD504\uD2B8 \uC2AC\uB798\uC2DC"
   description: "\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4.\n\uAD11\uBD84 \uBC84\uD504
-    1\uAC1C \uB2F9 \uD53C\uD574\uB7C9\uC774 2 \uC99D\uAC00\uD569\uB2C8\uB2E4."
+    1\uAC1C \uB2F9 \uD53C\uD574\uB7C9\uC774 [1] \uC99D\uAC00\uD569\uB2C8\uB2E4."
   extraDescriptions:
   - name: "\uAD11\uBD84"
-    description: "\uC911\uCCA9 \uB2F9\uD589\uB3D9 \uCE74\uB4DC\uC758 \uC2A4\uD0DC\uBBF8\uB108
+    description: "\uC911\uCCA9 \uB2F9 \uACF5\uACA9 \uCE74\uB4DC\uC758 \uC2A4\uD0DC\uBBF8\uB108
       \uC18C\uBAA8\uB97C 5 \uAC10\uC18C\uC2DC\uD0B5\uB2C8\uB2E4.\\n\uD134 \uC885\uB8CC
       \uC2DC \uB0A8\uC740 \uAD11\uBD84 \uBC84\uD504\uAC00 50% \uAC10\uC18C\uD569\uB2C8\uB2E4."
   - name: "\uBA54\uC544\uB9AC"
-    description: "\uCE74\uB4DC\uB97C \uB0B8 \uD134\uC5D0 \uD55C\uD574 \uADF8 \uCE74\uB4DC\uB97C
-      \uB2E4\uC2DC \uB0BC \uC218 \uC788\uC74C."
+    description: "\uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD55C \uD134\uC5D0 \uD55C\uD574
+      \uADF8 \uCE74\uB4DC\uB97C \uB2E4\uC2DC \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
   masteryDescriptions:
   - path: SwiftSlash_DamageAmp
     name: "\uD53C\uD574 \uC99D\uD3ED"
@@ -31,7 +31,7 @@ MonoBehaviour:
     maxUpgradeCount: 0
   - path: SwiftSlash_SkillTraining
     name: "\uAE30\uC220 \uC5F0\uB9C8"
-    description: "\uAD11\uBD84 \uBC84\uD504 \uB2F9 \uD53C\uD574\uB7C9\uC774 2 \uC99D\uAC00\uD569\uB2C8\uB2E4."
+    description: "\uAD11\uBD84 \uBC84\uD504 \uB2F9 \uD53C\uD574\uB7C9\uC774 3 \uC99D\uAC00\uD569\uB2C8\uB2E4."
     maxUpgradeCount: 0
   - path: SwiftSlash_Focus
     name: "\uC9D1\uC911"

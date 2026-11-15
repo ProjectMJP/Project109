@@ -1,0 +1,7 @@
+interactableID: Event_Test_Data
+interactableName: ???
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Event_Test_Data
+rewardData: null

@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: NPC_Prefabs
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: NPC_Prefabs
+  m_GUID: 1946d2d8ce5fef4438dddfc7cfcbbec2
+  m_SerializeEntries:
+  - m_GUID: 200fabb5e5b172b4e86a4d26d0de9ffc
+    m_Address: EventObject
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2634d004684c91a459f0103c7ecc59dc
+    m_Address: NPC_Event_Tombstone_Model
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2c3fe3b848dc2fe448171c575f2f8c50
+    m_Address: CurrencyReward
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3f79565ff91de4b418f73f531062673c
+    m_Address: NPC_Event_Tombstone_Model
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 483804fe5a31926439b888af42e9f475
+    m_Address: NPC_Restore_Bonfire_Model
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Model
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: d686253292b137b419e3da0bc796c77d, type: 2}
+    - {fileID: 11400000, guid: 1ea7baafdf0fb054da2d3e0a88264c89, type: 2}

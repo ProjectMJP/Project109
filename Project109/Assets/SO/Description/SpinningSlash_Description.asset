@@ -11,10 +11,10 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca0b44bd0dcac458676231b3b7720e, type: 3}
   m_Name: SpinningSlash_Description
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDescription
   path: SpinningSlash
   cardName: "\uD68C\uC804\uBCA0\uAE30"
-  description: "<color=#0000CD>\uC885\uC804 20</color>\n\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4."
+  description: "<color=#0000CD>\uC885\uC804</color>\n\uD53C\uD574\uB97C [0] \uC90D\uB2C8\uB2E4."
   extraDescriptions:
   - name: "\uC885\uC804"
     description: "\uD134 \uC885\uB8CC \uC2DC \uB0A8\uC740 \uC2A4\uD0DC\uBBF8\uB108\uB97C
@@ -29,15 +29,15 @@ MonoBehaviour:
     description: "\uC774\uBC88 \uD134\uC5D0 \uC0AC\uC6A9\uD55C \uD68C\uC804\uBCA0\uAE30
       1\uBC88 \uB2F9 \uB370\uBBF8\uC9C0\uAC00 3 \uC99D\uAC00\uD569\uB2C8\uB2E4."
     maxUpgradeCount: 0
-  - path: SpinningSlash_Agility
-    name: "\uC2E0\uC18D"
-    description: "\uC18C\uBAA8 \uC2A4\uD0DC\uBBF8\uB108\uAC00 10 \uAC10\uC18C\uD569\uB2C8\uB2E4."
-    maxUpgradeCount: 2
   - path: SpinningSlash_LightMovement
     name: "\uAC00\uBCBC\uC6B4 \uBAB8\uB180\uB9BC"
     description: "\uC885\uC804\uC73C\uB85C \uC18C\uBAA8\uB418\uB294 \uC2A4\uD0DC\uBBF8\uB108\uAC00
       10 \uAC10\uC18C\uD569\uB2C8\uB2E4."
     maxUpgradeCount: 1
+  - path: SpinningSlash_WideCut
+    name: "\uB113\uAC8C \uBCA0\uAE30"
+    description: "\uACF5\uACA9 \uBC94\uC704\uAC00 1\uCE78 \uC99D\uAC00\uD569\uB2C8\uB2E4."
+    maxUpgradeCount: 3
   - path: SpinningSlash_EndlessSpin
     name: "\uB04A\uC784\uC5C6\uB294 \uD68C\uC804"
     description: "\uC885\uC804 \uD6A8\uACFC\uB97C \uD1B5\uD574 \uCE74\uB4DC\uAC00

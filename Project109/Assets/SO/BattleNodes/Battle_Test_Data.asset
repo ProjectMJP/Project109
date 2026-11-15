@@ -11,10 +11,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a64f1fa845edd74b83734d6a74c6ac0, type: 3}
   m_Name: Battle_Test_Data
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleData
   battleDataName: "\uC608\uC81C \uC804\uD22C"
   dataPath: Battle_Test_Data
   battleAppearLevel: 1
-  battleMapVariationName: Battle1
+  battleLocation: Temple
   monsterNames:
   - Monster_testMonster_Data
+  rewards:
+  - name: Gold
+    value: 50
+  - name: Card
+    value: 1

@@ -1,0 +1,18 @@
+cardName: "테스트 무작위 사격"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "RandomEnemy"
+targetMinDistance: 1
+targetMaxDistance: 5
+targetCount: 2
+allowDuplicateTarget: true
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n사거리 내 무작위 적에게 {damage}의 피해를 2회 줍니다."
+baseValues:
+  damage: 5

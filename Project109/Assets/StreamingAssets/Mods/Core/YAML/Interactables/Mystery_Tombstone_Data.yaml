@@ -1,0 +1,7 @@
+interactableID: Mystery_Tombstone_Data
+interactableName: 의문의 비석
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Mystery_Tombstone_Data
+rewardData: null

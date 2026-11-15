@@ -16,7 +16,8 @@ MonoBehaviour:
   path: SpinningSlash
   className: Warrior
   cardName: "\uD68C\uC804\uBCA0\uAE30"
-  rarity: 1
+  bIsUpgradeCard: 0
+  rarity: 2
   stamina: 40
   cardType: Attack
   targetType: Target
@@ -26,10 +27,10 @@ MonoBehaviour:
   - areaType: CircleFill
     distance: 2
   amountList: 06000000
-  upgradeAmountList: 09000000
   texturePath: Card_test_texture
   upgradeCardPath: 
-  maxMasteryPoint: 0
+  maxMasteryPoint: 250
+  specificProperties: 03000000
   isEvolved: 0
   evolveType: 0
   isUpgrade: 0

@@ -1,42 +1,5 @@
 # string이 아닌 int, float, bool형식은 !!int와 같이 변수의 타입을 강제 지정해주어야 문제가 안생김
 $schema:  "https://json-schema.org/draft/2020-12/schema"
-useItem: &use_items
-  type: object
-  itemType:
-    type: string
-    enum:
-    - Money
-    - MaxHp
-    - Hp
-    - MaxStamina
-    - SpecificCard
-    - RandomCard
-    - SpecificRelic
-    - RandomRelic
-    value:
-      type: integer
-    name:
-      type: string
-
-getItem: &get_items
-  type: object
-  itemType:
-    type: string
-    enum:
-    - Money
-    - MaxHp
-    - Hp
-    - SpecificCard
-    - CardReward
-    - SpecificRelic
-    - RelicReward
-    - Battle
-    - Event
-    value:
-      type: integer
-    name:
-      type: string
-
 choice: &choice_data
   type: object
   properties:
@@ -44,14 +7,8 @@ choice: &choice_data
       type: string
     nextStageID:
       type: string
-    useItems:
-      type: array
-      item:
-        <<: *use_items
-    getItems:
-      type: array
-      item:
-        <<: *get_items
+    luaScript:
+      type: string
 
 condition: &appear_condition
   type: object
@@ -76,7 +33,7 @@ properties:
           type: string
           eventAppearLevel:
             type: integer
-            description: "0: 어디서든 발견할 수 없는 특정 이벤트,
+            description: "0: 어디서든 발견할 수 있는 특정 이벤트,
                           1~3: 해당 스테이지에서 발견할 수 있는 이벤트,
                           4: 랜덤으로 발견할 수 없는 특정 이벤트"           
             minimum: !!int 0

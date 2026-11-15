@@ -1,0 +1,17 @@
+cardName: "방어"
+classTypes:
+  - "Warrior"
+  - "TesterWarrior"
+cardType: "Skill"
+targetType: "Self"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Common"
+stamina: 40
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "방어도를 {shield} 얻습니다."
+baseValues:
+  shield: 8

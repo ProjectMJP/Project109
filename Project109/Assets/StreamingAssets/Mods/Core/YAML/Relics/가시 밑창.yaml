@@ -1,0 +1,7 @@
+relicName: "가시 밑창"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "직접 이동했을 때 도착 지점의 1칸 범위의 적에게 데미지를 3 줍니다."
+flavorText: ""

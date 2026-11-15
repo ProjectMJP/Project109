@@ -1,0 +1,7 @@
+relicName: "체력 회복 물약"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "체력이 20% 밑으로 줄어들었을 때 최대 체력의 30%만큼 회복합니다."
+flavorText: ""

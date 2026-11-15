@@ -1,0 +1,6 @@
+effectName: "Fortitude"
+displayName: "강인함"
+description: "입은 피해를 {stacks}만큼 감소시킵니다."
+effectType: "Buff"
+isPermanent: true
+isIndependent: false

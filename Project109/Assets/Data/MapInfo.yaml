@@ -1,0 +1,11 @@
+# string이 아닌 int, float, bool형식은 !!int와 같이 변수의 타입을 강제 지정해주어야 문제가 안생김
+mapInfoCollection:
+  - mapName: Temple
+    dataPath: Map_Temple_Info
+    appearMonstersDataPath:
+      - Monster_testMonster_Data
+      - Monster_test1Monster_Data
+    appearObstaclesDataPath:
+      - Obstacle_Temple_Pillar_Data
+    appearTrapsDataPath:
+      - Trap_Temple_Spike_Data

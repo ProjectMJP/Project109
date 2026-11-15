@@ -1,0 +1,7 @@
+interactableID: Altar_Erase_Event_Data
+interactableName: 이상한 제단
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Altar_Erase_Event_Data
+rewardData: null

@@ -15,6 +15,24 @@ MonoBehaviour:
   m_GroupName: GameData
   m_GUID: f43c8a2f9323d8b4c8518938a52d05a4
   m_SerializeEntries:
+  - m_GUID: 03f77df051143b44e95fc0ed04602ded
+    m_Address: Card_FalseSwipe+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06ccea270c4e5ba4598eb596c7672fd1
+    m_Address: Card_ComboSlash+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 09678f7b0b9afa4439685612bbff50d5
+    m_Address: Card_Rumbling+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 09d2ce73f7d9921499ba581344c42e33
     m_Address: Card_Initiative
     m_ReadOnly: 0
@@ -23,6 +41,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0ef8c6514d163a24e9fb2c3ea73ea49e
     m_Address: Card_PommelStrike
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 103b91f850d9f644290a060e204cf8d9
+    m_Address: Card_SecretWeapon+
     m_ReadOnly: 0
     m_SerializedLabels:
     - Card
@@ -39,17 +63,11 @@ MonoBehaviour:
     m_SerializedLabels:
     - Card
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 25d87b6ebefbdd644bd05bdede16b3d6
-    m_Address: Card_Pummel
+  - m_GUID: 229cfc6d1a4aa1846b8d6bde490c58fc
+    m_Address: Card_Slash+
     m_ReadOnly: 0
     m_SerializedLabels:
     - Card
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 40b7f70c36cc09946976d86964dbff4f
-    m_Address: Map_Stage_1
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Map
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 50f8a85c19aa31742b0c74ac2544e469
     m_Address: Card_Rumbling
@@ -62,18 +80,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - Card
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 5433fbc4234279740b81058d4cda6116
-    m_Address: Battle_Test1_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Battle
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 559f8837e7bc74944a5f7e3c217ea722
-    m_Address: Battle_Test2_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Battle
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 68d016037e4c96740a156272cdc26328
     m_Address: Character_Warrior_01
@@ -93,6 +99,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Card
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7cf8b1d46ac6f244ebfa77b3798c9aa9
+    m_Address: Card_QuickSlash+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7d68c4cc1637f5d4db3d213a61964f18
     m_Address: Card_QuickSlash
     m_ReadOnly: 0
@@ -105,23 +117,11 @@ MonoBehaviour:
     m_SerializedLabels:
     - Card
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 90c740622f6c38b4cabeeaec307960a3
-    m_Address: Card_RisingStrike
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Card
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 99f73d0061050ae4ea5ec1d6fa6b4321
     m_Address: Card_ComboSlash
     m_ReadOnly: 0
     m_SerializedLabels:
     - Card
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9eced0be5e011884a9055fc755eaf2ef
-    m_Address: Battle_Test_Data
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Battle
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a0ccb3602a1b2e842be85a5c3c374e83
     m_Address: Card_FinishingBlow
@@ -129,8 +129,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - Card
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a34813b7e0f230d4fbf8a73d28fc3cb6
-    m_Address: Card_BattleRoar
+  - m_GUID: b39e30a4cb6a21947bc40c79ff1ebcd3
+    m_Address: Card_PommelStrike+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cf6b90681cc7f0043b48b55054d27fe4
+    m_Address: Card_FinishingBlow+
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Card
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f8cd08b8b7353e74390856509697cedb
+    m_Address: Card_SecretWeapon
     m_ReadOnly: 0
     m_SerializedLabels:
     - Card

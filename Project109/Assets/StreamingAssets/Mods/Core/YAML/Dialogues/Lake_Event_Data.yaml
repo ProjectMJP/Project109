@@ -1,0 +1,31 @@
+dialogueID: Lake_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 맑은 호수
+  lines:
+  - "눈앞에 방을 가득 채운 호수가 보입니다."
+  - "호수는 밝게 빛나고 있었으며, 들어가도 괜찮다고 느껴집니다."
+  choices:
+  - description: 호수에 몸을 담군다.
+    nextNodeID: END_LAKE_PROCESS
+    luaScript: LakeEvent_Bath
+  - description: 근처의 물건들을 줍는다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_LAKE_PROCESS
+  speakerName: 맑은 호수
+  lines:
+  - "빛이 나는 호수에 몸을 담구자, 청량한 감각이 몸을 스칩니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_PASS_PROCESS
+  speakerName: 맑은 호수
+  lines:
+  - "수상한 돌을 줍고 확인해보니 금화였습니다!\n 당신은 주변의 금화들을 줍고 빛나는 호수를 지나칩니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

@@ -1,0 +1,17 @@
+cardName: "자세 유지"
+classTypes:
+  - "TesterWarrior"
+cardType: "Skill"
+targetType: "Self"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Common"
+stamina: 25
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[cardtag.Preserve]\n방어도를 {shield} 얻습니다.\n턴이 종료되어도 패에서 버려지지 않고 보존됩니다."
+baseValues:
+  shield: 6
+

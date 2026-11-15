@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: BattleData
+  m_EditorClassIdentifier: 
+  m_GroupName: BattleData
+  m_GUID: 166cba5a1a6de724dacec4cd0531c5c3
+  m_SerializeEntries:
+  - m_GUID: 5433fbc4234279740b81058d4cda6116
+    m_Address: Battle_Test1_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Battle
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 559f8837e7bc74944a5f7e3c217ea722
+    m_Address: Battle_Test2_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Battle
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9eced0be5e011884a9055fc755eaf2ef
+    m_Address: Battle_Test_Data
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Battle
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 86d2cff910d3e874488c98681c66cc0e, type: 2}
+    - {fileID: 11400000, guid: f9923c1ed9b61ba428af88f671337ee4, type: 2}
