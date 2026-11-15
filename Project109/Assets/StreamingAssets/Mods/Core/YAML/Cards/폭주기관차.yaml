@@ -1,0 +1,16 @@
+cardName: "폭주기관차"
+classTypes:
+  - "TesterWarrior"
+cardType: "Skill"
+targetType: "Self"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Rare"
+stamina: 40
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "폭주기관차 상태에 돌입합니다.\n일반 이동력이 0으로 고정되며, 이번 턴 동안 공격 카드를 사용할 때마다 전방으로 1칸 돌진하며 맞닿은 적을 1칸 밀쳐냅니다."
+baseValues: {}
+

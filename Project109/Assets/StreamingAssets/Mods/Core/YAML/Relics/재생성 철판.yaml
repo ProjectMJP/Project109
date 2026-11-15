@@ -1,0 +1,7 @@
+relicName: "재생성 철판"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "매 턴마다 임시 방어막을 4 획득합니다."
+flavorText: ""

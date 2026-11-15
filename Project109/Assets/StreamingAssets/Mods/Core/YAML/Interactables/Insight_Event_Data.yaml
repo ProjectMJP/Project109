@@ -1,0 +1,7 @@
+interactableID: Insight_Event_Data
+interactableName: 기이한 현상
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels: 
+- 1
+targetDialogueID: Insight_Event_Data
+rewardData: null

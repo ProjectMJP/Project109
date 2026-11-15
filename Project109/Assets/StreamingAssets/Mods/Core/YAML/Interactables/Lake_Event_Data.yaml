@@ -1,0 +1,7 @@
+interactableID: Lake_Event_Data
+interactableName: 맑은 호수
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Lake_Event_Data
+rewardData: null

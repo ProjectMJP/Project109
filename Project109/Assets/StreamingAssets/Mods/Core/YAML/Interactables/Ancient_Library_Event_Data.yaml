@@ -1,0 +1,7 @@
+interactableID: Ancient_Library_Event_Data
+interactableName: 오래된 책장
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Ancient_Library_Event_Data
+rewardData: null

@@ -1,0 +1,7 @@
+interactableID: Suspicious_Door_Event_Data
+interactableName: 수상한 문
+modelPrefabPath: NPC_Event_Tombstone_Model
+eventAppearLevels:
+- 1
+targetDialogueID: Suspicious_Door_Event_Data
+rewardData: null

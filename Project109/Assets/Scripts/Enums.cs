@@ -1,5 +1,13 @@
 using UnityEngine;
 
+public enum LookDirection
+{
+    Up,
+    Down,
+    Left,
+    Right
+}
+
 namespace GameItem.Types
 {
     public enum CardRarity
@@ -18,45 +26,41 @@ namespace GameItem.Types
         Boss = 4
     }
 
-    public enum RewardItemType
-    {
-        Card,
-        Relic
-    }
-
-    public enum ItemRewardUIType
+    public enum RewardType
     {
         Gold,
         MemorySharp,
-        Card,
-        Relic
+        CardChoice,     // 카드 선택지 제공 (DropTable 참조)
+        Relic,          // 유물 획득 (DropTable 참조)
+        SpecificCard,   // 특정 카드 획득
+        SpecificRelic,  // 특정 유물 획득
+        Potion,         // 포션 획득
+        Heal,           // 체력 회복
+
+        // 가독성 및 UI/아이템 일원화를 위한 별칭
+        Card = CardChoice
     }
 
-    public enum RandomCardPickupType
+    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
+    public enum RewardItemType
     {
-        Common,
-        Uncommon,
-        Rare,
-        Unique,
-        CommonToUncommon,
-        RareToUnique
+        Card = RewardType.CardChoice,
+        Relic = RewardType.Relic
     }
 
-    public enum RandomRelicPickupType
+    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
+    public enum ItemRewardUIType
     {
-        Common,
-        Rare,
-        Unique,
-        CommonToUnique,
-        CommonToRare,
-        RareToUnique,
-        Boss
+        Gold = RewardType.Gold,
+        MemorySharp = RewardType.MemorySharp,
+        Card = RewardType.CardChoice,
+        Relic = RewardType.Relic
     }
 }
 
 namespace CardTypes
 {
-    public enum EffectType  //효과 타입
+    public enum CardType  //효과 타입
     {
         None,
         Damage,
@@ -68,32 +72,18 @@ namespace CardTypes
         Move
     }
 
-    public enum BuffType    //버프 타입
+    public enum TargetType  //공격 대상 및 타깃팅 방식 타입
     {
-        None,
-        Strength,       //힘
-        Armor,          //방어
-        Frenzy          //광분
-    }
-
-    public enum DebuffType    //디버프 타입
-    {
-        None,
-        Bleeding,       //출혈
-        Poison,         //독
-        DeadlyPoison,   //맹독
-        Debilitate,     //쇠약
-        Weaken,         //약화
-    }
-
-
-
-    public enum TargetType  //공격 대상 타입
-    {
-        Target,
-        Area,
-        Self,
-        All
+        Self,          // 시전자 자신 대상 즉시 발동
+        SingleEnemy,   // 사거리 내 단일 적 수동 지정
+        AreaSelf,      // 시전자 중심 즉시 광역 발동 (회전베기, 지진 등)
+        AreaGround,    // 사거리 내 바닥 타일 수동 지정 광역
+        RandomEnemy,   // 사거리 내 무작위 적 N명 자동 타격
+        MultiEnemy,    // 사거리 내 적 N명 순차 수동 지정
+        AllEnemies,    // 전장의 모든 적 즉시 타격
+        SingleAlly,    // 사거리 내 아군 1명 수동 지정 (미래 확장용)
+        AllAllies,     // 전장의 모든 아군 즉시 적용 (미래 확장용)
+        Directional    // 시전자가 바라보는 방향(facingDirection) 기준 즉시 발동 (허공 시전 허용)
     }
 
     public enum CardMasteryType
@@ -106,9 +96,14 @@ namespace CardTypes
         DrawCard,
         UpgradeCard
     }
+
+    public enum InteractableType
+    {
+        Normal,         // 일반 대화 및 이벤트 인터랙터블
+        Chest,          // 보상 상자
+        Shop,           // 상점 NPC
+        RestoreBonfire  // 휴식/회복 모닥불
+    }
 }
 
-public class Enums
-{
 
-}

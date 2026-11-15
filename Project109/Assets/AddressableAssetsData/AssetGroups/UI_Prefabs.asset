@@ -1,0 +1,257 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: UI_Prefabs
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: UI_Prefabs
+  m_GUID: fcb5d7755b26f5b42a31cf49048af440
+  m_SerializeEntries:
+  - m_GUID: 0472d6590f4b7624181a64d482f82793
+    m_Address: CharacterEffectListUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0d469a0903396c345903f5f398836881
+    m_Address: EffectAreaBackground
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 10d658feb5d4e2a4d81e106c15e2a848
+    m_Address: UpgradeCardDeckCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 11a681e781fbbf84da6c378e7b96f130
+    m_Address: RewardItem
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 12af776dc2faff342bf041f2fe115073
+    m_Address: RestoreNPCUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 164215c483e1d594e95ea84624e012ad
+    m_Address: UIBattleNotice
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 17a856207ddf552448609551f91e43af
+    m_Address: ExploreMap
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 185a531ac4a034b428cf0ec97deb143e
+    m_Address: RewardListCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1b1edb305e373b6459026d6efa81c0b9
+    m_Address: RewardCardListCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2607af12d43847438e779e256e80a159
+    m_Address: StarterKitShowcasePanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2710993ff82d4f047b68f319758af2e2
+    m_Address: CardDetailUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2a1fa658cb3bb634190ff8a59225e8d4
+    m_Address: MasteryUpgradeCheckDescription
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39a18a397335fd44da0eea7c1d25f5c0
+    m_Address: ShopNPCUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3b37fa218b6a6ff4bb76c6a10baebe8c
+    m_Address: CharacterStatusBarUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3d2c6c8547eabb248ad6a601b4f15dc3
+    m_Address: MasteryPointInfomationBox
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 44351af007a7b7343b8f1e2dd62655a4
+    m_Address: BattleUIPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4728af4ecc2a6a9458788ab9a49f1ad7
+    m_Address: Potion
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 50100ec96eec4cd41912472846028670
+    m_Address: MasteryUpgradeCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 510adb61b09f967488b306421c656785
+    m_Address: TooltipPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 56e319e4c4cb8714097c59293af8ae52
+    m_Address: CharacterEffectItemUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6a2d518132754fd191c88179273bd58e
+    m_Address: PauseMenuPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7bf842e38fdd34c45a527b95f26c8f4f
+    m_Address: ActionCard
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 910a7bf8eee14884aa7a3429f57c4bf6
+    m_Address: CardExtraDescription
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 940aac7744f86d64a92c6be7415c6bd9
+    m_Address: MasteryChoice
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9a3555da2307c024f802ea5de2627f7b
+    m_Address: RelicDescription
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a82ffe4c2d93b064d8573c35f3166c77
+    m_Address: CardRewardCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: adce66c79a8f630429861b26bbb25ac5
+    m_Address: ShopItemTrigger
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b65a7c25ceb324846bcf5b895b3da63d
+    m_Address: DialogueUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c2a60781ac1aa88438250bb61a874ecd
+    m_Address: EraseCardDeckCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cdb320f131a6d344baf34c9dfc4e5e80
+    m_Address: TopHUDPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d29586c2d5bc7a048a5262f2cd432c66
+    m_Address: Relic
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d9dbc46413b1d774f8363c14e432c236
+    m_Address: ExtraInfomationBox
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e2bab688e2215e846a60b45fa2829a4f
+    m_Address: RelicRewardCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e40f3083020b0404fa3a84e95b63fdff
+    m_Address: GameOverPanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f07b8796f2e064a46b67742010c141a3
+    m_Address: EventChoiceButton
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f625a2563f017844ba2df518296b1edd
+    m_Address: UIManager
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f880594dadcdb7d45b6d4c23c1f8aa72
+    m_Address: FadeCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f9c66f3290f371a46add545f87e447f9
+    m_Address: CardDeckCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa9bbb29f3360294fa1c2e4d054c35f0
+    m_Address: DamageIndicator
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 70956a60ae3f83846ad4e19473c8f931, type: 2}
+    - {fileID: 11400000, guid: dbcf502037a2f284bbb34135b08bb110, type: 2}

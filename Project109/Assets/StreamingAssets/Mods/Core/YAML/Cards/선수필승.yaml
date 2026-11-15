@@ -1,0 +1,41 @@
+cardName: "선수필승"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "AreaGround"
+targetMinDistance: 1
+targetMaxDistance: 2
+ignoreObstacles: true
+rarity: "Uncommon"
+stamina: 60
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[cardtag.Vanguard]\n피해를 {damage} 줍니다.\n선봉대 발동 시 {extraHits}번 추가로 공격합니다."
+baseValues:
+  extraHits: 1
+  damage: 8
+additionalEffectAreaList:
+  - areaType: "Cross"
+    distance: 1
+masteryUpgrades:
+  Initiative_ReadyStance:
+    readyDamage: 4
+  Initiative_ComboAttack:
+    combo: 1
+  Initiative_DamageAmp:
+    damage: 2
+  Initiative_Agility:
+    cost: -10
+masteryMaxUpgrades:
+  Initiative_Agility: 3
+  Initiative_ComboAttack: 1
+masteryNames:
+  Initiative_ReadyStance: "준비 자세"
+  Initiative_ComboAttack: "연격"
+  Initiative_DamageAmp: "피해 증폭"
+  Initiative_Agility: "가벼운 몸놀림"
+masteryTags:
+  Initiative_ComboAttack:
+    - "Vanguard"

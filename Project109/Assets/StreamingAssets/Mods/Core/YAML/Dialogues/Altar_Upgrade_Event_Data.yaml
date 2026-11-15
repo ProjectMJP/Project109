@@ -1,0 +1,31 @@
+dialogueID: Altar_Upgrade_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 이상한 제단
+  lines:
+  - "방에 수상해 보이는 제단을 발견했습니다."
+  choices:
+  - description: 다가가서 만져본다.
+    nextNodeID: END_TAKE_PROCESS
+    luaScript: AltarUpgrade_Touch
+  - description: 지나간다.
+    nextNodeID: END_PASS_PROCESS
+    luaScript: ""
+- nodeID: END_TAKE_PROCESS
+  speakerName: 이상한 제단
+  lines:
+  - "제단을 만지자 이상한 느낌이 들고 제단은 순식간에 무너졌습니다."
+  - "찜찜하지만 부셔진 제단은 두고 가던 길로 지나갑니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_PASS_PROCESS
+  speakerName: 이상한 제단
+  lines:
+  - "수상한 물건을 굳이 만질 필요는 없죠."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

@@ -1,0 +1,26 @@
+fileFormatVersion: 2
+guid: f9b5c200ab435ce82d8c36df7a00115e
+labels:
+  - RoslynAnalyzer
+  - SourceGenerator
+PluginImporter:
+  serializedVersion: 1
+  iconMap: {}
+  executionOrder: {}
+  isPreloaded: 0
+  isRoslynAnalyzer: 1
+  platformData:
+    Any:
+      enabled: 0
+      settings: {}
+    Editor:
+      enabled: 0
+      settings:
+        CPU: AnyCPU
+    Win64:
+      enabled: 0
+      settings:
+        CPU: AnyCPU
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,38 @@
+loadoutId: "iron_bastion_starter"
+displayName: "강철 보루"
+classType: "전투광"
+startGold: 80
+baseDrawCount: 4
+isDefaultUnlocked: false
+unlockShardCost: 50
+sortOrder: 3
+characterStat:
+  maxHealth: 130
+  maxStamina: 110
+  staminaRegenPerSecond: 35
+  moveRange: 2
+startCards:
+  - "방어"
+  - "방어"
+  - "방어"
+  - "방어"
+  - "방어"
+  - "검격"
+  - "검격"
+  - "회전베기"
+  - "돌진"
+startRelics: ["재생성 철판", "낡은 검"]
+startEffects: []
+loreEntries:
+  - title: "무기 스토리 1 : 꺾이지 않는 대방패"
+    description: "무거운 중갑과 견고한 방어 기동으로 적의 맹공을 받아낸 뒤 반격하는 수비형 무장입니다."
+    unlockConditionType: "None"
+    unlockConditionValue: ""
+    unlockHint: ""
+    isUnlockedByDefault: true
+  - title: "무기 스토리 2 : 최후의 성벽"
+    description: "무너진 요새를 홀로 지켜냈던 이름 없는 수호자의 문장이 방패 안쪽에 남아 있습니다."
+    unlockConditionType: "RunClear"
+    unlockConditionValue: "1"
+    unlockHint: "강철 보루로 런 클리어 시 해금"
+    isUnlockedByDefault: false

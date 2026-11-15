@@ -14,7 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: Default Local Group
   m_GUID: d95d70d3706113b459785feabe03a563
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: b19ba3d8a3d4dd047bd7743ba8561fe9
+    m_Address: Assets/Prefab/PlayerCharacterSample.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
   m_SchemaSet:

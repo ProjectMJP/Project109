@@ -1,0 +1,16 @@
+cardName: "퀵 슬래시+"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 30
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: true
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다."
+baseValues:
+  damage: 8

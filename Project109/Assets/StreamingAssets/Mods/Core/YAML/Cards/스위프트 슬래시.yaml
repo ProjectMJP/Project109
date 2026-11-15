@@ -1,0 +1,28 @@
+cardName: "스위프트 슬래시"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Uncommon"
+stamina: 40
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다.\n광분 버프 1개 당 피해량이 {frenzyBonus} 증가합니다."
+baseValues:
+  frenzyBonus: 2
+  damage: 6
+additionalEffectAreaList:
+  - areaType: "XShape"
+    distance: 1
+masteryUpgrades:
+  SwiftSlash_DamageAmp:
+    damage: 2
+  SwiftSlash_SkillTraining:
+    frenzyBonus: 3
+masteryNames:
+  SwiftSlash_DamageAmp: "피해 증폭"
+  SwiftSlash_SkillTraining: "기술 연마"

@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 1489415962883859485}
   - component: {fileID: 7291240822686954376}
   - component: {fileID: 526395006277427264}
-  - component: {fileID: 4072542879102040512}
   m_Layer: 5
   m_Name: CardExtraDescription
   m_TagString: Untagged
@@ -78,17 +77,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HorizontalFit: 0
   m_VerticalFit: 0
---- !u!114 &4072542879102040512
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8366558168353179712}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cf99b039494fca84487da65a315afb7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  extraDescriptionUI: {fileID: 4635436370369700347, guid: d9dbc46413b1d774f8363c14e432c236, type: 3}
-  MasteryPointDescriptionUI: {fileID: 8980763235772269890, guid: 3d2c6c8547eabb248ad6a601b4f15dc3, type: 3}

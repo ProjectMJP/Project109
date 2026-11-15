@@ -1,0 +1,36 @@
+cardName: "회전베기"
+classTypes:
+  - "Warrior"
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Area"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Uncommon"
+stamina: 40
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[cardtag.Finale]\n피해를 {damage} 줍니다."
+baseValues:
+  damage: 6
+additionalEffectAreaList:
+  - areaType: "CircleFill"
+    distance: 2
+masteryUpgrades:
+  SpinningSlash_DamageAmp:
+    damage: 2
+  SpinningSlash_LightMovement:
+    cost: -10
+  SpinningSlash_CentrifugalForce:
+    centrifugalBonus: 3
+masteryMaxUpgrades:
+  SpinningSlash_LightMovement: 1
+masteryNames:
+  SpinningSlash_DamageAmp: "피해 증폭"
+  SpinningSlash_LightMovement: "가벼운 몸놀림"
+  SpinningSlash_CentrifugalForce: "원심력"
+masteryTags:
+  SpinningSlash_DamageAmp:
+    - "Finale"

@@ -75,3 +75,30 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
+
+# Ignore all dot-directories (e.g. .Docs, .vscode, .agents)
+.*/
+
+
+
+
+# EventBinderGenerator build folders
+EventBinderGenerator/bin/
+EventBinderGenerator/obj/
+
+# XLua Generated Code
+Project109/Assets/XLua/Gen/
+Project109/Assets/XLua/Gen.meta
+
+# Backup files
+BackupFile/
+
+
+# Local AI Workflow Guide
+AI_WORKFLOW_GUIDE.md
+
+# Local Screenshots, Unity Asset Recovery, and Obsidian Notes
+Project109/Screenshots/
+Project109/Assets/_Recovery/
+Project109/Assets/_Recovery.meta
+obsidian/

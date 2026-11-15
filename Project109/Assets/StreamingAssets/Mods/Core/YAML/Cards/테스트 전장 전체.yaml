@@ -1,0 +1,19 @@
+cardName: "테스트 전장 전체"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "AreaSelf"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n전장 전체(WholeMap)에 {damage}의 피해를 줍니다.\n(허공 시전·맵 전체 AoE)"
+baseValues:
+  damage: 5
+additionalEffectAreaList:
+  - areaType: "WholeMap"
+    distance: 0

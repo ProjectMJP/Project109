@@ -1,0 +1,235 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+public class MapMoveRangeIndicator : MonoBehaviour
+{
+    public Renderer tileRenderer;
+    private Texture2D texture;
+    
+    private int gridColumns;
+    private int gridRows;
+
+    public void Initialize(int columns, int rows, float cellSize, Vector3 gridOffset, List<List<Tile>> tileMap)
+    {
+        gridColumns = columns;
+        gridRows = rows;
+
+        // 1. dynamic Texture2D 생성
+        texture = new Texture2D(gridColumns, gridRows);
+        texture.filterMode = FilterMode.Point;
+        texture.wrapMode = TextureWrapMode.Clamp;
+
+        if (tileRenderer != null && tileRenderer.material != null)
+        {
+            tileRenderer.material.SetTexture("_MaskTex", texture);
+            tileRenderer.material.SetFloat("_GridColumns", gridColumns);
+            tileRenderer.material.SetFloat("_GridRows", gridRows);
+        }
+
+        // 2. 오버레이 평면 스케일 및 위치 정렬
+        transform.localScale = new Vector3(gridColumns * cellSize, gridRows * cellSize, 1f);
+        float centerX = gridOffset.x + (gridColumns - 1) * cellSize / 2.0f;
+        float centerZ = gridOffset.z + (gridRows - 1) * cellSize / 2.0f;
+        
+        transform.localPosition = new Vector3(centerX, gridOffset.y + 0.02f, centerZ);
+        transform.localRotation = Quaternion.Euler(90, 0, 0);
+
+        // 3. 전체 타일의 이동 가능 여부(B채널)를 칠하여 기본 바닥 렌더링
+        RefreshBaseMap(tileMap);
+    }
+
+    public void RefreshBaseMap(List<List<Tile>> tileMap)
+    {
+        if (texture == null) return;
+
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Tile tile = tileMap[col][row];
+                // 갈 수 없는 장애물/빈공간(Full, Obstacle)은 B채널 = 0 (투명), 이동 가능 타일은 1 (기본 텍스처 표시)
+                float baseMaskVal = (tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+        texture.Apply();
+    }
+
+    public void ShowWalkableTiles(List<Tile> walkableTiles, List<List<Tile>> tileMap, bool useTargetStyle = true)
+    {
+        if (texture == null || tileMap == null) return;
+
+        // R, G 하이라이트 리셋 및 B 채널 유지
+        for (int col = 0; col < gridColumns; col++)
+        {
+            if (col >= tileMap.Count || tileMap[col] == null) continue;
+            for (int row = 0; row < gridRows; row++)
+            {
+                if (row >= tileMap[col].Count) continue;
+                Tile tile = tileMap[col][row];
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                // 기존의 R, G 상태를 제거한 상태로 리셋
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+
+        // 이동 범위 타일 R채널 설정
+        if (walkableTiles != null)
+        foreach (var tile in walkableTiles)
+        {
+            if (tile == null || tile.tileState == TileState.Full || tile.tileState == TileState.Obstacle)
+                continue;
+
+            int col = tile.GetCoord().x;
+            int row = tile.GetCoord().y;
+
+            if (col >= 0 && col < gridColumns && row >= 0 && row < gridRows)
+            {
+                Color current = texture.GetPixel(col, row);
+                // B채널 유지하며 R채널 활성화
+                texture.SetPixel(col, row, new Color(1f, 0f, current.b, 0f));
+            }
+        }
+
+        texture.Apply();
+    }
+
+    public void SetCharacterSelectedTile(Tile selectedTile, List<List<Tile>> tileMap)
+    {
+        if (texture == null) return;
+
+        // 모든 칸에서 캐릭터 선택 채널(G)만 리셋
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Color current = texture.GetPixel(col, row);
+                texture.SetPixel(col, row, new Color(current.r, 0f, current.b, 0f));
+            }
+        }
+
+        // 특정 타일 선택 시 G채널 활성화
+        if (selectedTile != null)
+        {
+            int col = selectedTile.GetCoord().x;
+            int row = selectedTile.GetCoord().y;
+
+            if (col >= 0 && col < gridColumns && row >= 0 && row < gridRows)
+            {
+                Color current = texture.GetPixel(col, row);
+                texture.SetPixel(col, row, new Color(current.r, 1f, current.b, 0f));
+            }
+        }
+
+        texture.Apply();
+    }
+
+    public void ClearAllTiles(List<List<Tile>> tileMap)
+    {
+        if (texture == null) return;
+        RefreshBaseMap(tileMap);
+    }
+
+    /// <summary>
+    /// 카드 시전 가능 사거리 타일들을 R 채널로 하이라이트합니다 (G 채널 초기화, B 채널 유지).
+    /// </summary>
+    public void ShowCardRangeTiles(List<Vector2Int> rangeCoords, List<List<Tile>> tileMap)
+    {
+        if (texture == null || tileMap == null) return;
+
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        // 1. R, G 하이라이트 리셋 및 B 채널 유지
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Tile tile = tileMap[col][row];
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+
+        // 2. 사거리 좌표 R 채널 설정
+        if (rangeCoords != null)
+        {
+            for (int i = 0; i < rangeCoords.Count; i++)
+            {
+                Vector2Int coord = rangeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    texture.SetPixel(coord.x, coord.y, new Color(1f, 0f, current.b, 0f));
+                }
+            }
+        }
+
+        texture.Apply();
+    }
+
+    /// <summary>
+    /// 카드 사거리(R 채널)를 유지하면서, 마우스가 위치한 타일 중심의 추가 효과 범위(AoE)를 G 채널로 하이라이트합니다.
+    /// </summary>
+    public void ShowCardAoETiles(List<Vector2Int> rangeCoords, List<Vector2Int> aoeCoords, List<List<Tile>> tileMap)
+    {
+        if (texture == null || tileMap == null) return;
+
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        // 1. 전체 리셋 후 B 채널 유지
+        for (int col = 0; col < gridColumns; col++)
+        {
+            for (int row = 0; row < gridRows; row++)
+            {
+                Tile tile = tileMap[col][row];
+                float baseMaskVal = (tile != null && tile.tileState != TileState.Full && tile.tileState != TileState.Obstacle) ? 1f : 0f;
+                texture.SetPixel(col, row, new Color(0f, 0f, baseMaskVal, 0f));
+            }
+        }
+
+        // 2. 사거리 좌표 R 채널 활성화
+        if (rangeCoords != null)
+        {
+            for (int i = 0; i < rangeCoords.Count; i++)
+            {
+                Vector2Int coord = rangeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    texture.SetPixel(coord.x, coord.y, new Color(1f, 0f, current.b, 0f));
+                }
+            }
+        }
+
+        // 3. AoE 폭발 범위 좌표 G 채널 활성화
+        if (aoeCoords != null)
+        {
+            for (int i = 0; i < aoeCoords.Count; i++)
+            {
+                Vector2Int coord = aoeCoords[i];
+                if (coord.x >= 0 && coord.x < gridColumns && coord.y >= 0 && coord.y < gridRows)
+                {
+                    Color current = texture.GetPixel(coord.x, coord.y);
+                    // R 채널 유지하면서 G 채널 1.0f 적용 (사거리와 겹치는 폭발 지점은 R=1, G=1로 혼합됨)
+                    texture.SetPixel(coord.x, coord.y, new Color(current.r, 1f, current.b, 0f));
+                }
+            }
+        }
+
+        texture.Apply();
+    }
+
+    /// <summary>
+    /// 카드 사거리 및 효과 범위 하이라이트를 제거하고 기본 바닥 상태로 복원합니다.
+    /// </summary>
+    public void ClearCardRange(List<List<Tile>> tileMap)
+    {
+        ClearAllTiles(tileMap);
+    }
+}

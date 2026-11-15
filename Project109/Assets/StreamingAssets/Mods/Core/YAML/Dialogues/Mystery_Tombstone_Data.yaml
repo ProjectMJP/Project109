@@ -1,0 +1,31 @@
+dialogueID: Mystery_Tombstone_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 의문의 비석
+  lines:
+  - "수상하게 생긴 비석이 눈앞에 보입니다..."
+  choices:
+  - description: 주변을 살펴본다
+    nextNodeID: END_GETMONEY
+    luaScript: MysteryTombstone_LookAround
+  - description: 기도한다
+    nextNodeID: END_GETCARD
+    luaScript: MysteryTombstone_Pray
+- nodeID: END_GETMONEY
+  speakerName: 의문의 비석
+  lines:
+  - "수상한 비석을 무시한 채 주변의 반짝이는 것들을 주워서 지나갔습니다..."
+  choices:
+  - description: 확인
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_GETCARD
+  speakerName: 의문의 비석
+  lines:
+  - "수상한 비석에 돈을 던진 후 기도하였습니다."
+  - "그러자 비석은 만족한듯이 카드를 한장 보여줍니다."
+  choices:
+  - description: 확인
+    nextNodeID: ""
+    luaScript: ""

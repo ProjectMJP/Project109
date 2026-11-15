@@ -1,0 +1,42 @@
+dialogueID: Event_Test_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: ???
+  lines:
+  - "이벤트 테스트 진행중"
+  choices:
+  - description: 돈 획득
+    nextNodeID: END_TEST
+    luaScript: EventTest_GetMoney
+  - description: 재화를 사용하여 카드 획득
+    nextNodeID: END_TEST
+    luaScript: EventTest_GetCardWithGold
+  - description: 랜덤한 카드를 소모하여 골드 획득
+    nextNodeID: END_TEST
+    luaScript: EventTest_LoseCardGetGold
+  - description: 랜덤한 유물를 소모하여 골드 획득
+    nextNodeID: END_TEST
+    luaScript: EventTest_LoseRelicGetGold
+  - description: 전투 진행
+    nextNodeID: BATTLE
+    luaScript: ""
+  - description: 무시한다
+    nextNodeID: END_TEST
+    luaScript: ""
+- nodeID: END_TEST
+  speakerName: ???
+  lines:
+  - "선택지 선택 완료. 테스트 종료"
+  choices:
+  - description: 진행한다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: BATTLE
+  speakerName: ???
+  lines:
+  - "특정 전투를 진행합니다."
+  choices:
+  - description: 전투 시작!
+    nextNodeID: ""
+    luaScript: EventTest_Battle

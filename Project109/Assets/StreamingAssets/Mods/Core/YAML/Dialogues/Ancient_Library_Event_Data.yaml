@@ -1,0 +1,44 @@
+dialogueID: Ancient_Library_Event_Data
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 오래된 책장
+  lines:
+  - "길을 가던 중 오래된 수많은 책과 종이가 가득한 책장들이 가득한 곳을 발견했습니다.\n 안은 생각보다 아늑했으며, 다양한 지식들이 가득한 책과 종이들이 가득했습니다.\n 신기하게도 사람의 흔적은 보이지 않습니다."
+  choices:
+  - description: 여러 정보들을 수집한다.
+    nextNodeID: END_TAKE_INFOMATION_PROCESS
+    luaScript: AncientLibrary_Collect
+  - description: 휴식한다
+    nextNodeID: END_REST_PROCESS
+    luaScript: AncientLibrary_Rest
+  - description: 찻장을 살펴본다
+    nextNodeID: END_FIND_POTION_PROCESS
+    luaScript: AncientLibrary_Potion
+- nodeID: END_TAKE_INFOMATION_PROCESS
+  speakerName: 오래된 책장
+  lines:
+  - "당신은 던전, 기억, 전투, 생활 등 다양한 정보들의 집합체가 이곳에 있다는 것이 신기합니다."
+  - "던전 안의 신비한 정보들은 어디서 남겨둔 것일까요?"
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_REST_PROCESS
+  speakerName: 오래된 책장
+  lines:
+  - "정보에는 관심이 없는 당신은 편한 곳에 몸을 두고 휴식합니다."
+  - "시간이 흐른 후 가벼운 발걸음으로 이곳을 떠납니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: END_FIND_POTION_PROCESS
+  speakerName: 오래된 책장
+  lines:
+  - "다른 곳에 관심이 생긴 당신은 구석진 곳의 찻장을 뒤져봅니다."
+  - "특별히 사용 가능한 포션들이 눈에 보인 당신은 가방에 넣고 이곳을 떠납니다..."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

@@ -14,13 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: Cards
   m_GUID: f2211c72e4dca57498ceed44a02f4890
-  m_SerializeEntries:
-  - m_GUID: 4bb94b99c4e49bd4bbf7dac3a87e57ff
-    m_Address: Card_test_texture
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Texture
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
   m_SchemaSet:

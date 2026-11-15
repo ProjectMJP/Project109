@@ -11,6 +11,7 @@ public class MapPainterEditor : EditorWindow
 {
     private MapDataSO targetMapData;    //현재 수정 중인 맵 데이터
     private bool isEditing = false; //편집 모드 활성화 여부
+    private bool showGridLines = true; //편집 중 그리드 선 시각화 여부
 
     // 레이어 시스템 추가
     public enum EditLayer { Terrain, Object, Event }
@@ -95,11 +96,7 @@ public class MapPainterEditor : EditorWindow
         // 2. 새 오브젝트 생성 및 추적 딕셔너리에 등록
         if (prefab != null)
         {
-            Vector3 pos = new Vector3(
-                cell.position.x * targetMapData.cellSize + targetMapData.gridOffset.x,
-                targetMapData.gridOffset.y,
-                cell.position.y * targetMapData.cellSize + targetMapData.gridOffset.z
-            );
+            Vector3 pos = targetMapData.CellToWorld(cell.position);
 
             GameObject spawned = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             spawned.transform.position = pos;
@@ -273,6 +270,7 @@ public class MapPainterEditor : EditorWindow
         GUILayout.Label("2. 그리드 설정", EditorStyles.boldLabel);
         targetMapData.cellSize = EditorGUILayout.FloatField("셀 크기(Size)", targetMapData.cellSize);
         targetMapData.gridOffset = EditorGUILayout.Vector3Field("그리드 오프셋(Offset)", targetMapData.gridOffset);
+        showGridLines = EditorGUILayout.Toggle("그리드 선 표시(Grid)", showGridLines);
 
         GUILayout.Space(15);
         GUILayout.Label("3. 레이어 선택", EditorStyles.boldLabel);
@@ -359,6 +357,7 @@ public class MapPainterEditor : EditorWindow
     {
         if (!isEditing || targetMapData == null) return;
 
+        DrawGridLines();
         DrawEventLayerHandles();
 
         // 마우스 입력 처리 (레이캐스트)
@@ -371,15 +370,12 @@ public class MapPainterEditor : EditorWindow
             Vector3 hitPoint = ray.GetPoint(enter);
 
             // 셀 크기와 오프셋을 반영하여 마우스 좌표를 인덱스로 변환
-            int gridX = Mathf.FloorToInt((hitPoint.x - targetMapData.gridOffset.x) / targetMapData.cellSize + 0.5f);
-            int gridY = Mathf.FloorToInt((hitPoint.z - targetMapData.gridOffset.z) / targetMapData.cellSize + 0.5f);
+            Vector2Int gridCoord = targetMapData.WorldToCell(hitPoint);
+            int gridX = gridCoord.x;
+            int gridY = gridCoord.y;
 
             // 하이라이트 박스 크기 cellSize에 맞게 조절
-            Vector3 snappedPos = new Vector3(
-                gridX * targetMapData.cellSize + targetMapData.gridOffset.x,
-                targetMapData.gridOffset.y,
-                gridY * targetMapData.cellSize + targetMapData.gridOffset.z
-            );
+            Vector3 snappedPos = targetMapData.CellToWorld(gridCoord);
 
             // 마우스 커서 위치에 하이라이트 박스 그리기
             Handles.color = new Color(1, 1, 0, 0.5f); // 반투명 노란색
@@ -442,11 +438,7 @@ public class MapPainterEditor : EditorWindow
         {
             if (cell.eventID != "Empty")
             {
-                Vector3 pos = new Vector3(
-                    cell.position.x * targetMapData.cellSize + targetMapData.gridOffset.x,
-                    targetMapData.gridOffset.y,
-                    cell.position.y * targetMapData.cellSize + targetMapData.gridOffset.z
-                );
+                Vector3 pos = targetMapData.CellToWorld(cell.position);
 
                 // 프리팹 위에 둥둥 떠 있도록 높이(Y)를 1.5만큼 올려줍니다.
                 Vector3 floatingPos = pos + Vector3.up * (targetMapData.cellSize * 1.5f);
@@ -459,12 +451,54 @@ public class MapPainterEditor : EditorWindow
         }
     }
 
-    public class RootPaletteData
+    /// <summary>
+    /// 편집 모드 시 전체 맵의 너비와 높이, 셀 크기 및 오프셋을 반영한 격자선(그리드)을 렌더링합니다.
+    /// </summary>
+    private void DrawGridLines()
     {
-        public List<PaletteEntry> paletteCollection { get; set; }
+        if (!showGridLines || targetMapData == null) return;
+        if (targetMapData.width <= 0 || targetMapData.height <= 0 || targetMapData.cellSize <= 0) return;
+
+        float cellSize = targetMapData.cellSize;
+        Vector3 offset = targetMapData.gridOffset;
+        float y = offset.y + 0.01f; // 바닥 메쉬와 겹쳐 깜빡이는(Z-fighting) 현상 방지
+
+        float minX = -0.5f * cellSize + offset.x;
+        float maxX = (targetMapData.width - 0.5f) * cellSize + offset.x;
+        float minZ = -0.5f * cellSize + offset.z;
+        float maxZ = (targetMapData.height - 0.5f) * cellSize + offset.z;
+
+        // 1. 내부 격자선 렌더링 (반투명 밝은 회색)
+        Handles.color = new Color(0.9f, 0.9f, 0.9f, 0.35f);
+
+        // 가로선 (Z축 기준, X축으로 뻗는 선들)
+        for (int yIdx = 1; yIdx < targetMapData.height; yIdx++)
+        {
+            float z = (yIdx - 0.5f) * cellSize + offset.z;
+            Handles.DrawLine(new Vector3(minX, y, z), new Vector3(maxX, y, z));
+        }
+
+        // 세로선 (X축 기준, Z축으로 뻗는 선들)
+        for (int xIdx = 1; xIdx < targetMapData.width; xIdx++)
+        {
+            float x = (xIdx - 0.5f) * cellSize + offset.x;
+            Handles.DrawLine(new Vector3(x, y, minZ), new Vector3(x, y, maxZ));
+        }
+
+        // 2. 외곽 경계선 렌더링 (시인성 높은 밝은 청록색)
+        Handles.color = new Color(0.2f, 0.9f, 1.0f, 0.85f);
+        Handles.DrawLine(new Vector3(minX, y, minZ), new Vector3(maxX, y, minZ));
+        Handles.DrawLine(new Vector3(minX, y, maxZ), new Vector3(maxX, y, maxZ));
+        Handles.DrawLine(new Vector3(minX, y, minZ), new Vector3(minX, y, maxZ));
+        Handles.DrawLine(new Vector3(maxX, y, minZ), new Vector3(maxX, y, maxZ));
     }
 
-    public class PaletteEntry
+    public class RootPaletteData
+    {
+        public List<PaletteData> paletteCollection { get; set; }
+    }
+
+    public class PaletteData
     {
         public List<string> terrainIDs { get; set; }
         public List<string> objectIDs { get; set; }

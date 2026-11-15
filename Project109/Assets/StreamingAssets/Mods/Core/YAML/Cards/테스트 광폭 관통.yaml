@@ -1,0 +1,22 @@
+cardName: "테스트 광폭 관통"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 4
+isPiercing: true
+ignoreObstacles: false
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n보는 방향 직선 4칸·폭 3칸(관통)에 {damage}의 피해를 줍니다."
+baseValues:
+  damage: 5
+additionalEffectAreaList:
+  - areaType: "DirectionalLine"
+    distance: 4
+    width: 3

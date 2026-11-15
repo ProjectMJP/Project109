@@ -13,37 +13,22 @@ eventCollection:
         choices:
           - description: 주변을 살펴본다
             nextStageID: END_GETMONEY
-            useItems:
-            getItems:
-              - itemType: Gold
-                value: !!int 50
-                name:
+            luaScript: MysteryTombstone_LookAround
           - description: 기도한다
             nextStageID: END_GETCARD
-            useItems:
-              - itemType: Gold
-                value: !!int 50
-                name:
-            getItems:
-              - itemType: SpecificCard
-                value: 1
-                name: 슬래시
+            luaScript: MysteryTombstone_Pray
 
       - stageID: "END_GETMONEY"
         stageDescription: 수상한 비석을 무시한 채 주변의 반짝이는 것들을 주워서 지나갔습니다...
         choices:
           - description: 확인
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_GETCARD"
         stageDescription: "수상한 비석에 돈을 던진 후 기도하였습니다.\n그러자 비석은 만족한듯이 카드를 한장 보여줍니다."
         choices:
           - description: 확인
             nextStageID: null
-            useItems:
-            getItems:
 
   
   - eventID: Event_Test_Data
@@ -58,71 +43,34 @@ eventCollection:
       choices:
         - description: 돈 획득
           nextStageID: END_TEST
-          useItems:
-          getItems:
-            - itemType: Gold
-              value: !!int 50
-              name:
+          luaScript: EventTest_GetMoney
         - description: 재화를 사용하여 카드 획득
           nextStageID: END_TEST
-          useItems:
-            - itemType: Gold
-              value: !!int 50
-              name:
-          getItems:
-            - itemType: SpecificCard
-              value: 1
-              name: 슬래시
+          luaScript: EventTest_GetCardWithGold
         - description: 랜덤한 카드를 소모하여 골드 획득
           nextStageID: END_TEST
-          useItems:
-            - itemType: RandomCard
-              value: 1
-              name:
-          getItems:
-            - itemType: Gold
-              value: !!int 100
-              name:
+          luaScript: EventTest_LoseCardGetGold
         - description: 랜덤한 유물를 소모하여 골드 획득
           nextStageID: END_TEST
-          useItems:
-            - itemType: RandomRelic
-              value: 1
-              name:
-          getItems:
-            - itemType: Gold
-              value: !!int 100
-              name:
+          luaScript: EventTest_LoseRelicGetGold
         - description: 전투 진행
           nextStageID: BATTLE
-          useItems:
-          getItems:
-            - itemType: Battle
-              value: 
-              name: 
+          luaScript: EventTest_Battle
         - description: 무시한다
           nextStageID: END_TEST
-          useItems:
-          getItems:
 
     - stageID: "END_TEST"
       stageDescription: 선택지 선택 완료. 테스트 종료
       choices:
         - description: 진행한다.
           nextStageID: null
-          useItems:
-          getItems:
 
     - stageID: "BATTLE"
       stageDescription: 특정 전투를 진행합니다.
       choices:
         - description: 전투 시작!
           nextStageID: null
-          useItems:
-          getItems:
-          - itemType: Battle
-            value: 1
-            name: Battle_Test_Data
+          luaScript: EventTest_Battle
 
   - eventID: Insight_Event_Data
     eventAppearLevel: !!int 4
@@ -138,18 +86,9 @@ eventCollection:
         choices:
           - description: 받아드린다.
             nextStageID: END_PROCESS
-            useItems:
-            - itemType: Gold
-              value: !!int 100
-              name:
-            getItems:
-            - itemType: Event
-              value:
-              name: OpenAllExploreNodes
+            luaScript: InsightEvent_Accept
           - description: 무시한다.
             nextStageID: null
-            useItems:
-            getItems:
 
       - stageID: "END_PROCESS"
         stageDescription: "신단이 점점 빛으로 둘러싸이더니 자신의 소지품으로 빛이 들어옵니다.\n
@@ -157,8 +96,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Lake_Event_Data
     eventAppearLevel: !!int 1
@@ -173,23 +110,15 @@ eventCollection:
         choices:
           - description: 호수에 몸을 담군다.
             nextStageID: END_LAKE_PROCESS
-            useItems:
-            getItems:
-            - itemType: EraseCard
-              value: !!int 1
-              name:
+            luaScript: LakeEvent_Bath
           - description: 근처의 물건들을 줍는다.
             nextStageID: null
-            useItems:
-            getItems:
 
       - stageID: "END_LAKE_PROCESS"
         stageDescription: "빛이 나는 호수에 몸을 담구자, 청량한 감각이 몸을 스칩니다."
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_PASS_PROCESS"
         stageDescription: "수상한 돌을 줍고 확인해보니 금화였습니다!\n
@@ -197,8 +126,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Suspicious_Door_Event_Data
     eventAppearLevel: !!int 1
@@ -214,21 +141,10 @@ eventCollection:
         choices:
           - description: 약한 빛이 나는 문으로 간다.
             nextStageID: END_LESS_LIGHT_PROCESS
-            useItems:
-            getItems:
-            - itemType: UpgradeCard
-              value: !!int 1
-              name:
+            luaScript: SuspiciousDoor_Light
           - description: 검은색 연기가 흐르는 문으로 간다.
             nextStageID: END_DARK_SMOKE_PROCESS
-            useItems:
-            - itemType: MaxHp
-              value: !!int 7
-              name:
-            getItems:
-            - itemType: RandomRelic
-              value: !!int 1
-              name:
+            luaScript: SuspiciousDoor_Dark
 
       - stageID: "END_LESS_LIGHT_PROCESS"
         stageDescription: "약한 빛이 나오는 문을 열고 들어가자, 빛이 당신의 몸을 감싸기 시작했습니다.\n
@@ -237,8 +153,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_DARK_SMOKE_PROCESS"
         stageDescription: "문을 열자, 어두운 연기가 당신의 몸을 감싸기 시작했으며 그 연기는 생각보다 고통스러웠습니다...\n
@@ -247,8 +161,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Ancient_Library_Event_Data
     eventAppearLevel: !!int 1
@@ -264,25 +176,13 @@ eventCollection:
         choices:
           - description: 여러 정보들을 수집한다.
             nextStageID: END_TAKE_INFOMATION_PROCESS
-            useItems:
-            getItems:
-            - itemType: CardReward
-              value: !!int 2
-              name:
+            luaScript: AncientLibrary_Collect
           - description: 휴식한다
             nextStageID: END_REST_PROCESS
-            useItems:
-            getItems:
-            - itemType: Hp
-              value: !!int 25
-              name:
+            luaScript: AncientLibrary_Rest
           - description: 찻장을 살펴본다
             nextStageID: END_FIND_POTION_PROCESS
-            useItems:
-            getItems:
-            - itemType: RandomPotion
-              value: !!int 2
-              name:
+            luaScript: AncientLibrary_Potion
 
       - stageID: "END_TAKE_INFOMATION_PROCESS"
         stageDescription: "당신은 던전, 기억, 전투, 생활 등 다양한 정보들의 집합체가 이곳에 있다는 것이 신기합니다.\n
@@ -290,8 +190,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_REST_PROCESS"
         stageDescription: "정보에는 관심이 없는 당신은 편한 곳에 몸을 두고 휴식합니다...\n
@@ -299,8 +197,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
       - stageID: "END_FIND_POTION_PROCESS"
         stageDescription: "다른 곳에 관심이 생긴 당신은 구석진 곳의 찻장을 뒤져봅니다.\n
@@ -308,8 +204,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Altar_Upgrade_Event_Data
     eventAppearLevel: !!int 1
@@ -323,15 +217,9 @@ eventCollection:
         choices:
           - description: 다가가서 만져본다.
             nextStageID: END_TAKE_PROCESS
-            useItems:
-            getItems:
-            - itemType: UpgradeCard
-              value: !!int 1
-              name:
+            luaScript: AltarUpgrade_Touch
           - description: 지나간다.
             nextStageID: END_PASS_PROCESS
-            useItems:
-            getItems:
 
       - stageID: "END_TAKE_PROCESS"
         stageDescription: "제단을 만지자 이상한 느낌이 들고 제단은 순식간에 무너졌습니다.\n
@@ -339,16 +227,12 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_PASS_PROCESS"
         stageDescription: "수상한 물건을 굳이 만질 필요는 없죠."
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Altar_Erase_Event_Data
     eventAppearLevel: !!int 1
@@ -362,15 +246,9 @@ eventCollection:
         choices:
           - description: 다가가서 만져본다.
             nextStageID: END_TAKE_PROCESS
-            useItems:
-            getItems:
-            - itemType: EraseCard
-              value: !!int 1
-              name:
+            luaScript: AltarErase_Touch
           - description: 지나간다.
             nextStageID: END_PASS_PROCESS
-            useItems:
-            getItems:
 
       - stageID: "END_TAKE_PROCESS"
         stageDescription: "제단을 만지자 이상한 느낌이 들고 제단은 순식간에 무너졌습니다.\n
@@ -378,16 +256,12 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_PASS_PROCESS"
         stageDescription: "수상한 물건을 굳이 만질 필요는 없죠."
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
 
   - eventID: Altar_Gold_Event_Data
     eventAppearLevel: !!int 1
@@ -402,21 +276,10 @@ eventCollection:
         choices:
           - description: 황금을 들고간다.
             nextStageID: END_TAKE_GOLD_PROCESS
-            useItems:
-            getItems:
-            - itemType: Gold
-              value: !!int 300
-              name:
-            - itemType: SpecificCard
-              value: !!int 1
-              name: "욕심"
+            luaScript: AltarGold_TakeGold
           - description: 바닥의 금화들을 줍는다.
             nextStageID: END_PICKUP_GOLD_PROCESS
-            useItems:
-            getItems:
-            - itemType: Gold
-              value: !!int 75
-              name:
+            luaScript: AltarGold_PickUpGold
 
       - stageID: "END_TAKE_GOLD_PROCESS"
         stageDescription: "제단 위의 황금을 들어올리자, 제단에서 보라색의 연기가 빠르게 퍼져나갑니다.\n
@@ -425,8 +288,6 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:
       
       - stageID: "END_PICKUP_GOLD_PROCESS"
         stageDescription: "함정같은 물건을 손쉽게 만지지 않는 것이 좋아보입니다.\n
@@ -434,5 +295,3 @@ eventCollection:
         choices:
           - description: 지나간다.
             nextStageID: null
-            useItems:
-            getItems:

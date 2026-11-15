@@ -1,0 +1,22 @@
+cardName: "테스트 전방 부채꼴"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 2
+rarity: "Common"
+stamina: 0
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "[임시 테스트]\n보는 방향 전방 부채꼴 패턴(4방향 회전)에 {damage}의 피해를 줍니다."
+baseValues:
+  damage: 5
+additionalEffectAreaList:
+  - areaType: "Pattern"
+    pattern:
+      - "XXX"
+      - ".X."
+      - ".C."

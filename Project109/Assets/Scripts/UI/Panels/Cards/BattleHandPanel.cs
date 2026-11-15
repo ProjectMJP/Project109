@@ -1,0 +1,927 @@
+using LitMotion;
+using LitMotion.Extensions;
+using System;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class BattleHandPanel : UIPanelBase
+{
+    [Header("Layout Settings")]
+    public Transform contentTransform;
+    public float maxPanelWidth = 900f;
+    public float defaultCardSpacing = 160f;
+
+    [Header("Animation Settings")]
+    [SerializeField] private float drawDuration = 0.28f;
+    [SerializeField] private float drawStaggerInterval = 0.05f;
+    [SerializeField] private float drawStartScale = 0.2f;
+    [SerializeField] private float drawStartRotationZ = 15f;
+    [SerializeField] private float layoutDuration = 0.2f;
+    [SerializeField] private float discardDuration = 0.22f;
+    [SerializeField] private float discardStaggerInterval = 0.03f;
+    [SerializeField] private float maxDiscardStagger = 0.15f;
+    [SerializeField] private float discardEndScale = 0.2f;
+    [SerializeField] private float discardEndRotationZ = -15f;
+    [SerializeField] private Vector2 fallbackDrawOffset = new Vector2(-450f, -120f);
+    [SerializeField] private Vector2 fallbackDiscardOffset = new Vector2(450f, -120f);
+
+    [Header("Deck Pile UI")]
+    [SerializeField] private Button drawPileButton;
+    [SerializeField] private TextMeshProUGUI drawCountText;
+    [SerializeField] private Button usedPileButton;
+    [SerializeField] private TextMeshProUGUI usedCountText;
+
+    [Header("Mode Switch Button")]
+    [SerializeField] private Button switchToMoveModeButton;
+    [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
+
+    public event Action OnMoveModeRequested;
+    public event Action OnCardModeRequested;
+
+    private sealed class HandCardEntry
+    {
+        public Card card;
+        public GameObject cardObj;
+        public CardUI cardUI;
+        public RectTransform rectTransform;
+        public MotionHandle posHandle;
+        public MotionHandle scaleHandle;
+        public MotionHandle rotHandle;
+        public bool isDiscarding;
+        public bool isReturnedToPool;
+    }
+
+    private readonly List<HandCardEntry> activeCardUIs = new List<HandCardEntry>();
+    private readonly Dictionary<Card, HandCardEntry> _activeEntryMap = new Dictionary<Card, HandCardEntry>();
+    private readonly List<HandCardEntry> _discardingEntries = new List<HandCardEntry>();
+    private readonly Stack<HandCardEntry> _entryPool = new Stack<HandCardEntry>();
+
+    // 손패 차분 동기화용 재사용 스크래치 컬렉션
+    private readonly HashSet<Card> _newHandSet = new HashSet<Card>();
+    private readonly HashSet<Card> _seenNewHandCards = new HashSet<Card>();
+    private readonly List<HandCardEntry> _scratchOrderedEntries = new List<HandCardEntry>();
+    private readonly List<HandCardEntry> _scratchRemovedEntries = new List<HandCardEntry>();
+    private readonly HashSet<HandCardEntry> _scratchNewlyDrawnSet = new HashSet<HandCardEntry>();
+
+    private BattleDeck _boundDeck;
+    private bool _isMoveMode = false;
+
+    private void Awake()
+    {
+        uiLayerType = UILayerType.Top;
+        blockWorldInput = false;
+    }
+
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+
+        if (drawPileButton != null)
+        {
+            drawPileButton.onClick.RemoveAllListeners();
+            drawPileButton.onClick.AddListener(OnDrawPileClicked);
+        }
+
+        if (usedPileButton != null)
+        {
+            usedPileButton.onClick.RemoveAllListeners();
+            usedPileButton.onClick.AddListener(OnUsedPileClicked);
+        }
+
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.onClick.RemoveAllListeners();
+            switchToMoveModeButton.onClick.AddListener(HandleSwitchMode);
+        }
+
+        // 바인딩된 덱이 없으면 현재 플레이어의 전투 덱 자동 바인딩 시도
+        if (_boundDeck == null && GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            BindBattleDeck(GameSceneManager.instance.player.battleDeck);
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        base.OnDisable();
+
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.onClick.RemoveListener(HandleSwitchMode);
+        }
+
+        UnbindBattleDeck();
+        ClearHandUI();
+    }
+
+    private void HandleSwitchMode()
+    {
+        if (_isMoveMode)
+        {
+            OnCardModeRequested?.Invoke();
+        }
+        else
+        {
+            OnMoveModeRequested?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 이동 모드 상태와 덱 버튼의 남은 이동력 표시를 상호 전환합니다.
+    /// </summary>
+    public void SetMoveMode(bool isMoveMode, int remainingTiles = 0)
+    {
+        _isMoveMode = isMoveMode;
+
+        // 1. 손패 영역 표시/숨김
+        if (contentTransform != null)
+        {
+            contentTransform.gameObject.SetActive(!isMoveMode);
+        }
+
+        // 2. 모드 전환 버튼 텍스트 변경
+        if (modeSwitchButtonText != null)
+        {
+            modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
+        }
+
+        // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 가능 칸수, 카드 모드: 드로우 덱 수)
+        if (isMoveMode)
+        {
+            if (drawCountText != null)
+            {
+                drawCountText.text = remainingTiles.ToString();
+            }
+        }
+        else
+        {
+            RefreshDrawPileCount();
+        }
+    }
+
+    /// <summary>
+    /// 이동 모드 중 실시간으로 남은 이동 가능 칸수를 갱신합니다.
+    /// </summary>
+    public void UpdateMoveRange(int remainingTiles)
+    {
+        if (_isMoveMode && drawCountText != null)
+        {
+            drawCountText.text = remainingTiles.ToString();
+        }
+    }
+
+    /// <summary>
+    /// 모드 전환 버튼(이동/카드)의 상호작용 가능 여부를 설정합니다.
+    /// 플레이어 턴이 아닐 때는 비활성화됩니다.
+    /// </summary>
+    public void SetSwitchModeInteractable(bool interactable)
+    {
+        if (switchToMoveModeButton != null)
+        {
+            switchToMoveModeButton.interactable = interactable;
+        }
+    }
+
+    /// <summary>
+    /// 플레이어의 전투 덱을 바인딩하여 손패 변경(OnHandChanged) 이벤트를 수신합니다.
+    /// </summary>
+    public void BindPlayer(Player player)
+    {
+        BindBattleDeck(player != null ? player.battleDeck : null);
+    }
+
+    /// <summary>
+    /// 전투 덱을 바인딩하고 손패 UI 및 덱 카운터를 즉시 갱신합니다.
+    /// </summary>
+    public void BindBattleDeck(BattleDeck deck)
+    {
+        if (_boundDeck == deck) return;
+
+        UnbindBattleDeck();
+        _boundDeck = deck;
+
+        if (_boundDeck != null)
+        {
+            _boundDeck.OnHandChanged += HandleHandChanged;
+            _boundDeck.OnDrawPileChanged += RefreshDrawPileCount;
+            _boundDeck.OnDiscardPileChanged += RefreshDiscardPileCount;
+
+            RefreshHand(_boundDeck.hand);
+            RefreshDrawPileCount();
+            RefreshDiscardPileCount();
+        }
+    }
+
+    /// <summary>
+    /// 등록된 전투 덱 이벤트 구독을 해제합니다.
+    /// </summary>
+    public void UnbindBattleDeck()
+    {
+        if (_boundDeck != null)
+        {
+            _boundDeck.OnHandChanged -= HandleHandChanged;
+            _boundDeck.OnDrawPileChanged -= RefreshDrawPileCount;
+            _boundDeck.OnDiscardPileChanged -= RefreshDiscardPileCount;
+            _boundDeck = null;
+        }
+    }
+
+    private void RefreshDrawPileCount()
+    {
+        if (_isMoveMode) return;
+
+        if (drawCountText != null && _boundDeck != null)
+        {
+            drawCountText.text = _boundDeck.drawPile.Count.ToString();
+        }
+    }
+
+    private void RefreshDiscardPileCount()
+    {
+        if (usedCountText != null && _boundDeck != null)
+        {
+            usedCountText.text = _boundDeck.discardPile.Count.ToString();
+        }
+    }
+
+    private void OnDrawPileClicked()
+    {
+        if (_isMoveMode) return;
+
+        if (_boundDeck == null || UIManager.instance == null) return;
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        if (deckPanel != null)
+        {
+            deckPanel.OpenDrawPile(_boundDeck);
+        }
+    }
+
+    private void OnUsedPileClicked()
+    {
+        if (_boundDeck == null || UIManager.instance == null) return;
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        if (deckPanel != null)
+        {
+            deckPanel.OpenDiscardPile(_boundDeck);
+        }
+    }
+
+    private void HandleHandChanged()
+    {
+        if (_boundDeck != null)
+        {
+            RefreshHand(_boundDeck.hand);
+        }
+    }
+
+    /// <summary>
+    /// 플레이어의 손패 카드를 diff 기반으로 동기화하여 생성·배치·버리기 애니메이션을 수행합니다.
+    /// </summary>
+    public void RefreshHand(List<Card> handCards)
+    {
+        _newHandSet.Clear();
+        _seenNewHandCards.Clear();
+        _scratchOrderedEntries.Clear();
+        _scratchRemovedEntries.Clear();
+        _scratchNewlyDrawnSet.Clear();
+
+        if (handCards != null)
+        {
+            for (int i = 0; i < handCards.Count; i++)
+            {
+                Card card = handCards[i];
+                if (card != null)
+                {
+                    _newHandSet.Add(card);
+                }
+            }
+        }
+
+        // 기존 손패 중 새 손패에서 사라진 카드는 버리기/사용 애니메이션으로 전환
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null) continue;
+
+            if (entry.cardObj == null || entry.card == null)
+            {
+                CancelEntryHandles(entry);
+                if (entry.card != null)
+                {
+                    _activeEntryMap.Remove(entry.card);
+                }
+                RecycleEntry(entry);
+                continue;
+            }
+
+            if (!_newHandSet.Contains(entry.card))
+            {
+                _activeEntryMap.Remove(entry.card);
+                _scratchRemovedEntries.Add(entry);
+            }
+        }
+
+        for (int i = 0; i < _scratchRemovedEntries.Count; i++)
+        {
+            StartDiscardAnimation(_scratchRemovedEntries[i], i);
+        }
+        _scratchRemovedEntries.Clear();
+
+        if (handCards == null || handCards.Count == 0)
+        {
+            activeCardUIs.Clear();
+            _newHandSet.Clear();
+            return;
+        }
+
+        bool hasPoolManager = gameObject.scene.isLoaded && ObjectPoolManager.instance != null;
+        bool loggedMissingPool = false;
+
+        // 새 손패 순서대로 기존 카드는 유지하고 신규 드로우 카드는 풀에서 생성
+        for (int i = 0; i < handCards.Count; i++)
+        {
+            Card card = handCards[i];
+            if (card == null || !_seenNewHandCards.Add(card)) continue;
+
+            if (_activeEntryMap.TryGetValue(card, out HandCardEntry existingEntry) &&
+                existingEntry != null &&
+                existingEntry.cardObj != null)
+            {
+                if (existingEntry.cardUI != null)
+                {
+                    existingEntry.cardUI.UpdateCardInstance(card);
+                    ConfigureHandCardVisuals(existingEntry.cardUI);
+                }
+                _scratchOrderedEntries.Add(existingEntry);
+            }
+            else
+            {
+                if (!hasPoolManager)
+                {
+                    if (!loggedMissingPool)
+                    {
+                        Debug.LogError("[BattleHandPanel] ObjectPoolManager.instance is null!");
+                        loggedMissingPool = true;
+                    }
+                    continue;
+                }
+
+                HandCardEntry drawnEntry = CreateDrawnCardEntry(card);
+                if (drawnEntry != null)
+                {
+                    _activeEntryMap[card] = drawnEntry;
+                    _scratchOrderedEntries.Add(drawnEntry);
+                    _scratchNewlyDrawnSet.Add(drawnEntry);
+                }
+            }
+        }
+
+        activeCardUIs.Clear();
+        for (int i = 0; i < _scratchOrderedEntries.Count; i++)
+        {
+            activeCardUIs.Add(_scratchOrderedEntries[i]);
+        }
+
+        _scratchOrderedEntries.Clear();
+        _newHandSet.Clear();
+        _seenNewHandCards.Clear();
+
+        ApplyCardLayout(_scratchNewlyDrawnSet);
+        _scratchNewlyDrawnSet.Clear();
+    }
+
+    /// <summary>
+    /// 카드 수량과 가로 제약 폭에 맞춰 카드 배치를 갱신합니다.
+    /// </summary>
+    public void UpdateCardLayout()
+    {
+        ApplyCardLayout(null);
+    }
+
+    private void ApplyCardLayout(HashSet<HandCardEntry> newlyDrawnSet)
+    {
+        int count = activeCardUIs.Count;
+        if (count == 0) return;
+
+        float spacing = defaultCardSpacing;
+        if (count > 1)
+        {
+            float requiredWidth = (count - 1) * defaultCardSpacing;
+            if (requiredWidth > maxPanelWidth)
+            {
+                // 최대 가로 폭을 초과할 경우 겹치도록 간격을 축소
+                spacing = maxPanelWidth / (count - 1);
+            }
+        }
+
+        float startX = -((count - 1) * spacing) / 2f;
+        int drawStaggerIndex = 0;
+        HandCardEntry zoomedEntry = null;
+        bool isPanelActive = gameObject.activeInHierarchy;
+
+        for (int i = 0; i < count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null || entry.cardObj == null || entry.isDiscarding) continue;
+
+            Vector2 targetPos = new Vector2(startX + (i * spacing), 0f);
+            RectTransform rect = entry.rectTransform;
+
+            if (entry.cardUI != null)
+            {
+                entry.cardUI.SetHandSlot(targetPos, Vector3.one, i);
+            }
+
+            // SiblingIndex를 순서대로 맞춰 겹침 렌더링 순서 보장
+            entry.cardObj.transform.SetSiblingIndex(i);
+
+            bool isZoomed = entry.cardUI != null && entry.cardUI.IsZoomed;
+            if (isZoomed)
+            {
+                zoomedEntry = entry;
+            }
+
+            bool isNewlyDrawn = newlyDrawnSet != null && newlyDrawnSet.Contains(entry);
+            bool isEntering = entry.cardUI != null && entry.cardUI.IsEntering;
+
+            if (rect == null)
+            {
+                if (isNewlyDrawn && entry.cardUI != null)
+                {
+                    entry.cardUI.SetEntering(false);
+                }
+                continue;
+            }
+
+            if (isNewlyDrawn)
+            {
+                CancelEntryHandles(entry);
+
+                if (!isPanelActive || drawDuration <= 0f)
+                {
+                    rect.anchoredPosition = targetPos;
+                    rect.localScale = Vector3.one;
+                    rect.localRotation = Quaternion.identity;
+                    CompleteDrawEntry(entry);
+                    continue;
+                }
+
+                float delay = drawStaggerIndex * drawStaggerInterval;
+                drawStaggerIndex++;
+
+                HandCardEntry capturedEntry = entry;
+                Vector2 fromPos = rect.anchoredPosition;
+                Vector3 fromScale = rect.localScale;
+                Quaternion fromRot = rect.localRotation;
+
+                var posBuilder = LMotion.Create(fromPos, targetPos, drawDuration)
+                    .WithEase(Ease.OutCubic);
+                var scaleBuilder = LMotion.Create(fromScale, Vector3.one, drawDuration)
+                    .WithEase(Ease.OutBack);
+                var rotBuilder = LMotion.Create(fromRot, Quaternion.identity, drawDuration)
+                    .WithEase(Ease.OutCubic);
+
+                if (delay > 0f)
+                {
+                    posBuilder = posBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+                    scaleBuilder = scaleBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+                    rotBuilder = rotBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+                }
+
+                entry.posHandle = posBuilder
+                    .WithOnComplete(() => CompleteDrawEntry(capturedEntry))
+                    .BindToAnchoredPosition(rect);
+                entry.scaleHandle = scaleBuilder.BindToLocalScale(rect);
+                entry.rotHandle = rotBuilder.BindToLocalRotation(rect);
+            }
+            else if (isZoomed)
+            {
+                // 현재 호버 확대 중인 카드는 CardUI가 수평 슬라이드 및 확대 상태를 유지하도록 간섭하지 않음
+                CancelEntryHandles(entry);
+            }
+            else
+            {
+                CancelEntryHandles(entry);
+                if (entry.cardUI != null)
+                {
+                    // OnPointerExit 복귀 트윈과 레이아웃 슬라이드 트윈이 동시에 위치를 덮어쓰지 않도록 차단
+                    entry.cardUI.CancelHoverMotions();
+                }
+
+                bool needsMove = (rect.anchoredPosition - targetPos).sqrMagnitude > 0.25f;
+                bool needsScale = (rect.localScale - Vector3.one).sqrMagnitude > 0.0001f;
+                bool needsRot = Quaternion.Angle(rect.localRotation, Quaternion.identity) > 0.1f;
+
+                if (!needsMove && !needsScale && !needsRot)
+                {
+                    rect.anchoredPosition = targetPos;
+                    rect.localScale = Vector3.one;
+                    rect.localRotation = Quaternion.identity;
+                    if (isEntering)
+                    {
+                        CompleteDrawEntry(entry);
+                    }
+                    continue;
+                }
+
+                float moveDuration = isEntering ? drawDuration : layoutDuration;
+                if (!isPanelActive || moveDuration <= 0f)
+                {
+                    rect.anchoredPosition = targetPos;
+                    rect.localScale = Vector3.one;
+                    rect.localRotation = Quaternion.identity;
+                    if (isEntering)
+                    {
+                        CompleteDrawEntry(entry);
+                    }
+                    continue;
+                }
+
+                if (needsMove || isEntering)
+                {
+                    var posBuilder = LMotion.Create(rect.anchoredPosition, targetPos, moveDuration)
+                        .WithEase(Ease.OutCubic);
+
+                    if (isEntering)
+                    {
+                        HandCardEntry capturedEntry = entry;
+                        entry.posHandle = posBuilder
+                            .WithOnComplete(() => CompleteDrawEntry(capturedEntry))
+                            .BindToAnchoredPosition(rect);
+                    }
+                    else
+                    {
+                        entry.posHandle = posBuilder.BindToAnchoredPosition(rect);
+                    }
+                }
+
+                if (needsScale)
+                {
+                    entry.scaleHandle = LMotion.Create(rect.localScale, Vector3.one, moveDuration)
+                        .WithEase(Ease.OutCubic)
+                        .BindToLocalScale(rect);
+                }
+
+                if (needsRot)
+                {
+                    entry.rotHandle = LMotion.Create(rect.localRotation, Quaternion.identity, moveDuration)
+                        .WithEase(Ease.OutCubic)
+                        .BindToLocalRotation(rect);
+                }
+            }
+        }
+
+        // 호버 중인 카드가 있다면 배치 정렬 후 최상단 렌더링 순서 재보장
+        if (zoomedEntry != null && zoomedEntry.cardObj != null)
+        {
+            zoomedEntry.cardObj.transform.SetAsLastSibling();
+        }
+    }
+
+    private HandCardEntry CreateDrawnCardEntry(Card card)
+    {
+        GameObject cardObj = ObjectPoolManager.instance.GetCardUI(contentTransform);
+        if (cardObj == null) return null;
+
+        HandCardEntry entry = RentEntry();
+        entry.card = card;
+        entry.cardObj = cardObj;
+        entry.cardUI = cardObj.GetComponent<CardUI>();
+
+        if (entry.cardUI != null)
+        {
+            entry.rectTransform = entry.cardUI.CachedRectTransform;
+            entry.cardUI.ResetForPool();
+            entry.cardUI.UpdateCardInstance(card);
+            ConfigureHandCardVisuals(entry.cardUI);
+            entry.cardUI.SetInteractable(true);
+            entry.cardUI.SetEntering(true);
+            entry.cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
+            entry.cardUI.OnHoverZoomStarted += HandleCardHoverZoomStarted;
+
+            // 카드 클릭 시 플레이어 컨트롤러의 카드 시전 시도 연동
+            entry.cardUI.OnCardClick.RemoveAllListeners();
+            Card capturedCard = card;
+            entry.cardUI.OnCardClick.AddListener(() =>
+            {
+                if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+                {
+                    RunManager.instance.playerBattleController.TryUseCard(capturedCard);
+                }
+            });
+        }
+        else
+        {
+            entry.rectTransform = cardObj.GetComponent<RectTransform>();
+        }
+
+        if (entry.rectTransform != null)
+        {
+            Vector2 centerAnchor = new Vector2(0.5f, 0.5f);
+            entry.rectTransform.anchorMin = centerAnchor;
+            entry.rectTransform.anchorMax = centerAnchor;
+            entry.rectTransform.pivot = centerAnchor;
+            entry.rectTransform.anchoredPosition = GetPileAnchoredPosition(drawPileButton, entry.rectTransform, fallbackDrawOffset);
+            entry.rectTransform.localScale = new Vector3(drawStartScale, drawStartScale, 1f);
+            entry.rectTransform.localRotation = Quaternion.Euler(0f, 0f, drawStartRotationZ);
+        }
+
+        return entry;
+    }
+
+    private void ConfigureHandCardVisuals(CardUI cardUI)
+    {
+        cardUI.enableZoom = true;
+        cardUI.zoomScale = 1.1f;
+        cardUI.zoomYOffset = 90f;
+        cardUI.bIsCardHighlight = true;
+        cardUI.bShowEffectAreaUI = true;
+    }
+
+    private void StartDiscardAnimation(HandCardEntry entry, int discardIndex)
+    {
+        if (entry == null) return;
+
+        if (entry.cardObj == null)
+        {
+            RecycleEntry(entry);
+            return;
+        }
+
+        CancelEntryHandles(entry);
+        entry.isDiscarding = true;
+        entry.isReturnedToPool = false;
+        _discardingEntries.Add(entry);
+
+        if (entry.cardUI != null)
+        {
+            entry.cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
+            entry.cardUI.OnCardClick.RemoveAllListeners();
+            entry.cardUI.OffSelectHighlight();
+            entry.cardUI.bIsCardHighlight = false;
+            entry.cardUI.bShowEffectAreaUI = false;
+            entry.cardUI.SetDiscarding(true);
+        }
+
+        entry.cardObj.transform.SetAsLastSibling();
+
+        RectTransform rect = entry.rectTransform;
+        if (rect == null || !gameObject.activeInHierarchy || discardDuration <= 0f)
+        {
+            CompleteDiscardEntry(entry);
+            return;
+        }
+
+        Vector2 targetPos = GetPileAnchoredPosition(usedPileButton, rect, fallbackDiscardOffset);
+        Vector3 targetScale = new Vector3(discardEndScale, discardEndScale, 1f);
+        Quaternion targetRot = Quaternion.Euler(0f, 0f, discardEndRotationZ);
+        float delay = Mathf.Min(discardIndex * discardStaggerInterval, maxDiscardStagger);
+
+        HandCardEntry capturedEntry = entry;
+        var posBuilder = LMotion.Create(rect.anchoredPosition, targetPos, discardDuration)
+            .WithEase(Ease.OutCubic);
+        var scaleBuilder = LMotion.Create(rect.localScale, targetScale, discardDuration)
+            .WithEase(Ease.OutCubic);
+        var rotBuilder = LMotion.Create(rect.localRotation, targetRot, discardDuration)
+            .WithEase(Ease.OutCubic);
+
+        if (delay > 0f)
+        {
+            posBuilder = posBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+            scaleBuilder = scaleBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+            rotBuilder = rotBuilder.WithDelay(delay, DelayType.FirstLoop, skipValuesDuringDelay: false);
+        }
+
+        entry.posHandle = posBuilder
+            .WithOnComplete(() => CompleteDiscardEntry(capturedEntry))
+            .BindToAnchoredPosition(rect);
+        entry.scaleHandle = scaleBuilder.BindToLocalScale(rect);
+        entry.rotHandle = rotBuilder.BindToLocalRotation(rect);
+    }
+
+    private void CompleteDrawEntry(HandCardEntry entry)
+    {
+        if (entry == null || entry.isDiscarding || entry.isReturnedToPool) return;
+
+        entry.posHandle = MotionHandle.None;
+        entry.scaleHandle = MotionHandle.None;
+        entry.rotHandle = MotionHandle.None;
+
+        if (entry.cardUI != null)
+        {
+            entry.cardUI.SetEntering(false);
+        }
+    }
+
+    private void CompleteDiscardEntry(HandCardEntry entry)
+    {
+        if (entry == null) return;
+
+        _discardingEntries.Remove(entry);
+        entry.posHandle = MotionHandle.None;
+        CancelEntryHandles(entry);
+
+        if (!entry.isReturnedToPool && entry.cardObj != null)
+        {
+            entry.isReturnedToPool = true;
+            ReturnCardObjectToPool(entry.cardObj, entry.cardUI);
+        }
+
+        RecycleEntry(entry);
+    }
+
+    private void HandleCardHoverZoomStarted(CardUI cardUI)
+    {
+        if (cardUI == null) return;
+
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry != null && entry.cardUI == cardUI)
+            {
+                CancelEntryHandles(entry);
+                if (entry.rectTransform != null)
+                {
+                    entry.rectTransform.localRotation = Quaternion.identity;
+                }
+                break;
+            }
+        }
+    }
+
+    private Vector2 GetPileAnchoredPosition(Button pileButton, RectTransform cardRect, Vector2 fallbackOffset)
+    {
+        if (contentTransform == null)
+        {
+            return fallbackOffset;
+        }
+
+        RectTransform contentRect = contentTransform as RectTransform;
+        if (contentRect == null || pileButton == null)
+        {
+            return fallbackOffset;
+        }
+
+        RectTransform pileRect = pileButton.transform as RectTransform;
+        if (pileRect == null)
+        {
+            return fallbackOffset;
+        }
+
+        Camera pileCamera = ResolveCanvasEventCamera(pileRect);
+        Camera contentCamera = ResolveCanvasEventCamera(contentRect);
+
+        Vector3 worldCenter = pileRect.TransformPoint(pileRect.rect.center);
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(pileCamera, worldCenter);
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(contentRect, screenPoint, contentCamera, out Vector2 localPoint))
+        {
+            Vector3 invLocal = contentRect.InverseTransformPoint(worldCenter);
+            localPoint = new Vector2(invLocal.x, invLocal.y);
+        }
+
+        // contentTransform의 pivot과 cardRect의 anchor 기준 좌표 차이를 보정
+        if (cardRect != null)
+        {
+            Rect parentBounds = contentRect.rect;
+            float anchorCenterX = Mathf.Lerp(parentBounds.xMin, parentBounds.xMax, (cardRect.anchorMin.x + cardRect.anchorMax.x) * 0.5f);
+            float anchorCenterY = Mathf.Lerp(parentBounds.yMin, parentBounds.yMax, (cardRect.anchorMin.y + cardRect.anchorMax.y) * 0.5f);
+            localPoint.x -= anchorCenterX;
+            localPoint.y -= anchorCenterY;
+        }
+
+        return localPoint;
+    }
+
+    private Camera ResolveCanvasEventCamera(RectTransform targetRect)
+    {
+        if (targetRect == null) return null;
+
+        Canvas parentCanvas = targetRect.GetComponentInParent<Canvas>();
+        if (parentCanvas == null) return null;
+
+        Canvas rootCanvas = parentCanvas.rootCanvas;
+        if (rootCanvas != null && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            return rootCanvas.worldCamera;
+        }
+
+        return null;
+    }
+
+    private void ClearHandUI()
+    {
+        // OnComplete를 통한 중복 풀 반환을 방지하기 위해 먼저 모든 핸들을 취소한 뒤 풀에 반환
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null) continue;
+
+            CancelEntryHandles(entry);
+            if (!entry.isReturnedToPool && entry.cardObj != null)
+            {
+                entry.isReturnedToPool = true;
+                ReturnCardObjectToPool(entry.cardObj, entry.cardUI);
+            }
+            RecycleEntry(entry);
+        }
+        activeCardUIs.Clear();
+        _activeEntryMap.Clear();
+
+        for (int i = 0; i < _discardingEntries.Count; i++)
+        {
+            HandCardEntry entry = _discardingEntries[i];
+            if (entry == null) continue;
+
+            CancelEntryHandles(entry);
+            if (!entry.isReturnedToPool && entry.cardObj != null)
+            {
+                entry.isReturnedToPool = true;
+                ReturnCardObjectToPool(entry.cardObj, entry.cardUI);
+            }
+            RecycleEntry(entry);
+        }
+        _discardingEntries.Clear();
+
+        _newHandSet.Clear();
+        _seenNewHandCards.Clear();
+        _scratchOrderedEntries.Clear();
+        _scratchRemovedEntries.Clear();
+        _scratchNewlyDrawnSet.Clear();
+    }
+
+    private void ReturnCardObjectToPool(GameObject cardObj, CardUI cardUI)
+    {
+        if (cardUI != null)
+        {
+            cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
+            cardUI.OnCardClick.RemoveAllListeners();
+            cardUI.OffSelectHighlight();
+            cardUI.enableZoom = false;
+            cardUI.bIsCardHighlight = false;
+            cardUI.bShowEffectAreaUI = false;
+            cardUI.ResetForPool();
+        }
+
+        if (ObjectPoolManager.HasInstance && gameObject.scene.isLoaded)
+        {
+            ObjectPoolManager.instance.ReturnCardUI(cardObj);
+        }
+        else if (cardObj != null)
+        {
+            Destroy(cardObj);
+        }
+    }
+
+    private void CancelEntryHandles(HandCardEntry entry)
+    {
+        if (entry == null) return;
+
+        if (entry.posHandle.IsActive()) entry.posHandle.TryCancel();
+        if (entry.scaleHandle.IsActive()) entry.scaleHandle.TryCancel();
+        if (entry.rotHandle.IsActive()) entry.rotHandle.TryCancel();
+
+        entry.posHandle = MotionHandle.None;
+        entry.scaleHandle = MotionHandle.None;
+        entry.rotHandle = MotionHandle.None;
+    }
+
+    private HandCardEntry RentEntry()
+    {
+        HandCardEntry entry = _entryPool.Count > 0 ? _entryPool.Pop() : new HandCardEntry();
+        entry.card = null;
+        entry.cardObj = null;
+        entry.cardUI = null;
+        entry.rectTransform = null;
+        entry.posHandle = MotionHandle.None;
+        entry.scaleHandle = MotionHandle.None;
+        entry.rotHandle = MotionHandle.None;
+        entry.isDiscarding = false;
+        entry.isReturnedToPool = false;
+        return entry;
+    }
+
+    private void RecycleEntry(HandCardEntry entry)
+    {
+        if (entry == null) return;
+
+        entry.card = null;
+        entry.cardObj = null;
+        entry.cardUI = null;
+        entry.rectTransform = null;
+        entry.posHandle = MotionHandle.None;
+        entry.scaleHandle = MotionHandle.None;
+        entry.rotHandle = MotionHandle.None;
+        entry.isDiscarding = false;
+        entry.isReturnedToPool = false;
+        _entryPool.Push(entry);
+    }
+
+    private void OnDestroy()
+    {
+        UnbindBattleDeck();
+        ClearHandUI();
+    }
+}

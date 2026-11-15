@@ -1,0 +1,6 @@
+effectName: "Vulnerable"
+displayName: "취약"
+description: "받는 피해가 50% 증가합니다."
+effectType: "Debuff"
+isPermanent: true
+isIndependent: false

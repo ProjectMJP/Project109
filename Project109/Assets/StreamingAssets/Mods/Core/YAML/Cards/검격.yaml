@@ -1,0 +1,16 @@
+cardName: "검격"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 40
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "대상 적에게 {damage}의 피해를 입힙니다."
+baseValues:
+  damage: 10

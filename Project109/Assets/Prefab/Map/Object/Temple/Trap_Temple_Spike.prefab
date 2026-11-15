@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 860178374365622398}
   - component: {fileID: 2109655296616762536}
   - component: {fileID: 7889139656811810217}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Pillar (3)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 153459652708170891}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -3, y: 0.5, z: -3}
-  m_LocalScale: {x: 4, y: 1, z: 4}
+  m_LocalPosition: {x: -0.25, y: 0.25, z: -0.25}
+  m_LocalScale: {x: 0.15, y: 0.5, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 970366206921942444}
@@ -124,7 +124,7 @@ GameObject:
   - component: {fileID: 6135398921358721658}
   - component: {fileID: 5178377494104353966}
   - component: {fileID: 8623028067432325066}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Pillar (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -140,8 +140,8 @@ Transform:
   m_GameObject: {fileID: 268940324577704033}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3, y: 0.5, z: -3}
-  m_LocalScale: {x: 4, y: 1, z: 4}
+  m_LocalPosition: {x: 0.25, y: 0.25, z: -0.25}
+  m_LocalScale: {x: 0.15, y: 0.5, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 970366206921942444}
@@ -236,7 +236,7 @@ GameObject:
   - component: {fileID: 4586187645712796572}
   - component: {fileID: 2155545979506842806}
   - component: {fileID: 4755142439299311762}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Pillar (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -252,8 +252,8 @@ Transform:
   m_GameObject: {fileID: 7941460997794723794}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3, y: 0.5, z: 3}
-  m_LocalScale: {x: 4, y: 1, z: 4}
+  m_LocalPosition: {x: 0.25, y: 0.25, z: 0.25}
+  m_LocalScale: {x: 0.15, y: 0.5, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 970366206921942444}
@@ -348,7 +348,7 @@ GameObject:
   - component: {fileID: 169516251823489316}
   - component: {fileID: 291243169601668663}
   - component: {fileID: 8080961110573033745}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Pillar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -364,8 +364,8 @@ Transform:
   m_GameObject: {fileID: 8906432645849809655}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -3, y: 0.5, z: 3}
-  m_LocalScale: {x: 4, y: 1, z: 4}
+  m_LocalPosition: {x: -0.25, y: 0.25, z: 0.25}
+  m_LocalScale: {x: 0.15, y: 0.5, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 970366206921942444}
@@ -457,7 +457,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 970366206921942444}
-  m_Layer: 0
+  - component: {fileID: 4829103745182930112}
+  m_Layer: 9
   m_Name: Trap_Temple_Spike
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -483,3 +484,35 @@ Transform:
   - {fileID: 1815352667364432321}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4829103745182930112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9160811100062064737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 729225d5e4a94bfc9079e337141e9c08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TrapObject
+  trapId: Trap_Temple_Spike
+  triggerType: 0
+  requiredStepCount: 1
+  resetStepCountOnTrigger: 1
+  rearmAfterTrigger: 1
+  triggerOnlyInBattle: 1
+  canHitDeadUnits: 0
+  damageAmount: 10
+  ignoreShield: 0
+  statusEffectId: Bleeding
+  statusEffectStacks: 2
+  statusEffectDuration: 999
+  fireDirection: {x: 1, y: 0}
+  maxShotRange: 20
+  hitUnitOnOriginTile: 0
+  trapAnimator: {fileID: 0}
+  triggerAnimParam: Trigger
+  spikeVisualRoot: {fileID: 0}
+  spikePulseMultiplier: 1.6
+  spikePulseDuration: 0.25

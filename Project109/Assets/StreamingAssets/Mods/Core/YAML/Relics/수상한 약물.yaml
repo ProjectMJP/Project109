@@ -1,0 +1,7 @@
+relicName: "수상한 약물"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "전투 시작 시 최대 스태미너를 20 얻습니다. 첫 턴이 종료되면 최대 스태미너가 20 감소합니다."
+flavorText: ""

@@ -1,0 +1,17 @@
+cardName: "그래플링"
+classTypes:
+  - "TesterWarrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 1
+rarity: "Common"
+stamina: 40
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "적에게 {damage}의 피해를 입히고 1칸 밀쳐냅니다.\n충돌 발생 시 {collisionDamage}의 추가 피해를 입히고 대상의 방어도를 완전히 파괴합니다."
+baseValues:
+  damage: 6
+

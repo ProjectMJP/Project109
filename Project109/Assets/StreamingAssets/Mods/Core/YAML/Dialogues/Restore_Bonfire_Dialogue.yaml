@@ -1,0 +1,38 @@
+dialogueID: Restore_Bonfire_Dialogue
+startNodeID: START
+nodes:
+- nodeID: START
+  speakerName: 모닥불
+  lines:
+  - "따스한 온기를 품은 모닥불이 조용히 타오르고 있습니다."
+  choices:
+  - description: 휴식
+    nextNodeID: REST_END
+    luaScript: Bonfire_Rest
+  - description: 망각
+    nextNodeID: ERASE_END
+    luaScript: Bonfire_Erase
+- nodeID: REST_END
+  speakerName: 모닥불
+  lines:
+  - "모닥불의 온기를 느끼며 편안한 휴식을 취했습니다. 몸과 마음이 회복되었습니다."
+  choices:
+  - description: 일어선다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: ERASE_END
+  speakerName: 모닥불
+  lines:
+  - "불꽃을 응시하며 기억을 가다듬었습니다."
+  choices:
+  - description: 일어선다.
+    nextNodeID: ""
+    luaScript: ""
+- nodeID: USED
+  speakerName: 모닥불
+  lines:
+  - "이미 불이 꺼져 희미한 재와 온기만 남아 있습니다."
+  choices:
+  - description: 자리를 뜬다.
+    nextNodeID: ""
+    luaScript: ""

@@ -27,6 +27,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - Map
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d0fe81d4d71fce449aaafb867f1e7f3
+    m_Address: Map_Hideout
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 47d029a701cdb434ab90ea8fa8e263f3
     m_Address: Map_Temple_Store_1
     m_ReadOnly: 0
@@ -47,6 +53,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7c189f083c942a84380cb11e3c60099d
     m_Address: Map_Temple_Battle_1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Map
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 93b9d2ab8077478ba013048011faf85d
+    m_Address: Map_Temple_Start_1
     m_ReadOnly: 0
     m_SerializedLabels:
     - Map

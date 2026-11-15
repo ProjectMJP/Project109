@@ -1,0 +1,21 @@
+cardName: "마무리 타격+"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 3
+isPiercing: true
+rarity: "Common"
+stamina: 60
+maxMasteryPoint: 0
+isUpgradable: false
+isUpgraded: true
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다.\n이번 턴에 사용된 카드 1장 당 데미지가 {bonus} 증가합니다."
+baseValues:
+  damage: 6
+  bonus: 5
+additionalEffectAreaList:
+  - areaType: "DirectionalLine"
+    distance: 3

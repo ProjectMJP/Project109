@@ -14,13 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: Relics
   m_GUID: e26867139f53ab54f882de1ea23d8951
-  m_SerializeEntries:
-  - m_GUID: c644a8a5536714246bd5cc674cb8b206
-    m_Address: Relic_RecoveryPlate_Texture
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Texture
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 68adc54c3b2506b4792e9cf9b8aaa501, type: 2}
   m_SchemaSet:

@@ -1,0 +1,21 @@
+# 드롭 테이블 고유 식별자 (ID)
+dropTableID: Shop_Card_Table
+
+# 1. 등급별 등장 가중치 (값이 클수록 더 잘 나옴)
+commonWeight: 50
+uncommonWeight: 30
+rareWeight: 15
+uniqueWeight: 5
+
+# 2. 동적 필터 조건 (비어있으면 전체 대상)
+allowedClassTypes:
+  - "Warrior"
+  - "All"
+# Attack, Skill 등 특정 타입만 제한할 때
+allowedCardTypes: []
+# 3. 풀에서 명시적으로 제외할 기본/특수 카드
+excludedItemIDs:
+  - "슬래시"
+  - "방어"
+# 4. 기존 특정 아이템 고정 풀 (호환성 유지)
+specificItemIDs: []

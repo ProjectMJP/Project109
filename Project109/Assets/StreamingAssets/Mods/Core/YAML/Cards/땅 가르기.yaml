@@ -1,0 +1,34 @@
+cardName: "땅 가르기"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Directional"
+targetMinDistance: 1
+targetMaxDistance: 3
+isPiercing: true
+rarity: "Uncommon"
+stamina: 60
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다.\n힘의 효과가 {strengthMult}배로 적용됩니다."
+baseValues:
+  damage: 8
+  strengthMult: 2
+additionalEffectAreaList:
+  - areaType: "DirectionalLine"
+    distance: 3
+masteryUpgrades:
+  Earthquake_DamageAmp:
+    damage: 2
+  Earthquake_Smite:
+    strengthMult: 0.5
+  Earthquake_Agility:
+    cost: -10
+masteryMaxUpgrades:
+  Earthquake_Agility: 3
+masteryNames:
+  Earthquake_DamageAmp: "피해 증폭"
+  Earthquake_Smite: "강타"
+  Earthquake_Agility: "가벼운 몸놀림"

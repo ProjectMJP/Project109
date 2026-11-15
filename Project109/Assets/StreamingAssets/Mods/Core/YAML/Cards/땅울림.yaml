@@ -1,0 +1,21 @@
+cardName: "땅울림"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Area"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Common"
+stamina: 60
+maxMasteryPoint: 0
+isUpgradable: true
+isUpgraded: false
+upgradedCardName: "땅울림+"
+description: "피해를 {damage} 줍니다.\n[effect.Vulnerable]을 {vulnerable} 부여합니다.\n[effect.Weakness]를 {weak} 부여합니다."
+baseValues:
+  damage: 4
+  weak: 2
+  vulnerable: 2
+additionalEffectAreaList:
+  - areaType: "CircleFill"
+    distance: 3

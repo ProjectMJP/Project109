@@ -1,0 +1,7 @@
+relicName: "빨간 해골"
+classTypes:
+  - "All"
+rarity: "Common"
+upgradedRelicId: ""
+description: "체력이 40%미만일 경우 [effect.Strength] 3을 얻습니다."
+flavorText: ""

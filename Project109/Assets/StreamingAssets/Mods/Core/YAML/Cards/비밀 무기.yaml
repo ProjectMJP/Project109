@@ -1,0 +1,17 @@
+cardName: "비밀 무기"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Target"
+targetMinDistance: 1
+targetMaxDistance: 3
+rarity: "Common"
+stamina: 40
+maxMasteryPoint: 0
+isUpgradable: true
+isUpgraded: false
+upgradedCardName: "비밀 무기+"
+description: "피해를 {damage} 줍니다.\n카드 묘지에서 카드 {count} 장을 손으로 가져옵니다."
+baseValues:
+  count: 1
+  damage: 8

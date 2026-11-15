@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 5842070933199892873}
   - component: {fileID: 4266596084694226382}
   - component: {fileID: 6105330256909832546}
+  - component: {fileID: 5777680851418840527}
+  - component: {fileID: -2103356234387019765}
   m_Layer: 7
   m_Name: Monster_test1Monster_Prefab
   m_TagString: Enemy
@@ -29,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0.2, y: 2.5, z: 69.7}
-  m_LocalScale: {x: 5, y: 5, z: 5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -62,6 +64,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -83,9 +87,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &6105330256909832546
 BoxCollider:
@@ -108,3 +114,44 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &5777680851418840527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5484325724739410140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3493c0c13e6cbd24f8d32a29cf71b1ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Character
+  faction: 2
+  _characterStat:
+    maxHealth: 100
+    maxStamina: 120
+    staminaRegenPerSecond: 30
+    moveRange: 3
+  _curMoveRange: 0
+  _currentState: 0
+  isDead: 0
+  _curHealth: 0
+  _curStamina: 0
+  _shield: 0
+  shieldDurationTurns: 1
+  currentTurn: 0
+--- !u!114 &-2103356234387019765
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5484325724739410140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30b194ed2caa5334eb7d1f833a0d83c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterUIController
+  character: {fileID: 5777680851418840527}
+  statusBarOffset: {x: 0, y: 0.81, z: 0}
+  effectListOffset: {x: 0, y: 1.1, z: 0}

@@ -1,0 +1,28 @@
+cardName: "지진"
+classTypes:
+  - "Warrior"
+cardType: "Attack"
+targetType: "Area"
+targetMinDistance: 0
+targetMaxDistance: 0
+rarity: "Uncommon"
+stamina: 60
+maxMasteryPoint: 250
+isUpgradable: false
+isUpgraded: false
+upgradedCardName: ""
+description: "피해를 {damage} 줍니다.\n적중한 대상의 스태미너를 {staminaLoss} 감소시킵니다."
+baseValues:
+  damage: 6
+  staminaLoss: 20
+additionalEffectAreaList:
+  - areaType: "CircleFill"
+    distance: 3
+masteryUpgrades:
+  WeaknessPierce_CrumblingPosture:
+    staminaLoss: 10
+  WeaknessPierce_DamageAmp:
+    damage: 2
+masteryNames:
+  WeaknessPierce_CrumblingPosture: "무너진 자세"
+  WeaknessPierce_DamageAmp: "피해 증폭"

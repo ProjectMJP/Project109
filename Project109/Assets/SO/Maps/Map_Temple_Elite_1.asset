@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MapDataSO
   stageName: Map_Temple_Elite_1
   locationType: 2
-  incountType: 1
+  EncountType: 1
   width: 14
   height: 14
-  cellSize: 10.2
+  cellSize: 1
   gridOffset: {x: 0, y: 0, z: 0}
   cells:
   - position: {x: 0, y: 0}
