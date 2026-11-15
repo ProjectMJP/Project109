@@ -1,0 +1,13 @@
+unitId: "SkeletonGuard"
+prefabAddress: "Enemy_SkeletonGuard"
+className: "Undead"
+monsterType: "Normal"
+appearLevel: 2
+displayName: "해골 수호병"
+characterStat:
+  maxHealth: 65
+  maxStamina: 100
+  staminaRegenPerSecond: 25
+  moveRange: 2
+minDropGoldAmount: 18
+maxDropGoldAmount: 32

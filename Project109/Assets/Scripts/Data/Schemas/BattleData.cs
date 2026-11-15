@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using UnityEngine;
 
-[CreateAssetMenu(fileName = "BattleData", menuName = "Battle/BattleData")]
-public class BattleData : ScriptableObject, IIdentifiable
+[System.Serializable]
+public class BattleData : IIdentifiable
 {
+    public string battleId;
     public string battleDataName;
     public string dataPath;
     public int battleAppearLevel;
@@ -11,5 +11,5 @@ public class BattleData : ScriptableObject, IIdentifiable
     public List<string> monsterNames;
     public List<RewardItem> rewards;
 
-    public string ID => dataPath;
+    public string ID => !string.IsNullOrEmpty(battleId) ? battleId : dataPath;
 }

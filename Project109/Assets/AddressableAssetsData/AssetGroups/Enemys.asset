@@ -15,14 +15,14 @@ MonoBehaviour:
   m_GroupName: Enemys
   m_GUID: 0060df8b79e0dc94186e24e6f0c286cb
   m_SerializeEntries:
-  - m_GUID: 107a071394aafe340b307c3b9c051baa
-    m_Address: Monster_test1Monster_Prefab
+  - m_GUID: 38f7039eb06f70b429a2c90bc2678a9f
+    m_Address: Enemy_SkeletonWarrior
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b168582a37275ca49a1b771a2fd18484
-    m_Address: Monster_testMonster_Prefab
+  - m_GUID: e6b5fb101f3ec8f47bdc5b75d3f3b569
+    m_Address: Enemy_SkeletonGuard
     m_ReadOnly: 0
     m_SerializedLabels:
     - Model

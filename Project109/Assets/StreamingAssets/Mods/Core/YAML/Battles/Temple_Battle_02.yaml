@@ -1,0 +1,12 @@
+battleId: "Temple_Battle_02"
+battleDataName: "해골 순찰대"
+battleAppearLevel: 2
+battleLocation: "Temple"
+monsterNames:
+  - "SkeletonWarrior"
+  - "SkeletonGuard"
+rewards:
+  - name: "Gold"
+    value: 60
+  - name: "Card"
+    value: 1

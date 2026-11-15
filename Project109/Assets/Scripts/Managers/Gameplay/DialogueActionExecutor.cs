@@ -239,7 +239,10 @@ public class DialogueActionExecutor
 
     public void StartBattle(string battleName)
     {
-        if (AssetCacheManager.instance != null && AssetCacheManager.instance.TryGetBattle(battleName, out BattleData battleData))
+        if (!string.IsNullOrEmpty(battleName) &&
+            ModLoader.Instance != null &&
+            ModLoader.Instance.BattleDatabase != null &&
+            ModLoader.Instance.BattleDatabase.TryGetValue(battleName, out BattleData battleData))
         {
             if (RunManager.instance != null)
             {
@@ -248,7 +251,7 @@ public class DialogueActionExecutor
         }
         else
         {
-            Debug.LogError($"[DialogueActionExecutor] 전투 데이터를 찾을 수 없습니다: {battleName}");
+            Debug.LogError($"[DialogueActionExecutor] ModLoader.BattleDatabase에서 전투 데이터를 찾을 수 없습니다: {battleName}");
         }
     }
 

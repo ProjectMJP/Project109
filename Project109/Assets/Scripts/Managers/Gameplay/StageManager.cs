@@ -104,22 +104,9 @@ public class StageManager : IInitializable, System.IDisposable
 
         // 1. 배틀 데이터 획득 (전투 노드일 경우)
         BattleData battleData = null;
-        if (!string.IsNullOrEmpty(enc.battleDataId) && AssetCacheManager.instance != null)
+        if (!string.IsNullOrEmpty(enc.battleDataId) && ModLoader.Instance != null && ModLoader.Instance.BattleDatabase != null)
         {
-            if (!AssetCacheManager.instance.TryGetBattle(enc.battleDataId, out battleData))
-            {
-                if (AssetCacheManager.instance.battleList != null)
-                {
-                    foreach (var b in AssetCacheManager.instance.battleList)
-                    {
-                        if (b != null && (b.ID == enc.battleDataId || b.battleDataName == enc.battleDataId))
-                        {
-                            battleData = b;
-                            break;
-                        }
-                    }
-                }
-            }
+            ModLoader.Instance.BattleDatabase.TryGetValue(enc.battleDataId, out battleData);
         }
 
         if (enc.encountType.IsCombat() && battleData == null)
@@ -680,46 +667,13 @@ public class StageManager : IInitializable, System.IDisposable
         if (_npcUnitDataCache.TryGetValue(monsterId, out var cachedData))
             return cachedData;
 
-        // 1. 정확한 ID 일치
         if (ModLoader.Instance.NPCUnitDatabase.TryGetValue(monsterId, out var aiData))
         {
             _npcUnitDataCache[monsterId] = aiData;
             return aiData;
         }
 
-        // 2. "_Data" 접미사 제거
-        if (monsterId.EndsWith("_Data"))
-        {
-            string stripped = monsterId.Substring(0, monsterId.Length - 5);
-            if (ModLoader.Instance.NPCUnitDatabase.TryGetValue(stripped, out aiData))
-            {
-                _npcUnitDataCache[monsterId] = aiData;
-                return aiData;
-            }
-        }
-
-        // 3. "Monster_" 접두사 제거
-        if (monsterId.StartsWith("Monster_"))
-        {
-            string stripped = monsterId.Substring("Monster_".Length);
-            if (ModLoader.Instance.NPCUnitDatabase.TryGetValue(stripped, out aiData))
-            {
-                _npcUnitDataCache[monsterId] = aiData;
-                return aiData;
-            }
-        }
-
-        // 4. 부분 일치 폴백
-        foreach (var pair in ModLoader.Instance.NPCUnitDatabase)
-        {
-            if (monsterId.Contains(pair.Key, System.StringComparison.OrdinalIgnoreCase) ||
-                pair.Key.Contains(monsterId, System.StringComparison.OrdinalIgnoreCase))
-            {
-                _npcUnitDataCache[monsterId] = pair.Value;
-                return pair.Value;
-            }
-        }
-
+        Debug.LogError($"[StageManager] ModLoader.NPCUnitDatabase에서 적 데이터를 찾을 수 없습니다: '{monsterId}'");
         _npcUnitDataCache[monsterId] = null;
         return null;
     }
@@ -732,48 +686,15 @@ public class StageManager : IInitializable, System.IDisposable
         if (_monsterPrefabCache.TryGetValue(modelAddress, out var cachedPrefab))
             return cachedPrefab;
 
-        GameObject prefab = null;
-
-        // 1. 정확한 주소
-        if (AssetCacheManager.instance.TryGetModel(modelAddress, out prefab))
+        if (AssetCacheManager.instance.TryGetModel(modelAddress, out GameObject prefab))
         {
             _monsterPrefabCache[modelAddress] = prefab;
             return prefab;
         }
 
-        // 2. "_Data" 접미사를 "_Prefab"으로 치환 또는 제거
-        if (modelAddress.EndsWith("_Data"))
-        {
-            string candidate = modelAddress.Substring(0, modelAddress.Length - 5) + "_Prefab";
-            if (AssetCacheManager.instance.TryGetModel(candidate, out prefab))
-            {
-                _monsterPrefabCache[modelAddress] = prefab;
-                return prefab;
-            }
-
-            candidate = modelAddress.Substring(0, modelAddress.Length - 5);
-            if (AssetCacheManager.instance.TryGetModel(candidate, out prefab))
-            {
-                _monsterPrefabCache[modelAddress] = prefab;
-                return prefab;
-            }
-        }
-
-        // 3. 이름 일치 폴백 (1회 탐색 후 캐시)
-        if (AssetCacheManager.instance.modelList != null)
-        {
-            foreach (var m in AssetCacheManager.instance.modelList)
-            {
-                if (m != null && (m.name.Contains(modelAddress) || modelAddress.Contains(m.name)))
-                {
-                    prefab = m;
-                    break;
-                }
-            }
-        }
-
-        _monsterPrefabCache[modelAddress] = prefab;
-        return prefab;
+        Debug.LogError($"[StageManager] AssetCacheManager에서 몬스터 프리팹을 찾을 수 없습니다: '{modelAddress}'");
+        _monsterPrefabCache[modelAddress] = null;
+        return null;
     }
 
     #endregion

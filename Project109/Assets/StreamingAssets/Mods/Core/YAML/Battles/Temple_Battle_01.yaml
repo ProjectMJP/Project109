@@ -1,0 +1,11 @@
+battleId: "Temple_Battle_01"
+battleDataName: "해골 전사 조우"
+battleAppearLevel: 1
+battleLocation: "Temple"
+monsterNames:
+  - "SkeletonWarrior"
+rewards:
+  - name: "Gold"
+    value: 50
+  - name: "Card"
+    value: 1

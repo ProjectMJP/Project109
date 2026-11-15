@@ -275,34 +275,49 @@ public class ReloadLifecycleTests
     [Test]
     public void ExploreMapManager_ConstructedBeforeBattleListLoaded_RefreshesPickerOnGenerateMap()
     {
-        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
-        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
-        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+        var battleDb = ModLoader.Instance.BattleDatabase;
+        var backupBattles = new Dictionary<string, BattleData>(battleDb);
 
-        // 생성 시점에는 battleList가 아직 비어있음
-        ExploreMapManager manager = new ExploreMapManager();
-
-        BattleData testBattle = Track(ScriptableObject.CreateInstance<BattleData>());
-        testBattle.dataPath = "Battle_Reload_Test_01";
-        testBattle.battleDataName = "ReloadTestBattle";
-        cache.battleList = new List<BattleData> { testBattle };
-
-        manager.GenerateMap(5, 0, LocationType.Temple);
-
-        bool foundAssignedCombatId = false;
-        foreach (ExploreFloorData floor in manager.MapData.floors)
+        try
         {
-            foreach (ExploreNode node in floor.nodes)
-            {
-                if (node.encounterData.encountType.IsCombat() && node.encounterData.battleDataId == "Battle_Reload_Test_01")
-                {
-                    foundAssignedCombatId = true;
-                    break;
-                }
-            }
-            if (foundAssignedCombatId) break;
-        }
+            battleDb.Clear();
 
-        Assert.IsTrue(foundAssignedCombatId, "초기화 지연 후 로드된 AssetCacheManager.battleList가 전투 노드에 반영되어야 합니다.");
+            // 생성 시점에는 BattleDatabase가 아직 비어있음
+            ExploreMapManager manager = new ExploreMapManager();
+
+            BattleData testBattle = new BattleData
+            {
+                battleId = "Battle_Reload_Test_01",
+                dataPath = "Battle_Reload_Test_01",
+                battleDataName = "ReloadTestBattle"
+            };
+            battleDb[testBattle.ID] = testBattle;
+
+            manager.GenerateMap(5, 0, LocationType.Temple);
+
+            bool foundAssignedCombatId = false;
+            foreach (ExploreFloorData floor in manager.MapData.floors)
+            {
+                foreach (ExploreNode node in floor.nodes)
+                {
+                    if (node.encounterData.encountType.IsCombat() && node.encounterData.battleDataId == "Battle_Reload_Test_01")
+                    {
+                        foundAssignedCombatId = true;
+                        break;
+                    }
+                }
+                if (foundAssignedCombatId) break;
+            }
+
+            Assert.IsTrue(foundAssignedCombatId, "초기화 지연 후 로드된 ModLoader.BattleDatabase가 전투 노드에 반영되어야 합니다.");
+        }
+        finally
+        {
+            battleDb.Clear();
+            foreach (var kvp in backupBattles)
+            {
+                battleDb[kvp.Key] = kvp.Value;
+            }
+        }
     }
 }

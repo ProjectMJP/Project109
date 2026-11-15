@@ -1,8 +1,0 @@
-# string이 아닌 int, float, bool형식은 !!int와 같이 변수의 타입을 강제 지정해주어야 문제가 안생김
-monsterRewardCollection:
-  - monsterName: 몬스터
-    minDropGoldAmount: !!int 15
-    maxDropGoldAmount: !!int 25
-  - monsterName: 다른 몬스터
-    minDropGoldAmount: !!int 30
-    maxDropGoldAmount: !!int 50

@@ -5,7 +5,6 @@ public class ExploreMapManager
 {
     public ExploreMapData MapData { get; private set; }
 
-    private AssetCacheManager dataLoader;
     private RandomItemPicker<BattleData> battleItemPicker;
     private RandomItemPicker<InteractableData> eventItemPicker;
     private int _cachedBattleListCount = 0;
@@ -24,17 +23,13 @@ public class ExploreMapManager
 
     private void EnsureBattleItemPicker()
     {
-        if (dataLoader == null)
+        if (ModLoader.Instance != null && ModLoader.Instance.BattleDatabase != null)
         {
-            dataLoader = AssetCacheManager.instance;
-        }
-
-        if (dataLoader != null && dataLoader.battleList != null)
-        {
-            if (battleItemPicker == null || (_cachedBattleListCount == 0 && dataLoader.battleList.Count > 0))
+            int battleCount = ModLoader.Instance.BattleDatabase.Count;
+            if (battleItemPicker == null || (_cachedBattleListCount == 0 && battleCount > 0))
             {
-                battleItemPicker = new RandomItemPicker<BattleData>(dataLoader.battleList);
-                _cachedBattleListCount = dataLoader.battleList.Count;
+                battleItemPicker = new RandomItemPicker<BattleData>(new List<BattleData>(ModLoader.Instance.BattleDatabase.Values));
+                _cachedBattleListCount = battleCount;
             }
         }
         else if (battleItemPicker == null)

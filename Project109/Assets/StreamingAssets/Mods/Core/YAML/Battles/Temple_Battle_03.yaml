@@ -1,0 +1,13 @@
+battleId: "Temple_Battle_03"
+battleDataName: "해골 수호 분대"
+battleAppearLevel: 3
+battleLocation: "Temple"
+monsterNames:
+  - "SkeletonGuard"
+  - "SkeletonWarrior"
+  - "SkeletonWarrior"
+rewards:
+  - name: "Gold"
+    value: 75
+  - name: "Card"
+    value: 1

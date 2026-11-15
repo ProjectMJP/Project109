@@ -41,17 +41,10 @@ public class AssetCacheManager : MonoBehaviour
         }
     }
 
-    public string cardKey = "Card";
-    public string eventKey = "Event";
-    public string battleKey = "Battle";
     public string mapKey = "Map";
     public string modelKey = "Model";
     public string textureKey = "Texture";
     public string uiKey = "UI";
-    public string interactableKey = "Interactable";
-
-    public IList<BattleData> battleList;
-    private Dictionary<string, BattleData> battleDict = new Dictionary<string, BattleData>();
 
     public IList<MapDataSO> mapList;
     private Dictionary<string, MapDataSO> mapDict = new Dictionary<string, MapDataSO>();
@@ -68,21 +61,12 @@ public class AssetCacheManager : MonoBehaviour
 
     private IEnumerator Start()
     {
-        bool isBattleLoaded = false;
         bool isMapLoaded = false;
         bool isModelLoaded = false;
         bool isTextureLoaded = false;
         bool isUiLoaded = false;
 
-        // 3. 전투 데이터 할당 시작
-        StartCoroutine(LoadAndCacheFromAddressableData<BattleData>(battleKey, (list, dict) =>
-        {
-            battleList = list;
-            battleDict = dict;
-            isBattleLoaded = true;
-        }));
-
-        // 6. 맵 데이터 할당 시작
+        // 1. 맵 데이터 할당 시작
         StartCoroutine(LoadAndCacheFromAddressableData<MapDataSO>(mapKey, (list, dict) =>
         {
             mapList = list;
@@ -166,8 +150,7 @@ public class AssetCacheManager : MonoBehaviour
 
         // 모든 비동기 작업이 병렬 완료될 때까지 대기
         float waitTimer = 0f;
-        while (!(isBattleLoaded &&
-                 isMapLoaded &&
+        while (!(isMapLoaded &&
                  isModelLoaded &&
                  isTextureLoaded &&
                  isUiLoaded))
@@ -176,7 +159,6 @@ public class AssetCacheManager : MonoBehaviour
             if (waitTimer >= 2f)
             {
                 Debug.Log($"[AssetCacheManager] Waiting for flags: " +
-                    $"Battle={isBattleLoaded}, " +
                     $"Map={isMapLoaded}, " +
                     $"Model={isModelLoaded}, " +
                     $"Texture={isTextureLoaded}, " +
@@ -368,7 +350,6 @@ public class AssetCacheManager : MonoBehaviour
     }
 
 
-    public bool TryGetBattle(string name, out BattleData battle) => battleDict.TryGetValue(name, out battle);
     public bool TryGetMap(string name, out MapDataSO mapData) => mapDict.TryGetValue(name, out mapData);
     public bool TryGetStageMapData(string name, out StageMapDataBundle stageMapData) => stageMapDataDict.TryGetValue(name, out stageMapData);
     public bool TryGetModel(string name, out GameObject model) => modelDict.TryGetValue(name, out model);

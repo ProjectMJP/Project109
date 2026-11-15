@@ -22,6 +22,9 @@ public class ModLoader
     // Key: unitId (고유 ID), Value: NPCUnitData
     public Dictionary<string, NPCUnitData> NPCUnitDatabase { get; private set; } = new Dictionary<string, NPCUnitData>();
 
+    // Key: battleId 또는 dataPath (고유 ID), Value: BattleData
+    public Dictionary<string, BattleData> BattleDatabase { get; private set; } = new Dictionary<string, BattleData>();
+
     // Key: dialogueID (고유 ID), Value: DialogueData
     public Dictionary<string, DialogueData> DialogueDatabase { get; private set; } = new Dictionary<string, DialogueData>();
 
@@ -59,6 +62,7 @@ public class ModLoader
         CardDatabase.Clear();
         StarterKitDatabase.Clear();
         NPCUnitDatabase.Clear();
+        BattleDatabase.Clear();
         DialogueDatabase.Clear();
         InteractableDatabase.Clear();
         DropTableDatabase.Clear();
@@ -89,7 +93,7 @@ public class ModLoader
 
 
 
-        Debug.Log($"[ModLoader] 총 {EffectDatabase.Count}개의 이펙트 데이터, {RelicDatabase.Count}개의 유물 데이터, {CardDatabase.Count}개의 카드 데이터, {StarterKitDatabase.Count}개의 시작 키트 데이터, {InteractableDatabase.Count}개의 상호작용 데이터, {DropTableDatabase.Count}개의 드롭 테이블 데이터가 로드되었습니다.");
+        Debug.Log($"[ModLoader] 총 {EffectDatabase.Count}개의 이펙트 데이터, {RelicDatabase.Count}개의 유물 데이터, {CardDatabase.Count}개의 카드 데이터, {StarterKitDatabase.Count}개의 시작 키트 데이터, {NPCUnitDatabase.Count}개의 적 데이터, {BattleDatabase.Count}개의 전투 데이터, {InteractableDatabase.Count}개의 상호작용 데이터, {DropTableDatabase.Count}개의 드롭 테이블 데이터가 로드되었습니다.");
     }
 
     private void LoadModDirectory(string modDir, bool isCoreMod = false)
@@ -166,6 +170,13 @@ public class ModLoader
         if (Directory.Exists(enemiesPath))
         {
             LoadDataFromPath(enemiesPath, modDir, NPCUnitDatabase, d => d.unitId, "적");
+        }
+
+        // [전투(Battle) 로딩]
+        string battlesPath = Path.Combine(modDir, "YAML", "Battles");
+        if (Directory.Exists(battlesPath))
+        {
+            LoadDataFromPath(battlesPath, modDir, BattleDatabase, d => d.ID, "전투");
         }
 
         // [다이얼로그(Dialogue) 로딩]

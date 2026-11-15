@@ -1,0 +1,13 @@
+unitId: "SkeletonWarrior"
+prefabAddress: "Enemy_SkeletonWarrior"
+className: "Undead"
+monsterType: "Normal"
+appearLevel: 1
+displayName: "해골 전사"
+characterStat:
+  maxHealth: 45
+  maxStamina: 100
+  staminaRegenPerSecond: 30
+  moveRange: 3
+minDropGoldAmount: 12
+maxDropGoldAmount: 24

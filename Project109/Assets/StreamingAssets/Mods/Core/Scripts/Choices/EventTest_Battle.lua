@@ -4,7 +4,7 @@ function CanSelect(dm)
 end
 
 function ExecuteChoice(dm)
-    dm:StartBattle("Battle_Test_Data")
+    dm:StartBattle("Temple_Battle_01")
 end
 
 function GetDescription(dm)
