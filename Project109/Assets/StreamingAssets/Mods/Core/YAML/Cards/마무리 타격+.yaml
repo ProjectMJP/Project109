@@ -2,9 +2,10 @@ cardName: "마무리 타격+"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Target"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 3
+isPiercing: true
 rarity: "Common"
 stamina: 60
 maxMasteryPoint: 0
@@ -16,5 +17,5 @@ baseValues:
   damage: 6
   bonus: 5
 additionalEffectAreaList:
-  - areaType: "TargetLine"
-    distance: 0
+  - areaType: "DirectionalLine"
+    distance: 3

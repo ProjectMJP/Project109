@@ -3,7 +3,7 @@ classTypes:
   - "Warrior"
   - "TesterWarrior"
 cardType: "Attack"
-targetType: "Target"
+targetType: "Area"
 targetMinDistance: 0
 targetMaxDistance: 0
 rarity: "Uncommon"

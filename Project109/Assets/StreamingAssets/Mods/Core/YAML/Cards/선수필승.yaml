@@ -2,9 +2,10 @@ cardName: "선수필승"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Area"
+targetType: "AreaGround"
 targetMinDistance: 1
 targetMaxDistance: 2
+ignoreObstacles: true
 rarity: "Uncommon"
 stamina: 60
 maxMasteryPoint: 250

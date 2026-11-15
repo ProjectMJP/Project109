@@ -20,7 +20,7 @@ function effect:OnAfterUseCard(cardInfo)
         -- 캐릭터의 시선 방향 계산
         local dir = Vector2Int(0, 1)
         if target.characterMove ~= nil then
-            local look = target.characterMove.lookDirection
+            local look = target.characterMove.facingDirection
             -- LookDirection: Up(0), Down(1), Left(2), Right(3)
             local lookStr = tostring(look)
             if lookStr:find("Down") then

@@ -2,7 +2,7 @@ cardName: "기선 제압"
 classTypes:
   - "TesterWarrior"
 cardType: "Attack"
-targetType: "Enemy"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 1
 rarity: "Common"

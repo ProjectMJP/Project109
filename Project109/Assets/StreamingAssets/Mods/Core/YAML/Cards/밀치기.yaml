@@ -2,7 +2,7 @@ cardName: "밀치기"
 classTypes:
   - "TesterWarrior"
 cardType: "Attack"
-targetType: "Enemy"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 1
 rarity: "Common"

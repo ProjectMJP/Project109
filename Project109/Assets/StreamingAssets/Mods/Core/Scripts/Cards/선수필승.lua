@@ -23,16 +23,17 @@ function card:Execute(cardInfo)
         local extraHits = self.base:GetEffectiveValue("extraHits")
         local readyDamage = self.base:GetEffectiveValue("readyDamage")
         local comboLevel = self.base:GetMasteryLevel("Initiative_ComboAttack")
-        
-        -- ?�봉?�: ?�마??처음 ?�용????        local isFirst = (self.cardsPlayedThisTurn or 0) <= 0
+
+        -- 선봉대: 턴마다 처음 사용 시
+        local isFirst = (self.cardsPlayedThisTurn or 0) <= 0
         local finalDamage = baseDamage
         local finalHits = 1
-        
+
         if isFirst then
             finalHits = finalHits + extraHits
             finalDamage = finalDamage + readyDamage
         end
-        
+
         if comboLevel > 0 then
             finalDamage = finalDamage * 0.6
             finalHits = finalHits * 2

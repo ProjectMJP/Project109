@@ -2,9 +2,9 @@ cardName: "스위프트 슬래시"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Area"
-targetMinDistance: 1
-targetMaxDistance: 1
+targetType: "Directional"
+targetMinDistance: 0
+targetMaxDistance: 0
 rarity: "Uncommon"
 stamina: 40
 maxMasteryPoint: 250

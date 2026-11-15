@@ -2,9 +2,10 @@ cardName: "약점 관통"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Target"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 2
+isPiercing: true
 rarity: "Uncommon"
 stamina: 60
 maxMasteryPoint: 250
@@ -16,8 +17,8 @@ baseValues:
   damage: 8
   bleedMultiplier: 2
 additionalEffectAreaList:
-  - areaType: "TargetLine"
-    distance: 0
+  - areaType: "DirectionalLine"
+    distance: 2
 masteryUpgrades:
   WeaknessPierce_Agility:
     cost: -10

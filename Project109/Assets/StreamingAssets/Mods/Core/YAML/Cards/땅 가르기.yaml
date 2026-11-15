@@ -2,9 +2,10 @@ cardName: "땅 가르기"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Target"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 3
+isPiercing: true
 rarity: "Uncommon"
 stamina: 60
 maxMasteryPoint: 250
@@ -16,8 +17,8 @@ baseValues:
   damage: 8
   strengthMult: 2
 additionalEffectAreaList:
-  - areaType: "TargetLine"
-    distance: 1
+  - areaType: "DirectionalLine"
+    distance: 3
 masteryUpgrades:
   Earthquake_DamageAmp:
     damage: 2

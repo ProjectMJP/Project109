@@ -2,7 +2,7 @@ cardName: "검격"
 classTypes:
   - "Warrior"
 cardType: "Attack"
-targetType: "Enemy"
+targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 1
 rarity: "Common"

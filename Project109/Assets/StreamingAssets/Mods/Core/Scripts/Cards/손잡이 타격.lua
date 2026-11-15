@@ -12,13 +12,12 @@ function card:Execute(cardInfo)
     if cardInfo.targets ~= nil and cardInfo.targets.Count > 0 then
         local target = cardInfo.targets[0]
         local baseDamage = self.base:GetBaseValue("damage")
-        local draw = self.base:GetBaseValue("draw")
         local dmgInfo = EventStructs.DamageInfo(caster, target, baseDamage, EventStructs.DamageFlag.Normal)
         target:TakeDamage(dmgInfo)
-        
-        if RunManager.instance ~= nil and RunManager.instance.playerBattleController ~= nil then
-            RunManager.instance.playerBattleController.battleDeck:DrawCards(math.floor(draw))
-        end
+    end
+    local draw = self.base:GetBaseValue("draw")
+    if RunManager.instance ~= nil and RunManager.instance.playerBattleController ~= nil then
+        RunManager.instance.playerBattleController.battleDeck:DrawCards(math.floor(draw))
     end
 end
 return card
