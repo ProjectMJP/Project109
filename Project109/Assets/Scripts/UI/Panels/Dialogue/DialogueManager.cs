@@ -1,7 +1,6 @@
 using GameItem.Types;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using XLua;
@@ -33,7 +32,6 @@ public class DialogueManager : MonoBehaviour
     /// </summary>
     public static event Action<DialogueNode, List<ChoiceData>> OnPopulateChoices;
 
-    public GameObject dialogueUICanvasPrefab;
     private DialogueUI dialogueUI;
 
     private DialogueData activeDialogue;
@@ -51,11 +49,26 @@ public class DialogueManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
         }
-        else
+        else if (Instance != this)
         {
-            Destroy(gameObject);
+            Debug.LogWarning("[DialogueManager] 중복 DialogueManager 인스턴스가 감지되어 컴포넌트를 제거합니다.");
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                DestroyImmediate(this);
+                return;
+            }
+#endif
+            Destroy(this);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 
@@ -63,31 +76,21 @@ public class DialogueManager : MonoBehaviour
     {
         if (dialogueUI != null) return;
 
-        GameObject spawned = null;
-        if (UIManager.instance != null)
+        if (UIManager.instance == null)
         {
-            spawned = UIManager.instance.OpenUI("DialogueUI", UILayerType.Normal, false);
+            Debug.LogError("[DialogueManager] UIManager.instance가 null이라 DialogueUI를 열 수 없습니다.");
+            return;
         }
 
-        if (spawned == null)
+        DialogueUI opened = UIManager.instance.OpenUI<DialogueUI>(UIConstants.PANEL_DIALOGUE, UILayerType.Normal, false);
+        if (opened == null)
         {
-            if (dialogueUICanvasPrefab != null)
-            {
-                spawned = Instantiate(dialogueUICanvasPrefab);
-            }
-            else
-            {
-                Debug.LogError("[DialogueManager] DialogueUI 프리팹을 찾을 수 없습니다.");
-                return;
-            }
+            Debug.LogError("[DialogueManager] UIManager를 통해 DialogueUI를 획득하지 못했습니다. Addressables(UI_Prefabs) 및 UIConstants.PANEL_DIALOGUE 등록을 확인하세요.");
+            return;
         }
 
-        dialogueUI = spawned.GetComponentInChildren<DialogueUI>(true);
-
-        if (dialogueUI != null)
-        {
-            dialogueUI.gameObject.SetActive(false);
-        }
+        dialogueUI = opened;
+        dialogueUI.gameObject.SetActive(false);
     }
 
     public InteractableObject ActiveInteractable { get; private set; }
@@ -104,6 +107,13 @@ public class DialogueManager : MonoBehaviour
         }
 
         EnsureDialogueUI();
+        if (dialogueUI == null)
+        {
+            Debug.LogError("[DialogueManager] DialogueUI를 초기화할 수 없어 대화를 시작하지 못했습니다.");
+            return;
+        }
+
+        ResetRuntimeState();
 
         ActiveInteractable = trigger;
         activeDialogue = data;
@@ -113,10 +123,7 @@ public class DialogueManager : MonoBehaviour
             nodeMap[node.nodeID] = node;
         }
 
-        if (dialogueUI != null)
-        {
-            dialogueUI.Open();
-        }
+        dialogueUI.Open();
 
         GoToNode(data.startNodeID);
     }
@@ -132,12 +139,32 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
+        if (LuaManager.Instance != null)
+        {
+            LuaManager.Instance.ResetAllChoiceStates();
+        }
+
         currentNode = nodeMap[nodeID];
         currentLineIndex = 0;
         luaNextNodeOverride = null;
         endDialogueTriggered = false;
 
         ShowNextLineOrChoices();
+    }
+
+    private void ResetRuntimeState()
+    {
+        if (LuaManager.Instance != null)
+        {
+            LuaManager.Instance.ResetAllChoiceStates();
+        }
+
+        currentNode = null;
+        currentLineIndex = 0;
+        isDialoguePaused = false;
+        pendingNextNodeID = null;
+        luaNextNodeOverride = null;
+        endDialogueTriggered = false;
     }
 
     /// <summary>
@@ -194,7 +221,7 @@ public class DialogueManager : MonoBehaviour
 
             if (!string.IsNullOrEmpty(choice.luaScript))
             {
-                LoadAndExecuteLua(choice.luaScript, out var canSelect, out var getDesc, out _, out var isVisible);
+                TryGetChoiceCallbacks(choice.luaScript, out var canSelect, out var getDesc, out _, out var isVisible);
                 if (isVisible != null && !isVisible(this))
                 {
                     continue;
@@ -269,7 +296,7 @@ public class DialogueManager : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(choice.luaScript))
         {
-            LoadAndExecuteLua(choice.luaScript, out _, out _, out var execute, out _);
+            TryGetChoiceCallbacks(choice.luaScript, out _, out _, out var execute, out _);
             execute?.Invoke(this);
         }
 
@@ -299,76 +326,43 @@ public class DialogueManager : MonoBehaviour
 
     public void EndDialogue()
     {
-        EnsureDialogueUI();
-        if (dialogueUI != null)
+        bool shouldCloseUI = activeDialogue != null || (dialogueUI != null && dialogueUI.gameObject.activeSelf);
+
+        activeDialogue = null;
+        ActiveInteractable = null;
+        ResetRuntimeState();
+
+        if (shouldCloseUI && dialogueUI != null)
         {
             dialogueUI.Close();
         }
-        activeDialogue = null;
     }
 
-    private string FindChoiceScriptPath(string luaScriptName)
-    {
-        string fileName = luaScriptName.EndsWith(".lua") ? luaScriptName : $"{luaScriptName}.lua";
-
-        // 1. Core 모드 스트리밍 에셋 경로
-        string streamingCorePath = Path.Combine(Application.streamingAssetsPath, "Mods", "Core", "Scripts", "Choices", fileName);
-        if (File.Exists(streamingCorePath)) return streamingCorePath;
-
-        string streamingCorePath2 = Path.Combine(Application.streamingAssetsPath, "Mods", "Core", "Scripts", "Choice", fileName);
-        if (File.Exists(streamingCorePath2)) return streamingCorePath2;
-
-        // 2. 유저 모드 경로 (persistentDataPath/mods)
-        string userModsPath = Path.Combine(Application.persistentDataPath, "mods");
-        if (Directory.Exists(userModsPath))
-        {
-            string[] found = Directory.GetFiles(userModsPath, fileName, SearchOption.AllDirectories);
-            if (found.Length > 0) return found[0];
-        }
-
-        return null;
-    }
-
-    private void LoadAndExecuteLua(string luaScriptName, out CanSelectDialogueChoice canSelect, out GetDialogueChoiceDescription getDesc, out ExecuteDialogueChoice execute, out IsDialogueChoiceVisible isVisible)
+    private bool TryGetChoiceCallbacks(
+        string luaScriptName,
+        out CanSelectDialogueChoice canSelect,
+        out GetDialogueChoiceDescription getDesc,
+        out ExecuteDialogueChoice execute,
+        out IsDialogueChoiceVisible isVisible)
     {
         canSelect = null;
         getDesc = null;
         execute = null;
         isVisible = null;
 
-        string path = FindChoiceScriptPath(luaScriptName);
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        if (LuaManager.Instance == null)
         {
-            Debug.LogError($"[DialogueManager] Lua 선택지 스크립트 파일을 찾을 수 없습니다: {luaScriptName}");
-            return;
+            Debug.LogError("[DialogueManager] LuaManager.Instance가 초기화되지 않았습니다.");
+            return false;
         }
 
-        LuaEnv env = LuaManager.Instance != null ? LuaManager.Instance.luaEnv : null;
-        if (env == null)
+        if (!LuaManager.Instance.TryGetChoiceCallbacks(luaScriptName, out canSelect, out getDesc, out execute, out isVisible))
         {
-            Debug.LogError("[DialogueManager] LuaManager.Instance.luaEnv가 초기화되지 않았습니다.");
-            return;
+            Debug.LogError($"[DialogueManager] 사전 로드된 Choice Lua 스크립트를 찾을 수 없습니다: {luaScriptName}");
+            return false;
         }
 
-        try
-        {
-            // 스크립트 실행 전 전역 공간 초기화 (이전 선택지의 함수 오염 방지)
-            env.DoString("CanSelect = nil; GetDescription = nil; ExecuteChoice = nil; IsVisible = nil;");
-
-            string scriptContent = File.ReadAllText(path);
-            env.DoString(scriptContent);
-            canSelect = env.Global.Get<CanSelectDialogueChoice>("CanSelect");
-            getDesc = env.Global.Get<GetDialogueChoiceDescription>("GetDescription");
-            execute = env.Global.Get<ExecuteDialogueChoice>("ExecuteChoice");
-            isVisible = env.Global.Get<IsDialogueChoiceVisible>("IsVisible");
-
-            // 델리게이트 획득 후 전역 공간 재정리
-            env.DoString("CanSelect = nil; GetDescription = nil; ExecuteChoice = nil; IsVisible = nil;");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[DialogueManager] Lua 파싱 에러 ({luaScriptName}): {e.Message}");
-        }
+        return true;
     }
 
     #region Action Delegation to DialogueActionExecutor (44개 기존 Lua 스크립트 100% 호환 포워딩)
@@ -398,7 +392,11 @@ public class DialogueManager : MonoBehaviour
     public void StartBattle(string battleName) => actionExecutor.StartBattle(battleName);
     public void RevealAllNodes() => actionExecutor.RevealAllNodes();
 
-    public void SpawnReward(string rewardTypeStr, string rarityStr) => actionExecutor.SpawnReward(rewardTypeStr, rarityStr, transform.position);
+    public void SpawnReward(string rewardTypeStr, string rarityStr)
+    {
+        Vector3 spawnPos = ActiveInteractable != null ? ActiveInteractable.transform.position : transform.position;
+        actionExecutor.SpawnReward(rewardTypeStr, rarityStr, spawnPos);
+    }
 
     public void OpenEraseCardUI(int count)
     {
@@ -451,22 +449,25 @@ public class DialogueManager : MonoBehaviour
 
     public void OpenShop()
     {
+        InteractableObject targetInteractable = ActiveInteractable;
         EndDialogue();
-        actionExecutor.OpenShop(ActiveInteractable);
+        actionExecutor.OpenShop(targetInteractable);
     }
 
     public void OpenRestore()
     {
+        InteractableObject targetInteractable = ActiveInteractable;
         EndDialogue();
-        actionExecutor.OpenRestore(ActiveInteractable);
+        actionExecutor.OpenRestore(targetInteractable);
     }
 
     public void MarkActiveInteractableUsed() => actionExecutor.MarkActiveInteractableUsed(ActiveInteractable);
 
     public void OpenChest()
     {
+        InteractableObject targetInteractable = ActiveInteractable;
         EndDialogue();
-        actionExecutor.OpenChest(ActiveInteractable);
+        actionExecutor.OpenChest(targetInteractable);
     }
 
     #endregion

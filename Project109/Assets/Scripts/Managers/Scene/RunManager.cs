@@ -350,7 +350,16 @@ public class RunManager : MonoBehaviour
 
         // 이전의 노드를 저장 후 다음 노드로 변경
         beforeExploreNode = currentExploreNode;
+        if (beforeExploreNode != null)
+        {
+            beforeExploreNode.isVisited = true;
+        }
+
         currentExploreNode = nextNodeUI != null ? nextNodeUI.NodeData : null;
+        if (currentExploreNode != null)
+        {
+            currentExploreNode.isVisited = true;
+        }
         currentExploreMapFloor += 1;
         OnRunLocationChanged?.Invoke();
 

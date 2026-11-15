@@ -189,9 +189,3 @@ public class DialogueUI : UIPanelBase, IPointerClickHandler
         _activeButtons.Clear();
     }
 }
-
-/// <summary>
-/// 이전 레거시 참조 호환을 위한 별칭 클래스입니다.
-/// </summary>
-[Obsolete("Use DialogueUI instead.")]
-public class EventDescriptionScript : DialogueUI { }

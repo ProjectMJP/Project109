@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class RestoreBonfire : InteractableObject
 {
-    public GameObject restoreUIPrefab;
     private RestoreUIHandler restoreUI;
 
     [Header("Restore Dialogue Settings")]
@@ -19,7 +18,6 @@ public class RestoreBonfire : InteractableObject
             ModLoader.Instance.InteractableDatabase.TryGetValue("Restore_Bonfire_Data", out data);
         }
         base.SetInteractableData(data);
-        CreateRestoreUI();
     }
 
     public void MarkAsUsed()
@@ -33,6 +31,12 @@ public class RestoreBonfire : InteractableObject
         string dialogueID = (interactableData != null && !string.IsNullOrEmpty(interactableData.targetDialogueID))
             ? interactableData.targetDialogueID
             : defaultDialogueID;
+
+        if (DialogueManager.Instance == null)
+        {
+            Debug.LogError($"[RestoreBonfire] DialogueManager.Instance가 존재하지 않아 모닥불 다이얼로그({dialogueID})를 시작할 수 없습니다.");
+            return;
+        }
 
         if (ModLoader.Instance != null && ModLoader.Instance.DialogueDatabase.TryGetValue(dialogueID, out var dialogueData))
         {
@@ -56,31 +60,27 @@ public class RestoreBonfire : InteractableObject
             return;
         }
 
-        GameObject spawned = null;
-        if (UIManager.instance != null)
+        if (UIManager.instance == null)
         {
-            spawned = UIManager.instance.OpenUI("RestoreNPCUI", UILayerType.Normal, false);
+            Debug.LogError("[RestoreBonfire] UIManager.instance가 null이라 RestoreNPCUI를 열 수 없습니다.");
+            return;
         }
 
+        GameObject spawned = UIManager.instance.OpenUI(UIConstants.PANEL_RESTORE_NPC, UILayerType.Normal, false);
         if (spawned == null)
         {
-            if (restoreUIPrefab != null)
-            {
-                spawned = Instantiate(restoreUIPrefab);
-            }
-            else
-            {
-                Debug.LogError("[RestoreBonfire] RestoreNPCUI 프리팹을 찾을 수 없습니다.");
-                return;
-            }
+            Debug.LogError("[RestoreBonfire] RestoreNPCUI 프리팹을 찾을 수 없습니다.");
+            return;
         }
 
         restoreUI = spawned.GetComponentInChildren<RestoreUIHandler>(true);
-
-        if (restoreUI != null)
+        if (restoreUI == null)
         {
-            restoreUI.gameObject.SetActive(false);
+            Debug.LogError("[RestoreBonfire] RestoreNPCUI에서 RestoreUIHandler 컴포넌트를 찾을 수 없습니다.");
+            return;
         }
+
+        restoreUI.gameObject.SetActive(false);
     }
 
     public RestoreUIHandler GetRestoreUI()

@@ -39,6 +39,7 @@ public class DamageIndicator : MonoBehaviour
             transform.forward = Camera.main.transform.forward;
         }
 
+        StopAllCoroutines();
         StartCoroutine(AnimateRoutine());
     }
 

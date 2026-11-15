@@ -102,7 +102,7 @@ public class ModLoader
         // 모드가 가진 Scripts 폴더를 LuaManager에 검색 경로로 등록합니다.
         // (LuaManager는 내부적으로 하위 폴더(Scripts/Effects, Scripts/Relics 등)를 모두 자동 탐색합니다)
         string scriptsPath = Path.Combine(modDir, "Scripts");
-        if (Directory.Exists(scriptsPath))
+        if (Directory.Exists(scriptsPath) && LuaManager.Instance != null)
         {
             LuaManager.Instance.AddSearchPath(scriptsPath);
         }
@@ -113,6 +113,20 @@ public class ModLoader
         if (Directory.Exists(cardTagsPath))
         {
             LoadCardTagsFromPath(cardTagsPath);
+        }
+
+        // [다이얼로그 선택지(Choice) 로딩]
+        // 유저 모드 호환용 구형("Scripts/Choice")과 표준("Scripts/Choices") 폴더를 순서대로 사전 컴파일·캐싱합니다.
+        string legacyChoicesPath = Path.Combine(modDir, "Scripts", "Choice");
+        if (Directory.Exists(legacyChoicesPath))
+        {
+            LoadChoicesFromPath(legacyChoicesPath);
+        }
+
+        string choicesPath = Path.Combine(modDir, "Scripts", "Choices");
+        if (Directory.Exists(choicesPath))
+        {
+            LoadChoicesFromPath(choicesPath);
         }
 
         // [이펙트(Effect) 로딩]
@@ -228,6 +242,18 @@ public class ModLoader
             foreach (string file in luaFiles)
             {
                 LuaManager.Instance.LoadCardTagScript(file);
+            }
+        }
+    }
+
+    private void LoadChoicesFromPath(string choicesPath)
+    {
+        string[] luaFiles = Directory.GetFiles(choicesPath, "*.lua", SearchOption.AllDirectories);
+        if (LuaManager.Instance != null)
+        {
+            foreach (string file in luaFiles)
+            {
+                LuaManager.Instance.LoadChoiceScript(file);
             }
         }
     }

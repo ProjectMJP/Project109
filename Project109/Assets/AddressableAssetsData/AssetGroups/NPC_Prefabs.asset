@@ -21,12 +21,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Model
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 2634d004684c91a459f0103c7ecc59dc
-    m_Address: NPC_Event_Tombstone_Model
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2c3fe3b848dc2fe448171c575f2f8c50
     m_Address: CurrencyReward
     m_ReadOnly: 0

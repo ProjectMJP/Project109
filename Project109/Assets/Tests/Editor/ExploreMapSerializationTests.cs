@@ -1,6 +1,10 @@
 using System.Collections.Generic;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 [TestFixture]
 public class ExploreMapSerializationTests
@@ -14,7 +18,8 @@ public class ExploreMapSerializationTests
         {
             isRevealed = true,
             isCleared = false,
-            isNodeChanged = false
+            isNodeChanged = false,
+            isVisited = true
         };
         startNode.encounterData.locationType = LocationType.Temple;
         startNode.encounterData.encountType = EncountType.None;
@@ -98,6 +103,9 @@ public class ExploreMapSerializationTests
         Assert.IsNotNull(restored.exploreMapData.floors);
         Assert.AreEqual(3, restored.exploreMapData.floors.Count);
 
+        ExploreNode restoredStart = restored.exploreMapData.floors[0].nodes[0];
+        Assert.IsTrue(restoredStart.isVisited);
+
         ExploreNode restoredBattle = restored.exploreMapData.floors[1].nodes[0];
         Assert.AreEqual(1, restoredBattle.floor);
         Assert.AreEqual(0, restoredBattle.index);
@@ -174,12 +182,123 @@ public class ExploreMapSerializationTests
             Assert.AreSame(expectedCurrent, runManager.currentExploreNode);
             Assert.AreSame(expectedBefore, runManager.beforeExploreNode);
             Assert.IsTrue(runManager.currentExploreNode.isCleared);
+            Assert.IsTrue(runManager.currentExploreNode.isVisited);
+            Assert.IsTrue(runManager.beforeExploreNode.isVisited);
             CollectionAssert.AreEqual(new List<int> { 0 }, runManager.currentExploreNode.nextNodeIndices);
         }
         finally
         {
             Object.DestroyImmediate(go);
         }
+    }
+
+    [Test]
+    public void ExploreMap_MoveToNode_And_RefreshMapVisuals_HighlightsVisitedNodesAndKeepsRevealedNodes()
+    {
+        List<Object> createdObjects = new List<Object>();
+        GameObject rmGo = new GameObject("TestRunManager");
+        createdObjects.Add(rmGo);
+        GameObject mapUiGo = new GameObject("TestExploreMapUI");
+        createdObjects.Add(mapUiGo);
+        GameObject viewLayoutGo = new GameObject("ViewLayout");
+        createdObjects.Add(viewLayoutGo);
+        viewLayoutGo.transform.SetParent(mapUiGo.transform, false);
+
+        GameObject verticalPrefab = new GameObject("TestVerticalLayoutPrefab", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        createdObjects.Add(verticalPrefab);
+        GameObject nodePrefab = new GameObject("TestExploreNodePrefab", typeof(RectTransform), typeof(Image), typeof(ExploreNodeUI));
+        createdObjects.Add(nodePrefab);
+
+        GameObject coverObj = new GameObject("Cover", typeof(RectTransform));
+        coverObj.transform.SetParent(nodePrefab.transform, false);
+        GameObject hoverRingObj = new GameObject("HoverRing", typeof(RectTransform));
+        hoverRingObj.transform.SetParent(nodePrefab.transform, false);
+        GameObject visitedRingObj = new GameObject("VisitedRing", typeof(RectTransform));
+        visitedRingObj.transform.SetParent(nodePrefab.transform, false);
+
+        ExploreNodeUI prefabNodeUi = nodePrefab.GetComponent<ExploreNodeUI>();
+        prefabNodeUi.ExploreNodeUICoverObject = coverObj;
+        prefabNodeUi.ExploreNodeUIHighlightCircleObject = hoverRingObj;
+        prefabNodeUi.ExploreNodeUICurrentHighlightCircleObject = visitedRingObj;
+
+        try
+        {
+            RunManager runManager = rmGo.AddComponent<RunManager>();
+            typeof(RunManager).GetField("<instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, runManager);
+            runManager.exploreMapManager = new ExploreMapManager();
+            runManager.exploreMapManager.GenerateMap(4, 0, LocationType.Temple);
+
+            ExploreMapData mapData = runManager.exploreMapManager.MapData;
+            Assert.IsTrue(mapData.floors[0].nodes[0].isVisited, "시작 노드(Floor 0, Index 0)는 생성 시 방문 처리되어야 합니다.");
+
+            // 테스트 시나리오 구성: Floor 0(방문) -> Floor 1 Node 0(방문, 공개) vs Node 1(미선택, 공개) -> Floor 2 Node 0(현재 위치, 공개)
+            ExploreMapData customMap = CreateSampleMapData();
+            customMap.floors[0].nodes[0].isVisited = true;
+            customMap.floors[0].nodes[0].isRevealed = true;
+            customMap.floors[1].nodes[0].isVisited = false;
+            customMap.floors[1].nodes[0].isRevealed = true;
+            customMap.floors[1].nodes[1].isVisited = false;
+            customMap.floors[1].nodes[1].isRevealed = true;
+            customMap.floors[2].nodes[0].isVisited = false;
+            customMap.floors[2].nodes[0].isRevealed = true;
+
+            runManager.exploreMapManager.RestoreMapData(customMap);
+            runManager.currentExploreNode = customMap.floors[0].nodes[0];
+            runManager.currentExploreMapFloor = 0;
+
+            ExploreMapUI mapUI = mapUiGo.AddComponent<ExploreMapUI>();
+            SetPrivateField(mapUI, "ViewLayout", viewLayoutGo);
+            SetPrivateField(mapUI, "ExploreMapVerticalLayoutPrefab", verticalPrefab);
+            SetPrivateField(mapUI, "NodePrefab", nodePrefab);
+
+            mapUI.CreateExploreMap(3);
+
+            // Floor 0 -> Floor 1 Node 0 -> Floor 2 Node 0 순서로 이동 시뮬레이션
+            LogAssert.Expect(LogType.Error, new Regex("GameSceneManager에 플레이어 정보가 없어"));
+            runManager.MoveToNode(mapUI.MapNodes[1][0]);
+            Assert.IsTrue(customMap.floors[0].nodes[0].isVisited);
+            Assert.IsTrue(customMap.floors[1].nodes[0].isVisited);
+            Assert.IsFalse(customMap.floors[1].nodes[1].isVisited);
+
+            LogAssert.Expect(LogType.Error, new Regex("GameSceneManager에 플레이어 정보가 없어"));
+            runManager.MoveToNode(mapUI.MapNodes[2][0]);
+            Assert.IsTrue(customMap.floors[2].nodes[0].isVisited);
+            Assert.AreSame(customMap.floors[2].nodes[0], runManager.currentExploreNode);
+
+            // 호버 링이 잔류한 상태를 강제로 만든 후 RefreshMapVisuals() 호출
+            mapUI.MapNodes[1][1].ExploreNodeUIHighlightCircleObject.SetActive(true);
+            mapUI.RefreshMapVisuals();
+
+            // 1. 모든 노드의 호버 링이 초기화되어야 함
+            Assert.IsFalse(mapUI.MapNodes[1][1].ExploreNodeUIHighlightCircleObject.activeSelf);
+
+            // 2. 지나온 노드들(0,0 / 1,0)과 현재 노드(2,0)의 방문/현재 하이라이트 링이 모두 켜지고, 미선택 노드(1,1)는 꺼져야 함
+            Assert.IsTrue(mapUI.MapNodes[0][0].ExploreNodeUICurrentHighlightCircleObject.activeSelf);
+            Assert.IsTrue(mapUI.MapNodes[1][0].ExploreNodeUICurrentHighlightCircleObject.activeSelf);
+            Assert.IsTrue(mapUI.MapNodes[2][0].ExploreNodeUICurrentHighlightCircleObject.activeSelf);
+            Assert.IsFalse(mapUI.MapNodes[1][1].ExploreNodeUICurrentHighlightCircleObject.activeSelf);
+
+            // 3. 이미 공개된(isRevealed == true) 직전 층의 미선택 노드(1,1)가 안개로 다시 가려지지 않아야 함
+            Assert.IsFalse(mapUI.MapNodes[1][1].ExploreNodeUICoverObject.activeSelf);
+        }
+        finally
+        {
+            typeof(RunManager).GetField("<instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, null);
+            for (int i = createdObjects.Count - 1; i >= 0; i--)
+            {
+                if (createdObjects[i] != null)
+                {
+                    Object.DestroyImmediate(createdObjects[i]);
+                }
+            }
+        }
+    }
+
+    private static void SetPrivateField(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(field, $"{target.GetType().Name}.{fieldName} 필드를 찾을 수 없습니다.");
+        field.SetValue(target, value);
     }
 
     [Test]

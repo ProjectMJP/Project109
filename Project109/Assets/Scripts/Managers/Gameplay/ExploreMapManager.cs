@@ -70,6 +70,7 @@ public class ExploreMapManager
             if (index == 0)
             {
                 ExploreNode node = new ExploreNode(index, 0);
+                node.isVisited = true;
                 node.encounterData.locationType = locationType;
                 node.encounterData.encountType = EncountType.None;
                 node.encounterData.interactableDataId = "Region_Start_Shrine_Data";

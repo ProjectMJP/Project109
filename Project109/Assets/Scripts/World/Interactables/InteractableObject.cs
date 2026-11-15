@@ -101,13 +101,6 @@ public class InteractableObject : MonoBehaviour, IInteractable
             
             model.tag = "EventNPC";
             ChangeAllLayer(model, LayerMask.NameToLayer("NPC"));
-
-            // TODO: EventObject 프리팹의 임시 플레이스홀더 Cube가 모델과 겹칠 경우 사용하거나 프리팹에서 직접 정리 후 제거 가능
-            Transform placeholder = transform.Find("Cube");
-            if (placeholder != null)
-            {
-                placeholder.gameObject.SetActive(false);
-            }
         }
         else
         {
@@ -149,6 +142,12 @@ public class InteractableObject : MonoBehaviour, IInteractable
 
         if (!string.IsNullOrEmpty(interactableData.targetDialogueID))
         {
+            if (DialogueManager.Instance == null)
+            {
+                Debug.LogError($"[InteractableObject] DialogueManager.Instance가 존재하지 않아 다이얼로그({interactableData.targetDialogueID})를 시작할 수 없습니다.");
+                return;
+            }
+
             if (ModLoader.Instance != null && ModLoader.Instance.DialogueDatabase.TryGetValue(interactableData.targetDialogueID, out var dialogueData))
             {
                 DialogueManager.Instance.StartDialogue(dialogueData, this);

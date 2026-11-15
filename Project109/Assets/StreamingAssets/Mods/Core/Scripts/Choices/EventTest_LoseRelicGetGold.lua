@@ -26,3 +26,7 @@ function ExecuteChoice(dm)
     dm:AddGold(100)
     selectedIndex = -1
 end
+
+function ResetState()
+    selectedIndex = -1
+end

@@ -484,6 +484,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4388223626834924938}
   - component: {fileID: 1225032216893028920}
+  - component: {fileID: 7170866922242366031}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -530,3 +531,15 @@ MonoBehaviour:
   normalUILayer: {fileID: 346853303712543422}
   topUILayer: {fileID: 7527832347922171908}
   popupUILayer: {fileID: 6098506069153966637}
+--- !u!114 &7170866922242366031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7390387057177661137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84a83d654a65d3544bd6b4452dd06088, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueManager

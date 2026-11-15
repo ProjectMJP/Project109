@@ -92,6 +92,11 @@ public class ExploreMapUI : UIPanelBase
             RunManager.instance.currentExploreNode = mapData.floors[0].nodes[0];
         }
 
+        if (RunManager.instance.currentExploreNode != null)
+        {
+            RunManager.instance.currentExploreNode.isVisited = true;
+        }
+
         // 현재 노드 하이라이트 및 시각 요소 갱신
         RefreshMapVisuals();
 
@@ -127,80 +132,28 @@ public class ExploreMapUI : UIPanelBase
     {
         if (RunManager.instance == null) return;
 
-        // 1. 모든 노드 시각 상태(가림막 공개/비공개 및 하이라이트 초기화) 동기화
+        ExploreNode currentNode = RunManager.instance.currentExploreNode;
+
+        // 1. 모든 노드 시각 상태(가림막 공개/비공개, 호버 링 초기화, 방문/현재 위치 하이라이트) 동기화
         for (int f = 0; f < _exploreMap.Count; f++)
         {
             for (int i = 0; i < _exploreMap[f].Count; i++)
             {
                 var nodeUI = _exploreMap[f][i];
-                if (nodeUI != null)
-                {
-                    nodeUI.UpdateVisual();
+                if (nodeUI == null) continue;
 
-                    if (nodeUI.ExploreNodeUICurrentHighlightCircleObject != null)
-                    {
-                        nodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(false);
-                    }
-                }
-            }
-        }
+                nodeUI.UpdateVisual();
 
-        // 2. 현재 노드 하이라이트 활성화
-        ExploreNode currentNode = RunManager.instance.currentExploreNode;
-        if (currentNode != null)
-        {
-            int curFloor = currentNode.floor;
-            int curIndex = currentNode.index;
-            if (curFloor >= 0 && curFloor < _exploreMap.Count)
-            {
-                ExploreNodeUI curNodeUI = null;
-                if (curIndex >= 0 && curIndex < _exploreMap[curFloor].Count)
+                if (nodeUI.ExploreNodeUIHighlightCircleObject != null)
                 {
-                    ExploreNodeUI indexedNodeUI = _exploreMap[curFloor][curIndex];
-                    if (indexedNodeUI != null && (indexedNodeUI.NodeData == currentNode || indexedNodeUI.NodeData == null))
-                    {
-                        curNodeUI = indexedNodeUI;
-                    }
+                    nodeUI.ExploreNodeUIHighlightCircleObject.SetActive(false);
                 }
 
-                if (curNodeUI == null)
+                bool isVisitedOrCurrent = (nodeUI.NodeData != null && nodeUI.NodeData.isVisited)
+                    || (currentNode != null && nodeUI.NodeData == currentNode);
+                if (nodeUI.ExploreNodeUICurrentHighlightCircleObject != null)
                 {
-                    for (int i = 0; i < _exploreMap[curFloor].Count; i++)
-                    {
-                        ExploreNodeUI candidate = _exploreMap[curFloor][i];
-                        if (candidate != null && candidate.NodeData == currentNode)
-                        {
-                            curNodeUI = candidate;
-                            break;
-                        }
-                    }
-                }
-
-                if (curNodeUI != null && curNodeUI.ExploreNodeUICurrentHighlightCircleObject != null)
-                {
-                    curNodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(true);
-                }
-            }
-        }
-
-        // 3. 이전 층에서 지나치지 않은 노드 닫기
-        CloseBeforeNodes();
-    }
-
-    public void CloseBeforeNodes()
-    {
-        if (RunManager.instance == null) return;
-
-        int beforeFloor = RunManager.instance.currentExploreMapFloor - 1;
-
-        if (beforeFloor >= 0 && beforeFloor < _exploreMap.Count)
-        {
-            for (int i = 0; i < _exploreMap[beforeFloor].Count; i++)
-            {
-                // RunManager의 beforeExploreNode와 UI가 맵핑된 NodeData를 비교
-                if (_exploreMap[beforeFloor][i] != null && _exploreMap[beforeFloor][i].NodeData != RunManager.instance.beforeExploreNode)
-                {
-                    _exploreMap[beforeFloor][i].HideNode();
+                    nodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(isVisitedOrCurrent);
                 }
             }
         }

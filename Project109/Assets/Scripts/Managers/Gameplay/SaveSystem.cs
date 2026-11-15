@@ -642,6 +642,16 @@ public static class SaveSystem
                 data.exploreMapData,
                 data.beforeExploreNodeFloor,
                 data.beforeExploreNodeIndex);
+
+            if (runManager.currentExploreNode != null)
+            {
+                runManager.currentExploreNode.isVisited = true;
+            }
+
+            if (runManager.beforeExploreNode != null)
+            {
+                runManager.beforeExploreNode.isVisited = true;
+            }
         }
         else
         {

@@ -140,7 +140,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD55C\uAD6D\uC5B4 \uD14C\uC2A4\uD2B8\nEnglish Test\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz"
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
@@ -389,6 +389,7 @@ MonoBehaviour:
   description: {fileID: 1358385356776227159}
   eventButtonSpawnPoint: {fileID: 4631140280444803882}
   eventButtonPrefab: {fileID: 1606104480637898376, guid: f07b8796f2e064a46b67742010c141a3, type: 3}
+  charactersPerSecond: 35
 --- !u!1 &7974172557264015836
 GameObject:
   m_ObjectHideFlags: 0

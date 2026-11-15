@@ -59,6 +59,244 @@ public class LuaManager : MonoBehaviour
     // NewInstance 델리게이트 캐싱 (반복 호출 시 GC Alloc 방지)
     private System.Func<LuaTable, LuaTable> _cachedNewInstance;
 
+    /// <summary>
+    /// 사전 로드 및 컴파일된 Choice Lua 스크립트의 격리 환경과 델리게이트 캐시 엔트리입니다.
+    /// </summary>
+    private sealed class ChoiceScriptEntry
+    {
+        public LuaTable Env;
+        public CanSelectDialogueChoice CanSelect;
+        public GetDialogueChoiceDescription GetDescription;
+        public ExecuteDialogueChoice ExecuteChoice;
+        public IsDialogueChoiceVisible IsVisible;
+        public System.Action ResetState;
+
+        public void ClearCallbacks()
+        {
+            CanSelect = null;
+            GetDescription = null;
+            ExecuteChoice = null;
+            IsVisible = null;
+            ResetState = null;
+        }
+    }
+
+    // Key: 정규화된 Choice 스크립트 이름 (확장자·경로 제외, 대소문자 무시)
+    private readonly Dictionary<string, ChoiceScriptEntry> _choiceScripts =
+        new Dictionary<string, ChoiceScriptEntry>(System.StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Choice 스크립트 식별자 또는 파일 경로를 확장자 및 경로 없는 정규 키로 변환합니다.
+    /// </summary>
+    public static string NormalizeChoiceKey(string choiceNameOrPath)
+    {
+        if (string.IsNullOrWhiteSpace(choiceNameOrPath))
+        {
+            return string.Empty;
+        }
+
+        string normalized = choiceNameOrPath.Trim().Replace('\\', '/');
+        int lastSlash = normalized.LastIndexOf('/');
+        if (lastSlash >= 0)
+        {
+            normalized = normalized.Substring(lastSlash + 1);
+        }
+
+        if (normalized.EndsWith(".lua", System.StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized.Substring(0, normalized.Length - 4);
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Choice Lua 스크립트를 스크립트별 격리 환경(LuaTable)으로 1회 컴파일하고 델리게이트를 캐싱합니다.
+    /// 동일 이름의 스크립트가 이미 등록되어 있으면 기존 환경을 안전하게 해제하고 덮어씁니다(모드 오버라이드 지원).
+    /// </summary>
+    public bool LoadChoiceScript(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
+        {
+            return false;
+        }
+
+        if (luaEnv == null || luaEnv.rawL == System.IntPtr.Zero)
+        {
+            Debug.LogError("[LuaManager] LuaEnv가 초기화되지 않아 Choice 스크립트를 로드할 수 없습니다.");
+            return false;
+        }
+
+        string choiceKey = NormalizeChoiceKey(filePath);
+        if (string.IsNullOrEmpty(choiceKey))
+        {
+            return false;
+        }
+
+        LuaTable scriptEnv = luaEnv.NewTable();
+        LuaTable meta = luaEnv.NewTable();
+        meta.Set("__index", luaEnv.Global);
+        scriptEnv.SetMetaTable(meta);
+        meta.Dispose();
+
+        try
+        {
+            // UTF-8 BOM을 안전하게 제거해 Lua 파서 오류를 방지합니다.
+            string scriptText = System.IO.File.ReadAllText(filePath, System.Text.Encoding.UTF8);
+            byte[] scriptBytes = System.Text.Encoding.UTF8.GetBytes(scriptText);
+            luaEnv.DoString(scriptBytes, choiceKey, scriptEnv);
+
+            var entry = new ChoiceScriptEntry
+            {
+                Env = scriptEnv,
+                CanSelect = scriptEnv.Get<CanSelectDialogueChoice>("CanSelect"),
+                GetDescription = scriptEnv.Get<GetDialogueChoiceDescription>("GetDescription"),
+                ExecuteChoice = scriptEnv.Get<ExecuteDialogueChoice>("ExecuteChoice"),
+                IsVisible = scriptEnv.Get<IsDialogueChoiceVisible>("IsVisible"),
+                ResetState = scriptEnv.Get<System.Action>("ResetState") ?? scriptEnv.Get<System.Action>("ResetChoiceState")
+            };
+
+            if (_choiceScripts.TryGetValue(choiceKey, out ChoiceScriptEntry previous) && previous != null)
+            {
+                previous.ClearCallbacks();
+                if (previous.Env != null)
+                {
+                    previous.Env.Dispose();
+                    previous.Env = null;
+                }
+            }
+
+            _choiceScripts[choiceKey] = entry;
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[LuaManager] Choice 스크립트 로드 오류 ({choiceKey}, {filePath}): {ex.Message}\n{ex.StackTrace}");
+            if (luaEnv != null && luaEnv.rawL != System.IntPtr.Zero)
+            {
+                scriptEnv.Dispose();
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 사전 캐싱된 Choice 스크립트 콜백 델리게이트를 O(1)로 조회합니다.
+    /// </summary>
+    public bool TryGetChoiceCallbacks(
+        string choiceScriptName,
+        out CanSelectDialogueChoice canSelect,
+        out GetDialogueChoiceDescription getDesc,
+        out ExecuteDialogueChoice execute,
+        out IsDialogueChoiceVisible isVisible)
+    {
+        canSelect = null;
+        getDesc = null;
+        execute = null;
+        isVisible = null;
+
+        string choiceKey = NormalizeChoiceKey(choiceScriptName);
+        if (string.IsNullOrEmpty(choiceKey))
+        {
+            return false;
+        }
+
+        if (_choiceScripts.TryGetValue(choiceKey, out ChoiceScriptEntry entry) && entry != null)
+        {
+            canSelect = entry.CanSelect;
+            getDesc = entry.GetDescription;
+            execute = entry.ExecuteChoice;
+            isVisible = entry.IsVisible;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 특정 Choice 스크립트의 Upvalue 상태 초기화 훅(ResetState/ResetChoiceState)을 실행합니다.
+    /// </summary>
+    public bool ResetChoiceState(string choiceScriptName)
+    {
+        if (luaEnv == null || luaEnv.rawL == System.IntPtr.Zero)
+        {
+            return false;
+        }
+
+        string choiceKey = NormalizeChoiceKey(choiceScriptName);
+        if (string.IsNullOrEmpty(choiceKey))
+        {
+            return false;
+        }
+
+        if (_choiceScripts.TryGetValue(choiceKey, out ChoiceScriptEntry entry) && entry != null && entry.ResetState != null)
+        {
+            try
+            {
+                entry.ResetState.Invoke();
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[LuaManager] Choice 스크립트 상태 초기화 오류 ({choiceKey}): {ex.Message}");
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 캐싱된 모든 Choice 스크립트의 Upvalue 상태 초기화 훅(ResetState/ResetChoiceState)을 일괄 실행합니다.
+    /// </summary>
+    public void ResetAllChoiceStates()
+    {
+        if (luaEnv == null || luaEnv.rawL == System.IntPtr.Zero)
+        {
+            return;
+        }
+
+        foreach (var pair in _choiceScripts)
+        {
+            ChoiceScriptEntry entry = pair.Value;
+            if (entry == null || entry.ResetState == null)
+            {
+                continue;
+            }
+
+            try
+            {
+                entry.ResetState.Invoke();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[LuaManager] Choice 스크립트 상태 초기화 오류 ({pair.Key}): {ex.Message}");
+            }
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void DisposeChoiceScripts()
+    {
+        bool canDisposeTables = luaEnv != null && luaEnv.rawL != System.IntPtr.Zero;
+        foreach (var pair in _choiceScripts)
+        {
+            ChoiceScriptEntry entry = pair.Value;
+            if (entry == null)
+            {
+                continue;
+            }
+
+            entry.ClearCallbacks();
+            if (canDisposeTables && entry.Env != null)
+            {
+                entry.Env.Dispose();
+                entry.Env = null;
+            }
+        }
+
+        _choiceScripts.Clear();
+    }
+
     private void Awake()
     {
         if (_instance == null)
@@ -183,6 +421,9 @@ public class LuaManager : MonoBehaviour
                 Vector2 = CS.UnityEngine.Vector2,
                 Vector2Int = CS.UnityEngine.Vector2Int,
             }
+
+            -- 두 개의 시계(Two-Clock) 상태이상(Stun 턴 종료 등)에서 안전하게 접근할 수 있도록 싱글턴 참조 주입
+            RunManager = CS.RunManager
 
             CS = nil
 
@@ -384,6 +625,7 @@ public class LuaManager : MonoBehaviour
         _cachedNewInstance = null;
         cardTagPrototypes.Clear();
         _scriptPathIndex.Clear();
+        DisposeChoiceScripts();
 
         if (luaEnv != null)
         {

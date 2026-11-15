@@ -155,9 +155,8 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
 
         bool hasDialogueUI = DialogueManager.Instance != null &&
                              !DialogueManager.Instance.IsDialogueActive &&
-                             (DialogueManager.Instance.dialogueUICanvasPrefab != null ||
-                              (AssetCacheManager.instance != null &&
-                               AssetCacheManager.instance.TryGetUI(UIConstants.PANEL_DIALOGUE, out _)));
+                             AssetCacheManager.instance != null &&
+                             AssetCacheManager.instance.TryGetUI(UIConstants.PANEL_DIALOGUE, out _);
 
         if (hasDialogueUI)
         {
