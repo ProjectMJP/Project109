@@ -1,0 +1,7 @@
+effectName: "Burn"
+displayName: "화상"
+description: "매초 방어도를 무시하고 {damage}의 피해를 입히며 중첩이 1 감소합니다."
+effectType: "Debuff"
+clockType: "Time"
+isPermanent: false
+isIndependent: false

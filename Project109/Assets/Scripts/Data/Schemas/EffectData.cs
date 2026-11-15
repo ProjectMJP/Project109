@@ -3,6 +3,16 @@ using UnityEngine;
 using XLua;
 using YamlDotNet.Serialization;
 
+/// <summary>
+/// 상태이상이 만료·차감되는 시간/진행 축을 정의합니다.
+/// </summary>
+public enum EffectClockType
+{
+    Time,   // 월드 시간(초) 기반 틱 및 감쇠
+    Turn,   // 전투 턴 경과 기반 차감/만료
+    Event   // 특정 이벤트 조건 전까지 영구 유지
+}
+
 public class EffectData : IModAssetResolver, IIdentifiable
 {
     private static readonly string[] _luaFallbackGlobals = { "effect" };
@@ -23,6 +33,7 @@ public class EffectData : IModAssetResolver, IIdentifiable
     // {stacks} 플레이스홀더로 현재 스택 수치를 동적으로 표현할 수 있습니다.
     public string description { get; set; }
     public EffectType effectType { get; set; }
+    public EffectClockType clockType { get; set; } = EffectClockType.Time;
     public bool isPermanent { get; set; }
     public bool isIndependent { get; set; } // true일 경우, 중첩(Stack)되지 않고 새로운 인스턴스로 각각 존재합니다.
     public int maxStack { get; set; } = int.MaxValue;

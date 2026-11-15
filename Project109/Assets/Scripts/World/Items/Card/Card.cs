@@ -360,7 +360,18 @@ public class Card : IDescribable
             return false;
         }
 
-        // 2. 캐싱된 Lua CanPlay 델리게이트가 있다면 호출하여 최종 검증 진행
+        // 2. 카드 사용 시도 이벤트(IOnTryUseCard) 평가 (예: 무장해제)
+        if (caster.eventBus != null)
+        {
+            CardInfo tryInfo = new CardInfo(caster, this, CardFlag.Normal);
+            CombatEventDispatcher.DispatchTryUseCard(caster.eventBus, tryInfo);
+            if (tryInfo.HasFlag(CardFlag.Cancel))
+            {
+                return false;
+            }
+        }
+
+        // 3. 캐싱된 Lua CanPlay 델리게이트가 있다면 호출하여 최종 검증 진행
         if (luaTable != null && _luaCanPlay != null)
         {
             try

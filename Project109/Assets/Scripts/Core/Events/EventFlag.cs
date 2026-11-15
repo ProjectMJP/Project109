@@ -59,6 +59,7 @@ namespace EventStructs
         NoCasterEvents = 1 << 2, // 카드 사용 관련 이벤트 발동 안함
         FreeToPlay = 1 << 3,         // 코스트 소모 없이 사용 (조건 성립 플래그로 쓰임)
         Exhaust = 1 << 4,        // 이번 카드 사용 시 강제 소멸
+        Cancel = 1 << 5,         // 버프/디버프 등에 의해 카드 사용 시도 차단
 
         // --- 임의의 조합 프리셋 ---
         AutoPlayed = NoCasterEvents, // 강제 시전

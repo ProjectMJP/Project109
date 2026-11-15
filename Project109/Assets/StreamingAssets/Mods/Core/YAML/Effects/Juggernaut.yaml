@@ -2,6 +2,7 @@ effectName: "Juggernaut"
 displayName: "폭주기관차"
 description: "일반 이동력이 0으로 고정됩니다. 공격 카드를 사용할 때마다 전방으로 1칸 전진하며 맞닿은 적을 1칸 밀쳐냅니다."
 effectType: "Buff"
+clockType: "Turn"
 isPermanent: false
 isIndependent: false
 

@@ -1,0 +1,7 @@
+effectName: "Fortress"
+displayName: "철벽"
+description: "턴 종료 시 보유한 방어도가 다음 턴까지 유지됩니다. ({stacks}턴 지속)"
+effectType: "Buff"
+clockType: "Turn"
+isPermanent: false
+isIndependent: false

@@ -4,16 +4,25 @@ function effect:OnInit(effectBase)
     self.base = effectBase
 end
 
+local DEFAULT_DURATION = 10.0
+
 function effect:OnAdded(effectInstance, caster, target, stack, duration)
     if target ~= nil and target.curCharacterStat ~= nil then
         target.curCharacterStat.staminaRegenPerSecond = target.curCharacterStat.staminaRegenPerSecond + 20
+    end
+    if self.base ~= nil and (duration == nil or duration <= 0 or duration >= 999) then
+        self.base.duration = DEFAULT_DURATION
+        self.base.currentDuration = DEFAULT_DURATION
     end
 end
 
 function effect:OnStacked(effectInstance, stack, duration)
     -- 지속 시간 갱신
     if self.base ~= nil then
-        self.base.currentDuration = math.max(self.base.currentDuration, duration)
+        local d = (duration ~= nil and duration > 0 and duration < 999) and duration or DEFAULT_DURATION
+        local newDur = math.max(self.base.currentDuration, d)
+        self.base.duration = math.max(self.base.duration, newDur)
+        self.base.currentDuration = newDur
     end
 end
 

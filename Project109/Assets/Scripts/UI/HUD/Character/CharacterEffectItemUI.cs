@@ -20,6 +20,11 @@ public class CharacterEffectItemUI : MonoBehaviour
 
     private void Awake()
     {
+        if (durationFillImage != null)
+        {
+            durationFillImage.fillClockwise = false;
+        }
+
         tooltipTrigger = GetComponent<TooltipTrigger>();
         if (tooltipTrigger == null)
         {
@@ -50,10 +55,23 @@ public class CharacterEffectItemUI : MonoBehaviour
             iconImage.sprite = targetEffect.Data.iconSprite;
             iconImage.enabled = true;
         }
-        // 2. 중첩(Stack) 수치 표시 (2 이상일 경우 숫자 표기, 1 이하일 경우 숨김)
+        // 2. 중첩(Stack) 및 시계 유형(EffectClockType) 표시 분기
+        EffectClockType clockType = targetEffect.Data.clockType;
         if (stackText != null)
         {
-            if (targetEffect.currentStack > 1)
+            if (clockType == EffectClockType.Turn)
+            {
+                if (targetEffect.currentStack >= 1)
+                {
+                    stackText.text = $"{targetEffect.currentStack}T";
+                    stackText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    stackText.gameObject.SetActive(false);
+                }
+            }
+            else if (targetEffect.currentStack > 1)
             {
                 stackText.text = targetEffect.currentStack.ToString();
                 stackText.gameObject.SetActive(true);
@@ -63,10 +81,10 @@ public class CharacterEffectItemUI : MonoBehaviour
                 stackText.gameObject.SetActive(false);
             }
         }
-        // 3. 지속시간 게이지 갱신
+        // 3. 지속시간 게이지 갱신 (Time 시계이면서 비영구 이펙트일 때만 표시)
         if (durationFillImage != null)
         {
-            if (!targetEffect.Data.isPermanent && targetEffect.duration > 0f)
+            if (clockType == EffectClockType.Time && !targetEffect.Data.isPermanent && targetEffect.duration > 0f)
             {
                 float fillRatio = Mathf.Clamp01(targetEffect.currentDuration / targetEffect.duration);
                 durationFillImage.fillAmount = fillRatio;
@@ -99,7 +117,9 @@ public class CharacterEffectItemUI : MonoBehaviour
 
         if (durationFillImage != null)
         {
-            if (!targetEffect.Data.isPermanent && targetEffect.duration > 0f)
+            if (targetEffect.Data.clockType == EffectClockType.Time
+                && !targetEffect.Data.isPermanent
+                && targetEffect.duration > 0f)
             {
                 float fillRatio = Mathf.Clamp01(targetEffect.currentDuration / targetEffect.duration);
                 durationFillImage.fillAmount = fillRatio;

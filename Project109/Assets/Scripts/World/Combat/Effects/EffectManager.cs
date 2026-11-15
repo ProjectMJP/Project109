@@ -76,7 +76,7 @@ public class EffectManager : IDisposable
             if (i >= effects.Count) continue;
             Effect current = effects[i];
             if (current == null) continue;
-            if (current.Data != null && current.Data.isPermanent) continue;
+            if (current.Data != null && (current.Data.isPermanent || current.Data.clockType != EffectClockType.Time)) continue;
 
             current.elapsedSinceLastTick += deltaTime;
             if (current.elapsedSinceLastTick >= Effect.tickInterval)
@@ -93,14 +93,33 @@ public class EffectManager : IDisposable
             if (current.currentDuration <= 0f)
             {
                 current.OnTimeOut();
-                if (i < effects.Count && effects[i] == current && current.currentStack <= 0)
+                if (i < effects.Count && effects[i] == current)
                 {
-                    Effect removedEffect = effects[i];
-                    removedEffect.OnRemoved();
-                    effects.RemoveAt(i);
-                    OnEffectRemoved?.Invoke(removedEffect);
+                    if (current.currentStack <= 0)
+                    {
+                        Effect removedEffect = effects[i];
+                        removedEffect.OnRemoved();
+                        effects.RemoveAt(i);
+                        OnEffectRemoved?.Invoke(removedEffect);
+                    }
+                    else
+                    {
+                        // 시간 경과로 스택만 감소하고 유지되는 경우 UI 배지 즉시 갱신
+                        OnEffectStacked?.Invoke(current);
+                    }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Lua 턴/시간/이벤트 훅에서 스택이나 지속시간을 직접 변경한 뒤 UI 갱신을 알립니다.
+    /// </summary>
+    public void NotifyEffectUpdated(Effect effect)
+    {
+        if (effect != null)
+        {
+            OnEffectStacked?.Invoke(effect);
         }
     }
 

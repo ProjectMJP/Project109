@@ -1,0 +1,7 @@
+effectName: "Fatigue"
+displayName: "탈진"
+description: "턴 시작 시 가용 스태미나를 30% 잃습니다. ({stacks}턴 지속)"
+effectType: "Debuff"
+clockType: "Turn"
+isPermanent: false
+isIndependent: false

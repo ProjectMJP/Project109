@@ -85,11 +85,13 @@ function effect:OnDrawCard(card)
 end
 
 function effect:OnAfterUseCard(cardInfo)
-    local card = cardInfo.cardData
+    local card = cardInfo.card
     if card ~= nil and card.cardData ~= nil and card.cardData.cardType == "Attack" then
         self.base.currentStack = self.base.currentStack - 1
         if self.base.currentStack <= 0 then
             self.base.target.effectManager:RemoveEffect(self.base)
+        else
+            self.base.target.effectManager:NotifyEffectUpdated(self.base)
         end
     end
 end

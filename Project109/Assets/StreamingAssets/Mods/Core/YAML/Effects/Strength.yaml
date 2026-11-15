@@ -2,5 +2,6 @@ effectName: "Strength"
 displayName: "힘"
 description: "공격의 피해량이 {stacks}만큼 증가합니다."
 effectType: "Buff"
+clockType: "Event"
 isPermanent: true
 isIndependent: false

@@ -428,7 +428,7 @@ public class CharacterMove
 
         // 2. 이동 직후 이벤트 (IOnAfterMove / IOnAfterForcedMove)
         Vector2Int currentCoord = currentTile != null ? currentTile.GetCoord() : toCoord;
-        MoveInfo afterInfo = new MoveInfo(this.character, currentCoord, currentCoord, moveFlags);
+        MoveInfo afterInfo = new MoveInfo(this.character, fromCoord, currentCoord, moveFlags);
         afterInfo.moveMultiplier = speedMultiplier;
 
         if (this.character != null)

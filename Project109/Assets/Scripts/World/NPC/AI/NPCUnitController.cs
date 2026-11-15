@@ -82,6 +82,13 @@ public class NPCUnitController : ICharacterController, IDisposable
         // 1. 이벤트 버스 트리거
         CombatEventDispatcher.DispatchTurnStart(controlledCharacter.eventBus);
 
+        // 기절(Stun) 등 턴 시작 이벤트로 턴이 즉시 종료되었다면 행동을 진행하지 않고 중단
+        if (RunManager.instance != null && RunManager.instance.battleManager != null
+            && !ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
+        {
+            return;
+        }
+
         // 2. 의도 최종 확정
         EvaluateNextIntent();
 

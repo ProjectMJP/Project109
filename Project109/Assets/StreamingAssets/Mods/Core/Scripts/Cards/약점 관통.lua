@@ -26,7 +26,7 @@ function card:Execute(cardInfo)
         local bleedMultiplier = self.base:GetEffectiveValue("bleedMultiplier")
         for i = 0, cardInfo.targets.Count - 1 do
             local target = cardInfo.targets[i]
-            local bleedStack = getEffectStack(target, "Bleed")
+            local bleedStack = getEffectStack(target, "Bleeding")
             local totalDamage = baseDamage
             if bleedStack > 0 then
                 totalDamage = totalDamage * bleedMultiplier

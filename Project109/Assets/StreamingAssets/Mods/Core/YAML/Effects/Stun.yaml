@@ -1,0 +1,7 @@
+effectName: "Stun"
+displayName: "기절"
+description: "행동할 수 없으며, 다음 턴을 즉시 종료합니다. ({stacks}턴 지속)"
+effectType: "Debuff"
+clockType: "Turn"
+isPermanent: false
+isIndependent: false

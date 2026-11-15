@@ -31,7 +31,12 @@ public static class GenConfig
         typeof(RewardChest),
         typeof(RewardData),
         typeof(DropTableData),
+        typeof(EffectClockType),
+        typeof(EffectData),
         typeof(Effect),
+        typeof(EffectManager),
+        typeof(RunManager),
+        typeof(BattleManager),
 
         // Event Payloads & Flags
         typeof(EventStructs.DamageInfo),

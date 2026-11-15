@@ -168,6 +168,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         // 1. 이벤트 버스 — 등록된 IOnTurnStart들 호출 (버프, 유물 등에서 AddBonusDrawThisTurn 호출 가능)
         CombatEventDispatcher.DispatchTurnStart(controlledCharacter.eventBus);
 
+        // 기절(Stun) 등 턴 시작 이벤트로 턴이 즉시 종료되었다면 드로우를 진행하지 않고 중단
+        if (RunManager.instance != null && RunManager.instance.battleManager != null
+            && !ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
+        {
+            return;
+        }
+
         // 2. 카드 드로우 (BattleDeck.OnHandChanged를 통해 BattleHandPanel 자동 갱신)
         battleDeck.DrawCards(GetTurnDrawCount());
 
@@ -307,10 +314,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         {
             CancelCurrentState();
         }
-
-        // 사용 시도 이벤트 발동 (IOnTryUseCard)
-        CardInfo tryInfo = new CardInfo(controlledCharacter, card, CardFlag.Normal);
-        CombatEventDispatcher.DispatchTryUseCard(controlledCharacter.eventBus, tryInfo);
 
         Vector2Int casterPos = Vector2Int.zero;
         if (controlledCharacter.characterMove != null && controlledCharacter.characterMove.GetCurrentTile() != null)
