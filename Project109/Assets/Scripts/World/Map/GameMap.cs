@@ -473,36 +473,188 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 카드 데이터와 타깃 좌표를 바탕으로 폭발 범위(AoE) 타일 좌표 목록을 계산합니다.
+    /// Bresenham 정수 직선 알고리즘으로 originCoord에서 targetCoord까지의 격자 좌표 경로를 순서대로 반환합니다.
     /// </summary>
-    public List<Vector2Int> CalculateCardAoECoords(Vector2Int targetCoord, CardData cardData)
+    public static List<Vector2Int> GetLineCoords(Vector2Int originCoord, Vector2Int targetCoord, bool includeOrigin = false)
+    {
+        List<Vector2Int> coords = new List<Vector2Int>();
+        int x0 = originCoord.x;
+        int y0 = originCoord.y;
+        int x1 = targetCoord.x;
+        int y1 = targetCoord.y;
+
+        int dx = Mathf.Abs(x1 - x0);
+        int dy = Mathf.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+
+        while (true)
+        {
+            if (includeOrigin || x0 != originCoord.x || y0 != originCoord.y)
+            {
+                coords.Add(new Vector2Int(x0, y0));
+            }
+
+            if (x0 == x1 && y0 == y1)
+            {
+                break;
+            }
+
+            int e2 = 2 * err;
+            if (e2 > -dy)
+            {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx)
+            {
+                err += dx;
+                y0 += sy;
+            }
+        }
+
+        return coords;
+    }
+
+    private bool IsTileBlockingProjectile(Tile tile)
+    {
+        if (tile == null) return true;
+        if (tile.isBlocked) return true;
+        if (tile.occupyingCharacter != null && !tile.occupyingCharacter.isDead) return true;
+        if (tile.occupyingDestructible != null && !tile.occupyingDestructible.isDead) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// 시전자 좌표, 타깃 좌표, 시선 방향 및 카드 데이터를 바탕으로 효과 범위(AoE) 및 투사체 시선(LoS) 타일 좌표 목록을 계산합니다.
+    /// </summary>
+    public List<Vector2Int> CalculateCardAoECoords(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.Down)
     {
         List<Vector2Int> aoeCoords = new List<Vector2Int>();
         if (cardData == null) return aoeCoords;
+
+        LookDirection effectiveFacing = EffectAreaShapeGenerator.GetDirectionFromCoords(originCoord, targetCoord, facing);
+        Vector2Int mapSize = new Vector2Int(mapColumn, mapRow);
 
         if (cardData.additionalEffectAreaList != null && cardData.additionalEffectAreaList.Count > 0)
         {
             foreach (var area in cardData.additionalEffectAreaList)
             {
                 if (area == null) continue;
-                var shapePositions = EffectAreaShapeGenerator.GetShapePositions(
-                    area.areaType,
-                    new Vector2Int(mapColumn, mapRow),
-                    1,
-                    targetCoord.x,
-                    targetCoord.y,
-                    area.distance);
 
-                if (shapePositions != null)
+                bool isPiercing = cardData.isPiercing || area.isPiercing;
+                bool ignoreObstacles = cardData.ignoreObstacles || area.ignoreObstacles;
+                string areaType = area.areaType ?? string.Empty;
+
+                if (areaType == "WholeMap" || areaType == "All")
                 {
-                    aoeCoords.AddRange(shapePositions);
+                    aoeCoords.AddRange(EffectAreaShapeGenerator.GetWholeMap(mapSize));
+                }
+                else if (areaType == "DirectionalLine" || areaType == "TargetLine" || areaType == "Line")
+                {
+                    int minDist = cardData.targetMinDistance > 0 ? cardData.targetMinDistance : 1;
+                    int maxDist = cardData.targetMaxDistance > 0 ? Mathf.Max(cardData.targetMaxDistance, area.distance) : Mathf.Max(1, area.distance);
+                    int width = area.width > 0 ? area.width : 1;
+
+                    if (isPiercing || ignoreObstacles)
+                    {
+                        aoeCoords.AddRange(EffectAreaShapeGenerator.GetDirectionalLine(mapSize, originCoord, effectiveFacing, minDist, maxDist, width));
+                    }
+                    else
+                    {
+                        int halfWidth = Mathf.Max(0, (width - 1) / 2);
+                        for (int step = minDist; step <= maxDist; step++)
+                        {
+                            bool blockedAtStep = false;
+                            for (int lat = -halfWidth; lat <= halfWidth; lat++)
+                            {
+                                Vector2Int coord = originCoord + EffectAreaShapeGenerator.RotateOffset(lat, step, effectiveFacing);
+                                if (!IsValidCoordinate(coord.x, coord.y)) continue;
+
+                                aoeCoords.Add(coord);
+                                if (IsTileBlockingProjectile(GetTile(coord)))
+                                {
+                                    blockedAtStep = true;
+                                }
+                            }
+
+                            if (blockedAtStep)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (areaType == "Pattern" || areaType == "PatternWithRotation")
+                {
+                    Vector2Int anchor = (cardData.parsedTargetType == TargetType.AreaGround) ? targetCoord : originCoord;
+                    var patternPositions = EffectAreaShapeGenerator.GetPatternWithRotation(mapSize, anchor, area.pattern, effectiveFacing);
+                    if (patternPositions != null)
+                    {
+                        aoeCoords.AddRange(patternPositions);
+                    }
+                }
+                else
+                {
+                    Vector2Int center = (cardData.parsedTargetType == TargetType.AreaSelf ||
+                                         cardData.parsedTargetType == TargetType.Directional ||
+                                         cardData.parsedTargetType == TargetType.Self)
+                        ? originCoord
+                        : targetCoord;
+                    int shapeLen = Mathf.Max(1, Mathf.Abs(cardData.targetMaxDistance - cardData.targetMinDistance));
+                    var shapePositions = EffectAreaShapeGenerator.GetShapePositions(
+                        areaType,
+                        mapSize,
+                        shapeLen,
+                        center.x,
+                        center.y,
+                        area.distance);
+
+                    if (shapePositions != null)
+                    {
+                        aoeCoords.AddRange(shapePositions);
+                    }
                 }
             }
         }
         else
         {
-            // 추가 효과 범위가 없으면 대상 타일(targetCoord) 자체를 단일 타깃으로 추가
-            aoeCoords.Add(targetCoord);
+            if (cardData.parsedTargetType == TargetType.Directional && originCoord == targetCoord)
+            {
+                int minDist = cardData.targetMinDistance > 0 ? cardData.targetMinDistance : 1;
+                int maxDist = cardData.targetMaxDistance > 0 ? cardData.targetMaxDistance : minDist;
+                for (int step = minDist; step <= maxDist; step++)
+                {
+                    Vector2Int coord = originCoord + EffectAreaShapeGenerator.RotateOffset(0, step, effectiveFacing);
+                    if (!IsValidCoordinate(coord.x, coord.y)) continue;
+
+                    aoeCoords.Add(coord);
+                    if (!cardData.isPiercing && !cardData.ignoreObstacles && IsTileBlockingProjectile(GetTile(coord)))
+                    {
+                        break;
+                    }
+                }
+            }
+            else if (originCoord != targetCoord && !cardData.ignoreObstacles)
+            {
+                List<Vector2Int> rayCoords = GetLineCoords(originCoord, targetCoord, false);
+                for (int i = 0; i < rayCoords.Count; i++)
+                {
+                    Vector2Int coord = rayCoords[i];
+                    if (!IsValidCoordinate(coord.x, coord.y)) continue;
+
+                    aoeCoords.Add(coord);
+                    if (!cardData.isPiercing && IsTileBlockingProjectile(GetTile(coord)))
+                    {
+                        break;
+                    }
+                }
+            }
+            else if (IsValidCoordinate(targetCoord.x, targetCoord.y))
+            {
+                aoeCoords.Add(targetCoord);
+            }
         }
 
         return aoeCoords;
@@ -525,16 +677,29 @@ public class GameMap : MonoBehaviour
     /// <summary>
     /// 카드의 사거리를 유지하면서, 마우스가 위치한 대상 타일 중심의 폭발 범위(AoE)를 월드 타일맵에 실시간 표시합니다.
     /// </summary>
-    public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData)
+    public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.Down)
     {
         if (cardData == null || moveRangeIndicator == null) return;
         if (!moveRangeIndicator.gameObject.activeSelf)
         {
             moveRangeIndicator.gameObject.SetActive(true);
         }
-        List<Vector2Int> rangeCoords = CalculateCardRangeCoords(originCoord, cardData);
-        List<Vector2Int> aoeCoords = CalculateCardAoECoords(targetCoord, cardData);
+        bool skipRange = cardData.parsedTargetType == TargetType.AreaSelf || cardData.parsedTargetType == TargetType.Directional;
+        List<Vector2Int> rangeCoords = skipRange ? null : CalculateCardRangeCoords(originCoord, cardData);
+        List<Vector2Int> aoeCoords = CalculateCardAoECoords(originCoord, targetCoord, cardData, facing);
         moveRangeIndicator.ShowCardAoETiles(rangeCoords, aoeCoords, tileMap);
+    }
+
+    private LookDirection GetPlayerFacingDirection()
+    {
+        if (GameSceneManager.instance != null &&
+            GameSceneManager.instance.player != null &&
+            GameSceneManager.instance.player.character != null &&
+            GameSceneManager.instance.player.character.characterMove != null)
+        {
+            return GameSceneManager.instance.player.character.characterMove.facingDirection;
+        }
+        return LookDirection.Down;
     }
 
     /// <summary>
@@ -555,8 +720,15 @@ public class GameMap : MonoBehaviour
     {
         if (newCardData == null) return;
 
-        // 1. 실제 월드 타일맵에 사거리 하이라이트 표시
-        ShowCardRange(originCoord, newCardData);
+        // 1. 실제 월드 타일맵에 하이라이트 표시 (즉발 광역/방향형은 즉시 AoE G 채널 표시)
+        if (newCardData.parsedTargetType == TargetType.AreaSelf || newCardData.parsedTargetType == TargetType.Directional)
+        {
+            ShowCardAoE(originCoord, originCoord, newCardData, GetPlayerFacingDirection());
+        }
+        else
+        {
+            ShowCardRange(originCoord, newCardData);
+        }
 
         // 2. 레거시 3D 스튜디오(CardDetailUI 호환용) 업데이트 유지
         if (effectAreaTile != null)
@@ -573,6 +745,12 @@ public class GameMap : MonoBehaviour
             additionalEffectAreaTile.ClearAllTiles();
             foreach (EffectArea additionalEffectArea in newCardData.additionalEffectAreaList)
             {
+                if (additionalEffectArea == null ||
+                    additionalEffectArea.areaType == "Pattern" ||
+                    additionalEffectArea.areaType == "PatternWithRotation")
+                {
+                    continue;
+                }
                 SetEffectAreaFromShapeGenerator(additionalEffectArea.areaType,
                                                 Mathf.Abs(newCardData.targetMaxDistance - newCardData.targetMinDistance),
                                                 additionalEffectArea.distance,

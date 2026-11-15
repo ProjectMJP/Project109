@@ -4,14 +4,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum LookDirection
-{
-    Up,
-    Down,
-    Left,
-    Right
-}
-
 /// <summary>
 /// 진정한 의미의 '캐릭터 이동 실행' 로직 클래스입니다.
 /// 플레이어와 적(Enemy) 모두 이 클래스를 소유(has-a)하여 코루틴 이동을 수행합니다.

@@ -61,6 +61,28 @@ public class GridAreaSearch
                     }
                 }
                 return results;
+            case TargetType.Directional:
+                if (minDist == 0 && maxDist == 0)
+                {
+                    if (targetX >= 0 && targetX < mapSize.x && targetY >= 0 && targetY < mapSize.y)
+                    {
+                        results.Add(new Vector2Int(targetX, targetY));
+                    }
+                }
+                else
+                {
+                    int startStep = Mathf.Max(0, minDist);
+                    int endStep = Mathf.Max(startStep, maxDist);
+                    for (int d = startStep; d <= endStep; d++)
+                    {
+                        int ny = targetY + d;
+                        if (targetX >= 0 && targetX < mapSize.x && ny >= 0 && ny < mapSize.y)
+                        {
+                            results.Add(new Vector2Int(targetX, ny));
+                        }
+                    }
+                }
+                return results;
         }
  
         return results;

@@ -134,17 +134,23 @@ public class CardPlayAction : BattleAction
 
         if (baseDmg <= 0f) return;
 
-        HashSet<Vector2Int> hitCoords = new HashSet<Vector2Int> { info.targetPosition };
-        if (card.cardData.additionalEffectAreaList != null && card.cardData.additionalEffectAreaList.Count > 0)
+        Vector2Int originCoord = GameMap.current.GetCharacterCoordinate(caster);
+        LookDirection facing = (caster != null && caster.characterMove != null)
+            ? caster.characterMove.facingDirection
+            : LookDirection.Down;
+
+        HashSet<Vector2Int> hitCoords = new HashSet<Vector2Int>();
+        var aoeCoords = GameMap.current.CalculateCardAoECoords(originCoord, info.targetPosition, card.cardData, facing);
+        if (aoeCoords != null && aoeCoords.Count > 0)
         {
-            var aoeCoords = GameMap.current.CalculateCardAoECoords(info.targetPosition, card.cardData);
-            if (aoeCoords != null)
+            for (int i = 0; i < aoeCoords.Count; i++)
             {
-                for (int i = 0; i < aoeCoords.Count; i++)
-                {
-                    hitCoords.Add(aoeCoords[i]);
-                }
+                hitCoords.Add(aoeCoords[i]);
             }
+        }
+        else
+        {
+            hitCoords.Add(info.targetPosition);
         }
 
         foreach (var coord in hitCoords)

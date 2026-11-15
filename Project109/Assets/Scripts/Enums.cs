@@ -1,5 +1,13 @@
 using UnityEngine;
 
+public enum LookDirection
+{
+    Up,
+    Down,
+    Left,
+    Right
+}
+
 namespace GameItem.Types
 {
     public enum CardRarity
@@ -74,7 +82,8 @@ namespace CardTypes
         MultiEnemy,    // 사거리 내 적 N명 순차 수동 지정
         AllEnemies,    // 전장의 모든 적 즉시 타격
         SingleAlly,    // 사거리 내 아군 1명 수동 지정 (미래 확장용)
-        AllAllies      // 전장의 모든 아군 즉시 적용 (미래 확장용)
+        AllAllies,     // 전장의 모든 아군 즉시 적용 (미래 확장용)
+        Directional    // 시전자가 바라보는 방향(facingDirection) 기준 즉시 발동 (허공 시전 허용)
     }
 
     public enum CardMasteryType

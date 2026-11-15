@@ -58,7 +58,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         { TargetType.RandomEnemy, new RandomEnemyTargetingStrategy() },
         { TargetType.SingleEnemy, new SingleEnemyTargetingStrategy() },
         { TargetType.AreaGround, new AreaGroundTargetingStrategy() },
-        { TargetType.MultiEnemy, new MultiEnemyTargetingStrategy() }
+        { TargetType.MultiEnemy, new MultiEnemyTargetingStrategy() },
+        { TargetType.Directional, new DirectionalTargetingStrategy() }
     };
 
     public ITargetingStrategy GetTargetingStrategy(TargetType type)
@@ -339,6 +340,15 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             // 즉시 시전형: 전략을 통해 대상을 즉시 수집 후 시전
             List<Character> immediateTargets = strategy.CollectImmediateTargets(this, card, casterPos);
             UseCard(card, immediateTargets, casterPos);
+
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
+            else if (GameMap.current != null)
+            {
+                GameMap.current.ClearEffectAreaTiles();
+            }
         }
     }
 
@@ -641,7 +651,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             if (distance >= minDistance && distance <= maxDistance)
             {
                 // 유효 사거리 내 타일이면 사거리(R) 유지 + 해당 타일 중심 폭발 범위(G) 실시간 표시
-                GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData);
+                LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                    ? controlledCharacter.characterMove.facingDirection
+                    : LookDirection.Down;
+                GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData, facing);
                 return;
             }
         }

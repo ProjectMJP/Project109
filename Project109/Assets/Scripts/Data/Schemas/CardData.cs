@@ -49,6 +49,8 @@ public class CardData : IModAssetResolver, IIdentifiable
     public int targetCount { get; set; } = 1;
     public int minTargetCount { get; set; } = 1;
     public bool allowDuplicateTarget { get; set; } = true;
+    public bool isPiercing { get; set; } = false;
+    public bool ignoreObstacles { get; set; } = false;
     public List<EffectArea> additionalEffectAreaList { get; set; } = new();
 
     public CardRarity rarity { get; set; }
@@ -129,6 +131,7 @@ public class CardData : IModAssetResolver, IIdentifiable
             case "allenemies": case "all": return TargetType.AllEnemies;
             case "singleally": case "ally": return TargetType.SingleAlly;
             case "allallies": return TargetType.AllAllies;
+            case "directional": case "areadirectional": case "direction": case "front": return TargetType.Directional;
             case "singleenemy": case "enemy": case "single": case "target": default: return TargetType.SingleEnemy;
         }
     }
