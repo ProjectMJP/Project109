@@ -6,6 +6,7 @@ targetType: "Directional"
 targetMinDistance: 1
 targetMaxDistance: 2
 rarity: "Common"
+obtainSource: "TestOnly"
 stamina: 0
 maxMasteryPoint: 0
 isUpgradable: false

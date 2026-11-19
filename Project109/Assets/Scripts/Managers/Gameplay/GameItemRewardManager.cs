@@ -47,6 +47,26 @@ public class GameItemRewardManager : MonoBehaviour
 
     private readonly HashSet<string> _ownedRelicNameSet = new HashSet<string>();
 
+    /// <summary>
+    /// 일반 드롭 및 상점 가중치 추첨 풀에 등장 가능한 카드인지 판별합니다.
+    /// 강화 카드(isUpgraded) 및 Starter/EventOnly/BossOnly/TestOnly 카드를 제외합니다.
+    /// </summary>
+    public static bool IsCardObtainableInRandomPool(CardData card)
+    {
+        return card != null && !card.isUpgraded && card.obtainSource == ItemObtainSource.Standard;
+    }
+
+    /// <summary>
+    /// 일반 드롭 및 상점 가중치 추첨 풀에 등장 가능한 유물인지 판별합니다.
+    /// Standard 유물과 Boss 등급의 BossOnly 유물만 허용하고 Starter/EventOnly/TestOnly 유물을 제외합니다.
+    /// </summary>
+    public static bool IsRelicObtainableInRandomPool(RelicData relic)
+    {
+        return relic != null &&
+               (relic.obtainSource == ItemObtainSource.Standard ||
+                (relic.obtainSource == ItemObtainSource.BossOnly && relic.rarity == RelicRarity.Boss));
+    }
+
     public void UpdateItemList()
     {
         // 이전 목록 비우기 (누적 증식 방지)
@@ -64,9 +84,9 @@ public class GameItemRewardManager : MonoBehaviour
         {
             foreach (CardData data in ModLoader.Instance.CardDatabase.Values)
             {
-                if (data.isUpgraded)
+                if (!IsCardObtainableInRandomPool(data))
                 {
-                    continue; // 업그레이드 카드들은 보상으로 등장하지 않음
+                    continue; // 업그레이드 카드 및 일반 풀 제외 획득처 카드 배제
                 }
 
                 switch (data.rarity)
@@ -91,6 +111,11 @@ public class GameItemRewardManager : MonoBehaviour
         {
             foreach (RelicData data in ModLoader.Instance.RelicDatabase.Values)
             {
+                if (!IsRelicObtainableInRandomPool(data))
+                {
+                    continue; // Starter/EventOnly/TestOnly 등 일반 풀 제외 획득처 유물 배제
+                }
+
                 switch (data.rarity)
                 {
                     case GameItem.Types.RelicRarity.Common:
@@ -127,7 +152,7 @@ public class GameItemRewardManager : MonoBehaviour
         {
             foreach (var card in cardDatabase.Values)
             {
-                if (card.isUpgraded) continue;
+                if (!IsCardObtainableInRandomPool(card)) continue;
                 if (!PassesDropTableFilter(card.cardName, card.classTypes, dropTable)) continue;
 
                 // 카드 타입 필터
@@ -186,6 +211,7 @@ public class GameItemRewardManager : MonoBehaviour
         {
             foreach (var relic in relicDatabase.Values)
             {
+                if (!IsRelicObtainableInRandomPool(relic)) continue;
                 if (_ownedRelicNameSet.Contains(relic.relicName)) continue;
                 if (!PassesDropTableFilter(relic.relicName, relic.classTypes, dropTable)) continue;
 

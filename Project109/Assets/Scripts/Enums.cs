@@ -26,6 +26,15 @@ namespace GameItem.Types
         Boss = 4
     }
 
+    public enum ItemObtainSource
+    {
+        Standard = 0,   // 일반 드롭 및 상점 등장 가능 (기본값)
+        Starter = 1,    // 시작 덱/무장 전용 (일반 드롭/상점 추첨 제외)
+        EventOnly = 2,  // 특수 이벤트/대화 보상 전용 (일반 드롭/상점 추첨 제외)
+        BossOnly = 3,   // 보스 전용 (일반 드롭/상점 추첨 제외, 보스 풀 전용)
+        TestOnly = 4    // 테스트 전용 (일반 드롭/상점 추첨 및 도감 기본 노출 제외)
+    }
+
     public enum RewardType
     {
         Gold,
@@ -70,6 +79,18 @@ namespace CardTypes
         Buff,
         Debuff,
         Move
+    }
+
+    public enum CardPlayFailReason
+    {
+        None = 0,
+        NotPlayerTurn,
+        CharacterBusy,
+        InsufficientStamina,
+        BlockedByEffect,
+        ConditionNotMet,
+        NoValidTargets,
+        Unknown
     }
 
     public enum TargetType  //공격 대상 및 타깃팅 방식 타입

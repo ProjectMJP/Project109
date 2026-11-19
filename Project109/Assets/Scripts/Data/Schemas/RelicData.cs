@@ -30,6 +30,7 @@ public class RelicData : IModAssetResolver, IIdentifiable
     public List<string> classTypes { get; set; } = new List<string>();
 
     public GameItem.Types.RelicRarity rarity { get; set; }
+    public GameItem.Types.ItemObtainSource obtainSource { get; set; } = GameItem.Types.ItemObtainSource.Standard;
 
     // 업그레이드 시 변환될 유물의 ID (null이거나 비어있으면 업그레이드 불가)
     public string upgradedRelicId { get; set; }

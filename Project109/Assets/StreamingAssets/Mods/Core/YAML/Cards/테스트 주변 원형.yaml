@@ -6,6 +6,7 @@ targetType: "AreaSelf"
 targetMinDistance: 0
 targetMaxDistance: 0
 rarity: "Common"
+obtainSource: "TestOnly"
 stamina: 0
 maxMasteryPoint: 0
 isUpgradable: false

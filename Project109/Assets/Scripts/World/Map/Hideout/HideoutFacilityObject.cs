@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GameItem.Types;
 using UnityEngine;
 using XLua;
 
@@ -223,7 +224,7 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
             UIManager.instance.PushActiveUIPanel(deckPanel);
         }
 
-        deckPanel.Open("기록 보관소 (도감)", _cachedCompendiumCards, CardViewMode.ViewOnly);
+        deckPanel.OpenCompendium("기록 보관소 (도감)", _cachedCompendiumCards);
     }
 
     private void EnsureCompendiumCardsBuilt()
@@ -239,7 +240,7 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
         List<CardData> sortedCards = new List<CardData>(ModLoader.Instance.CardDatabase.Count);
         foreach (CardData cardData in ModLoader.Instance.CardDatabase.Values)
         {
-            if (cardData != null)
+            if (cardData != null && cardData.obtainSource != ItemObtainSource.TestOnly)
             {
                 sortedCards.Add(cardData);
             }

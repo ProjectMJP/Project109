@@ -7,6 +7,7 @@ targetType: "Enemy"
 targetMinDistance: 1
 targetMaxDistance: 1
 rarity: "Common"
+obtainSource: "TestOnly"
 stamina: 30
 maxMasteryPoint: 0
 isUpgradable: false

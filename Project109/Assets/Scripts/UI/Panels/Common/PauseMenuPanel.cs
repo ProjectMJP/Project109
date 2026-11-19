@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GameItem.Types;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,29 @@ public class PauseMenuPanel : UIPanelBase
         Main,
         Settings,
         RelicCompendium
+    }
+
+    public enum RelicRarityFilter
+    {
+        All = 0,
+        Common = 1,
+        Rare = 2,
+        Unique = 3,
+        Boss = 4
+    }
+
+    public enum RelicObtainSourceFilter
+    {
+        All = 0,
+        Standard = 1,
+        BossOnly = 2,
+        EventOnly = 3
+    }
+
+    public enum RelicSortCriteria
+    {
+        Rarity = 0,
+        Name = 1
     }
 
     [Header("Sub-View Containers")]
@@ -42,6 +66,8 @@ public class PauseMenuPanel : UIPanelBase
     [SerializeField] private TextMeshProUGUI masterVolumeValueText;
     [SerializeField] private Toggle fullScreenToggle;
     [SerializeField] private TextMeshProUGUI fullScreenStatusText;
+    [SerializeField] private Toggle tooltipToggle;
+    [SerializeField] private TextMeshProUGUI tooltipStatusText;
     [SerializeField] private Button settingsBackButton;
 
     [Header("Relic Compendium Controls")]
@@ -49,14 +75,42 @@ public class PauseMenuPanel : UIPanelBase
     [SerializeField] private TextMeshProUGUI relicCountText;
     [SerializeField] private Button relicBackButton;
 
+    [Header("Relic Filter & Sort Controls")]
+    [SerializeField] private GameObject relicFilterSortBarRoot;
+    [SerializeField] private Button relicRarityFilterButton;
+    [SerializeField] private TextMeshProUGUI relicRarityFilterText;
+    [SerializeField] private Button relicObtainSourceFilterButton;
+    [SerializeField] private TextMeshProUGUI relicObtainSourceFilterText;
+    [SerializeField] private Button relicSortCriteriaButton;
+    [SerializeField] private TextMeshProUGUI relicSortCriteriaText;
+    [SerializeField] private Button relicSortDirectionButton;
+    [SerializeField] private TextMeshProUGUI relicSortDirectionText;
+
     private readonly List<Card> _cachedCompendiumCards = new List<Card>();
+    private readonly List<RelicData> _allCompendiumRelics = new List<RelicData>();
+    private readonly List<RelicData> _filteredCompendiumRelics = new List<RelicData>();
     private readonly List<GameObject> _spawnedRelicRows = new List<GameObject>();
 
     private CardDeckViewPanel _openedDeckPanel;
     private bool _listenersBound;
+    private bool _relicFilterListenersBound;
     private bool _isTransitioning;
     private bool _isSyncingSettingsUI;
     private bool _relicListBuilt;
+
+    private RelicRarityFilter _relicRarityFilter = RelicRarityFilter.All;
+    private RelicObtainSourceFilter _relicObtainSourceFilter = RelicObtainSourceFilter.All;
+    private RelicSortCriteria _relicSortCriteria = RelicSortCriteria.Rarity;
+    private bool _isRelicSortAscending = true;
+
+    public RelicRarityFilter CurrentRelicRarityFilter => _relicRarityFilter;
+    public RelicObtainSourceFilter CurrentRelicObtainSourceFilter => _relicObtainSourceFilter;
+    public RelicSortCriteria CurrentRelicSortCriteria => _relicSortCriteria;
+    public bool IsRelicSortAscending => _isRelicSortAscending;
+    public int TotalCompendiumRelicCount => _allCompendiumRelics.Count;
+    public int DisplayedRelicCount => _filteredCompendiumRelics.Count;
+    public IReadOnlyList<RelicData> CurrentDisplayedRelics => _filteredCompendiumRelics;
+    public IReadOnlyList<Card> CachedCompendiumCards => _cachedCompendiumCards;
 
     public override bool CanCloseByCancel => true;
     public override bool DestroyOnClose => false;
@@ -85,14 +139,36 @@ public class PauseMenuPanel : UIPanelBase
         blockWorldInput = true;
 
         ResolveComponentReferences();
+        EnsureTooltipSettingRow();
+        EnsureRelicFilterSortBar();
         BindListeners();
+        BindRelicFilterSortListeners();
+    }
+
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+        TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
+        TooltipManager.OnTooltipEnabledChanged += HandleTooltipEnabledChanged;
+        SyncTooltipSettingUI(TooltipManager.IsTooltipEnabled);
+    }
+
+    protected override void OnDisable()
+    {
+        base.OnDisable();
+        TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
     }
 
     private void OnDestroy()
     {
+        TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
         UnbindListeners();
+        UnbindRelicFilterSortListeners();
         DisposeCompendiumCards();
         ClearSpawnedRelicRows();
+        _allCompendiumRelics.Clear();
+        _filteredCompendiumRelics.Clear();
+        _relicListBuilt = false;
     }
 
     public override void OnOpen()
@@ -103,7 +179,10 @@ public class PauseMenuPanel : UIPanelBase
         _isTransitioning = false;
 
         ResolveComponentReferences();
+        EnsureTooltipSettingRow();
+        EnsureRelicFilterSortBar();
         BindListeners();
+        BindRelicFilterSortListeners();
 
         if (returnToTitleButton != null)
         {
@@ -151,6 +230,11 @@ public class PauseMenuPanel : UIPanelBase
 
         if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
         if (fullScreenToggle != null) fullScreenToggle.onValueChanged.AddListener(OnFullScreenToggleChanged);
+        if (tooltipToggle != null)
+        {
+            tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
+            tooltipToggle.onValueChanged.AddListener(OnTooltipToggleChanged);
+        }
 
         _listenersBound = true;
     }
@@ -172,6 +256,7 @@ public class PauseMenuPanel : UIPanelBase
 
         if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.RemoveListener(OnMasterVolumeChanged);
         if (fullScreenToggle != null) fullScreenToggle.onValueChanged.RemoveListener(OnFullScreenToggleChanged);
+        if (tooltipToggle != null) tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
 
         _listenersBound = false;
     }
@@ -246,13 +331,17 @@ public class PauseMenuPanel : UIPanelBase
             UIManager.instance.PushActiveUIPanel(deckPanel);
         }
 
-        deckPanel.Open("카드 도감", _cachedCompendiumCards, CardViewMode.ViewOnly, onCancel: RestoreOpenedDeckPanelIfClosed);
+        deckPanel.OpenCompendium("카드 도감", _cachedCompendiumCards, onCancel: RestoreOpenedDeckPanelIfClosed);
     }
 
     private void OnRelicCompendiumClicked()
     {
         ClearStatusMessage();
+        ResetRelicFilterAndSortState();
+        EnsureRelicFilterSortBar();
+        BindRelicFilterSortListeners();
         EnsureRelicCompendiumBuilt();
+        UpdateRelicFilterSortControlBarUI();
         SwitchViewMode(ViewMode.RelicCompendium);
     }
 
@@ -346,6 +435,14 @@ public class PauseMenuPanel : UIPanelBase
         }
 
         UpdateFullScreenStatusText(isFullScreen);
+
+        bool isTooltipEnabled = TooltipManager.IsTooltipEnabled;
+        if (tooltipToggle != null)
+        {
+            tooltipToggle.SetIsOnWithoutNotify(isTooltipEnabled);
+        }
+
+        UpdateTooltipStatusText(isTooltipEnabled);
         _isSyncingSettingsUI = false;
     }
 
@@ -378,6 +475,40 @@ public class PauseMenuPanel : UIPanelBase
         UpdateFullScreenStatusText(isFullScreen);
     }
 
+    private void OnTooltipToggleChanged(bool isEnabled)
+    {
+        if (_isSyncingSettingsUI)
+        {
+            return;
+        }
+
+        TooltipManager.SetTooltipEnabled(isEnabled);
+        UpdateTooltipStatusText(isEnabled);
+    }
+
+    private void HandleTooltipEnabledChanged(bool isEnabled)
+    {
+        SyncTooltipSettingUI(isEnabled);
+    }
+
+    private void SyncTooltipSettingUI(bool isEnabled)
+    {
+        bool prevSync = _isSyncingSettingsUI;
+        _isSyncingSettingsUI = true;
+        try
+        {
+            if (tooltipToggle != null)
+            {
+                tooltipToggle.SetIsOnWithoutNotify(isEnabled);
+            }
+            UpdateTooltipStatusText(isEnabled);
+        }
+        finally
+        {
+            _isSyncingSettingsUI = prevSync;
+        }
+    }
+
     private void UpdateMasterVolumeText(float volume)
     {
         if (masterVolumeValueText != null)
@@ -395,6 +526,14 @@ public class PauseMenuPanel : UIPanelBase
         }
     }
 
+    private void UpdateTooltipStatusText(bool isEnabled)
+    {
+        if (tooltipStatusText != null)
+        {
+            tooltipStatusText.text = isEnabled ? "ON" : "OFF";
+        }
+    }
+
     private void RestoreOpenedDeckPanelIfClosed()
     {
         if (_openedDeckPanel != null)
@@ -404,7 +543,7 @@ public class PauseMenuPanel : UIPanelBase
         }
     }
 
-    private void EnsureCompendiumCardsBuilt()
+    public void EnsureCompendiumCardsBuilt()
     {
         if (_cachedCompendiumCards.Count > 0)
         {
@@ -420,7 +559,7 @@ public class PauseMenuPanel : UIPanelBase
         List<CardData> sortedCards = new List<CardData>(ModLoader.Instance.CardDatabase.Count);
         foreach (CardData cardData in ModLoader.Instance.CardDatabase.Values)
         {
-            if (cardData != null)
+            if (cardData != null && cardData.obtainSource != ItemObtainSource.TestOnly)
             {
                 sortedCards.Add(cardData);
             }
@@ -454,49 +593,203 @@ public class PauseMenuPanel : UIPanelBase
         _cachedCompendiumCards.Clear();
     }
 
-    private void EnsureRelicCompendiumBuilt()
+    public void EnsureRelicCompendiumBuilt()
     {
-        if (_relicListBuilt || relicListContent == null)
+        if (!_relicListBuilt)
         {
-            return;
-        }
+            _allCompendiumRelics.Clear();
 
-        ClearSpawnedRelicRows();
-
-        if (ModLoader.Instance == null || ModLoader.Instance.RelicDatabase == null)
-        {
-            if (relicCountText != null) relicCountText.text = "등록된 유물: 0종";
-            _relicListBuilt = true;
-            return;
-        }
-
-        List<RelicData> sortedRelics = new List<RelicData>(ModLoader.Instance.RelicDatabase.Count);
-        foreach (RelicData relicData in ModLoader.Instance.RelicDatabase.Values)
-        {
-            if (relicData != null)
+            if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
             {
-                sortedRelics.Add(relicData);
+                foreach (RelicData relicData in ModLoader.Instance.RelicDatabase.Values)
+                {
+                    if (relicData != null && relicData.obtainSource != ItemObtainSource.TestOnly)
+                    {
+                        _allCompendiumRelics.Add(relicData);
+                    }
+                }
+            }
+
+            _relicListBuilt = true;
+        }
+
+        RefreshRelicCompendiumList();
+    }
+
+    public void CycleRelicRarityFilter()
+    {
+        _relicRarityFilter = (RelicRarityFilter)(((int)_relicRarityFilter + 1) % 5);
+        UpdateRelicFilterSortControlBarUI();
+        RefreshRelicCompendiumList();
+    }
+
+    public void CycleRelicObtainSourceFilter()
+    {
+        _relicObtainSourceFilter = (RelicObtainSourceFilter)(((int)_relicObtainSourceFilter + 1) % 4);
+        UpdateRelicFilterSortControlBarUI();
+        RefreshRelicCompendiumList();
+    }
+
+    public void CycleRelicSortCriteria()
+    {
+        _relicSortCriteria = (RelicSortCriteria)(((int)_relicSortCriteria + 1) % 2);
+        UpdateRelicFilterSortControlBarUI();
+        RefreshRelicCompendiumList();
+    }
+
+    public void ToggleRelicSortDirection()
+    {
+        _isRelicSortAscending = !_isRelicSortAscending;
+        UpdateRelicFilterSortControlBarUI();
+        RefreshRelicCompendiumList();
+    }
+
+    /// <summary>
+    /// 유물 목록에 도감 필터(TestOnly 기본 제외 포함)와 정렬을 순수하게 적용한 새 리스트를 반환합니다.
+    /// </summary>
+    public static List<RelicData> FilterAndSortRelics(
+        IEnumerable<RelicData> sourceRelics,
+        RelicRarityFilter rarityFilter,
+        RelicObtainSourceFilter obtainSourceFilter,
+        RelicSortCriteria sortCriteria,
+        bool isAscending)
+    {
+        List<RelicData> result = new List<RelicData>();
+        FilterAndSortRelicsInto(sourceRelics, result, rarityFilter, obtainSourceFilter, sortCriteria, isAscending);
+        return result;
+    }
+
+    /// <summary>
+    /// 유물 목록에 도감 필터와 정렬을 적용하여 지정된 출력 리스트에 채웁니다.
+    /// </summary>
+    public static void FilterAndSortRelicsInto(
+        IEnumerable<RelicData> sourceRelics,
+        List<RelicData> outputRelics,
+        RelicRarityFilter rarityFilter,
+        RelicObtainSourceFilter obtainSourceFilter,
+        RelicSortCriteria sortCriteria,
+        bool isAscending)
+    {
+        if (outputRelics == null) return;
+        outputRelics.Clear();
+
+        if (sourceRelics == null) return;
+
+        foreach (RelicData relic in sourceRelics)
+        {
+            if (MatchesRelicCompendiumFilters(relic, rarityFilter, obtainSourceFilter))
+            {
+                outputRelics.Add(relic);
             }
         }
 
-        sortedRelics.Sort(CompareRelicDataForCompendium);
+        outputRelics.Sort((left, right) => CompareRelics(left, right, sortCriteria, isAscending));
+    }
+
+    public static bool MatchesRelicCompendiumFilters(
+        RelicData relicData,
+        RelicRarityFilter rarityFilter,
+        RelicObtainSourceFilter obtainSourceFilter)
+    {
+        if (relicData == null) return false;
+        if (relicData.obtainSource == ItemObtainSource.TestOnly) return false;
+
+        switch (rarityFilter)
+        {
+            case RelicRarityFilter.Common:
+                if (relicData.rarity != RelicRarity.Common) return false;
+                break;
+            case RelicRarityFilter.Rare:
+                if (relicData.rarity != RelicRarity.Rare) return false;
+                break;
+            case RelicRarityFilter.Unique:
+                if (relicData.rarity != RelicRarity.Unique) return false;
+                break;
+            case RelicRarityFilter.Boss:
+                if (relicData.rarity != RelicRarity.Boss) return false;
+                break;
+        }
+
+        switch (obtainSourceFilter)
+        {
+            case RelicObtainSourceFilter.Standard:
+                if (relicData.obtainSource != ItemObtainSource.Standard) return false;
+                break;
+            case RelicObtainSourceFilter.BossOnly:
+                if (relicData.obtainSource != ItemObtainSource.BossOnly) return false;
+                break;
+            case RelicObtainSourceFilter.EventOnly:
+                if (relicData.obtainSource != ItemObtainSource.EventOnly) return false;
+                break;
+        }
+
+        return true;
+    }
+
+    public static int CompareRelics(RelicData left, RelicData right, RelicSortCriteria sortCriteria, bool isAscending)
+    {
+        if (ReferenceEquals(left, right)) return 0;
+        if (left == null) return -1;
+        if (right == null) return 1;
+
+        string leftName = !string.IsNullOrEmpty(left.LocalizedName) ? left.LocalizedName : left.relicName;
+        string rightName = !string.IsNullOrEmpty(right.LocalizedName) ? right.LocalizedName : right.relicName;
+
+        int primaryCompare;
+        if (sortCriteria == RelicSortCriteria.Name)
+        {
+            primaryCompare = string.Compare(leftName, rightName, StringComparison.Ordinal);
+        }
+        else
+        {
+            primaryCompare = left.rarity.CompareTo(right.rarity);
+        }
+
+        if (primaryCompare != 0)
+        {
+            return isAscending ? primaryCompare : -primaryCompare;
+        }
+
+        int rarityTie = left.rarity.CompareTo(right.rarity);
+        if (rarityTie != 0) return rarityTie;
+
+        int nameTie = string.Compare(leftName, rightName, StringComparison.Ordinal);
+        if (nameTie != 0) return nameTie;
+
+        return string.Compare(left.relicName, right.relicName, StringComparison.Ordinal);
+    }
+
+    private void RefreshRelicCompendiumList()
+    {
+        ClearSpawnedRelicRows();
+
+        FilterAndSortRelicsInto(
+            _allCompendiumRelics,
+            _filteredCompendiumRelics,
+            _relicRarityFilter,
+            _relicObtainSourceFilter,
+            _relicSortCriteria,
+            _isRelicSortAscending);
 
         if (relicCountText != null)
         {
-            relicCountText.text = $"등록된 유물: {sortedRelics.Count}종";
+            relicCountText.text = $"표시 중인 유물: {_filteredCompendiumRelics.Count} / 전체 {_allCompendiumRelics.Count}종";
+        }
+
+        if (relicListContent == null)
+        {
+            return;
         }
 
         TMP_FontAsset fontAsset = ResolveDefaultFont();
-        for (int i = 0; i < sortedRelics.Count; i++)
+        for (int i = 0; i < _filteredCompendiumRelics.Count; i++)
         {
-            GameObject rowObj = CreateRelicEntryRow(relicListContent, sortedRelics[i], fontAsset);
+            GameObject rowObj = CreateRelicEntryRow(relicListContent, _filteredCompendiumRelics[i], fontAsset);
             if (rowObj != null)
             {
                 _spawnedRelicRows.Add(rowObj);
             }
         }
-
-        _relicListBuilt = true;
     }
 
     private void ClearSpawnedRelicRows()
@@ -505,11 +798,254 @@ public class PauseMenuPanel : UIPanelBase
         {
             if (_spawnedRelicRows[i] != null)
             {
-                Destroy(_spawnedRelicRows[i]);
+                DestroyOrImmediate(_spawnedRelicRows[i]);
             }
         }
         _spawnedRelicRows.Clear();
-        _relicListBuilt = false;
+    }
+
+    private void ResetRelicFilterAndSortState()
+    {
+        _relicRarityFilter = RelicRarityFilter.All;
+        _relicObtainSourceFilter = RelicObtainSourceFilter.All;
+        _relicSortCriteria = RelicSortCriteria.Rarity;
+        _isRelicSortAscending = true;
+    }
+
+    private void EnsureRelicFilterSortBar()
+    {
+        if (relicCompendiumGroup == null)
+        {
+            return;
+        }
+
+        if (relicCountText != null)
+        {
+            RectTransform countRect = relicCountText.GetComponent<RectTransform>();
+            if (countRect != null)
+            {
+                countRect.anchorMin = new Vector2(0f, 1f);
+                countRect.anchorMax = new Vector2(1f, 1f);
+                countRect.pivot = new Vector2(0.5f, 1f);
+                countRect.anchoredPosition = Vector2.zero;
+                countRect.sizeDelta = new Vector2(0f, 26f);
+            }
+        }
+
+        Transform scrollTr = relicCompendiumGroup.transform.Find("RelicScrollView");
+        if (scrollTr == null && relicListContent != null && relicListContent.parent != null)
+        {
+            scrollTr = relicListContent.parent.parent;
+        }
+        if (scrollTr != null)
+        {
+            RectTransform scrollRect = scrollTr.GetComponent<RectTransform>();
+            if (scrollRect != null)
+            {
+                scrollRect.anchorMin = Vector2.zero;
+                scrollRect.anchorMax = Vector2.one;
+                scrollRect.offsetMin = new Vector2(0f, 56f);
+                scrollRect.offsetMax = new Vector2(0f, -100f);
+            }
+        }
+
+        if (relicFilterSortBarRoot != null)
+        {
+            ResolveRelicFilterSortChildReferences(relicFilterSortBarRoot.transform);
+            return;
+        }
+
+        Transform existingBar = relicCompendiumGroup.transform.Find("RelicFilterSortBar");
+        if (existingBar != null)
+        {
+            relicFilterSortBarRoot = existingBar.gameObject;
+            ResolveRelicFilterSortChildReferences(existingBar);
+            return;
+        }
+
+        TMP_FontAsset fontAsset = ResolveDefaultFont();
+
+        GameObject barObj = CreateUIObject("RelicFilterSortBar", relicCompendiumGroup.transform);
+        RectTransform barRect = barObj.GetComponent<RectTransform>();
+        barRect.anchorMin = new Vector2(0f, 1f);
+        barRect.anchorMax = new Vector2(1f, 1f);
+        barRect.pivot = new Vector2(0.5f, 1f);
+        barRect.anchoredPosition = new Vector2(0f, -28f);
+        barRect.sizeDelta = new Vector2(0f, 66f);
+
+        VerticalLayoutGroup vLayout = barObj.AddComponent<VerticalLayoutGroup>();
+        vLayout.spacing = 4f;
+        vLayout.childControlWidth = true;
+        vLayout.childControlHeight = true;
+        vLayout.childForceExpandWidth = true;
+        vLayout.childForceExpandHeight = true;
+
+        GameObject filterRow = CreateUIObject("FilterRow", barObj.transform);
+        HorizontalLayoutGroup filterRowLayout = filterRow.AddComponent<HorizontalLayoutGroup>();
+        filterRowLayout.spacing = 6f;
+        filterRowLayout.childControlWidth = true;
+        filterRowLayout.childControlHeight = true;
+        filterRowLayout.childForceExpandWidth = true;
+        filterRowLayout.childForceExpandHeight = true;
+
+        GameObject sortRow = CreateUIObject("SortRow", barObj.transform);
+        HorizontalLayoutGroup sortRowLayout = sortRow.AddComponent<HorizontalLayoutGroup>();
+        sortRowLayout.spacing = 6f;
+        sortRowLayout.childControlWidth = true;
+        sortRowLayout.childControlHeight = true;
+        sortRowLayout.childForceExpandWidth = true;
+        sortRowLayout.childForceExpandHeight = true;
+
+        relicFilterSortBarRoot = barObj;
+
+        Color filterBg = new Color(0.20f, 0.27f, 0.38f, 1f);
+        Color sortBg = new Color(0.22f, 0.33f, 0.28f, 1f);
+
+        relicRarityFilterButton = CreateCompactFilterButton("RelicRarityFilterButton", filterRow.transform, "등급: 전체", filterBg, fontAsset, out relicRarityFilterText);
+        relicObtainSourceFilterButton = CreateCompactFilterButton("RelicObtainSourceFilterButton", filterRow.transform, "획득처: 전체", filterBg, fontAsset, out relicObtainSourceFilterText);
+        relicSortCriteriaButton = CreateCompactFilterButton("RelicSortCriteriaButton", sortRow.transform, "정렬: 등급순", sortBg, fontAsset, out relicSortCriteriaText);
+        relicSortDirectionButton = CreateCompactFilterButton("RelicSortDirectionButton", sortRow.transform, "▲ 오름차순", sortBg, fontAsset, out relicSortDirectionText);
+    }
+
+    private void ResolveRelicFilterSortChildReferences(Transform barTransform)
+    {
+        if (barTransform == null) return;
+
+        ResolveCompactButton(barTransform, "FilterRow/RelicRarityFilterButton", "RelicRarityFilterButton", ref relicRarityFilterButton, ref relicRarityFilterText);
+        ResolveCompactButton(barTransform, "FilterRow/RelicObtainSourceFilterButton", "RelicObtainSourceFilterButton", ref relicObtainSourceFilterButton, ref relicObtainSourceFilterText);
+        ResolveCompactButton(barTransform, "SortRow/RelicSortCriteriaButton", "RelicSortCriteriaButton", ref relicSortCriteriaButton, ref relicSortCriteriaText);
+        ResolveCompactButton(barTransform, "SortRow/RelicSortDirectionButton", "RelicSortDirectionButton", ref relicSortDirectionButton, ref relicSortDirectionText);
+    }
+
+    private static void ResolveCompactButton(
+        Transform parent,
+        string path,
+        string fallbackName,
+        ref Button button,
+        ref TextMeshProUGUI label)
+    {
+        if (button == null)
+        {
+            Transform target = parent.Find(path);
+            if (target == null)
+            {
+                target = parent.Find(fallbackName);
+            }
+            if (target != null)
+            {
+                button = target.GetComponent<Button>();
+            }
+        }
+
+        if (button != null && label == null)
+        {
+            label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        }
+    }
+
+    private void BindRelicFilterSortListeners()
+    {
+        if (_relicFilterListenersBound) return;
+
+        if (relicRarityFilterButton != null) relicRarityFilterButton.onClick.AddListener(CycleRelicRarityFilter);
+        if (relicObtainSourceFilterButton != null) relicObtainSourceFilterButton.onClick.AddListener(CycleRelicObtainSourceFilter);
+        if (relicSortCriteriaButton != null) relicSortCriteriaButton.onClick.AddListener(CycleRelicSortCriteria);
+        if (relicSortDirectionButton != null) relicSortDirectionButton.onClick.AddListener(ToggleRelicSortDirection);
+
+        _relicFilterListenersBound = true;
+    }
+
+    private void UnbindRelicFilterSortListeners()
+    {
+        if (!_relicFilterListenersBound) return;
+
+        if (relicRarityFilterButton != null) relicRarityFilterButton.onClick.RemoveListener(CycleRelicRarityFilter);
+        if (relicObtainSourceFilterButton != null) relicObtainSourceFilterButton.onClick.RemoveListener(CycleRelicObtainSourceFilter);
+        if (relicSortCriteriaButton != null) relicSortCriteriaButton.onClick.RemoveListener(CycleRelicSortCriteria);
+        if (relicSortDirectionButton != null) relicSortDirectionButton.onClick.RemoveListener(ToggleRelicSortDirection);
+
+        _relicFilterListenersBound = false;
+    }
+
+    private void UpdateRelicFilterSortControlBarUI()
+    {
+        if (relicRarityFilterText != null) relicRarityFilterText.text = GetRelicRarityFilterLabel(_relicRarityFilter);
+        if (relicObtainSourceFilterText != null) relicObtainSourceFilterText.text = GetRelicObtainSourceFilterLabel(_relicObtainSourceFilter);
+        if (relicSortCriteriaText != null) relicSortCriteriaText.text = GetRelicSortCriteriaLabel(_relicSortCriteria);
+        if (relicSortDirectionText != null) relicSortDirectionText.text = _isRelicSortAscending ? "▲ 오름차순" : "▼ 내림차순";
+    }
+
+    private static string GetRelicRarityFilterLabel(RelicRarityFilter filter)
+    {
+        switch (filter)
+        {
+            case RelicRarityFilter.Common: return "등급: Common";
+            case RelicRarityFilter.Rare: return "등급: Rare";
+            case RelicRarityFilter.Unique: return "등급: Unique";
+            case RelicRarityFilter.Boss: return "등급: Boss";
+            default: return "등급: 전체";
+        }
+    }
+
+    private static string GetRelicObtainSourceFilterLabel(RelicObtainSourceFilter filter)
+    {
+        switch (filter)
+        {
+            case RelicObtainSourceFilter.Standard: return "획득처: 일반(Standard)";
+            case RelicObtainSourceFilter.BossOnly: return "획득처: 보스(BossOnly)";
+            case RelicObtainSourceFilter.EventOnly: return "획득처: 이벤트(EventOnly)";
+            default: return "획득처: 전체";
+        }
+    }
+
+    private static string GetRelicSortCriteriaLabel(RelicSortCriteria criteria)
+    {
+        return criteria == RelicSortCriteria.Name ? "정렬: 이름순" : "정렬: 등급순";
+    }
+
+    private static Button CreateCompactFilterButton(
+        string name,
+        Transform parent,
+        string initialText,
+        Color bgColor,
+        TMP_FontAsset fontAsset,
+        out TextMeshProUGUI labelText)
+    {
+        GameObject btnObj = CreateUIObject(name, parent);
+        LayoutElement layoutElem = btnObj.AddComponent<LayoutElement>();
+        layoutElem.minHeight = 28f;
+        layoutElem.flexibleWidth = 1f;
+
+        Image img = btnObj.AddComponent<Image>();
+        img.color = bgColor;
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = img;
+
+        labelText = CreateTMPText("Label", btnObj.transform, initialText, 14, FontStyles.Bold, TextAlignmentOptions.Center, fontAsset);
+        labelText.enableAutoSizing = true;
+        labelText.fontSizeMin = 10;
+        labelText.fontSizeMax = 14;
+        RectTransform txtRect = labelText.GetComponent<RectTransform>();
+        txtRect.anchorMin = Vector2.zero;
+        txtRect.anchorMax = Vector2.one;
+        txtRect.offsetMin = new Vector2(6f, 2f);
+        txtRect.offsetMax = new Vector2(-6f, -2f);
+
+        return btn;
+    }
+
+    private static void DestroyOrImmediate(GameObject target)
+    {
+        if (target == null) return;
+        if (Application.isPlaying)
+        {
+            Destroy(target);
+        }
+        else
+        {
+            DestroyImmediate(target);
+        }
     }
 
     private static int CompareCardDataForCompendium(CardData left, CardData right)
@@ -533,23 +1069,6 @@ public class PauseMenuPanel : UIPanelBase
         }
 
         return string.Compare(left.cardName, right.cardName, StringComparison.Ordinal);
-    }
-
-    private static int CompareRelicDataForCompendium(RelicData left, RelicData right)
-    {
-        int rarityCompare = left.rarity.CompareTo(right.rarity);
-        if (rarityCompare != 0)
-        {
-            return rarityCompare;
-        }
-
-        int nameCompare = string.Compare(left.LocalizedName, right.LocalizedName, StringComparison.Ordinal);
-        if (nameCompare != 0)
-        {
-            return nameCompare;
-        }
-
-        return string.Compare(left.relicName, right.relicName, StringComparison.Ordinal);
     }
 
     private void ShowStatusMessage(string message)
@@ -584,6 +1103,7 @@ public class PauseMenuPanel : UIPanelBase
             returnToTitleButton != null &&
             masterVolumeSlider != null &&
             fullScreenToggle != null &&
+            tooltipToggle != null &&
             settingsBackButton != null)
         {
             return;
@@ -627,6 +1147,8 @@ public class PauseMenuPanel : UIPanelBase
             if (masterVolumeValueText == null) masterVolumeValueText = FindChildComponent<TextMeshProUGUI>(settingsTr, "MasterVolumeRow/MasterVolumeValueText");
             if (fullScreenToggle == null) fullScreenToggle = FindChildComponent<Toggle>(settingsTr, "FullScreenRow/FullScreenToggle");
             if (fullScreenStatusText == null) fullScreenStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "FullScreenRow/FullScreenStatusText");
+            if (tooltipToggle == null) tooltipToggle = FindChildComponent<Toggle>(settingsTr, "TooltipRow/TooltipToggle");
+            if (tooltipStatusText == null) tooltipStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "TooltipRow/TooltipStatusText");
             if (settingsBackButton == null) settingsBackButton = FindChildComponent<Button>(settingsTr, "SettingsBackButton");
         }
 
@@ -638,6 +1160,72 @@ public class PauseMenuPanel : UIPanelBase
             if (relicListContent == null) relicListContent = relicTr.Find("RelicScrollView/Viewport/Content");
             if (relicBackButton == null) relicBackButton = FindChildComponent<Button>(relicTr, "RelicBackButton");
         }
+    }
+
+    private void EnsureTooltipSettingRow()
+    {
+        if (settingsGroup == null)
+        {
+            return;
+        }
+
+        Transform rowTr = settingsGroup.transform.Find("TooltipRow");
+        if (rowTr == null)
+        {
+            TMP_FontAsset fontAsset = (fullScreenStatusText != null && fullScreenStatusText.font != null)
+                ? fullScreenStatusText.font
+                : ResolveDefaultFont();
+            rowTr = CreateTooltipSettingRow(settingsGroup.transform, fontAsset);
+        }
+        else
+        {
+            if (tooltipToggle == null) tooltipToggle = FindChildComponent<Toggle>(rowTr, "TooltipToggle");
+            if (tooltipStatusText == null) tooltipStatusText = FindChildComponent<TextMeshProUGUI>(rowTr, "TooltipStatusText");
+        }
+
+        if (rowTr != null && settingsBackButton != null && settingsBackButton.transform.parent == settingsGroup.transform)
+        {
+            int backIndex = settingsBackButton.transform.GetSiblingIndex();
+            if (rowTr.GetSiblingIndex() > backIndex)
+            {
+                rowTr.SetSiblingIndex(backIndex);
+            }
+        }
+
+        if (_listenersBound && tooltipToggle != null)
+        {
+            tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
+            tooltipToggle.onValueChanged.AddListener(OnTooltipToggleChanged);
+        }
+    }
+
+    private Transform CreateTooltipSettingRow(Transform parent, TMP_FontAsset fontAsset)
+    {
+        GameObject tooltipRow = CreateUIObject("TooltipRow", parent);
+        LayoutElement rowLayout = tooltipRow.AddComponent<LayoutElement>();
+        rowLayout.minHeight = 64f;
+        rowLayout.preferredHeight = 64f;
+
+        TextMeshProUGUI tooltipLabel = CreateTMPText("Label", tooltipRow.transform, "툴팁 표시 ([T])", 20, FontStyles.Bold, TextAlignmentOptions.Left, fontAsset);
+        RectTransform tooltipLabelRect = tooltipLabel.GetComponent<RectTransform>();
+        tooltipLabelRect.anchorMin = new Vector2(0f, 0.5f);
+        tooltipLabelRect.anchorMax = new Vector2(0.55f, 0.5f);
+        tooltipLabelRect.pivot = new Vector2(0f, 0.5f);
+        tooltipLabelRect.anchoredPosition = Vector2.zero;
+        tooltipLabelRect.sizeDelta = new Vector2(0f, 32f);
+
+        tooltipStatusText = CreateTMPText("TooltipStatusText", tooltipRow.transform, TooltipManager.IsTooltipEnabled ? "ON" : "OFF", 18, FontStyles.Normal, TextAlignmentOptions.Right, fontAsset);
+        RectTransform tooltipStatusRect = tooltipStatusText.GetComponent<RectTransform>();
+        tooltipStatusRect.anchorMin = new Vector2(0.5f, 0.5f);
+        tooltipStatusRect.anchorMax = new Vector2(0.84f, 0.5f);
+        tooltipStatusRect.pivot = new Vector2(1f, 0.5f);
+        tooltipStatusRect.anchoredPosition = Vector2.zero;
+        tooltipStatusRect.sizeDelta = new Vector2(0f, 30f);
+
+        tooltipToggle = CreateToggle("TooltipToggle", tooltipRow.transform);
+        tooltipToggle.SetIsOnWithoutNotify(TooltipManager.IsTooltipEnabled);
+
+        return tooltipRow.transform;
     }
 
     private static T FindChildComponent<T>(Transform parent, string relativePath) where T : Component
@@ -812,6 +1400,9 @@ public class PauseMenuPanel : UIPanelBase
         screenStatusRect.sizeDelta = new Vector2(0f, 30f);
 
         fullScreenToggle = CreateToggle("FullScreenToggle", screenRow.transform);
+
+        // 3. 툴팁 표시 토글 행
+        CreateTooltipSettingRow(parent, fontAsset);
     }
 
     private static Slider CreateSlider(string name, Transform parent)
@@ -912,8 +1503,8 @@ public class PauseMenuPanel : UIPanelBase
         RectTransform scrollRectTransform = scrollObj.GetComponent<RectTransform>();
         scrollRectTransform.anchorMin = Vector2.zero;
         scrollRectTransform.anchorMax = Vector2.one;
-        scrollRectTransform.offsetMin = new Vector2(0f, 60f);
-        scrollRectTransform.offsetMax = new Vector2(0f, -36f);
+        scrollRectTransform.offsetMin = new Vector2(0f, 56f);
+        scrollRectTransform.offsetMax = new Vector2(0f, -100f);
 
         Image scrollBg = scrollObj.AddComponent<Image>();
         scrollBg.color = new Color(0.07f, 0.08f, 0.12f, 0.9f);

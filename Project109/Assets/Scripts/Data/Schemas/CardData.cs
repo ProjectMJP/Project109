@@ -57,6 +57,7 @@ public class CardData : IModAssetResolver, IIdentifiable
     public List<EffectArea> additionalEffectAreaList { get; set; } = new();
 
     public CardRarity rarity { get; set; }
+    public ItemObtainSource obtainSource { get; set; } = ItemObtainSource.Standard;
     public int stamina { get; set; }
 
     // 마스터리 최대 포인트

@@ -8,6 +8,7 @@ targetMaxDistance: 4
 isPiercing: true
 ignoreObstacles: false
 rarity: "Common"
+obtainSource: "TestOnly"
 stamina: 0
 maxMasteryPoint: 0
 isUpgradable: false
