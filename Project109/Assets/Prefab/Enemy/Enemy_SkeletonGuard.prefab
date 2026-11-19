@@ -50,7 +50,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -96,7 +96,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterUIController
   character: {fileID: 6750582672270142054}
   statusBarOffset: {x: 0, y: 1.8557914, z: 0}
-  effectListOffset: {x: 0, y: 2.1557913, z: 0}
+  effectListOffset: {x: 0, y: 1.5557914, z: 0}
+  effectDetailOffset: {x: 0.75, y: 1.6, z: 0}
+  intentOffset: {x: 0, y: 2.2057915, z: 0}
 --- !u!1001 &8930640913110764640
 PrefabInstance:
   m_ObjectHideFlags: 0

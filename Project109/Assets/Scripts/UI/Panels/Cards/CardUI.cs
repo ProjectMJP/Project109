@@ -60,6 +60,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private MotionHandle _hoverPosHandle;
     private MotionHandle _hoverScaleHandle;
     private bool _isShowingTooltip = false;
+    private bool _isShowingTimelinePreview = false;
 
     private static readonly Vector2 DefaultCardSize = new Vector2(185f, 325f);
     private static readonly Vector2 CenterAnchorPivot = new Vector2(0.5f, 0.5f);
@@ -110,6 +111,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private void OnDisable()
     {
         HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
         bool hadActiveHoverMotion = _hoverPosHandle.IsActive() || _hoverScaleHandle.IsActive();
         CancelHoverMotions();
 
@@ -199,6 +201,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (!interactable)
         {
             HideCardKeywordTooltips();
+            ClearTimelineCardPreview();
             CancelHoverMotions();
 
             if (bIsCardHighlight)
@@ -278,6 +281,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public void ResetForPool()
     {
         HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
         CancelHoverMotions();
 
         cardInstance = null;
@@ -603,10 +607,33 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
     }
 
+    private void ShowTimelineCardPreview()
+    {
+        if (!bShowEffectAreaUI || cardInstance == null || BattleTimelinePanel.Instance == null)
+        {
+            return;
+        }
+
+        _isShowingTimelinePreview = true;
+        BattleTimelinePanel.Instance.SetCardHoverPreview(cardInstance);
+    }
+
+    private void ClearTimelineCardPreview()
+    {
+        if (!_isShowingTimelinePreview) return;
+        _isShowingTimelinePreview = false;
+
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.ClearCardHoverPreview();
+        }
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
         if (!_isInteractable || _isDiscarding) return;
         HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
         OnCardClick?.Invoke();
     }
 
@@ -616,8 +643,6 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             return;
         }
-
-        ShowCardKeywordTooltips();
 
         if (bIsCardHighlight)
             OnSelectHighlight();       //카드 하이라이트on
@@ -657,11 +682,16 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             transform.SetAsLastSibling();
             PlayHoverZoomMotion(true);
         }
+
+        // 호버 확대 상태(회전 초기화, 형제 순서, 줌 모션 시작)가 반영된 직후 툴팁 기준 사분면/경계를 잡도록 후속 배치
+        ShowCardKeywordTooltips();
+        ShowTimelineCardPreview();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
 
         if (bIsCardHighlight)
             OffSelectHighlight();       //카드 하이라이트off

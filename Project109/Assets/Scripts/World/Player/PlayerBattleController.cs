@@ -19,6 +19,7 @@ public enum PlayerControlState
 public class PlayerBattleController : ICharacterController, IOnBattleEnd, System.IDisposable
 {
     private BattleUIPanel _battleUI;
+    private BattleTimelinePanel _timelineUI;
     public BattleUIPanel battleUI => _battleUI;
     public BattleHandPanel handUI => _battleUI != null ? _battleUI.HandPanel : null;
 
@@ -118,6 +119,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 _battleUI.BindPlayer(player, this);
                 _battleUI.SwitchToHandMode();
             }
+
+            _timelineUI = UIManager.instance.GetOrSpawnBattleTimelineUI();
+            if (_timelineUI != null)
+            {
+                _timelineUI.BindBattle(RunManager.instance != null ? RunManager.instance.battleManager : null);
+                _timelineUI.Open();
+            }
         }
 
         if (_controlledCharacter != null)
@@ -128,6 +136,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnBattleEnd()
     {
+        CharacterUIController.CloseActiveEffectDetail();
+
         if (_controlledCharacter != null)
         {
             _controlledCharacter.eventBus.Remove<IOnBattleEnd>(this);
@@ -137,6 +147,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         {
             _battleUI.Close();
             _battleUI = null;
+        }
+
+        if (_timelineUI != null)
+        {
+            _timelineUI.BindBattle(null);
+            _timelineUI.Close();
+            _timelineUI = null;
         }
     }
 
@@ -199,6 +216,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnTurnEnd()
     {
+        CharacterUIController.CloseActiveEffectDetail();
+
         // 1. 이벤트 버스 — 등록된 IOnTurnEnd들 호출
         CombatEventDispatcher.DispatchTurnEnd(controlledCharacter.eventBus);
 
@@ -221,6 +240,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;
+
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
+        }
 
         if (_battleUI != null)
         {
@@ -264,6 +288,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void UseCard(Card card, List<Character> targets, Vector2Int targetPosition)
     {
+        CharacterUIController.CloseActiveEffectDetail();
+
         // 즉시 실행하지 않고 액션 큐에 위임
         CardPlayAction playAction = new CardPlayAction(controlledCharacter, card, targets, targetPosition);
         ActionQueueManager.Instance.EnqueueAction(playAction);
@@ -327,6 +353,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (strategy.IsManualSelectionRequired)
         {
             // 수동 지정형: 타겟팅 모드로 진입
+            CharacterUIController.CloseActiveEffectDetail();
             _multiSelectedTargets.Clear();
             controlState = PlayerControlState.TargetSelection;
             activeCardForTargeting = card;
@@ -336,11 +363,17 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 UIManager.instance.UpdateEffectAreaUI(casterPos, card);
             }
 
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetTargetingHoverCharacter(null, activeCardForTargeting);
+            }
+
             Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
         }
         else
         {
             // 즉시 시전형: 전략을 통해 대상을 즉시 수집 후 시전
+            CharacterUIController.CloseActiveEffectDetail();
             List<Character> immediateTargets = strategy.CollectImmediateTargets(this, card, casterPos);
             UseCard(card, immediateTargets, casterPos);
 
@@ -485,9 +518,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private int _lastBattleCancelFrame = -1;
 
     /// <summary>
-    /// 현재 배틀 컨트롤러가 이동 또는 타깃팅 선택 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
+    /// 현재 배틀 컨트롤러가 이동, 타깃팅 선택, 또는 이펙트 상세 툴팁 표시 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
     /// </summary>
-    public bool HasActiveBattleCancelTarget => controlState != PlayerControlState.Normal;
+    public bool HasActiveBattleCancelTarget =>
+        controlState != PlayerControlState.Normal || CharacterUIController.HasActiveEffectDetail;
 
     /// <summary>
     /// 현재 프레임에 배틀 타깃팅/이동 취소가 이미 소비되었는지 반환합니다.
@@ -516,11 +550,19 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 현재 조작 상태(이동 모드 또는 타겟 모드) 취소
+    /// 현재 조작 상태(이동 모드, 타겟 모드, 또는 이펙트 상세 툴팁) 취소
     /// </summary>
     public void CancelCurrentState()
     {
-        if (controlState == PlayerControlState.Normal) return;
+        if (controlState == PlayerControlState.Normal)
+        {
+            if (CharacterUIController.HasActiveEffectDetail)
+            {
+                CharacterUIController.CloseActiveEffectDetail();
+                _lastBattleCancelFrame = Time.frameCount;
+            }
+            return;
+        }
         _lastBattleCancelFrame = Time.frameCount;
 
         Debug.Log($"[PlayerBattleController] 조작 취소. 이전 상태: {controlState}");
@@ -537,6 +579,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             else if (GameMap.current != null)
             {
                 GameMap.current.ClearCardRange();
+            }
+
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
             }
         }
         else if (controlState == PlayerControlState.Move)
@@ -559,6 +606,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void EnablePlayerMove()
     {
+        CharacterUIController.CloseActiveEffectDetail();
+
         if (playerMove != null)
         {
             playerMove.CheckCanMoveTiles();
@@ -615,6 +664,33 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
+    /// 화면 스크린 좌표로부터 캐릭터(플레이어/적) 콜라이더를 우선 레이캐스트하고, 미스 시 타일 점유 캐릭터로 폴백 감지합니다.
+    /// </summary>
+    private Character TryGetCharacterFromScreenPosition(Vector2 pos, Tile fallbackTile)
+    {
+        if (Camera.main != null)
+        {
+            Ray ray = Camera.main.ScreenPointToRay(pos);
+            int charMask = LayerMask.GetMask("Player", "Enemy");
+            if (charMask != 0 && Physics.Raycast(ray, out RaycastHit hit, 10000f, charMask, QueryTriggerInteraction.Collide))
+            {
+                Character hitChar = hit.collider.GetComponentInParent<Character>();
+                if (hitChar != null && !hitChar.isDead)
+                {
+                    return hitChar;
+                }
+            }
+        }
+
+        if (fallbackTile != null && fallbackTile.occupyingCharacter != null && !fallbackTile.occupyingCharacter.isDead)
+        {
+            return fallbackTile.occupyingCharacter;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// 타겟팅 모드 중 마우스 커서 이동에 따라 실시간으로 폭발 범위(AoE) 타일을 갱신합니다.
     /// </summary>
     private void HandlePointerHover(Vector2 screenPos)
@@ -658,6 +734,28 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                     ? controlledCharacter.characterMove.facingDirection
                     : LookDirection.Down;
                 GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData, facing);
+
+                if (BattleTimelinePanel.Instance != null)
+                {
+                    Character hoveredChar = TryGetCharacterFromScreenPosition(screenPos, hoveredTile);
+                    Character validTarget = null;
+                    if (hoveredChar != null && !hoveredChar.isDead && controlledCharacter != null)
+                    {
+                        TargetType targetType = activeCardForTargeting.cardData.parsedTargetType;
+                        if (targetType == TargetType.SingleAlly || targetType == TargetType.Self)
+                        {
+                            if (controlledCharacter.IsFriendlyTo(hoveredChar))
+                            {
+                                validTarget = hoveredChar;
+                            }
+                        }
+                        else if (controlledCharacter.IsHostileTo(hoveredChar))
+                        {
+                            validTarget = hoveredChar;
+                        }
+                    }
+                    BattleTimelinePanel.Instance.SetTargetingHoverCharacter(validTarget, activeCardForTargeting);
+                }
                 return;
             }
         }
@@ -666,6 +764,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (GameMap.current != null)
         {
             GameMap.current.ShowCardRange(playerCoord, activeCardForTargeting.cardData);
+        }
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.SetTargetingHoverCharacter(null, activeCardForTargeting);
         }
     }
 
@@ -736,21 +838,39 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                   $"▶ 클릭된 대상 타일: {targetCoord} ({targetWorldPos.x:F2}, {targetWorldPos.y:F2}, {targetWorldPos.z:F2})\n" +
                   $"▶ 현재 조작 상태: {controlState}");
 
+        if (controlState == PlayerControlState.Normal)
+        {
+            Character clickedChar = TryGetCharacterFromScreenPosition(pos, targetTile);
+            if (clickedChar != null && !clickedChar.isDead)
+            {
+                CharacterUIController uiCtrl = clickedChar.GetComponent<CharacterUIController>();
+                if (uiCtrl != null)
+                {
+                    uiCtrl.ToggleEffectDetail();
+                }
+                return;
+            }
+
+            CharacterUIController.CloseActiveEffectDetail();
+
+            if (targetTile != null)
+            {
+                // 일반 모드: 클릭 시 해당 타일 방향으로 회전
+                Vector3 diff = targetTile.transform.position - controlledCharacter.transform.position;
+                LookDirection targetDir = CharacterMove.GetDirectionFromVector(diff);
+                if (controlledCharacter != null && controlledCharacter.characterMove != null)
+                {
+                    controlledCharacter.characterMove.LookAtTile(targetTile);
+                }
+                Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
+            }
+            return;
+        }
+
         if (targetTile != null)
         {
             switch (controlState)
             {
-                case PlayerControlState.Normal:
-                    // 일반 모드: 클릭 시 해당 타일 방향으로 회전
-                    Vector3 diff = targetTile.transform.position - controlledCharacter.transform.position;
-                    LookDirection targetDir = CharacterMove.GetDirectionFromVector(diff);
-                    if (controlledCharacter != null && controlledCharacter.characterMove != null)
-                    {
-                        controlledCharacter.characterMove.LookAtTile(targetTile);
-                    }
-                    Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
-                    break;
-
                 case PlayerControlState.Move:
                     // 이동 모드: playerMove에게 이동 지시 (성공 시에만 이동 모드 해제 및 핸드 복귀)
                     if (playerMove != null)
@@ -806,6 +926,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                         GameMap.current.ClearCardRange();
                                     }
                                     controlState = PlayerControlState.Normal;
+                                    if (BattleTimelinePanel.Instance != null)
+                                    {
+                                        BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
+                                    }
                                 }
                             }
                             else

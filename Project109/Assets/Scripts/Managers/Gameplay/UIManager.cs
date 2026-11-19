@@ -481,6 +481,22 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 캐릭터의 우측 이펙트 상세 툴팁(CharacterEffectDetailUI)을 World UI Layer 하위에 생성하여 반환합니다.
+    /// </summary>
+    public CharacterEffectDetailUI CreateEffectDetailUI(Transform target, Vector3 offset)
+    {
+        return CreateWorldUI<CharacterEffectDetailUI>(UIConstants.PREFAB_CHARACTER_EFFECT_DETAIL, target, offset);
+    }
+
+    /// <summary>
+    /// 적 캐릭터의 머리 위 행동 예고 UI(CharacterIntentUI)를 World UI Layer 하위에 생성하여 반환합니다.
+    /// </summary>
+    public CharacterIntentUI CreateIntentUI(Transform target, Vector3 offset)
+    {
+        return CreateWorldUI<CharacterIntentUI>(UIConstants.PREFAB_CHARACTER_INTENT, target, offset);
+    }
+
+    /// <summary>
     /// 지정된 월드 UI 컴포넌트를 관리 목록에서 제거하고 안전하게 파괴합니다.
     /// </summary>
     public void ReleaseWorldUI(Component uiComponent)
@@ -809,6 +825,11 @@ public class UIManager : MonoBehaviour
     {
         GameObject spawned = OpenUI(UIConstants.PANEL_BATTLE_UI, UILayerType.Top, true);
         return spawned != null ? spawned.GetComponent<BattleUIPanel>() : null;
+    }
+
+    public BattleTimelinePanel GetOrSpawnBattleTimelineUI()
+    {
+        return OpenUI<BattleTimelinePanel>(UIConstants.PANEL_BATTLE_TIMELINE, UILayerType.Top, false);
     }
     #endregion
 }

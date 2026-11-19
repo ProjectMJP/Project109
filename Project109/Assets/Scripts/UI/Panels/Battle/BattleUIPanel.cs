@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public enum BattleUIMode
 {
@@ -32,6 +33,44 @@ public class BattleUIPanel : UIPanelBase
     private Player _boundPlayer;
     private PlayerBattleController _controller;
     private Character _boundCharacter;
+    private BattlePointerHoverForwarder _endTurnHoverForwarder;
+
+    /// <summary>
+    /// 턴 종료 버튼의 포인터 진입/이탈을 감지하여 타임라인 패널에 호버 미리보기를 전달하는 경량 포워더입니다.
+    /// </summary>
+    private sealed class BattlePointerHoverForwarder : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        private UnityEngine.UI.Button _button;
+
+        public void Bind(UnityEngine.UI.Button button)
+        {
+            _button = button;
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (_button != null && _button.interactable && BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetEndTurnHoverPreview(true);
+            }
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+            }
+        }
+    }
 
     private void Awake()
     {
@@ -77,6 +116,16 @@ public class BattleUIPanel : UIPanelBase
         {
             endTurnButton.onClick.RemoveAllListeners();
             endTurnButton.onClick.AddListener(HandleEndTurnClicked);
+
+            if (_endTurnHoverForwarder == null)
+            {
+                _endTurnHoverForwarder = endTurnButton.GetComponent<BattlePointerHoverForwarder>();
+                if (_endTurnHoverForwarder == null)
+                {
+                    _endTurnHoverForwarder = endTurnButton.gameObject.AddComponent<BattlePointerHoverForwarder>();
+                }
+            }
+            _endTurnHoverForwarder.Bind(endTurnButton);
         }
 
         // 패널 활성화 시 기본 손패 모드로 시작
@@ -102,6 +151,11 @@ public class BattleUIPanel : UIPanelBase
         {
             endTurnButton.onClick.RemoveAllListeners();
         }
+
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+        }
     }
 
     /// <summary>
@@ -112,6 +166,11 @@ public class BattleUIPanel : UIPanelBase
         if (endTurnButton != null)
         {
             endTurnButton.interactable = interactable;
+        }
+
+        if (!interactable && BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
         }
     }
 

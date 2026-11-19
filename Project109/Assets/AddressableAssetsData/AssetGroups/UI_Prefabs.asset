@@ -27,6 +27,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 10713bca69e6f92469e1fa67d195e6bc
+    m_Address: BattleTimelinePanel
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 10d658feb5d4e2a4d81e106c15e2a848
     m_Address: UpgradeCardDeckCanvas
     m_ReadOnly: 0
@@ -65,6 +71,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1b1edb305e373b6459026d6efa81c0b9
     m_Address: RewardCardListCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1bafbf0b86e18fa4ebed92aa8f9fc547
+    m_Address: CharacterIntentUI
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI
@@ -165,8 +177,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9f1e5f9640db24249a92a5224e38e5e3
+    m_Address: CharacterEffectDetailItemUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a82ffe4c2d93b064d8573c35f3166c77
     m_Address: CardRewardCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: abc66e0e0f62f5d47b1203240de60e5c
+    m_Address: BattleTimelineSlotUI
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI
@@ -185,6 +209,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c2a60781ac1aa88438250bb61a874ecd
     m_Address: EraseCardDeckCanvas
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4a11975b51cd59409c89218b4570f16
+    m_Address: CharacterEffectDetailUI
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI
