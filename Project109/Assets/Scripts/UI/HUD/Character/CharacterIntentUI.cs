@@ -6,9 +6,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 적 유닛의 머리 위에 다음 턴 행동 예고(Intent) 아이콘과 예상 수치를 표시하고,
-/// 마우스 오버 시 L2 상세 툴팁과 예상 공격 범위 하이라이트를 제공하는 월드 UI View 컴포넌트입니다.
+/// 마우스 오버 시 L2 상세 툴팁과 예상 공격 범위 하이라이트, 일반 모드 좌클릭 시 해당 유닛 방향 회전을 제공하는 월드 UI View 컴포넌트입니다.
 /// </summary>
-public class CharacterIntentUI : MonoBehaviour, IWorldFollowUI, IPointerEnterHandler, IPointerExitHandler
+public class CharacterIntentUI : MonoBehaviour, IWorldFollowUI, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [Header("Target & Position Settings")]
     [SerializeField] private Transform targetTransform;
@@ -169,6 +169,22 @@ public class CharacterIntentUI : MonoBehaviour, IWorldFollowUI, IPointerEnterHan
     public void OnPointerExit(PointerEventData eventData)
     {
         ClearHoverVisuals();
+    }
+
+    /// <summary>
+    /// 일반 전투 모드에서 적 행동 예고 배지 좌클릭 시 플레이어가 해당 적 방향을 바라보도록 회전합니다.
+    /// </summary>
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Left)
+        {
+            return;
+        }
+
+        if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+        {
+            RunManager.instance.playerBattleController.TryRotatePlayerTowardCharacter(ResolveTargetCharacter());
+        }
     }
 
     private void RefreshHoverPresentation()

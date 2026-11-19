@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,6 +10,8 @@ public class BattleSideUnitHUDPanel : UIPanelBase
 {
     public static BattleSideUnitHUDPanel Instance { get; private set; }
 
+    public event Action<Character> OnUnitCardClicked;
+
     [Header("Team Container References")]
     [SerializeField] private RectTransform leftPlayerContainer;
     [SerializeField] private RectTransform rightEnemyContainer;
@@ -18,6 +21,8 @@ public class BattleSideUnitHUDPanel : UIPanelBase
     private readonly List<BattleSideUnitCardUI> _activeRightCards = new List<BattleSideUnitCardUI>(8);
     private readonly List<BattleSideUnitCardUI> _cardPool = new List<BattleSideUnitCardUI>(8);
     private readonly List<BattleSideUnitCardUI> _nextCardsScratch = new List<BattleSideUnitCardUI>(8);
+    private readonly List<Character> _externalTargetingCharacters = new List<Character>(8);
+    private readonly List<Character> _externalTargetingScratch = new List<Character>(8);
 
     private BattleManager _battleManager;
     private bool _isEventsSubscribed;
@@ -84,6 +89,7 @@ public class BattleSideUnitHUDPanel : UIPanelBase
         ClearAllHoverState();
         ReturnAllCardsToPool();
         UnsubscribeBattleEvents();
+        OnUnitCardClicked = null;
 
         if (Instance == this)
         {
@@ -201,6 +207,56 @@ public class BattleSideUnitHUDPanel : UIPanelBase
 
         _externalHoveredCharacter = target;
         RefreshCardHighlights();
+    }
+
+    /// <summary>
+    /// 카드 타깃팅 모드에서 피격·적용 예정 다중 대상 목록을 사이드 카드 하이라이트에 동기화합니다. (GC 무할당)
+    /// </summary>
+    public void SetExternalTargetingCharacters(IReadOnlyList<Character> targets)
+    {
+        _externalTargetingScratch.Clear();
+        if (targets != null)
+        {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Character c = targets[i];
+                if (c != null && !c.isDead && !ContainsCharacter(_externalTargetingScratch, c))
+                {
+                    _externalTargetingScratch.Add(c);
+                }
+            }
+        }
+
+        if (AreCharacterListsEquivalent(_externalTargetingCharacters, _externalTargetingScratch))
+        {
+            _externalTargetingScratch.Clear();
+            return;
+        }
+
+        _externalTargetingCharacters.Clear();
+        for (int i = 0; i < _externalTargetingScratch.Count; i++)
+        {
+            _externalTargetingCharacters.Add(_externalTargetingScratch[i]);
+        }
+        _externalTargetingScratch.Clear();
+
+        RefreshCardHighlights();
+    }
+
+    /// <summary>
+    /// 사이드 유닛 카드 좌클릭 시 클릭 이벤트를 발행하고 일반 전투 모드에서는 플레이어를 해당 유닛 방향으로 회전시킵니다.
+    /// </summary>
+    public void NotifyCardClicked(BattleSideUnitCardUI card)
+    {
+        Character clickedChar = card != null ? card.BoundCharacter : null;
+        if (clickedChar == null) return;
+
+        OnUnitCardClicked?.Invoke(clickedChar);
+
+        if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+        {
+            RunManager.instance.playerBattleController.TryRotatePlayerTowardCharacter(clickedChar);
+        }
     }
 
     private void LateUpdate()
@@ -376,7 +432,8 @@ public class BattleSideUnitHUDPanel : UIPanelBase
             Character c = card.BoundCharacter;
             bool shouldHighlight = (card == _hoveredCard)
                 || (hoveredCardChar != null && c == hoveredCardChar)
-                || (_externalHoveredCharacter != null && c == _externalHoveredCharacter);
+                || (_externalHoveredCharacter != null && c == _externalHoveredCharacter)
+                || (c != null && ContainsCharacter(_externalTargetingCharacters, c));
 
             card.SetHighlighted(shouldHighlight);
         }
@@ -410,6 +467,8 @@ public class BattleSideUnitHUDPanel : UIPanelBase
         bool hadCardHover = _hoveredCard != null;
         _hoveredCard = null;
         _externalHoveredCharacter = null;
+        _externalTargetingCharacters.Clear();
+        _externalTargetingScratch.Clear();
 
         if (_lastFallbackFocusedWorldChar != null)
         {
@@ -446,5 +505,30 @@ public class BattleSideUnitHUDPanel : UIPanelBase
     private void HandleTimelineDirty()
     {
         MarkDirty();
+    }
+
+    private static bool ContainsCharacter(List<Character> list, Character target)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (ReferenceEquals(list[i], target))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool AreCharacterListsEquivalent(List<Character> a, List<Character> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!ContainsCharacter(b, a[i]))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }

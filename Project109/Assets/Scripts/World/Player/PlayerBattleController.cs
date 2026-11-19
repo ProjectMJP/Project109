@@ -61,6 +61,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private readonly List<Character> _multiSelectedTargets = new List<Character>();
     public List<Character> MultiSelectedTargets => _multiSelectedTargets;
     private Vector2Int _lastHoveredCoord = new Vector2Int(-999, -999);
+    private Character _lastHoveredTargetingChar;
+    private readonly List<Character> _targetingPreviewBuffer = new List<Character>(8);
+    private readonly HashSet<Vector2Int> _targetingAoeCoordBuffer = new HashSet<Vector2Int>();
+    private readonly List<Character> _appliedWorldTargetingHighlights = new List<Character>(8);
     private int _moveRequestToken = 0;
 
     #region Targeting Strategies
@@ -158,6 +162,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void OnBattleEnd()
     {
         CancelCurrentState();
+        ClearTargetingHighlights();
         _moveRequestToken++;
         if (playerMove != null)
         {
@@ -272,14 +277,24 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         // 4. 이벤트 구독 해제
         UnsubscribeInputEvents();
+        if (controlState == PlayerControlState.TargetSelection)
+        {
+            _multiSelectedTargets.Clear();
+            activeCardForTargeting = null;
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
+            else if (GameMap.current != null)
+            {
+                GameMap.current.ClearCardRange();
+            }
+        }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;
 
-        if (BattleTimelinePanel.Instance != null)
-        {
-            BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
-        }
+        ClearTargetingHighlights();
 
         if (_battleUI != null)
         {
@@ -403,6 +418,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (strategy.IsManualSelectionRequired)
         {
             // 수동 지정형: 타겟팅 모드로 진입
+            ClearTargetingHighlights();
             _multiSelectedTargets.Clear();
             controlState = PlayerControlState.TargetSelection;
             activeCardForTargeting = card;
@@ -412,10 +428,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 UIManager.instance.UpdateEffectAreaUI(casterPos, card);
             }
 
-            if (BattleTimelinePanel.Instance != null)
-            {
-                BattleTimelinePanel.Instance.SetTargetingHoverCharacter(null, activeCardForTargeting);
-            }
+            ApplyTargetingHighlights(_targetingPreviewBuffer, activeCardForTargeting);
 
             Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
         }
@@ -614,7 +627,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         {
             _multiSelectedTargets.Clear();
             activeCardForTargeting = null;
-            _lastHoveredCoord = new Vector2Int(-999, -999);
             if (UIManager.instance != null)
             {
                 UIManager.instance.ClearEffectAreaTiles();
@@ -624,10 +636,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 GameMap.current.ClearCardRange();
             }
 
-            if (BattleTimelinePanel.Instance != null)
-            {
-                BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
-            }
+            ClearTargetingHighlights();
         }
         else if (controlState == PlayerControlState.Move)
         {
@@ -790,7 +799,74 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 타겟팅 모드 중 마우스 커서 이동에 따라 실시간으로 폭발 범위(AoE) 타일을 갱신합니다.
+    /// 일반 전투 모드(Normal)에서 스태미나나 턴 행동을 소모하지 않고 플레이어 캐릭터를 지정된 대상 방향으로 회전시킵니다.
+    /// </summary>
+    public bool TryRotatePlayerTowardCharacter(Character target)
+    {
+        if (controlState != PlayerControlState.Normal) return false;
+        if (controlledCharacter == null || controlledCharacter.isDead || controlledCharacter.currentState != CharacterState.Idle || controlledCharacter.characterMove == null)
+        {
+            return false;
+        }
+        if (target == null || target.isDead || ReferenceEquals(target, controlledCharacter))
+        {
+            return false;
+        }
+        if (ActionQueueManager.HasInstance && ActionQueueManager.Instance.IsBusy)
+        {
+            return false;
+        }
+        if (RunManager.instance != null &&
+            RunManager.instance.battleManager != null &&
+            RunManager.instance.battleManager.currentTurnController != null &&
+            !ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
+        {
+            return false;
+        }
+
+        Tile targetTile = target.characterMove != null ? target.characterMove.GetCurrentTile() : null;
+        if (targetTile != null)
+        {
+            Vector3 tileDiff = targetTile.transform.position - controlledCharacter.transform.position;
+            if (tileDiff != Vector3.zero)
+            {
+                controlledCharacter.characterMove.LookAtTile(targetTile);
+                return true;
+            }
+        }
+
+        Vector3 diff = target.transform.position - controlledCharacter.transform.position;
+        if (diff != Vector3.zero)
+        {
+            controlledCharacter.characterMove.SetFacingDirection(CharacterMove.GetDirectionFromVector(diff), true);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 타깃팅 모드 중 35도 경사 카메라에서 3D 캐릭터 콜라이더를 우선 감지하고, 단일/아군 지정형 카드의 경우 해당 캐릭터 타일로 좌표를 보정합니다.
+    /// </summary>
+    private Tile ResolveTargetingTileWithCharacterSnap(Vector2 screenPos, Tile rayTile, TargetType targetType, out Character directChar)
+    {
+        directChar = TryGetCharacterFromScreenPosition(screenPos, rayTile);
+        if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy || targetType == TargetType.SingleAlly)
+            && directChar != null
+            && !directChar.isDead
+            && directChar.characterMove != null)
+        {
+            Tile charTile = directChar.characterMove.GetCurrentTile();
+            if (charTile != null)
+            {
+                return charTile;
+            }
+        }
+        return rayTile;
+    }
+
+    /// <summary>
+    /// 타깃팅 모드 중 마우스 커서 이동에 따라 실시간으로 폭발 범위(AoE) 타일과 피격 예정 유닛 하이라이트를 갱신합니다.
     /// </summary>
     private void HandlePointerHover(Vector2 screenPos)
     {
@@ -805,69 +881,385 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             return;
         }
 
-        Tile hoveredTile = GetTileFromScreenPosition(screenPos);
+        Tile rayTile = GetTileFromScreenPosition(screenPos);
+        TargetType targetType = activeCardForTargeting.cardData != null
+            ? activeCardForTargeting.cardData.parsedTargetType
+            : TargetType.SingleEnemy;
+        Tile hoveredTile = ResolveTargetingTileWithCharacterSnap(screenPos, rayTile, targetType, out Character directHoveredChar);
         Vector2Int hoveredCoord = hoveredTile != null ? hoveredTile.GetCoord() : new Vector2Int(-999, -999);
 
-        // 동일한 타일 위라면 중복 렌더링 스킵
-        if (hoveredCoord == _lastHoveredCoord)
+        // 타일 좌표와 직접 호버 캐릭터가 모두 동일할 때만 중복 갱신 스킵
+        if (hoveredCoord == _lastHoveredCoord && ReferenceEquals(directHoveredChar, _lastHoveredTargetingChar))
         {
             return;
         }
         _lastHoveredCoord = hoveredCoord;
+        _lastHoveredTargetingChar = directHoveredChar;
 
         Tile playerTile = controlledCharacter != null && controlledCharacter.characterMove != null
             ? controlledCharacter.characterMove.GetCurrentTile()
             : null;
         Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : Vector2Int.zero;
 
-        if (hoveredTile != null && playerTile != null && GameMap.current != null)
+        bool isInRange = false;
+        if (hoveredTile != null && playerTile != null && activeCardForTargeting.cardData != null)
         {
             int distance = Tile.GetDistance(playerTile, hoveredTile);
             int minDistance = activeCardForTargeting.cardData.targetMinDistance;
             int maxDistance = activeCardForTargeting.cardData.targetMaxDistance;
+            isInRange = distance >= minDistance && distance <= maxDistance;
+        }
 
-            if (distance >= minDistance && distance <= maxDistance)
+        if (isInRange && hoveredTile != null && GameMap.current != null)
+        {
+            // 유효 사거리 내 타일이면 사거리(R) 유지 + 해당 타일 중심 폭발 범위(G) 실시간 표시
+            LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                ? controlledCharacter.characterMove.facingDirection
+                : LookDirection.Down;
+            GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData, facing);
+        }
+        else if (GameMap.current != null)
+        {
+            // 사거리 밖이거나 타일이 없으면 사거리만 유지 표시
+            GameMap.current.ShowCardRange(playerCoord, activeCardForTargeting.cardData);
+        }
+
+        CollectTargetingPreviewTargets(
+            activeCardForTargeting,
+            hoveredTile,
+            hoveredCoord,
+            isInRange,
+            directHoveredChar,
+            _targetingPreviewBuffer);
+        ApplyTargetingHighlights(_targetingPreviewBuffer, activeCardForTargeting);
+    }
+
+    /// <summary>
+    /// 지정된 타일 좌표 집합에 위치한 유효 대상 캐릭터들을 GC 할당 없이 results 리스트에 중복 없이 추가합니다.
+    /// </summary>
+    public void CollectCharactersInCoordsNonAlloc(HashSet<Vector2Int> targetCoords, TargetType targetType, List<Character> results)
+    {
+        if (targetCoords == null || targetCoords.Count == 0 || results == null) return;
+
+        bool isFriendlyTarget = targetType == TargetType.SingleAlly
+            || targetType == TargetType.AllAllies
+            || targetType == TargetType.Self;
+
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            IReadOnlyList<ICharacterController> combatants = RunManager.instance.battleManager.GetAllCombatants();
+            for (int i = 0; i < combatants.Count; i++)
             {
-                // 유효 사거리 내 타일이면 사거리(R) 유지 + 해당 타일 중심 폭발 범위(G) 실시간 표시
-                LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
-                    ? controlledCharacter.characterMove.facingDirection
-                    : LookDirection.Down;
-                GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData, facing);
+                ICharacterController combatant = combatants[i];
+                if (combatant == null || combatant.controlledCharacter == null) continue;
 
-                if (BattleTimelinePanel.Instance != null)
+                Character candidate = combatant.controlledCharacter;
+                if (!IsCharacterMatchingTargetType(candidate, isFriendlyTarget)) continue;
+
+                CharacterMove cMove = candidate.characterMove;
+                Tile currentTile = cMove != null ? cMove.GetCurrentTile() : null;
+                if (currentTile != null && targetCoords.Contains(currentTile.GetCoord()) && !ContainsCharacter(results, candidate))
                 {
-                    Character hoveredChar = TryGetCharacterFromScreenPosition(screenPos, hoveredTile);
-                    Character validTarget = null;
-                    if (hoveredChar != null && !hoveredChar.isDead && controlledCharacter != null)
-                    {
-                        TargetType targetType = activeCardForTargeting.cardData.parsedTargetType;
-                        if (targetType == TargetType.SingleAlly || targetType == TargetType.Self)
-                        {
-                            if (controlledCharacter.IsFriendlyTo(hoveredChar))
-                            {
-                                validTarget = hoveredChar;
-                            }
-                        }
-                        else if (controlledCharacter.IsHostileTo(hoveredChar))
-                        {
-                            validTarget = hoveredChar;
-                        }
-                    }
-                    BattleTimelinePanel.Instance.SetTargetingHoverCharacter(validTarget, activeCardForTargeting);
+                    results.Add(candidate);
                 }
-                return;
+            }
+            return;
+        }
+
+        if (GameMap.current != null)
+        {
+            foreach (Vector2Int coord in targetCoords)
+            {
+                Tile tile = GameMap.current.GetTile(coord);
+                if (tile == null || tile.occupyingCharacter == null) continue;
+
+                Character candidate = tile.occupyingCharacter;
+                if (!IsCharacterMatchingTargetType(candidate, isFriendlyTarget)) continue;
+
+                if (!ContainsCharacter(results, candidate))
+                {
+                    results.Add(candidate);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 현재 호버 상태와 다중 선택 확정 목록(_multiSelectedTargets)을 종합해 피격·적용 예정 캐릭터 목록을 GC 없이 수집합니다.
+    /// </summary>
+    public void CollectTargetingPreviewTargets(
+        Card card,
+        Tile hoveredTile,
+        Vector2Int hoveredCoord,
+        bool isInRange,
+        Character directHoveredChar,
+        List<Character> results)
+    {
+        if (results == null) return;
+        results.Clear();
+
+        for (int i = 0; i < _multiSelectedTargets.Count; i++)
+        {
+            Character selected = _multiSelectedTargets[i];
+            if (selected != null && !selected.isDead && !ContainsCharacter(results, selected))
+            {
+                results.Add(selected);
             }
         }
 
-        // 사거리 밖이거나 타일이 없으면 사거리만 유지 표시
-        if (GameMap.current != null)
+        if (!isInRange || hoveredTile == null || card == null || card.cardData == null)
         {
-            GameMap.current.ShowCardRange(playerCoord, activeCardForTargeting.cardData);
+            return;
         }
+
+        TargetType targetType = card.cardData.parsedTargetType;
+        switch (targetType)
+        {
+            case TargetType.AllEnemies:
+                CollectAllMatchingCombatants(isFriendlyTarget: false, results);
+                break;
+
+            case TargetType.AllAllies:
+                CollectAllMatchingCombatants(isFriendlyTarget: true, results);
+                break;
+
+            case TargetType.Self:
+                if (controlledCharacter != null && !controlledCharacter.isDead && !ContainsCharacter(results, controlledCharacter))
+                {
+                    results.Add(controlledCharacter);
+                }
+                break;
+
+            case TargetType.MultiEnemy:
+                {
+                    Character candidate = directHoveredChar != null ? directHoveredChar : hoveredTile.occupyingCharacter;
+                    if (IsCharacterMatchingTargetType(candidate, isFriendlyTarget: false) && !ContainsCharacter(results, candidate))
+                    {
+                        results.Add(candidate);
+                    }
+                    break;
+                }
+
+            case TargetType.SingleAlly:
+                {
+                    Character candidate = directHoveredChar != null ? directHoveredChar : hoveredTile.occupyingCharacter;
+                    if (IsCharacterMatchingTargetType(candidate, isFriendlyTarget: true) && !ContainsCharacter(results, candidate))
+                    {
+                        results.Add(candidate);
+                    }
+                    break;
+                }
+
+            default:
+                {
+                    _targetingAoeCoordBuffer.Clear();
+                    Tile playerTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                        ? controlledCharacter.characterMove.GetCurrentTile()
+                        : null;
+                    Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : Vector2Int.zero;
+                    LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
+                        ? controlledCharacter.characterMove.facingDirection
+                        : LookDirection.Down;
+
+                    if (GameMap.current != null)
+                    {
+                        List<Vector2Int> aoeList = GameMap.current.CalculateCardAoECoords(playerCoord, hoveredCoord, card.cardData, facing);
+                        if (aoeList != null && aoeList.Count > 0)
+                        {
+                            for (int i = 0; i < aoeList.Count; i++)
+                            {
+                                _targetingAoeCoordBuffer.Add(aoeList[i]);
+                            }
+                        }
+                        else
+                        {
+                            _targetingAoeCoordBuffer.Add(hoveredCoord);
+                        }
+                    }
+                    else
+                    {
+                        _targetingAoeCoordBuffer.Add(hoveredCoord);
+                    }
+
+                    CollectCharactersInCoordsNonAlloc(_targetingAoeCoordBuffer, targetType, results);
+
+                    if (hoveredTile.occupyingCharacter != null && _targetingAoeCoordBuffer.Contains(hoveredCoord))
+                    {
+                        Character tileChar = hoveredTile.occupyingCharacter;
+                        if (IsCharacterMatchingTargetType(tileChar, isFriendlyTarget: false) && !ContainsCharacter(results, tileChar))
+                        {
+                            results.Add(tileChar);
+                        }
+                    }
+
+                    if (targetType == TargetType.SingleEnemy &&
+                        IsCharacterMatchingTargetType(directHoveredChar, isFriendlyTarget: false) &&
+                        !ContainsCharacter(results, directHoveredChar))
+                    {
+                        Tile directTile = directHoveredChar.characterMove != null ? directHoveredChar.characterMove.GetCurrentTile() : null;
+                        bool matchesAoe = directTile == null
+                            ? _targetingAoeCoordBuffer.Contains(hoveredCoord)
+                            : _targetingAoeCoordBuffer.Contains(directTile.GetCoord());
+
+                        if (matchesAoe)
+                        {
+                            bool withinRange = true;
+                            if (playerTile != null && directTile != null)
+                            {
+                                int dist = Tile.GetDistance(playerTile, directTile);
+                                withinRange = dist >= card.cardData.targetMinDistance && dist <= card.cardData.targetMaxDistance;
+                            }
+                            if (withinRange)
+                            {
+                                results.Add(directHoveredChar);
+                            }
+                        }
+                    }
+                    break;
+                }
+        }
+    }
+
+    /// <summary>
+    /// 수집된 피격·적용 예정 대상 목록을 타임라인, 사이드 HUD 및 월드 캐릭터 하이라이트에 동기화합니다.
+    /// </summary>
+    public void ApplyTargetingHighlights(IReadOnlyList<Character> targets, Card card)
+    {
         if (BattleTimelinePanel.Instance != null)
         {
-            BattleTimelinePanel.Instance.SetTargetingHoverCharacter(null, activeCardForTargeting);
+            ClearFallbackWorldTargetingHighlights();
+            BattleTimelinePanel.Instance.SetTargetingHoverCharacters(targets, card);
+            return;
         }
+
+        if (BattleSideUnitHUDPanel.Instance != null)
+        {
+            BattleSideUnitHUDPanel.Instance.SetExternalTargetingCharacters(targets);
+        }
+
+        for (int i = _appliedWorldTargetingHighlights.Count - 1; i >= 0; i--)
+        {
+            Character prev = _appliedWorldTargetingHighlights[i];
+            if (prev == null || !ContainsCharacter(targets, prev))
+            {
+                if (prev != null)
+                {
+                    CharacterUIController.SetTargetingHighlightFor(prev, false);
+                }
+                _appliedWorldTargetingHighlights.RemoveAt(i);
+            }
+        }
+
+        if (targets != null)
+        {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Character next = targets[i];
+                if (next != null && !next.isDead && !ContainsCharacter(_appliedWorldTargetingHighlights, next))
+                {
+                    CharacterUIController.SetTargetingHighlightFor(next, true);
+                    _appliedWorldTargetingHighlights.Add(next);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 모든 타깃팅 피격 예정 하이라이트(타임라인, 사이드 HUD, 3D 월드/WorldUI)와 호버 캐시를 초기화합니다.
+    /// </summary>
+    public void ClearTargetingHighlights()
+    {
+        _targetingPreviewBuffer.Clear();
+        _targetingAoeCoordBuffer.Clear();
+        _lastHoveredCoord = new Vector2Int(-999, -999);
+        _lastHoveredTargetingChar = null;
+
+        ClearFallbackWorldTargetingHighlights();
+
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
+        }
+
+        if (BattleSideUnitHUDPanel.Instance != null)
+        {
+            BattleSideUnitHUDPanel.Instance.SetExternalTargetingCharacters(null);
+        }
+
+        CharacterUIController.ClearAllTargetingHighlights();
+    }
+
+    private void ClearFallbackWorldTargetingHighlights()
+    {
+        for (int i = 0; i < _appliedWorldTargetingHighlights.Count; i++)
+        {
+            Character c = _appliedWorldTargetingHighlights[i];
+            if (c != null)
+            {
+                CharacterUIController.SetTargetingHighlightFor(c, false);
+            }
+        }
+        _appliedWorldTargetingHighlights.Clear();
+    }
+
+    private void CollectAllMatchingCombatants(bool isFriendlyTarget, List<Character> results)
+    {
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            IReadOnlyList<ICharacterController> combatants = RunManager.instance.battleManager.GetAllCombatants();
+            for (int i = 0; i < combatants.Count; i++)
+            {
+                ICharacterController combatant = combatants[i];
+                Character candidate = combatant != null ? combatant.controlledCharacter : null;
+                if (IsCharacterMatchingTargetType(candidate, isFriendlyTarget) && !ContainsCharacter(results, candidate))
+                {
+                    results.Add(candidate);
+                }
+            }
+            return;
+        }
+
+        if (GameMap.current != null)
+        {
+            for (int c = 0; c < GameMap.current.mapColumn; c++)
+            {
+                for (int r = 0; r < GameMap.current.mapRow; r++)
+                {
+                    Tile tile = GameMap.current.GetTile(c, r);
+                    Character candidate = tile != null ? tile.occupyingCharacter : null;
+                    if (IsCharacterMatchingTargetType(candidate, isFriendlyTarget) && !ContainsCharacter(results, candidate))
+                    {
+                        results.Add(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    private bool IsCharacterMatchingTargetType(Character candidate, bool isFriendlyTarget)
+    {
+        if (candidate == null || candidate.isDead) return false;
+
+        if (isFriendlyTarget)
+        {
+            return controlledCharacter == null || controlledCharacter.IsFriendlyTo(candidate);
+        }
+
+        if (ReferenceEquals(candidate, controlledCharacter)) return false;
+        return controlledCharacter == null || controlledCharacter.IsHostileTo(candidate);
+    }
+
+    private static bool ContainsCharacter(IReadOnlyList<Character> list, Character target)
+    {
+        if (list == null) return false;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (ReferenceEquals(list[i], target))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -876,31 +1268,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public List<Character> CollectCharactersInCoords(HashSet<Vector2Int> targetCoords)
     {
         List<Character> foundCharacters = new List<Character>();
-        if (targetCoords == null || targetCoords.Count == 0) return foundCharacters;
-
-        if (RunManager.instance != null && RunManager.instance.battleManager != null)
-        {
-            var combatants = RunManager.instance.battleManager.GetAllCombatants();
-            for (int i = 0; i < combatants.Count; i++)
-            {
-                var combatant = combatants[i];
-                if (combatant == null || combatant.controlledCharacter == null) continue;
-
-                // 시전자 자신 및 사망한 대상은 타깃에서 제외, 적대 관계인 캐릭터만 수집
-                if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
-                if (combatant.controlledCharacter.isDead) continue;
-                if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
-
-                var cMove = combatant.controlledCharacter.characterMove;
-                if (cMove != null && cMove.GetCurrentTile() != null)
-                {
-                    if (targetCoords.Contains(cMove.GetCurrentTile().GetCoord()))
-                    {
-                        foundCharacters.Add(combatant.controlledCharacter);
-                    }
-                }
-            }
-        }
+        CollectCharactersInCoordsNonAlloc(targetCoords, TargetType.SingleEnemy, foundCharacters);
         return foundCharacters;
     }
 
@@ -912,7 +1280,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             return;
         }
 
-        if (controlledCharacter == null || controlledCharacter.isDead || controlledCharacter.currentState != CharacterState.Idle || ActionQueueManager.Instance.IsBusy)
+        if (controlledCharacter == null || controlledCharacter.isDead || controlledCharacter.currentState != CharacterState.Idle || (ActionQueueManager.HasInstance && ActionQueueManager.Instance.IsBusy))
         {
             return;
         }
@@ -939,6 +1307,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         if (controlState == PlayerControlState.Normal)
         {
+            Character clickedChar = TryGetCharacterFromScreenPosition(pos, targetTile);
+            if (clickedChar != null && !ReferenceEquals(clickedChar, controlledCharacter))
+            {
+                TryRotatePlayerTowardCharacter(clickedChar);
+                return;
+            }
+
             if (targetTile != null)
             {
                 // 일반 모드: 클릭 시 해당 타일 방향으로 회전
@@ -951,6 +1326,14 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
             }
             return;
+        }
+
+        if (controlState == PlayerControlState.TargetSelection && activeCardForTargeting != null)
+        {
+            TargetType snapTargetType = activeCardForTargeting.cardData != null
+                ? activeCardForTargeting.cardData.parsedTargetType
+                : TargetType.SingleEnemy;
+            targetTile = ResolveTargetingTileWithCharacterSnap(pos, targetTile, snapTargetType, out _);
         }
 
         if (targetTile != null)
@@ -1019,7 +1402,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                     UseCard(activeCardForTargeting, targets, targetPos);
 
                                     activeCardForTargeting = null;
-                                    _lastHoveredCoord = new Vector2Int(-999, -999);
 
                                     if (UIManager.instance != null)
                                     {
@@ -1030,10 +1412,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                         GameMap.current.ClearCardRange();
                                     }
                                     controlState = PlayerControlState.Normal;
-                                    if (BattleTimelinePanel.Instance != null)
-                                    {
-                                        BattleTimelinePanel.Instance.ClearTargetingHoverPreview();
-                                    }
+                                    ClearTargetingHighlights();
+                                }
+                                else if (targetType == TargetType.MultiEnemy && _multiSelectedTargets.Count > 0)
+                                {
+                                    ApplyTargetingHighlights(_multiSelectedTargets, activeCardForTargeting);
                                 }
                             }
                             else

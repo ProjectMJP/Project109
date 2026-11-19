@@ -16,12 +16,28 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     [SerializeField] private Vector3 effectListOffset = UIConstants.DEFAULT_EFFECT_LIST_OFFSET;
     [SerializeField] private Vector3 intentOffset = UIConstants.DEFAULT_INTENT_OFFSET;
 
+    [Header("Targeting Highlight")]
+    [SerializeField] private GameObject targetingHighlightRingObj;
+
+    private static readonly int BaseColorShaderId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorShaderId = Shader.PropertyToID("_Color");
+    private static readonly int EmissionColorShaderId = Shader.PropertyToID("_EmissionColor");
+
+    private static readonly Color TargetingTintHostile = new Color(1f, 0.45f, 0.30f, 1f);
+    private static readonly Color TargetingEmissionHostile = new Color(0.45f, 0.14f, 0.06f, 1f);
+    private static readonly Color TargetingTintFriendly = new Color(0.35f, 0.95f, 0.80f, 1f);
+    private static readonly Color TargetingEmissionFriendly = new Color(0.08f, 0.35f, 0.28f, 1f);
+
     private CharacterStatusBarUI statusBarUI;
     private CharacterEffectListUI effectListUI;
     private CharacterIntentUI intentUI;
     private bool _isBattleActive = false;
     private bool _isEventBusRegistered = false;
     private bool _isTimelineHighlighted = false;
+    private bool _isTargetingHighlighted = false;
+    private bool _hasAppliedPropertyBlock = false;
+    private Renderer[] _cachedRenderers;
+    private MaterialPropertyBlock _highlightPropertyBlock;
 
     private static readonly Dictionary<Character, CharacterUIController> _controllersByCharacter = new Dictionary<Character, CharacterUIController>();
 
@@ -38,16 +54,50 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         }
     }
 
+    /// <summary>
+    /// 지정된 캐릭터에 대응하는 CharacterUIController의 카드 타깃팅 피격 예정 하이라이트 상태를 설정합니다.
+    /// </summary>
+    public static void SetTargetingHighlightFor(Character target, bool highlighted)
+    {
+        if (target == null) return;
+
+        if (_controllersByCharacter.TryGetValue(target, out CharacterUIController ctrl) && ctrl != null)
+        {
+            ctrl.SetTargetingHighlight(highlighted);
+        }
+    }
+
+    /// <summary>
+    /// 현재 등록된 모든 캐릭터의 카드 타깃팅 피격 예정 하이라이트를 일괄 해제합니다.
+    /// </summary>
+    public static void ClearAllTargetingHighlights()
+    {
+        foreach (KeyValuePair<Character, CharacterUIController> kvp in _controllersByCharacter)
+        {
+            CharacterUIController ctrl = kvp.Value;
+            if (ctrl != null && (ctrl._isTargetingHighlighted || ctrl._hasAppliedPropertyBlock))
+            {
+                ctrl.SetTargetingHighlight(false);
+            }
+        }
+    }
+
     public Character Character => character;
     public CharacterStatusBarUI StatusBarUI => statusBarUI;
     public CharacterEffectListUI EffectListUI => effectListUI;
     public CharacterIntentUI IntentUI => intentUI;
+    public bool IsTargetingHighlighted => _isTargetingHighlighted;
 
     private void Awake()
     {
         if (character == null)
         {
             character = GetComponent<Character>();
+        }
+
+        if (targetingHighlightRingObj != null)
+        {
+            targetingHighlightRingObj.SetActive(false);
         }
 
         // 동적 스폰 프레임에 Start() 이전에 전투 합류(NotifyJoinedBattle) 이벤트가 발생할 수 있으므로 선등록
@@ -71,9 +121,15 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         }
     }
 
+    private void OnDisable()
+    {
+        SetTargetingHighlight(false);
+    }
+
     private void OnDestroy()
     {
         SetTimelineHighlight(false);
+        SetTargetingHighlight(false);
         if (character != null && _controllersByCharacter.TryGetValue(character, out CharacterUIController registered) && registered == this)
         {
             _controllersByCharacter.Remove(character);
@@ -166,9 +222,9 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             }
         }
 
-        if (_isTimelineHighlighted)
+        if (_isTimelineHighlighted || _isTargetingHighlighted)
         {
-            SetTimelineHighlight(true);
+            ApplyWorldUIHighlightPresentation();
         }
     }
 
@@ -432,6 +488,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     {
         _isBattleActive = false;
         SetTimelineHighlight(false);
+        SetTargetingHighlight(false);
         if (statusBarUI != null) statusBarUI.Hide();
         if (effectListUI != null) effectListUI.Hide();
         if (intentUI != null) intentUI.Hide();
@@ -443,7 +500,68 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     public void SetTimelineHighlight(bool highlighted)
     {
         _isTimelineHighlighted = highlighted;
+        ApplyWorldUIHighlightPresentation();
+    }
+
+    /// <summary>
+    /// 카드 타깃팅 모드에서 피격·적용 예정 유닛의 3D 모델 MaterialPropertyBlock 틴트/발광, 바닥 링 및 월드 UI 강조를 설정합니다.
+    /// </summary>
+    public void SetTargetingHighlight(bool highlighted)
+    {
+        _isTargetingHighlighted = highlighted;
+        ApplyWorldUIHighlightPresentation();
+
+        if (targetingHighlightRingObj != null)
+        {
+            targetingHighlightRingObj.SetActive(highlighted);
+        }
+
         if (highlighted)
+        {
+            EnsureHighlightCache();
+            bool isHostile = IsHostileAppearance();
+            Color tintColor = isHostile ? TargetingTintHostile : TargetingTintFriendly;
+            Color emissionColor = isHostile ? TargetingEmissionHostile : TargetingEmissionFriendly;
+
+            _highlightPropertyBlock.Clear();
+            _highlightPropertyBlock.SetColor(BaseColorShaderId, tintColor);
+            _highlightPropertyBlock.SetColor(ColorShaderId, tintColor);
+            _highlightPropertyBlock.SetColor(EmissionColorShaderId, emissionColor);
+
+            for (int i = 0; i < _cachedRenderers.Length; i++)
+            {
+                Renderer r = _cachedRenderers[i];
+                if (r != null)
+                {
+                    r.SetPropertyBlock(_highlightPropertyBlock);
+                }
+            }
+            _hasAppliedPropertyBlock = true;
+        }
+        else if (_hasAppliedPropertyBlock)
+        {
+            if (_cachedRenderers != null)
+            {
+                for (int i = 0; i < _cachedRenderers.Length; i++)
+                {
+                    Renderer r = _cachedRenderers[i];
+                    if (r != null)
+                    {
+                        r.SetPropertyBlock(null);
+                    }
+                }
+            }
+            _hasAppliedPropertyBlock = false;
+        }
+    }
+
+    /// <summary>
+    /// 타임라인 호버 강조와 카드 타깃팅 피격 강조를 병합하여 월드 UI 형제 순서와 상태바 스케일을 갱신합니다.
+    /// </summary>
+    private void ApplyWorldUIHighlightPresentation()
+    {
+        bool anyHighlight = _isTimelineHighlighted || _isTargetingHighlighted;
+        if (anyHighlight)
         {
             if (effectListUI != null)
             {
@@ -466,6 +584,74 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
                 statusBarUI.transform.localScale = Vector3.one;
             }
         }
+    }
+
+    /// <summary>
+    /// WorldUI 레이어 및 링 오브젝트를 제외한 캐릭터 3D 렌더러 배열과 MaterialPropertyBlock을 1회 캐싱합니다.
+    /// </summary>
+    private void EnsureHighlightCache()
+    {
+        if (_highlightPropertyBlock == null)
+        {
+            _highlightPropertyBlock = new MaterialPropertyBlock();
+        }
+
+        if (_cachedRenderers != null)
+        {
+            return;
+        }
+
+        int worldUiLayer = LayerMask.NameToLayer("WorldUI");
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
+        int validCount = 0;
+        for (int i = 0; i < allRenderers.Length; i++)
+        {
+            if (IsHighlightTargetRenderer(allRenderers[i], worldUiLayer))
+            {
+                validCount++;
+            }
+        }
+
+        _cachedRenderers = new Renderer[validCount];
+        int writeIdx = 0;
+        for (int i = 0; i < allRenderers.Length; i++)
+        {
+            Renderer r = allRenderers[i];
+            if (IsHighlightTargetRenderer(r, worldUiLayer))
+            {
+                _cachedRenderers[writeIdx++] = r;
+            }
+        }
+    }
+
+    private bool IsHighlightTargetRenderer(Renderer r, int worldUiLayer)
+    {
+        if (r == null) return false;
+        if (worldUiLayer >= 0 && r.gameObject.layer == worldUiLayer) return false;
+        if (targetingHighlightRingObj != null && (r.gameObject == targetingHighlightRingObj || r.transform.IsChildOf(targetingHighlightRingObj.transform))) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// 플레이어 기준으로 이 캐릭터가 적대 진영인지 아군/플레이어 진영인지 판별합니다.
+    /// </summary>
+    private bool IsHostileAppearance()
+    {
+        if (character == null) return true;
+
+        if (RunManager.instance != null &&
+            RunManager.instance.playerBattleController != null &&
+            RunManager.instance.playerBattleController.controlledCharacter != null)
+        {
+            Character playerChar = RunManager.instance.playerBattleController.controlledCharacter;
+            if (!ReferenceEquals(playerChar, character))
+            {
+                return playerChar.IsHostileTo(character);
+            }
+            return false;
+        }
+
+        return character.faction == CharacterFaction.Enemy;
     }
 
     #endregion

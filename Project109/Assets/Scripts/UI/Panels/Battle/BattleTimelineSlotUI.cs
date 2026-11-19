@@ -7,9 +7,9 @@ using UnityEngine.UI;
 /// <summary>
 /// 전투 타임라인 바에 배치되는 개별 유닛 행동 슬롯 UI 컴포넌트입니다.
 /// 현재 턴, 다음 차례 예측, 대기 유닛, 기절 및 적 행동 예고([17]) 배지를 표시하고
-/// 호버 시 월드 캐릭터 상태바 강조 및 L2 상세 툴팁을 제공합니다.
+/// 호버 시 월드 캐릭터 상태바 강조 및 L2 상세 툴팁을, 일반 모드 좌클릭 시 해당 유닛 방향 회전을 제공합니다.
 /// </summary>
-public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     private const int FallbackEmblemSize = 32;
 
@@ -341,6 +341,24 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
         ClearHoverVisuals();
     }
 
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (_isGhost || _boundEntry.character == null)
+        {
+            return;
+        }
+
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Left)
+        {
+            return;
+        }
+
+        if (BattleTimelinePanel.Instance != null)
+        {
+            BattleTimelinePanel.Instance.NotifySlotClicked(this);
+        }
+    }
+
     private void ClearHoverVisuals()
     {
         bool wasHovering = _isPointerHovering;
@@ -350,8 +368,7 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
         {
             BattleTimelinePanel.Instance.NotifySlotPointerExit(this);
         }
-
-        if (_isHighlighted)
+        else if (_isHighlighted)
         {
             SetHighlighted(false);
         }

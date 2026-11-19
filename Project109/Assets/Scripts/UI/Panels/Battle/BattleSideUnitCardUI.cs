@@ -7,9 +7,9 @@ using UnityEngine.UI;
 /// <summary>
 /// 전투 화면 좌·우 사이드 유닛 상세 HUD에 표시되는 개별 유닛 상태 카드 뷰입니다.
 /// 초상화, 적 행동 예고 배지, 이름, 수치 포함 HP/Shield·Stamina 게이지, 버프/디버프 아이콘 행을 표시하며
-/// 카드 호버 시 3방향 상호 하이라이트와 화면 중앙 방향 툴팁 배치를 제공합니다.
+/// 카드 호버 시 3방향 상호 하이라이트와 화면 중앙 방향 툴팁 배치를, 일반 모드 좌클릭 시 유닛 방향 회전을 제공합니다.
 /// </summary>
-public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     private const int FallbackEmblemSize = 32;
 
@@ -220,6 +220,17 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
     public void OnPointerExit(PointerEventData eventData)
     {
         ClearPointerHover();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (_boundCharacter == null) return;
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Left) return;
+
+        if (BattleSideUnitHUDPanel.Instance != null)
+        {
+            BattleSideUnitHUDPanel.Instance.NotifyCardClicked(this);
+        }
     }
 
     private void ClearPointerHover()

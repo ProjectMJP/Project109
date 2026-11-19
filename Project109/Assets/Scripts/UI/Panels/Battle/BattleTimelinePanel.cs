@@ -15,6 +15,8 @@ public class BattleTimelinePanel : UIPanelBase
 {
     public static BattleTimelinePanel Instance { get; private set; }
 
+    public event Action<Character> OnSlotClicked;
+
     [Header("Timeline Layout Settings")]
     [SerializeField] private RectTransform slotContainer;
     [SerializeField] private BattleTimelineSlotUI slotPrefab;
@@ -41,6 +43,10 @@ public class BattleTimelinePanel : UIPanelBase
     private readonly List<Character> _subscribedCharacters = new List<Character>(16);
     private readonly List<Character> _desiredCharacters = new List<Character>(16);
     private readonly HashSet<Vector2Int> _aoeCoordScratch = new HashSet<Vector2Int>();
+    private readonly List<Character> _targetingHighlightedCharacters = new List<Character>(8);
+    private readonly List<Character> _lastTargetingWorldChars = new List<Character>(8);
+    private readonly List<Character> _targetingScratch = new List<Character>(8);
+    private readonly List<Character> _singleTargetingScratch = new List<Character>(1);
 
     private BattleManager _battleManager;
     private bool _isEventsSubscribed;
@@ -118,6 +124,7 @@ public class BattleTimelinePanel : UIPanelBase
         ClearAllHoverState();
         CancelAllSlotMotions();
         UnsubscribeBattleEvents();
+        OnSlotClicked = null;
 
         if (Instance == this)
         {
@@ -224,9 +231,23 @@ public class BattleTimelinePanel : UIPanelBase
     }
 
     /// <summary>
-    /// 타깃팅 모드 중 마우스가 가리키는 대상 캐릭터를 타임라인 미리보기에 반영합니다.
+    /// 타깃팅 모드 중 마우스가 가리키는 단일 대상 캐릭터를 타임라인 미리보기에 반영합니다.
     /// </summary>
     public void SetTargetingHoverCharacter(Character target, Card targetingCard = null)
+    {
+        _singleTargetingScratch.Clear();
+        if (target != null && !target.isDead)
+        {
+            _singleTargetingScratch.Add(target);
+        }
+        SetTargetingHoverCharacters(_singleTargetingScratch, targetingCard);
+        _singleTargetingScratch.Clear();
+    }
+
+    /// <summary>
+    /// 타깃팅 모드 중 피격·적용 예정 다중 대상 목록을 타임라인·사이드 HUD·월드 캐릭터 하이라이트에 동시 반영합니다. (GC 무할당)
+    /// </summary>
+    public void SetTargetingHoverCharacters(IReadOnlyList<Character> targets, Card targetingCard = null)
     {
         bool cardChanged = targetingCard != null && !ReferenceEquals(_targetingCard, targetingCard);
         if (targetingCard != null)
@@ -234,14 +255,54 @@ public class BattleTimelinePanel : UIPanelBase
             _targetingCard = targetingCard;
         }
 
-        if (!cardChanged && _targetingHoveredCharacter == target)
+        _targetingScratch.Clear();
+        if (targets != null)
         {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Character c = targets[i];
+                if (c != null && !c.isDead && !ContainsCharacter(_targetingScratch, c))
+                {
+                    _targetingScratch.Add(c);
+                }
+            }
+        }
+
+        bool targetsChanged = !AreCharacterListsEquivalent(_targetingHighlightedCharacters, _targetingScratch);
+        if (!cardChanged && !targetsChanged)
+        {
+            _targetingScratch.Clear();
             return;
         }
 
-        _targetingHoveredCharacter = target;
+        _targetingHighlightedCharacters.Clear();
+        for (int i = 0; i < _targetingScratch.Count; i++)
+        {
+            _targetingHighlightedCharacters.Add(_targetingScratch[i]);
+        }
+        _targetingScratch.Clear();
+
+        _targetingHoveredCharacter = _targetingHighlightedCharacters.Count > 0 ? _targetingHighlightedCharacters[0] : null;
         RefreshSlotHighlights();
         RefreshGhostPreview();
+    }
+
+    /// <summary>
+    /// 타임라인 슬롯 좌클릭 시 클릭 이벤트를 발행하고 일반 전투 모드에서는 플레이어를 해당 유닛 방향으로 회전시킵니다.
+    /// </summary>
+    public void NotifySlotClicked(BattleTimelineSlotUI slot)
+    {
+        if (slot == null || slot.IsGhost) return;
+
+        Character clickedChar = slot.BoundCharacter;
+        if (clickedChar == null) return;
+
+        OnSlotClicked?.Invoke(clickedChar);
+
+        if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+        {
+            RunManager.instance.playerBattleController.TryRotatePlayerTowardCharacter(clickedChar);
+        }
     }
 
     /// <summary>
@@ -249,9 +310,17 @@ public class BattleTimelinePanel : UIPanelBase
     /// </summary>
     public void ClearTargetingHoverPreview()
     {
-        if (_targetingCard == null && _targetingHoveredCharacter == null) return;
+        if (_targetingCard == null
+            && _targetingHoveredCharacter == null
+            && _targetingHighlightedCharacters.Count == 0
+            && _lastTargetingWorldChars.Count == 0)
+        {
+            return;
+        }
+
         _targetingCard = null;
         _targetingHoveredCharacter = null;
+        _targetingHighlightedCharacters.Clear();
         RefreshSlotHighlights();
         RefreshGhostPreview();
     }
@@ -568,9 +637,11 @@ public class BattleTimelinePanel : UIPanelBase
             if (slot.ui == null) continue;
 
             bool isEndTurnPredicted = _isEndTurnHovered && slot.isPredictedNextTurn;
+            bool isTargetingTarget = slot.boundCharacter != null && ContainsCharacter(_targetingHighlightedCharacters, slot.boundCharacter);
             bool shouldHighlight = (slot.ui == _uiHoveredSlot)
                 || (_worldHoveredCharacter != null && slot.boundCharacter == _worldHoveredCharacter)
                 || (_externalHoveredCharacter != null && slot.boundCharacter == _externalHoveredCharacter)
+                || isTargetingTarget
                 || isEndTurnPredicted;
 
             slot.ui.SetHighlighted(shouldHighlight);
@@ -606,13 +677,38 @@ public class BattleTimelinePanel : UIPanelBase
             _lastFocusedWorldChar = focusedChar;
         }
 
-        // 사이드 유닛 HUD로 외부 호버 전파 (_externalHoveredCharacter 제외하여 재귀 루프 방지)
+        // 다중 타깃팅 대상 월드 캐릭터 하이라이트 차분 동기화
+        for (int i = _lastTargetingWorldChars.Count - 1; i >= 0; i--)
+        {
+            Character prev = _lastTargetingWorldChars[i];
+            if (prev == null || !ContainsCharacter(_targetingHighlightedCharacters, prev))
+            {
+                if (prev != null)
+                {
+                    CharacterUIController.SetTargetingHighlightFor(prev, false);
+                }
+                _lastTargetingWorldChars.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < _targetingHighlightedCharacters.Count; i++)
+        {
+            Character target = _targetingHighlightedCharacters[i];
+            if (target != null && !target.isDead && !ContainsCharacter(_lastTargetingWorldChars, target))
+            {
+                CharacterUIController.SetTargetingHighlightFor(target, true);
+                _lastTargetingWorldChars.Add(target);
+            }
+        }
+
+        // 사이드 유닛 HUD로 외부 호버 및 타깃팅 목록 전파 (_externalHoveredCharacter 제외하여 재귀 루프 방지)
         if (BattleSideUnitHUDPanel.Instance != null)
         {
             Character sideExternal = _uiHoveredSlot != null
                 ? _uiHoveredSlot.BoundCharacter
                 : (_worldHoveredCharacter != null ? _worldHoveredCharacter : _targetingHoveredCharacter);
             BattleSideUnitHUDPanel.Instance.SetExternalHoverCharacter(sideExternal);
+            BattleSideUnitHUDPanel.Instance.SetExternalTargetingCharacters(_targetingHighlightedCharacters);
         }
     }
 
@@ -957,6 +1053,9 @@ public class BattleTimelinePanel : UIPanelBase
         _hoveredCard = null;
         _targetingCard = null;
         _targetingHoveredCharacter = null;
+        _targetingHighlightedCharacters.Clear();
+        _targetingScratch.Clear();
+        _singleTargetingScratch.Clear();
         _worldHoveredCharacter = null;
         _externalHoveredCharacter = null;
         _uiHoveredSlot = null;
@@ -968,9 +1067,20 @@ public class BattleTimelinePanel : UIPanelBase
             _lastFocusedWorldChar = null;
         }
 
+        for (int i = 0; i < _lastTargetingWorldChars.Count; i++)
+        {
+            Character prev = _lastTargetingWorldChars[i];
+            if (prev != null)
+            {
+                CharacterUIController.SetTargetingHighlightFor(prev, false);
+            }
+        }
+        _lastTargetingWorldChars.Clear();
+
         if (BattleSideUnitHUDPanel.Instance != null)
         {
             BattleSideUnitHUDPanel.Instance.SetExternalHoverCharacter(null);
+            BattleSideUnitHUDPanel.Instance.SetExternalTargetingCharacters(null);
         }
 
         HideGhostSlots();
@@ -1115,6 +1225,11 @@ public class BattleTimelinePanel : UIPanelBase
         {
             _targetingHoveredCharacter = null;
         }
+        RemoveCharacterFromList(_targetingHighlightedCharacters, c);
+        if (_targetingHoveredCharacter == null && _targetingHighlightedCharacters.Count > 0)
+        {
+            _targetingHoveredCharacter = _targetingHighlightedCharacters[0];
+        }
         if (_externalHoveredCharacter == c)
         {
             _externalHoveredCharacter = null;
@@ -1123,6 +1238,10 @@ public class BattleTimelinePanel : UIPanelBase
         {
             CharacterUIController.SetTimelineHighlightFor(c, false);
             _lastFocusedWorldChar = null;
+        }
+        if (RemoveCharacterFromList(_lastTargetingWorldChars, c))
+        {
+            CharacterUIController.SetTargetingHighlightFor(c, false);
         }
         RefreshSlotHighlights();
         MarkDirty();
@@ -1136,6 +1255,45 @@ public class BattleTimelinePanel : UIPanelBase
     private void HandleEffectChanged(Effect effect)
     {
         MarkDirty();
+    }
+
+    private static bool ContainsCharacter(List<Character> list, Character target)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (ReferenceEquals(list[i], target))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool AreCharacterListsEquivalent(List<Character> a, List<Character> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!ContainsCharacter(b, a[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool RemoveCharacterFromList(List<Character> list, Character target)
+    {
+        bool removed = false;
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (ReferenceEquals(list[i], target))
+            {
+                list.RemoveAt(i);
+                removed = true;
+            }
+        }
+        return removed;
     }
 
     #endregion
