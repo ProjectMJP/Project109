@@ -63,8 +63,22 @@ public class Character : MonoBehaviour, IDamageable
     [SerializeField]
     private CharacterStat _characterStat;
 
-    // 외부에 노출되는 런타임 현재 스탯
+    private CharacterStat _baseCharacterStat;
+    private readonly List<StatModifier> _statModifiers = new List<StatModifier>();
+
+    // 외부에 노출되는 기본 영구 스탯 (세이브/영구 성장용)
+    public CharacterStat baseCharacterStat
+    {
+        get
+        {
+            EnsureBaseStatInitialized();
+            return _baseCharacterStat;
+        }
+    }
+
+    // 외부에 노출되는 런타임 현재 스탯 (기본 스탯 + 활성 StatModifier 반영)
     public CharacterStat curCharacterStat => _characterStat;
+    public IReadOnlyList<StatModifier> StatModifiers => _statModifiers;
 
     public EffectManager effectManager;
     public CharacterMove characterMove { get; private set; }
@@ -73,6 +87,7 @@ public class Character : MonoBehaviour, IDamageable
     {
         effectManager = new EffectManager(this);
         characterMove = new CharacterMove(this);
+        EnsureBaseStatInitialized();
     }
 
     private void OnDestroy()
@@ -80,17 +95,257 @@ public class Character : MonoBehaviour, IDamageable
         effectManager?.Dispose();
     }
 
+    private void EnsureBaseStatInitialized()
+    {
+        if (_baseCharacterStat == null && _characterStat != null)
+        {
+            _baseCharacterStat = CloneStat(_characterStat);
+        }
+    }
+
+    private static CharacterStat CloneStat(CharacterStat source)
+    {
+        if (source == null) return null;
+        return new CharacterStat
+        {
+            maxHealth = source.maxHealth,
+            maxStamina = source.maxStamina,
+            staminaRegenPerSecond = source.staminaRegenPerSecond,
+            moveRange = source.moveRange,
+        };
+    }
+
     public void InitializeStat(CharacterStat characterStat)
     {
         if (characterStat != null)
         {
-            _characterStat = characterStat;
+            _baseCharacterStat = CloneStat(characterStat);
+            _characterStat = CloneStat(characterStat);
+            _statModifiers.Clear();
 
-            curHealth = characterStat.maxHealth;
+            curHealth = _characterStat.maxHealth;
             curStamina = 0f;
 
-            curMoveRange = characterStat.moveRange;
+            curMoveRange = _characterStat.moveRange;
+        }
+    }
 
+    /// <summary>
+    /// 영구 기본 최대 체력을 변경하고 현재 스탯을 재계산합니다. (보상/이벤트 성장용)
+    /// </summary>
+    public void ModifyBaseMaxHealth(float delta)
+    {
+        EnsureBaseStatInitialized();
+        if (_baseCharacterStat == null) return;
+
+        _baseCharacterStat.maxHealth = Mathf.Max(1f, _baseCharacterStat.maxHealth + delta);
+        RecalculateStatTarget(StatModifierTarget.MaxHealth, notifyListeners: false);
+        if (curHealth > _characterStat.maxHealth)
+        {
+            curHealth = _characterStat.maxHealth;
+        }
+    }
+
+    /// <summary>
+    /// 수명형 스탯 모디파이어를 추가하거나, 동일한 sourceId+target+op 모디파이어를 갱신합니다.
+    /// </summary>
+    public void AddOrRefreshStatModifier(
+        string sourceId,
+        StatModifierTarget target,
+        StatModifierOp op,
+        float value,
+        StatModifierLifetime lifetime = StatModifierLifetime.Permanent,
+        float duration = 0f,
+        bool isBattleScoped = true)
+    {
+        EnsureBaseStatInitialized();
+        string key = sourceId ?? string.Empty;
+
+        if (!string.IsNullOrEmpty(key))
+        {
+            for (int i = 0; i < _statModifiers.Count; i++)
+            {
+                StatModifier existing = _statModifiers[i];
+                if (existing.sourceId == key && existing.target == target && existing.op == op)
+                {
+                    existing.value = value;
+                    existing.lifetime = lifetime;
+                    existing.isBattleScoped = isBattleScoped;
+                    if (lifetime == StatModifierLifetime.DurationSeconds)
+                    {
+                        existing.remainingDuration = Mathf.Max(existing.remainingDuration, Mathf.Max(0f, duration));
+                    }
+                    else
+                    {
+                        existing.remainingDuration = 0f;
+                    }
+                    _statModifiers[i] = existing;
+                    RecalculateStatTarget(target, notifyListeners: true);
+                    return;
+                }
+            }
+        }
+
+        _statModifiers.Add(new StatModifier(key, target, op, value, lifetime, duration, isBattleScoped));
+        RecalculateStatTarget(target, notifyListeners: true);
+    }
+
+    /// <summary>
+    /// 지정한 sourceId를 가진 모든 스탯 모디파이어를 제거합니다.
+    /// </summary>
+    public void RemoveStatModifier(string sourceId)
+    {
+        if (string.IsNullOrEmpty(sourceId)) return;
+
+        int dirtyMask = 0;
+        for (int i = _statModifiers.Count - 1; i >= 0; i--)
+        {
+            if (_statModifiers[i].sourceId == sourceId)
+            {
+                dirtyMask |= (1 << (int)_statModifiers[i].target);
+                _statModifiers.RemoveAt(i);
+            }
+        }
+
+        if (dirtyMask != 0)
+        {
+            RecalculateDirtyTargets(dirtyMask, notifyListeners: true);
+        }
+    }
+
+    /// <summary>
+    /// 시간 수명(DurationSeconds) 스탯 모디파이어들의 남은 시간을 감소시키고 만료된 항목을 정리합니다.
+    /// </summary>
+    public void TickStatModifiers(float dt)
+    {
+        if (_statModifiers.Count == 0 || dt <= 0f) return;
+
+        int dirtyMask = 0;
+        for (int i = _statModifiers.Count - 1; i >= 0; i--)
+        {
+            StatModifier mod = _statModifiers[i];
+            if (mod.lifetime != StatModifierLifetime.DurationSeconds) continue;
+
+            mod.remainingDuration -= dt;
+            if (mod.remainingDuration <= 0f)
+            {
+                dirtyMask |= (1 << (int)mod.target);
+                _statModifiers.RemoveAt(i);
+            }
+            else
+            {
+                _statModifiers[i] = mod;
+            }
+        }
+
+        if (dirtyMask != 0)
+        {
+            RecalculateDirtyTargets(dirtyMask, notifyListeners: true);
+        }
+    }
+
+    public void ExpireTurnEndModifiers()
+    {
+        RemoveModifiersByLifetime(StatModifierLifetime.UntilTurnEnd);
+    }
+
+    public void ExpireTurnStartModifiers()
+    {
+        RemoveModifiersByLifetime(StatModifierLifetime.UntilNextTurnStart);
+    }
+
+    public void ClearBattleStatModifiers()
+    {
+        if (_statModifiers.Count == 0) return;
+
+        int dirtyMask = 0;
+        for (int i = _statModifiers.Count - 1; i >= 0; i--)
+        {
+            if (_statModifiers[i].isBattleScoped)
+            {
+                dirtyMask |= (1 << (int)_statModifiers[i].target);
+                _statModifiers.RemoveAt(i);
+            }
+        }
+
+        if (dirtyMask != 0)
+        {
+            RecalculateDirtyTargets(dirtyMask, notifyListeners: false);
+        }
+    }
+
+    private void RemoveModifiersByLifetime(StatModifierLifetime lifetime)
+    {
+        if (_statModifiers.Count == 0) return;
+
+        int dirtyMask = 0;
+        for (int i = _statModifiers.Count - 1; i >= 0; i--)
+        {
+            if (_statModifiers[i].lifetime == lifetime)
+            {
+                dirtyMask |= (1 << (int)_statModifiers[i].target);
+                _statModifiers.RemoveAt(i);
+            }
+        }
+
+        if (dirtyMask != 0)
+        {
+            RecalculateDirtyTargets(dirtyMask, notifyListeners: true);
+        }
+    }
+
+    private void RecalculateDirtyTargets(int dirtyMask, bool notifyListeners)
+    {
+        if ((dirtyMask & (1 << (int)StatModifierTarget.MaxStamina)) != 0)
+            RecalculateStatTarget(StatModifierTarget.MaxStamina, notifyListeners);
+        if ((dirtyMask & (1 << (int)StatModifierTarget.StaminaRegen)) != 0)
+            RecalculateStatTarget(StatModifierTarget.StaminaRegen, notifyListeners);
+        if ((dirtyMask & (1 << (int)StatModifierTarget.MaxHealth)) != 0)
+            RecalculateStatTarget(StatModifierTarget.MaxHealth, notifyListeners);
+        if ((dirtyMask & (1 << (int)StatModifierTarget.MoveRange)) != 0)
+            RecalculateStatTarget(StatModifierTarget.MoveRange, notifyListeners);
+    }
+
+    private void RecalculateStatTarget(StatModifierTarget target, bool notifyListeners)
+    {
+        EnsureBaseStatInitialized();
+        if (_baseCharacterStat == null || _characterStat == null) return;
+
+        switch (target)
+        {
+            case StatModifierTarget.MaxStamina:
+                float prevMaxStam = _characterStat.maxStamina;
+                _characterStat.maxStamina = StatModifierEvaluator.EvaluateStat(
+                    _baseCharacterStat.maxStamina, StatModifierTarget.MaxStamina, _statModifiers, minClamp: 1f);
+                if (notifyListeners && !Mathf.Approximately(prevMaxStam, _characterStat.maxStamina))
+                {
+                    OnCharacterStaminaChanged?.Invoke(this);
+                }
+                break;
+
+            case StatModifierTarget.StaminaRegen:
+                _characterStat.staminaRegenPerSecond = StatModifierEvaluator.EvaluateStat(
+                    _baseCharacterStat.staminaRegenPerSecond, StatModifierTarget.StaminaRegen, _statModifiers, minClamp: 0f);
+                break;
+
+            case StatModifierTarget.MaxHealth:
+                float prevMaxHp = _characterStat.maxHealth;
+                _characterStat.maxHealth = StatModifierEvaluator.EvaluateStat(
+                    _baseCharacterStat.maxHealth, StatModifierTarget.MaxHealth, _statModifiers, minClamp: 1f);
+                if (_curHealth > _characterStat.maxHealth)
+                {
+                    curHealth = _characterStat.maxHealth;
+                }
+                else if (notifyListeners && !Mathf.Approximately(prevMaxHp, _characterStat.maxHealth))
+                {
+                    OnCharacterHealthChanged?.Invoke(this);
+                }
+                break;
+
+            case StatModifierTarget.MoveRange:
+                _characterStat.moveRange = Mathf.RoundToInt(StatModifierEvaluator.EvaluateStat(
+                    _baseCharacterStat.moveRange, StatModifierTarget.MoveRange, _statModifiers, minClamp: 0f));
+                break;
         }
     }
 
@@ -106,6 +361,18 @@ public class Character : MonoBehaviour, IDamageable
     public event Action<Character> OnCharacterDied;
     public event Action<Character> OnCharacterJoinedBattle;
     public event Action<Character> OnCharacterLeftBattle;
+    public event Action<EnemyIntentInfo> OnIntentChanged;
+
+    public EnemyIntentInfo CurrentIntent { get; private set; }
+
+    /// <summary>
+    /// 캐릭터(적)의 현재 행동 예고 상태를 갱신하고 구독자들에게 알립니다.
+    /// </summary>
+    public void UpdateIntent(in EnemyIntentInfo intent)
+    {
+        CurrentIntent = intent;
+        OnIntentChanged?.Invoke(CurrentIntent);
+    }
 
     public void NotifyJoinedBattle() => OnCharacterJoinedBattle?.Invoke(this);
     public void NotifyLeftBattle() => OnCharacterLeftBattle?.Invoke(this);
@@ -190,10 +457,16 @@ public class Character : MonoBehaviour, IDamageable
     /// </summary>
     public bool BattleTick(float dt)
     {
-        float regen = curCharacterStat.staminaRegenPerSecond * dt;
+        float regen = (curCharacterStat != null ? curCharacterStat.staminaRegenPerSecond : 0f) * dt;
 
-        // 이펙트 틱
-        effectManager.Tick(dt);
+        // 이펙트 및 수명형 스탯 모디파이어 틱
+        if (effectManager != null)
+        {
+            effectManager.Tick(dt);
+        }
+        TickStatModifiers(dt);
+
+        if (curCharacterStat == null) return false;
 
         if (curStamina >= curCharacterStat.maxStamina)
         {
@@ -215,12 +488,80 @@ public class Character : MonoBehaviour, IDamageable
     }
 
     /// <summary>
+    /// 현재 스태미나 또는 가상 잔여 스태미나를 기준으로 턴 종료 시 스태미나 변동량을 부작용 없이 선계산합니다.
+    /// </summary>
+    public TurnEndStaminaInfo CalculateTurnEndStamina(float carryOverRatio = 0.5f)
+    {
+        return CalculateTurnEndStaminaForRemaining(curStamina, carryOverRatio);
+    }
+
+    /// <summary>
+    /// 지정된 잔여 스태미나 값을 기준으로 턴 종료 시 스태미나 변동량을 부작용 없이 선계산합니다.
+    /// (카드 호버 미리보기 등에서 가상 소비 후 이월량을 예측할 때 사용)
+    /// </summary>
+    public TurnEndStaminaInfo CalculateTurnEndStaminaForRemaining(float remainingStamina, float carryOverRatio = 0.5f)
+    {
+        float maxStam = curCharacterStat != null ? curCharacterStat.maxStamina : 0f;
+        TurnEndStaminaInfo info = new TurnEndStaminaInfo(
+            this,
+            Mathf.Max(0f, remainingStamina),
+            overflowStamina,
+            maxStam,
+            carryOverRatio);
+
+        if (eventBus != null)
+        {
+            CombatEventDispatcher.DispatchCalculateTurnEndStamina(eventBus, ref info);
+        }
+
+        return info;
+    }
+
+    /// <summary>
+    /// 선계산 결과(TurnEndStaminaInfo)로부터 다음 턴 시작 스태미나를 계산하는 단일 공식 헬퍼입니다.
+    /// </summary>
+    public static float ComputeCarriedStamina(float currentRemainingStamina, float currentOverflow, in TurnEndStaminaInfo info)
+    {
+        float preCarry = Mathf.Max(0f, currentRemainingStamina + info.preResetBonusStamina);
+        float carried = (preCarry * Mathf.Max(0f, info.carryOverRatio)) + currentOverflow + info.postResetBonusStamina;
+        return Mathf.Max(0f, carried);
+    }
+
+    /// <summary>
+    /// 선계산된 턴 종료 스태미나 정보와 UntilTurnEnd 모디파이어 만료를 실제 캐릭터 상태에 커밋합니다.
+    /// </summary>
+    public void CommitTurnEndStamina(in TurnEndStaminaInfo info)
+    {
+        ExpireTurnEndModifiers();
+
+        float preCarry = Mathf.Max(0f, curStamina + info.preResetBonusStamina);
+        float baseCarry = (preCarry * Mathf.Max(0f, info.carryOverRatio)) + overflowStamina;
+        overflowStamina = 0f;
+        curStamina = Mathf.Max(0f, baseCarry);
+
+        if (info.postResetBonusStamina > 0f)
+        {
+            TakeStamina(this, info.postResetBonusStamina, StaminaFlag.OverStamina);
+        }
+        else if (info.postResetBonusStamina < 0f)
+        {
+            curStamina = Mathf.Max(0f, curStamina + info.postResetBonusStamina);
+        }
+
+        if (curCharacterStat != null && curStamina > curCharacterStat.maxStamina)
+        {
+            overflowStamina += (curStamina - curCharacterStat.maxStamina);
+            curStamina = curCharacterStat.maxStamina;
+        }
+    }
+
+    /// <summary>
     /// 턴 종료 시 호출하여 스태미나 이월(절반 감축) 처리 및 보존된 오버플로우 스태미나 환원
     /// </summary>
     public void ResetStamina()
     {
-        curStamina = (curStamina * 0.5f) + overflowStamina;
-        overflowStamina = 0f;
+        TurnEndStaminaInfo info = CalculateTurnEndStamina();
+        CommitTurnEndStamina(in info);
     }
 
     /// <summary>
@@ -242,11 +583,15 @@ public class Character : MonoBehaviour, IDamageable
         shield = 0f;
         shieldDurationTurns = 0;
         currentTurn = 0;
+        CurrentIntent = default;
+        OnIntentChanged?.Invoke(CurrentIntent);
 
         if (effectManager != null)
         {
             effectManager.ClearAllEffects(clearPermanentEffects);
         }
+
+        ClearBattleStatModifiers();
 
         characterMove?.StopMoving();
 

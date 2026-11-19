@@ -352,10 +352,20 @@ public class Card : IDescribable
     /// </summary>
     public bool CanPlay(Character caster)
     {
+        if (caster == null) return false;
+        return CanPlayWithStamina(caster, caster.curStamina);
+    }
+
+    /// <summary>
+    /// 지정한 가용 스태미나 기준으로 이 카드를 시전할 수 있는지 검사합니다.
+    /// (적 행동 예고 평가 시 턴 시작 전 예상 최대 스태미나 기준 검증 등에 사용됩니다.)
+    /// </summary>
+    public bool CanPlayWithStamina(Character caster, float availableStamina)
+    {
         if (_isDisposed || caster == null) return false;
 
         // 1. 스태미나 기본 비용 유효성 검증
-        if (caster.curStamina < currentCost)
+        if (availableStamina < currentCost)
         {
             return false;
         }

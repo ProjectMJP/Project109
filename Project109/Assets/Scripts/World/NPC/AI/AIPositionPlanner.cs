@@ -110,16 +110,17 @@ public static class AIPositionPlanner
 
     /// <summary>
     /// 적의 최대 이동력 범위에 맞춰 실제 이동할 수 있는 타일을 중간 지점으로 축소/선정합니다.
+    /// moveRangeOverride가 지정되면 현재 이동력 대신 해당 예산을 기준으로 계산합니다.
     /// </summary>
-    public static Tile GetClampedMoveTarget(Character caster, Tile finalDestination, GameMap gameMap)
+    public static Tile GetClampedMoveTarget(Character caster, Tile finalDestination, GameMap gameMap, int? moveRangeOverride = null)
     {
         if (caster == null || finalDestination == null || gameMap == null) return null;
 
         Tile currentTile = (caster.characterMove != null) ? caster.characterMove.GetCurrentTile() : null;
         if (currentTile == null || currentTile == finalDestination) return currentTile;
 
-        // 이번 턴 남은 이동 가능 칸수 확인 (0 이하이면 이동 불가)
-        int maxMoveRange = caster.curMoveRange;
+        // 이번 턴 남은 이동 가능 칸수 또는 지정 예산 확인 (0 이하이면 이동 불가)
+        int maxMoveRange = Mathf.Max(0, moveRangeOverride ?? caster.curMoveRange);
         if (maxMoveRange <= 0) return currentTile;
 
         List<List<Tile>> tileMap = gameMap.GetTileMap();

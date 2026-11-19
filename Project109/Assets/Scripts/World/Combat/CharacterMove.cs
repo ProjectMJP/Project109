@@ -15,6 +15,8 @@ public class CharacterMove
 
     public Character character { private set; get; }
 
+    public event Action<Character, Tile, Tile> OnTileChanged;
+
     protected Tile currentTile;
     public float moveSpeed = 5f;
     public float turnSpeed = 600f;
@@ -53,6 +55,11 @@ public class CharacterMove
             {
                 newTile.NotifyUnitEntered(this.character);
             }
+        }
+
+        if (tileChanged)
+        {
+            OnTileChanged?.Invoke(this.character, previousTile, newTile);
         }
     }
 

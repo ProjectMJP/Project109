@@ -41,6 +41,7 @@ public interface ICharacterEvent { }
     public interface IOnAfterTakeStamina : ICharacterEvent   { void OnAfterTakeStamina(StaminaInfo info); }
     public interface IOnBeforeGiveStamina : ICharacterEvent  { void OnBeforeGiveStamina(ref StaminaInfo info); }
     public interface IOnAfterGiveStamina : ICharacterEvent   { void OnAfterGiveStamina(StaminaInfo info); }
+    public interface IOnCalculateTurnEndStamina : ICharacterEvent { void OnCalculateTurnEndStamina(ref TurnEndStaminaInfo info); }
 
 #endregion
 

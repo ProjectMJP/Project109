@@ -32,6 +32,7 @@ public class BattleManager : IInitializable, IDisposable
         OnBattleWon = null;
         OnBattleLost = null;
         OnBattleEnded = null;
+        OnTimelineDirty = null;
     }
 
     #region Battle Events
@@ -48,6 +49,9 @@ public class BattleManager : IInitializable, IDisposable
     /// <summary>전투 종료 시 결과 타입과 함께 발행되는 이벤트</summary>
     public event Action<BattleResultType> OnBattleEnded;
 
+    /// <summary>턴 시작/종료·전투원 합류/사망 등으로 타임라인 순서 재계산이 필요할 때 발행됩니다.</summary>
+    public event Action OnTimelineDirty;
+
     #endregion
 
     #region Battle State
@@ -57,9 +61,18 @@ public class BattleManager : IInitializable, IDisposable
     private List<ICharacterController> playerTeam = new();
     private List<ICharacterController> enemyTeam = new();
     private readonly List<ICharacterController> allCombatantsCache = new();
+    private readonly TimelinePredictor _timelinePredictor = new TimelinePredictor();
     public ICharacterController currentTurnController { get; private set; }
     public float battleTimeScale = 1f;
     public int accumulativeGoldReward { get; set; }
+
+    /// <summary>
+    /// 현재 전투원들의 다음 1회 행동 순서 및 플레이어 다음 차례(이월 포함)를 예측합니다. (GC 무할당)
+    /// </summary>
+    public void PredictTimeline(List<TimelineEntry> results, in TimelinePreviewRequest preview = default)
+    {
+        _timelinePredictor.Predict(playerTeam, enemyTeam, currentTurnController, results, in preview);
+    }
 
     /// <summary>
     /// 전장의 아군 및 적군 컨트롤러 목록을 합쳐서 반환합니다. (내부 캐시 재사용으로 GC 무할당)
@@ -167,6 +180,8 @@ public class BattleManager : IInitializable, IDisposable
         }
 
         battleState = BattleState.Combat;
+        RefreshAllEnemyIntents();
+        OnTimelineDirty?.Invoke();
         Debug.Log("[BattleManager] Battle start intro finished. Combat began.");
     }
 
@@ -191,6 +206,8 @@ public class BattleManager : IInitializable, IDisposable
         {
             CombatEventDispatcher.DispatchBattleStart(controller.controlledCharacter.eventBus);
         }
+        RefreshAllEnemyIntents();
+        OnTimelineDirty?.Invoke();
     }
 
     private void InitCombatant(ICharacterController combatant)
@@ -203,6 +220,7 @@ public class BattleManager : IInitializable, IDisposable
 
         combatant.controlledCharacter.ResetCharacterForBattle();
         combatant.controlledCharacter.OnCharacterDied += OnCharacterDied;
+        SubscribeCombatantIntentEvents(combatant.controlledCharacter);
         combatant.controlledCharacter.NotifyJoinedBattle();
     }
 
@@ -280,6 +298,7 @@ public class BattleManager : IInitializable, IDisposable
         battleState = BattleState.TurnInProgress;
         currentTurnController = controller;
         controller.controlledCharacter.currentTurn++;
+        controller.controlledCharacter.ExpireTurnStartModifiers();
 
         // 턴 시작 시 자연 회복 등으로 maxStamina를 초과한 경우 maxStamina로 보정
         if (controller.controlledCharacter != null && controller.controlledCharacter.curCharacterStat != null)
@@ -297,6 +316,7 @@ public class BattleManager : IInitializable, IDisposable
         }
 
         controller.OnTurnStart();
+        OnTimelineDirty?.Invoke();
     }
 
     /// <summary>
@@ -314,14 +334,119 @@ public class BattleManager : IInitializable, IDisposable
             return;
         }
 
+        Character endingCharacter = currentTurnController.controlledCharacter;
+        // 1. 턴 종료 스태미나 변동량 선계산 (OnTurnEnd에서 버프/유물이 제거·초기화되기 전에 실행)
+        EventStructs.TurnEndStaminaInfo turnEndInfo = endingCharacter != null
+            ? endingCharacter.CalculateTurnEndStamina()
+            : default;
+
+        // 2. 턴 종료 이벤트 실행 (버프 스택 감소/제거, 덱 버리기 등)
         currentTurnController.OnTurnEnd();
 
-        currentTurnController.controlledCharacter.ResetStamina();
+        if (battleState == BattleState.BattleEnd)
+        {
+            currentTurnController = null;
+            OnTimelineDirty?.Invoke();
+            return;
+        }
+
+        // 3. 선계산 결과 커밋 및 UntilTurnEnd 스탯 모디파이어 만료 처리
+        if (endingCharacter != null)
+        {
+            endingCharacter.CommitTurnEndStamina(in turnEndInfo);
+        }
         // 실드 지속시간 차감은 다음 턴 시작(StartTurn) 시점으로 이관됨
 
         currentTurnController = null;
         battleState = BattleState.Combat;
+        RefreshAllEnemyIntents();
+        OnTimelineDirty?.Invoke();
     }
+
+    #region Enemy Intent Synchronization
+
+    private void SubscribeCombatantIntentEvents(Character character)
+    {
+        if (character == null) return;
+
+        if (character.characterMove != null)
+        {
+            character.characterMove.OnTileChanged -= HandleCombatantTileChanged;
+            character.characterMove.OnTileChanged += HandleCombatantTileChanged;
+        }
+
+        if (character.effectManager != null)
+        {
+            character.effectManager.OnEffectAdded -= HandleCombatantEffectChanged;
+            character.effectManager.OnEffectAdded += HandleCombatantEffectChanged;
+
+            character.effectManager.OnEffectStacked -= HandleCombatantEffectChanged;
+            character.effectManager.OnEffectStacked += HandleCombatantEffectChanged;
+
+            character.effectManager.OnEffectRemoved -= HandleCombatantEffectChanged;
+            character.effectManager.OnEffectRemoved += HandleCombatantEffectChanged;
+        }
+    }
+
+    private void UnsubscribeCombatantIntentEvents(Character character)
+    {
+        if (character == null) return;
+
+        if (character.characterMove != null)
+        {
+            character.characterMove.OnTileChanged -= HandleCombatantTileChanged;
+        }
+
+        if (character.effectManager != null)
+        {
+            character.effectManager.OnEffectAdded -= HandleCombatantEffectChanged;
+            character.effectManager.OnEffectStacked -= HandleCombatantEffectChanged;
+            character.effectManager.OnEffectRemoved -= HandleCombatantEffectChanged;
+        }
+    }
+
+    private void HandleCombatantTileChanged(Character character, Tile previousTile, Tile newTile)
+    {
+        RefreshAllEnemyIntents();
+    }
+
+    private void HandleCombatantEffectChanged(Effect effect)
+    {
+        RefreshAllEnemyIntents();
+    }
+
+    /// <summary>
+    /// 전투 중 살아있는 적 NPC들의 행동 예고 상태를 현재 타일 위치 및 버프/디버프에 맞춰 즉시 재계산합니다.
+    /// (현재 턴 실행 중인 적 자신은 이동-공격 액션 큐 교란 방지를 위해 제외합니다.)
+    /// </summary>
+    public void RefreshAllEnemyIntents()
+    {
+        if (battleState != BattleState.Combat && battleState != BattleState.TurnInProgress)
+        {
+            return;
+        }
+
+        for (int i = 0; i < enemyTeam.Count; i++)
+        {
+            ICharacterController controller = enemyTeam[i];
+            if (controller == null || controller.controlledCharacter == null || controller.controlledCharacter.isDead)
+            {
+                continue;
+            }
+
+            if (battleState == BattleState.TurnInProgress && ReferenceEquals(controller, currentTurnController))
+            {
+                continue;
+            }
+
+            if (controller is NPCUnitController npcController)
+            {
+                npcController.RefreshIntentState(isTurnStart: false);
+            }
+        }
+    }
+
+    #endregion
 
     #region Helper Methods (Zero-Alloc)
 
@@ -388,6 +513,7 @@ public class BattleManager : IInitializable, IDisposable
         RemoveCombatantByCharacter(enemyTeam, deadCharacter);
 
         deadCharacter.OnCharacterDied -= OnCharacterDied;
+        UnsubscribeCombatantIntentEvents(deadCharacter);
 
         if (deadCharacter != null && deadCharacter.faction == CharacterFaction.Enemy)
         {
@@ -409,6 +535,11 @@ public class BattleManager : IInitializable, IDisposable
             WinBattle();
         else if (playerTeam.Count == 0)
             LoseBattle();
+        else
+        {
+            RefreshAllEnemyIntents();
+            OnTimelineDirty?.Invoke();
+        }
     }
 
     public void WinBattle()
@@ -457,17 +588,22 @@ public class BattleManager : IInitializable, IDisposable
         {
             if (combatant == null || combatant.controlledCharacter == null) continue;
 
+            combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+            UnsubscribeCombatantIntentEvents(combatant.controlledCharacter);
+
             if (combatant.controlledCharacter.eventBus != null)
             {
                 CombatEventDispatcher.DispatchBattleEnd(combatant.controlledCharacter.eventBus);
             }
             combatant.controlledCharacter.ResetCharacterForBattle();
-            combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
             combatant.controlledCharacter.NotifyLeftBattle();
         }
         foreach (var combatant in enemyTeam)
         {
             if (combatant == null || combatant.controlledCharacter == null) continue;
+
+            combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+            UnsubscribeCombatantIntentEvents(combatant.controlledCharacter);
 
             if (combatant.controlledCharacter.eventBus != null)
             {
@@ -480,14 +616,12 @@ public class BattleManager : IInitializable, IDisposable
                 {
                     combatant.controlledCharacter.characterMove.StopMoving();
                 }
-                combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
                 combatant.controlledCharacter.NotifyLeftBattle();
                 combatant.controlledCharacter.gameObject.SetActive(false);
             }
             else
             {
                 combatant.controlledCharacter.ResetCharacterForBattle();
-                combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
                 combatant.controlledCharacter.NotifyLeftBattle();
             }
         }

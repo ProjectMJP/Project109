@@ -104,6 +104,37 @@ namespace EventStructs
         }
     }
 
+    /// <summary>
+    /// 턴 종료 시 스태미나 이월 및 보너스/감소 선계산(Calculate) 파이프라인용 페이로드입니다.
+    /// 타임라인 예측과 실제 BattleManager.EndTurn() 정산이 동일한 데이터를 공유합니다.
+    /// </summary>
+    public struct TurnEndStaminaInfo
+    {
+        public Character character;
+        public float remainingStamina;
+        public float overflowStamina;
+        public float maxStamina;
+        public float carryOverRatio;
+        public float preResetBonusStamina;
+        public float postResetBonusStamina;
+
+        public TurnEndStaminaInfo(
+            Character character,
+            float remainingStamina,
+            float overflowStamina,
+            float maxStamina,
+            float carryOverRatio = 0.5f) : this()
+        {
+            this.character = character;
+            this.remainingStamina = remainingStamina;
+            this.overflowStamina = overflowStamina;
+            this.maxStamina = maxStamina;
+            this.carryOverRatio = carryOverRatio;
+            this.preResetBonusStamina = 0f;
+            this.postResetBonusStamina = 0f;
+        }
+    }
+
 
     public struct ShieldInfo
     {

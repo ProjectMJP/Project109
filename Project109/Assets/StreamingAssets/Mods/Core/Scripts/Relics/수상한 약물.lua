@@ -1,5 +1,7 @@
 local relic = {}
 
+local MODIFIER_SOURCE_ID = "Relic_SuspiciousDrug"
+
 function relic:OnInit(relicBase, owner)
     self.base  = relicBase
     self.owner = owner
@@ -9,18 +11,29 @@ end
 function relic:OnBattleStart()
     local character = self.owner.character
     if character == nil then return end
-    character.curCharacterStat.maxStamina = character.curCharacterStat.maxStamina + 20
+    character:AddOrRefreshStatModifier(
+        MODIFIER_SOURCE_ID,
+        EventStructs.StatModifierTarget.MaxStamina,
+        EventStructs.StatModifierOp.Flat,
+        20,
+        EventStructs.StatModifierLifetime.UntilTurnEnd,
+        0,
+        true
+    )
     character.curStamina = character.curStamina + 20
     self.base.Counter = 1
 end
 
+function relic:OnCalculateTurnEndStamina(info)
+    if self.base ~= nil and self.base.Counter > 0 then
+        info.preResetBonusStamina = info.preResetBonusStamina - 20
+    end
+    return info
+end
+
 function relic:OnTurnEnd()
-    local character = self.owner.character
-    if character == nil then return end
-    if self.base.Counter > 0 then
+    if self.base ~= nil and self.base.Counter > 0 then
         self.base.Counter = 0
-        character.curCharacterStat.maxStamina = character.curCharacterStat.maxStamina - 20
-        character.curStamina = math.max(0, character.curStamina - 20)
     end
 end
 

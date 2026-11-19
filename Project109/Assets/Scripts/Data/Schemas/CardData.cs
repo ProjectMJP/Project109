@@ -30,6 +30,9 @@ public class CardData : IModAssetResolver, IIdentifiable
 
     public string cardType { get; set; }
 
+    // 적 AI 행동 예고 아이콘 분류 선택적 오버라이드 (예: Attack, Defend, Buff, Debuff, Special)
+    public string intentType { get; set; }
+
     private string _targetType;
     public string targetType
     {

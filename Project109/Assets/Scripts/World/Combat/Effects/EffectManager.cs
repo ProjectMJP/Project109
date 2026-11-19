@@ -12,6 +12,23 @@ public class EffectManager : IDisposable
 
     public IReadOnlyList<Effect> GetEffects() => effects;
 
+    /// <summary>
+    /// 지정한 effectName을 가진 활성 효과가 있는지 무할당으로 검사합니다.
+    /// </summary>
+    public bool HasEffect(string effectName)
+    {
+        if (string.IsNullOrEmpty(effectName)) return false;
+        for (int i = 0; i < effects.Count; i++)
+        {
+            Effect effect = effects[i];
+            if (effect != null && effect.Data != null && effect.Data.effectName == effectName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public EffectManager(Character character)
     {
         target = character;

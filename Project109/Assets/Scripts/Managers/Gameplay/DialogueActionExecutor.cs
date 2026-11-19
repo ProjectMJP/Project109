@@ -199,12 +199,7 @@ public class DialogueActionExecutor
         var character = p != null ? p.character : null;
         if (character != null && character.curCharacterStat != null)
         {
-            var stat = character.curCharacterStat;
-            stat.maxHealth = Mathf.Max(1f, stat.maxHealth + amount);
-            if (character.curHealth > stat.maxHealth)
-            {
-                character.curHealth = stat.maxHealth;
-            }
+            character.ModifyBaseMaxHealth(amount);
         }
     }
 
@@ -228,7 +223,7 @@ public class DialogueActionExecutor
         int bonusMaxHp = Mathf.RoundToInt(overheal * Mathf.Clamp01(overhealRatio));
         if (bonusMaxHp > 0)
         {
-            character.curCharacterStat.maxHealth += bonusMaxHp;
+            character.ModifyBaseMaxHealth(bonusMaxHp);
             character.curHealth = Mathf.Min(character.curCharacterStat.maxHealth, character.curHealth + bonusMaxHp);
         }
     }

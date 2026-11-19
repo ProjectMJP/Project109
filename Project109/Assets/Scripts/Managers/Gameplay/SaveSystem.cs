@@ -1,6 +1,6 @@
 using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 [Serializable]
@@ -25,18 +25,18 @@ public class RunSaveData
     public string currentMapName;
     public int currentStageLevel;
     public int currentExploreMapFloor;
-    
+
     // 현재 및 이전 노드 위치 좌표 (인덱스)
     public int currentExploreNodeFloor = -1;
     public int currentExploreNodeIndex = -1;
     public int beforeExploreNodeFloor = -1;
     public int beforeExploreNodeIndex = -1;
-    
+
     public ExploreMapData exploreMapData; // 신규 맵 데이터 구조 저장용
 
     public int playerGold;
     public int playerMemorySharp;
-    
+
     public float playerCurHealth;
     public float playerMaxHealth;
     public CharacterStat playerCharacterStat; // 플레이어 전체 스탯 데이터 (영구 업그레이드 포함)
@@ -109,17 +109,17 @@ public static class SaveSystem
                 data.currentMapName = runManager.currentMapName;
                 data.currentStageLevel = runManager.currentStageLevel;
                 data.currentExploreMapFloor = runManager.currentExploreMapFloor;
-                
+
                 if (runManager.exploreMapManager != null)
                 {
                     data.exploreMapData = runManager.exploreMapManager.MapData;
-                    
+
                     if (runManager.currentExploreNode != null)
                     {
                         data.currentExploreNodeFloor = runManager.currentExploreNode.floor;
                         data.currentExploreNodeIndex = runManager.currentExploreNode.index;
                     }
-                    
+
                     if (runManager.beforeExploreNode != null)
                     {
                         data.beforeExploreNodeFloor = runManager.beforeExploreNode.floor;
@@ -140,15 +140,16 @@ public static class SaveSystem
                 data.beforeExploreNodeIndex = -1;
             }
 
-            
+
             data.playerGold = player.playerStat != null ? player.playerStat.InGameCurrencyGold : 0;
             data.playerMemorySharp = player.playerStat != null ? player.playerStat.InGameCurrencyMemorySharp : 0;
 
             if (player.character != null)
             {
+                CharacterStat permanentStat = player.character.baseCharacterStat ?? player.character.curCharacterStat;
                 data.playerCurHealth = player.character.curHealth;
-                data.playerMaxHealth = player.character.curCharacterStat != null ? player.character.curCharacterStat.maxHealth : 100f;
-                data.playerCharacterStat = player.character.curCharacterStat;
+                data.playerMaxHealth = permanentStat != null ? permanentStat.maxHealth : 100f;
+                data.playerCharacterStat = permanentStat;
             }
 
             // 플레이어 덱 저장
@@ -157,12 +158,12 @@ public static class SaveSystem
                 foreach (var card in player.deck.GetCards())
                 {
                     if (card == null || card.cardData == null) continue;
-                    
+
                     CardSaveEntry entry = new CardSaveEntry();
                     entry.cardName = card.cardData.cardName;
                     entry.masteryLevel = card.masteryLevel;
                     entry.currentMasteryXP = card.currentMasteryXP;
-                    
+
                     entry.masteryUpgrades = new List<MasteryUpgradeSaveEntry>();
                     if (card.masteryUpgrades != null)
                     {
@@ -351,8 +352,9 @@ public static class SaveSystem
             return;
         }
 
-        CharacterStat fallbackStat = (player.character.curCharacterStat != null && player.character.curCharacterStat.maxHealth > 0f)
-            ? CloneCharacterStat(player.character.curCharacterStat)
+        CharacterStat existingBaseStat = player.character.baseCharacterStat ?? player.character.curCharacterStat;
+        CharacterStat fallbackStat = (existingBaseStat != null && existingBaseStat.maxHealth > 0f)
+            ? CloneCharacterStat(existingBaseStat)
             : new CharacterStat
             {
                 maxHealth = 100,
@@ -375,13 +377,14 @@ public static class SaveSystem
         player.selectedStarterKitId = kitData.loadoutId;
 
         CharacterStat initialStat = null;
+        CharacterStat existingBaseStat = player.character.baseCharacterStat ?? player.character.curCharacterStat;
         if (kitData.characterStat != null)
         {
             initialStat = CloneCharacterStat(kitData.characterStat);
         }
-        else if (player.character.curCharacterStat != null && player.character.curCharacterStat.maxHealth > 0f)
+        else if (existingBaseStat != null && existingBaseStat.maxHealth > 0f)
         {
-            initialStat = CloneCharacterStat(player.character.curCharacterStat);
+            initialStat = CloneCharacterStat(existingBaseStat);
         }
         else
         {
@@ -519,7 +522,7 @@ public static class SaveSystem
         else
         {
             // 구버전 세이브 호환: 프리팹 기본 스탯 복제 및 최대 체력 반영
-            CharacterStat baseStat = CloneCharacterStat(player.character.curCharacterStat);
+            CharacterStat baseStat = CloneCharacterStat(player.character.baseCharacterStat ?? player.character.curCharacterStat);
             if (data.playerMaxHealth > 0f) baseStat.maxHealth = data.playerMaxHealth;
             player.character.InitializeStat(baseStat);
         }

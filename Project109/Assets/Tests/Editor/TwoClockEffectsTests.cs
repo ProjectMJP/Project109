@@ -55,6 +55,7 @@ public class TwoClockEffectsTests
                 DamageInfo = CS.EventStructs.DamageInfo,
                 HealInfo = CS.EventStructs.HealInfo,
                 StaminaInfo = CS.EventStructs.StaminaInfo,
+                TurnEndStaminaInfo = CS.EventStructs.TurnEndStaminaInfo,
                 ShieldInfo = CS.EventStructs.ShieldInfo,
                 CardInfo = CS.EventStructs.CardInfo,
                 MoveInfo = CS.EventStructs.MoveInfo,
@@ -66,6 +67,9 @@ public class TwoClockEffectsTests
                 CardFlag = CS.EventStructs.CardFlag,
                 MoveFlag = CS.EventStructs.MoveFlag,
                 EffectFlag = CS.EventStructs.EffectFlag,
+                StatModifierTarget = CS.StatModifierTarget,
+                StatModifierOp = CS.StatModifierOp,
+                StatModifierLifetime = CS.StatModifierLifetime,
                 DefaultDamageTypeID = CS.EventStructs.DefaultDamageTypeID,
             }
             UnityEngine = {
