@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -74,9 +75,9 @@ public class PlayerBattleMove
 
     /// <summary>
     /// 외부(PlayerBattleController)에서 이동 모드일 때 클릭된 타일을 전달받아 이동을 실행합니다.
-    /// 이동 시작에 성공하면 true, 실패하거나 불가하면 false를 반환합니다.
+    /// 이동 시작에 성공하면 true, 실패하거나 불가하면 false를 반환하며, 완료 시 onMoveCompleted 콜백을 호출합니다.
     /// </summary>
-    public bool ExecuteMoveToTile(Tile targetTile)
+    public bool ExecuteMoveToTile(Tile targetTile, Action onMoveCompleted = null)
     {
         if (characterMove == null || targetTile == null) return false;
 
@@ -113,7 +114,7 @@ public class PlayerBattleMove
                     {
                         characterMove.character.curMoveRange = Mathf.Max(0, characterMove.character.curMoveRange - movePath.Count);
                     }
-                    characterMove.MoveAlongPath(movePath, targetTile);
+                    characterMove.MoveAlongPath(movePath, targetTile, onComplete: onMoveCompleted);
                     return true;
                 }
             }

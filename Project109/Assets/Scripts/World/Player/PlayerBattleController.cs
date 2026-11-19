@@ -56,6 +56,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private readonly List<Character> _multiSelectedTargets = new List<Character>();
     public List<Character> MultiSelectedTargets => _multiSelectedTargets;
     private Vector2Int _lastHoveredCoord = new Vector2Int(-999, -999);
+    private int _moveRequestToken = 0;
 
     #region Targeting Strategies
 
@@ -151,6 +152,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnBattleEnd()
     {
+        _moveRequestToken++;
+        if (playerMove != null)
+        {
+            playerMove.ClearCanMoveTiles();
+        }
+        controlState = PlayerControlState.Normal;
+
         if (_controlledCharacter != null)
         {
             _controlledCharacter.eventBus.Remove<IOnBattleEnd>(this);
@@ -202,6 +210,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnTurnStart()
     {
+        _moveRequestToken++;
+
         // 1. 이벤트 버스 — 등록된 IOnTurnStart들 호출 (버프, 유물 등에서 AddBonusDrawThisTurn 호출 가능)
         CombatEventDispatcher.DispatchTurnStart(controlledCharacter.eventBus);
 
@@ -236,6 +246,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnTurnEnd()
     {
+        _moveRequestToken++;
+
         // 1. 이벤트 버스 — 등록된 IOnTurnEnd들 호출
         CombatEventDispatcher.DispatchTurnEnd(controlledCharacter.eventBus);
 
@@ -279,6 +291,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         {
             return;
         }
+
+        _moveRequestToken++;
 
         // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 클리어 및 UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
         if (playerMove != null)
@@ -582,6 +596,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void CancelCurrentState()
     {
+        _moveRequestToken++;
         if (controlState == PlayerControlState.Normal)
         {
             return;
@@ -629,6 +644,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void EnablePlayerMove()
     {
+        _moveRequestToken++;
         if (playerMove != null)
         {
             playerMove.CheckCanMoveTiles();
@@ -638,6 +654,63 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             {
                 _battleUI.SwitchToMoveMode();
             }
+        }
+    }
+
+    /// <summary>
+    /// 전투 이동 완료 시 호출되어 잔여 이동력과 도달 가능 타일 유무에 따라 이동 모드를 유지하거나 손패 모드로 복귀합니다.
+    /// 취소·턴 종료·전투 종료 등으로 토큰이 무효화된 지연 콜백은 즉시 무시합니다.
+    /// </summary>
+    public void HandleBattleMoveCompleted(int moveToken)
+    {
+        if (moveToken != _moveRequestToken || controlState != PlayerControlState.Move)
+        {
+            return;
+        }
+
+        if (_battleUI != null)
+        {
+            _battleUI.RefreshMoveStats();
+        }
+
+        bool isBattleActiveAndPlayerTurn = true;
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            BattleManager battleManager = RunManager.instance.battleManager;
+            isBattleActiveAndPlayerTurn =
+                battleManager.battleState != BattleState.None &&
+                battleManager.battleState != BattleState.BattleEnd &&
+                (battleManager.currentTurnController == null || ReferenceEquals(battleManager.currentTurnController, this));
+        }
+
+        bool isMoveEligible =
+            playerMove != null &&
+            controlledCharacter != null &&
+            !controlledCharacter.isDead &&
+            isBattleActiveAndPlayerTurn &&
+            controlledCharacter.curMoveRange > 0;
+
+        if (isMoveEligible)
+        {
+            playerMove.CheckCanMoveTiles();
+            if (playerMove.canMoveTiles != null && playerMove.canMoveTiles.Count > 0)
+            {
+                if (_battleUI != null)
+                {
+                    _battleUI.RefreshMoveStats();
+                }
+                return;
+            }
+        }
+
+        if (playerMove != null)
+        {
+            playerMove.ClearCanMoveTiles();
+        }
+        controlState = PlayerControlState.Normal;
+        if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Hand)
+        {
+            _battleUI.SwitchToHandMode();
         }
     }
 
@@ -834,7 +907,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             return;
         }
 
-        if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle || ActionQueueManager.Instance.IsBusy)
+        if (controlledCharacter == null || controlledCharacter.isDead || controlledCharacter.currentState != CharacterState.Idle || ActionQueueManager.Instance.IsBusy)
         {
             return;
         }
@@ -880,17 +953,35 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             switch (controlState)
             {
                 case PlayerControlState.Move:
-                    // 이동 모드: playerMove에게 이동 지시 (성공 시에만 이동 모드 해제 및 핸드 복귀)
-                    if (playerMove != null)
+                    // 이동 모드: 이동 시작 직후 기존 이동 범위 인디케이터를 정리하고, 이동 완료 시점에 연속 이동 유지 여부를 판정
+                    if (playerMove != null && controlledCharacter != null && !controlledCharacter.isDead && controlledCharacter.currentState == CharacterState.Idle)
                     {
-                        if (playerMove.ExecuteMoveToTile(targetTile))
+                        int moveToken = ++_moveRequestToken;
+                        bool postStartReady = false;
+                        bool pendingSyncCompletion = false;
+
+                        if (playerMove.ExecuteMoveToTile(targetTile, () =>
+                        {
+                            if (postStartReady)
+                            {
+                                HandleBattleMoveCompleted(moveToken);
+                            }
+                            else
+                            {
+                                pendingSyncCompletion = true;
+                            }
+                        }))
                         {
                             playerMove.ClearCanMoveTiles();
-                            controlState = PlayerControlState.Normal;
                             if (_battleUI != null)
                             {
                                 _battleUI.RefreshMoveStats();
-                                _battleUI.SwitchToHandMode();
+                            }
+
+                            postStartReady = true;
+                            if (pendingSyncCompletion)
+                            {
+                                HandleBattleMoveCompleted(moveToken);
                             }
                         }
                         else
