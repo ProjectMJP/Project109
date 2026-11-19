@@ -21,20 +21,23 @@ public class Relic : IDescribable
         this.owner = owner;
         this.luaLogic = luaLogic;
 
-        // 1. Lua 측 OnInit 함수 호출 (초기화, 카운터 세팅 등)
-        var luaOnInit = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnInit");
-        luaOnInit?.Invoke(luaLogic, this, owner);
-
-        // 2. 캐릭터 이벤트 (전투, 체력, 이동 등) 자동 바인딩
-        if (owner.character != null)
+        if (luaLogic != null)
         {
-            LuaEventBinder.BindCharacterEvents(luaLogic, owner.character.eventBus, activeProxies);
-        }
+            // 1. Lua 측 OnInit 함수 호출 (초기화, 카운터 세팅 등)
+            var luaOnInit = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnInit");
+            luaOnInit?.Invoke(luaLogic, this, owner);
 
-        // 3. 플레이어 이벤트 (골드, 카드, 유물 획득 등) 자동 바인딩
-        if (owner.eventBus != null)
-        {
-            LuaEventBinder.BindPlayerEvents(luaLogic, owner.eventBus, activeProxies);
+            // 2. 캐릭터 이벤트 (전투, 체력, 이동 등) 자동 바인딩
+            if (owner != null && owner.character != null)
+            {
+                LuaEventBinder.BindCharacterEvents(luaLogic, owner.character.eventBus, activeProxies);
+            }
+
+            // 3. 플레이어 이벤트 (골드, 카드, 유물 획득 등) 자동 바인딩
+            if (owner != null && owner.eventBus != null)
+            {
+                LuaEventBinder.BindPlayerEvents(luaLogic, owner.eventBus, activeProxies);
+            }
         }
     }
 

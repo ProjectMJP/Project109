@@ -146,6 +146,11 @@ public class RunManager : MonoBehaviour
             exploreMapManager.ClearMap();
         }
 
+        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null)
+        {
+            GameSceneManager.instance.player.playerStat.ShopRerollCount = 0;
+        }
+
         Debug.Log("[RunManager] 런 진행 데이터(스테이지, 층수, 탐험 노드, 맵)가 초기화되었습니다.");
     }
 

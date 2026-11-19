@@ -43,6 +43,13 @@ public class ExploreMapManager
     {
         MapData = new ExploreMapData();
 
+        if (GameSceneManager.instance != null &&
+            GameSceneManager.instance.player != null &&
+            GameSceneManager.instance.player.playerStat != null)
+        {
+            GameSceneManager.instance.player.playerStat.ShopRerollCount = 0;
+        }
+
         if (ModLoader.Instance != null)
         {
             eventItemPicker = new RandomItemPicker<InteractableData>(ModLoader.Instance.GetRandomInteractablesForFloor(currentMapFloor));
@@ -85,12 +92,6 @@ public class ExploreMapManager
                 nodeRestore.encounterData.encountType = EncountType.Restore;
                 nodeRestore.encounterData.interactableDataId = "Restore_Bonfire_Data";
                 floorData.nodes.Add(nodeRestore);
-
-                ExploreNode nodeStore = new ExploreNode(index, 1);
-                nodeStore.encounterData.locationType = locationType;
-                nodeStore.encounterData.encountType = EncountType.Store;
-                nodeStore.encounterData.interactableDataId = "Shop_NPC_Data";
-                floorData.nodes.Add(nodeStore);
 
                 exploreNodeListInSection.Add(new List<ExploreNode>());
                 sectionIndex++;

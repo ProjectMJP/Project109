@@ -54,4 +54,7 @@ public class PlayerStat
     public int MasteryChoiceCount { get; set; }
     public int UpgradeMasteryPointValue { get; set; }
     public int BaseDrawCount { get; set; } = 5;
+    public int BonusShopCardCount { get; set; } = 0;
+    public int BonusShopRelicCount { get; set; } = 0;
+    public int ShopRerollCount { get; set; } = 0;
 }

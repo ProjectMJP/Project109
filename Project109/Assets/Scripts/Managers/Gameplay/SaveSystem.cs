@@ -36,6 +36,7 @@ public class RunSaveData
 
     public int playerGold;
     public int playerMemorySharp;
+    public int playerShopRerollCount;
 
     public float playerCurHealth;
     public float playerMaxHealth;
@@ -143,6 +144,9 @@ public static class SaveSystem
 
             data.playerGold = player.playerStat != null ? player.playerStat.InGameCurrencyGold : 0;
             data.playerMemorySharp = player.playerStat != null ? player.playerStat.InGameCurrencyMemorySharp : 0;
+            data.playerShopRerollCount = (data.isInDungeon && player.playerStat != null)
+                ? Mathf.Max(0, player.playerStat.ShopRerollCount)
+                : 0;
 
             if (player.character != null)
             {
@@ -408,6 +412,7 @@ public static class SaveSystem
             }
 
             player.playerStat.BaseDrawCount = kitData.baseDrawCount > 0 ? kitData.baseDrawCount : 5;
+            player.playerStat.ShopRerollCount = 0;
         }
 
         // 시작 카드 덱 초기화
@@ -533,10 +538,11 @@ public static class SaveSystem
             player.character.curHealth = Mathf.Min(data.playerCurHealth, player.character.curCharacterStat.maxHealth);
         }
 
-        // 2. 재화 복원
+        // 2. 재화 및 상점 리롤 횟수 복원
         if (player.playerStat == null) player.playerStat = new PlayerStat();
         player.playerStat.InGameCurrencyGold = data.playerGold;
         player.playerStat.InGameCurrencyMemorySharp = data.playerMemorySharp;
+        player.playerStat.ShopRerollCount = Mathf.Max(0, data.playerShopRerollCount);
         player.playerStat.player = player;
 
         // 3. 덱 복원
