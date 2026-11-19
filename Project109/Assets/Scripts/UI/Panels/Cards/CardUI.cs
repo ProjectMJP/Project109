@@ -8,9 +8,10 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     [SerializeField] private CardData cardData;
     private Card cardInstance;
@@ -26,7 +27,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public EffectAreaCheckButton effectAreaCheckButton; //공격 범위 확인용 버튼
 
-    public UnityEvent OnCardClick;  //클릭 시 호출될 이벤트(다양한 변수들도 쉽게 호출하기 위해 UnityEvent 사용)
+    public UnityEvent OnCardClick = new UnityEvent();  //클릭 시 호출될 이벤트(다양한 변수들도 쉽게 호출하기 위해 UnityEvent 사용)
 
     public bool bIsCardHighlight;
     public bool bShowEffectAreaUI;
@@ -37,6 +38,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public float zoomYOffset = 90f;
     [SerializeField] private float hoverMotionDuration = 0.12f;
     [SerializeField] private Ease hoverMotionEase = Ease.OutCubic;
+
+    [Header("Play Gesture Settings")]
+    public bool usePlayGesture = false;
+    public float playDragThresholdY = 140f;
+    public float doubleClickInterval = 0.32f;
 
     private Vector3 originalScale = Vector3.one;
     private Vector3 originalPosition;
@@ -62,6 +68,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private bool _isShowingTooltip = false;
     private bool _isShowingTimelinePreview = false;
 
+    private bool _isDragging = false;
+    private bool _dragCanceled = false;
+    private float _lastClickUnscaledTime = -10f;
+    private Canvas _cachedRootCanvas;
+
     private static readonly Vector2 DefaultCardSize = new Vector2(185f, 325f);
     private static readonly Vector2 CenterAnchorPivot = new Vector2(0.5f, 0.5f);
 
@@ -74,6 +85,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public bool IsZoomed => isZoomed;
     public bool IsEntering => _isEntering;
     public bool IsDiscarding => _isDiscarding;
+    public bool IsDragging => _isDragging;
 
     public RectTransform CachedRectTransform
     {
@@ -110,6 +122,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private void OnDisable()
     {
+        bool wasDragging = _isDragging;
+        _isDragging = false;
+        _dragCanceled = false;
+        _lastClickUnscaledTime = -10f;
+
         HideCardKeywordTooltips();
         ClearTimelineCardPreview();
         bool hadActiveHoverMotion = _hoverPosHandle.IsActive() || _hoverScaleHandle.IsActive();
@@ -120,19 +137,12 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             OffSelectHighlight();
         }
 
-        if (bShowEffectAreaUI && UIManager.instance != null)
+        if (bShowEffectAreaUI && UIManager.instance != null && !IsPlayerTargetSelectionActive())
         {
-            bool isTargeting = RunManager.instance != null &&
-                               RunManager.instance.playerBattleController != null &&
-                               RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
-
-            if (!isTargeting)
-            {
-                UIManager.instance.ClearEffectAreaTiles();
-            }
+            UIManager.instance.ClearEffectAreaTiles();
         }
 
-        if (!_isDiscarding && (isZoomed || hadActiveHoverMotion))
+        if (!_isDiscarding && (isZoomed || wasDragging || hadActiveHoverMotion))
         {
             isZoomed = false;
             RestoreRestingTransformImmediate();
@@ -140,6 +150,20 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         else
         {
             isZoomed = false;
+        }
+    }
+
+    private void Update()
+    {
+        if (!_isDragging || _dragCanceled) return;
+
+        bool cancelPressed =
+            (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) ||
+            (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame);
+
+        if (cancelPressed)
+        {
+            CancelDrag();
         }
     }
 
@@ -200,6 +224,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (!interactable)
         {
+            bool wasDragging = _isDragging;
+            _isDragging = false;
+            _dragCanceled = false;
+            _lastClickUnscaledTime = -10f;
+
             HideCardKeywordTooltips();
             ClearTimelineCardPreview();
             CancelHoverMotions();
@@ -209,21 +238,18 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 OffSelectHighlight();
             }
 
-            if (isZoomed)
+            if (isZoomed || wasDragging)
             {
-                if (bShowEffectAreaUI && UIManager.instance != null)
+                if (bShowEffectAreaUI && UIManager.instance != null && !IsPlayerTargetSelectionActive())
                 {
-                    bool isTargeting = RunManager.instance != null &&
-                                       RunManager.instance.playerBattleController != null &&
-                                       RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
-
-                    if (!isTargeting)
-                    {
-                        UIManager.instance.ClearEffectAreaTiles();
-                    }
+                    UIManager.instance.ClearEffectAreaTiles();
                 }
 
                 isZoomed = false;
+                if (wasDragging && !_isDiscarding)
+                {
+                    RestoreRestingTransformImmediate();
+                }
             }
         }
     }
@@ -238,6 +264,9 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             CancelHoverMotions();
             isZoomed = false;
+            _isDragging = false;
+            _dragCanceled = false;
+            _lastClickUnscaledTime = -10f;
         }
     }
 
@@ -250,6 +279,9 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (discarding)
         {
             _isEntering = false;
+            _isDragging = false;
+            _dragCanceled = false;
+            _lastClickUnscaledTime = -10f;
             SetInteractable(false);
         }
     }
@@ -269,7 +301,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         originalScale = baseScale;
         originalSiblingIndex = baseSiblingIndex;
 
-        if (isZoomed && enableZoom && _isInteractable && !_isDiscarding)
+        if (!_isDragging && isZoomed && enableZoom && _isInteractable && !_isDiscarding)
         {
             PlayHoverZoomMotion(true);
         }
@@ -287,10 +319,15 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         cardInstance = null;
         cardData = null;
 
+        usePlayGesture = false;
         isZoomed = false;
         _isEntering = false;
         _isDiscarding = false;
         _hasHandSlot = false;
+        _isDragging = false;
+        _dragCanceled = false;
+        _lastClickUnscaledTime = -10f;
+        _cachedRootCanvas = null;
 
         _baseAnchoredPosition = Vector2.zero;
         _baseScale = Vector3.one;
@@ -346,7 +383,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         Vector2 targetPos = isZoomingIn ? basePos + new Vector2(0f, zoomYOffset) : basePos;
         Vector3 targetScale = isZoomingIn ? baseScale * zoomScale : baseScale;
 
-        if (!gameObject.activeInHierarchy || hoverMotionDuration <= 0f)
+        if (!Application.isPlaying || !gameObject.activeInHierarchy || hoverMotionDuration <= 0f)
         {
             transform.localScale = targetScale;
             if (_rectTransform != null)
@@ -375,6 +412,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private void RestoreRestingTransformImmediate()
     {
         EnsureCachedComponents();
+        transform.localRotation = Quaternion.identity;
 
         if (_hasHandSlot)
         {
@@ -385,7 +423,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             }
             RestoreSiblingIndexSafely(_baseSiblingIndex);
         }
-        else if (enableZoom)
+        else if (enableZoom || usePlayGesture)
         {
             transform.localScale = originalScale;
             if (_rectTransform != null)
@@ -422,6 +460,9 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             isZoomed = false;
             _isEntering = false;
             _isDiscarding = false;
+            _isDragging = false;
+            _dragCanceled = false;
+            _lastClickUnscaledTime = -10f;
             SetInteractable(true);
         }
 
@@ -465,6 +506,9 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             isZoomed = false;
             _isEntering = false;
             _isDiscarding = false;
+            _isDragging = false;
+            _dragCanceled = false;
+            _lastClickUnscaledTime = -10f;
             SetInteractable(true);
         }
 
@@ -629,17 +673,251 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
     }
 
+    private bool IsPlayerTargetSelectionActive()
+    {
+        return RunManager.instance != null &&
+               RunManager.instance.playerBattleController != null &&
+               RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
+    }
+
+    private void RefreshCachedRootCanvas()
+    {
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        _cachedRootCanvas = parentCanvas != null ? parentCanvas.rootCanvas : null;
+    }
+
+    private Camera ResolveDragEventCamera(PointerEventData eventData)
+    {
+        if (_cachedRootCanvas == null || !_cachedRootCanvas.isActiveAndEnabled)
+        {
+            RefreshCachedRootCanvas();
+        }
+
+        if (_cachedRootCanvas != null)
+        {
+            if (_cachedRootCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            {
+                return null;
+            }
+
+            if (_cachedRootCanvas.worldCamera != null)
+            {
+                return _cachedRootCanvas.worldCamera;
+            }
+        }
+
+        return eventData != null ? eventData.pressEventCamera : null;
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!_isInteractable || _isDiscarding) return;
+        if (!_isInteractable || _isDiscarding || _isDragging) return;
+        if (eventData != null && eventData.button != PointerEventData.InputButton.Left) return;
+
+        if (!usePlayGesture)
+        {
+            HideCardKeywordTooltips();
+            ClearTimelineCardPreview();
+            OnCardClick?.Invoke();
+            return;
+        }
+
+        bool isDoubleClick =
+            (eventData != null && eventData.clickCount >= 2) ||
+            (Time.unscaledTime - _lastClickUnscaledTime) <= doubleClickInterval;
+
+        if (isDoubleClick)
+        {
+            _lastClickUnscaledTime = -10f;
+            HideCardKeywordTooltips();
+            ClearTimelineCardPreview();
+            OnCardClick?.Invoke();
+        }
+        else
+        {
+            _lastClickUnscaledTime = Time.unscaledTime;
+            OnSelectHighlight();
+
+            if (!IsPlayerTargetSelectionActive() && bShowEffectAreaUI && cardData != null && UIManager.instance != null)
+            {
+                UIManager.instance.UpdateEffectAreaUI(cardData);
+            }
+            ShowTimelineCardPreview();
+        }
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (!usePlayGesture || !_isInteractable || _isEntering || _isDiscarding) return;
+        if (eventData != null && eventData.button != PointerEventData.InputButton.Left) return;
+
+        _isDragging = true;
+        _dragCanceled = false;
+        _lastClickUnscaledTime = -10f;
+
+        EnsureCachedComponents();
+        RefreshCachedRootCanvas();
+
+        if (!_hasHandSlot && !isZoomed)
+        {
+            originalScale = transform.localScale;
+            originalPosition = _rectTransform != null ? (Vector3)_rectTransform.anchoredPosition : transform.localPosition;
+            originalSiblingIndex = transform.GetSiblingIndex();
+        }
+
+        OnHoverZoomStarted?.Invoke(this);
+        CancelHoverMotions();
+        HideCardKeywordTooltips();
+
+        transform.SetAsLastSibling();
+        transform.localRotation = Quaternion.identity;
+
+        if (bShowEffectAreaUI && cardData != null && UIManager.instance != null)
+        {
+            UIManager.instance.UpdateEffectAreaUI(cardData);
+        }
+        ShowTimelineCardPreview();
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (!_isDragging || _dragCanceled) return;
+
+        EnsureCachedComponents();
+        if (_rectTransform != null && eventData != null)
+        {
+            RectTransform parentRect = _rectTransform.parent as RectTransform;
+            if (parentRect != null)
+            {
+                Camera eventCamera = ResolveDragEventCamera(eventData);
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, eventData.position, eventCamera, out Vector2 localPoint))
+                {
+                    Rect parentBounds = parentRect.rect;
+                    float anchorCenterX = Mathf.Lerp(parentBounds.xMin, parentBounds.xMax, (_rectTransform.anchorMin.x + _rectTransform.anchorMax.x) * 0.5f);
+                    float anchorCenterY = Mathf.Lerp(parentBounds.yMin, parentBounds.yMax, (_rectTransform.anchorMin.y + _rectTransform.anchorMax.y) * 0.5f);
+                    localPoint.x -= anchorCenterX;
+                    localPoint.y -= anchorCenterY;
+                    _rectTransform.anchoredPosition = localPoint;
+                }
+                else
+                {
+                    _rectTransform.anchoredPosition = eventData.position;
+                }
+            }
+            else
+            {
+                _rectTransform.anchoredPosition = eventData.position;
+            }
+        }
+
+        Vector2 basePos = _hasHandSlot ? _baseAnchoredPosition : (Vector2)originalPosition;
+        Vector3 baseScale = _hasHandSlot ? _baseScale : originalScale;
+        float dragDeltaY = _rectTransform != null ? _rectTransform.anchoredPosition.y - basePos.y : 0f;
+
+        if (dragDeltaY >= playDragThresholdY)
+        {
+            OnSelectHighlight();
+            transform.localScale = baseScale * (zoomScale * 1.05f);
+        }
+        else
+        {
+            if (!bIsCardHighlight)
+            {
+                OffSelectHighlight();
+            }
+            transform.localScale = baseScale * zoomScale;
+        }
+    }
+
+    /// <summary>
+    /// 진행 중인 카드 드래그를 취소하고 원래 손패 슬롯으로 되돌립니다.
+    /// </summary>
+    public void CancelDrag()
+    {
+        _isDragging = false;
+        _dragCanceled = true;
+        isZoomed = false;
+
         HideCardKeywordTooltips();
         ClearTimelineCardPreview();
-        OnCardClick?.Invoke();
+        OffSelectHighlight();
+
+        if (bShowEffectAreaUI && UIManager.instance != null && !IsPlayerTargetSelectionActive())
+        {
+            UIManager.instance.ClearEffectAreaTiles();
+        }
+
+        ReturnToHandSlotAfterDrag();
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (!_isDragging) return;
+
+        _isDragging = false;
+        isZoomed = false;
+
+        Vector2 basePos = _hasHandSlot ? _baseAnchoredPosition : (Vector2)originalPosition;
+        float dragDeltaY = _rectTransform != null ? _rectTransform.anchoredPosition.y - basePos.y : 0f;
+        bool shouldPlayCard = !_dragCanceled && dragDeltaY >= playDragThresholdY;
+
+        HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
+        OffSelectHighlight();
+        ReturnToHandSlotAfterDrag();
+
+        if (shouldPlayCard)
+        {
+            OnCardClick?.Invoke();
+        }
+
+        if (bShowEffectAreaUI && UIManager.instance != null && !IsPlayerTargetSelectionActive())
+        {
+            UIManager.instance.ClearEffectAreaTiles();
+        }
+    }
+
+    private void ReturnToHandSlotAfterDrag()
+    {
+        EnsureCachedComponents();
+        CancelHoverMotions();
+
+        Vector2 targetPos = _hasHandSlot ? _baseAnchoredPosition : (Vector2)originalPosition;
+        Vector3 targetScale = _hasHandSlot ? _baseScale : originalScale;
+        int targetSiblingIndex = _hasHandSlot ? _baseSiblingIndex : originalSiblingIndex;
+
+        transform.localRotation = Quaternion.identity;
+        RestoreSiblingIndexSafely(targetSiblingIndex);
+
+        if (!Application.isPlaying || !gameObject.activeInHierarchy || hoverMotionDuration <= 0f)
+        {
+            transform.localScale = targetScale;
+            if (_rectTransform != null)
+            {
+                _rectTransform.anchoredPosition = targetPos;
+            }
+            else
+            {
+                transform.localPosition = targetPos;
+            }
+            return;
+        }
+
+        if (_rectTransform != null)
+        {
+            _hoverPosHandle = LMotion.Create(_rectTransform.anchoredPosition, targetPos, hoverMotionDuration)
+                .WithEase(hoverMotionEase)
+                .BindToAnchoredPosition(_rectTransform);
+        }
+
+        _hoverScaleHandle = LMotion.Create(transform.localScale, targetScale, hoverMotionDuration)
+            .WithEase(hoverMotionEase)
+            .BindToLocalScale(transform);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (!_isInteractable || _isEntering || _isDiscarding)
+        if (!_isInteractable || _isEntering || _isDiscarding || _isDragging)
         {
             return;
         }
@@ -648,11 +926,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             OnSelectHighlight();       //카드 하이라이트on
 
         // 타깃팅 모드(TargetSelection) 진행 중이 아닐 때만 호버 범위 세팅 진행
-        bool isTargeting = RunManager.instance != null &&
-                           RunManager.instance.playerBattleController != null &&
-                           RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
-
-        if (!isTargeting && bShowEffectAreaUI && cardData != null && UIManager.instance != null)
+        if (!IsPlayerTargetSelectionActive() && bShowEffectAreaUI && cardData != null && UIManager.instance != null)
         {
             UIManager.instance.UpdateEffectAreaUI(cardData);
         }
@@ -690,6 +964,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (_isDragging)
+        {
+            return;
+        }
+
         HideCardKeywordTooltips();
         ClearTimelineCardPreview();
 
@@ -704,11 +983,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (bShowEffectAreaUI)
         {
             // 타깃팅 모드(TargetSelection) 진행 중일 때는 마우스가 손패를 벗어나도 사거리/AoE 프리뷰 유지
-            bool isTargeting = RunManager.instance != null &&
-                               RunManager.instance.playerBattleController != null &&
-                               RunManager.instance.playerBattleController.controlState == PlayerControlState.TargetSelection;
-
-            if (!isTargeting && UIManager.instance != null)
+            if (!IsPlayerTargetSelectionActive() && UIManager.instance != null)
             {
                 UIManager.instance.ClearEffectAreaTiles();
             }

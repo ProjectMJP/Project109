@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CardTypes;
 using GameItem.Types;
 using XLua;
 using EventStructs;
@@ -352,8 +353,7 @@ public class Card : IDescribable
     /// </summary>
     public bool CanPlay(Character caster)
     {
-        if (caster == null) return false;
-        return CanPlayWithStamina(caster, caster.curStamina);
+        return TryCheckPlayable(caster, out _, out _);
     }
 
     /// <summary>
@@ -362,31 +362,63 @@ public class Card : IDescribable
     /// </summary>
     public bool CanPlayWithStamina(Character caster, float availableStamina)
     {
-        if (_isDisposed || caster == null) return false;
+        return TryCheckPlayableWithStamina(caster, availableStamina, out _, out _);
+    }
 
-        // 1. 스태미나 기본 비용 유효성 검증
-        if (availableStamina < currentCost)
+    /// <summary>
+    /// 현재 시전자 스태미나 기준으로 카드 시전 가능 여부와 실패 사유·메시지를 검사합니다.
+    /// </summary>
+    public bool TryCheckPlayable(Character caster, out CardPlayFailReason failReason, out string customMessage)
+    {
+        float availableStamina = caster != null ? caster.curStamina : 0f;
+        return TryCheckPlayableWithStamina(caster, availableStamina, out failReason, out customMessage);
+    }
+
+    /// <summary>
+    /// 지정한 가용 스태미나 기준으로 카드 시전 가능 여부와 실패 사유·메시지를 검사합니다.
+    /// </summary>
+    public bool TryCheckPlayableWithStamina(Character caster, float availableStamina, out CardPlayFailReason failReason, out string customMessage)
+    {
+        // 1. 카드/시전자 유효성 검증
+        if (_isDisposed || caster == null)
         {
+            failReason = CardPlayFailReason.Unknown;
+            customMessage = "카드를 사용할 수 없습니다.";
             return false;
         }
 
-        // 2. 카드 사용 시도 이벤트(IOnTryUseCard) 평가 (예: 무장해제)
+        // 2. 스태미나 기본 비용 유효성 검증
+        if (availableStamina < currentCost)
+        {
+            failReason = CardPlayFailReason.InsufficientStamina;
+            customMessage = "스태미나가 부족합니다.";
+            return false;
+        }
+
+        // 3. 카드 사용 시도 이벤트(IOnTryUseCard) 평가 (예: 무장해제)
         if (caster.eventBus != null)
         {
             CardInfo tryInfo = new CardInfo(caster, this, CardFlag.Normal);
             CombatEventDispatcher.DispatchTryUseCard(caster.eventBus, tryInfo);
             if (tryInfo.HasFlag(CardFlag.Cancel))
             {
+                failReason = CardPlayFailReason.BlockedByEffect;
+                customMessage = "상태이상 효과로 카드를 사용할 수 없습니다.";
                 return false;
             }
         }
 
-        // 3. 캐싱된 Lua CanPlay 델리게이트가 있다면 호출하여 최종 검증 진행
+        // 4. 캐싱된 Lua CanPlay 델리게이트가 있다면 호출하여 최종 검증 진행
         if (luaTable != null && _luaCanPlay != null)
         {
             try
             {
-                return _luaCanPlay.Invoke(luaTable, this, caster);
+                if (!_luaCanPlay.Invoke(luaTable, this, caster))
+                {
+                    failReason = CardPlayFailReason.ConditionNotMet;
+                    customMessage = "카드 사용 조건을 충족하지 못했습니다.";
+                    return false;
+                }
             }
             catch (Exception e)
             {
@@ -394,6 +426,8 @@ public class Card : IDescribable
             }
         }
 
+        failReason = CardPlayFailReason.None;
+        customMessage = string.Empty;
         return true;
     }
 

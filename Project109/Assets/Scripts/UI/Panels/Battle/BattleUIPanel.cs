@@ -104,6 +104,11 @@ public class BattleUIPanel : UIPanelBase
             battleHandPanel.OnMoveModeRequested += SwitchToMoveMode;
             battleHandPanel.OnCardModeRequested -= SwitchToHandMode;
             battleHandPanel.OnCardModeRequested += SwitchToHandMode;
+
+            if (_controller != null)
+            {
+                battleHandPanel.BindBattleController(_controller);
+            }
         }
 
         if (battleMovePanel != null)
@@ -214,9 +219,10 @@ public class BattleUIPanel : UIPanelBase
         _controller = controller;
         _boundCharacter = player != null ? player.character : null;
 
-        if (battleHandPanel != null && player != null)
+        if (battleHandPanel != null)
         {
-            battleHandPanel.BindBattleDeck(player.battleDeck);
+            battleHandPanel.BindBattleDeck(player != null ? player.battleDeck : null);
+            battleHandPanel.BindBattleController(controller);
         }
 
         if (battleMovePanel != null && _boundCharacter != null)

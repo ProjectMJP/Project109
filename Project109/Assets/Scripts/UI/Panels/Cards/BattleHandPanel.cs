@@ -1,3 +1,4 @@
+using CardTypes;
 using LitMotion;
 using LitMotion.Extensions;
 using System;
@@ -37,6 +38,11 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private Button switchToMoveModeButton;
     [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
 
+    [Header("Unplayable Feedback UI")]
+    [SerializeField] private TextMeshProUGUI unplayableFeedbackText;
+    [SerializeField] private CanvasGroup unplayableFeedbackCanvasGroup;
+    [SerializeField] private RectTransform unplayableFeedbackRect;
+
     public event Action OnMoveModeRequested;
     public event Action OnCardModeRequested;
 
@@ -65,7 +71,18 @@ public class BattleHandPanel : UIPanelBase
     private readonly List<HandCardEntry> _scratchRemovedEntries = new List<HandCardEntry>();
     private readonly HashSet<HandCardEntry> _scratchNewlyDrawnSet = new HashSet<HandCardEntry>();
 
+    private const float FeedbackDefaultY = 210f;
+    private const float FeedbackStartY = 195f;
+    private const float FeedbackTargetY = 230f;
+    private const float FeedbackMoveDuration = 0.25f;
+    private const float FeedbackHoldDuration = 0.60f;
+    private const float FeedbackFadeDuration = 0.35f;
+
     private BattleDeck _boundDeck;
+    private PlayerBattleController _boundController;
+    private MotionHandle _feedbackMoveHandle;
+    private MotionHandle _feedbackFadeHandle;
+    private Action _onFeedbackFadeComplete;
     private bool _isMoveMode = false;
 
     private void Awake()
@@ -112,6 +129,13 @@ public class BattleHandPanel : UIPanelBase
             switchToMoveModeButton.onClick.RemoveListener(HandleSwitchMode);
         }
 
+        CancelFeedbackMotions();
+        if (unplayableFeedbackRect != null)
+        {
+            unplayableFeedbackRect.gameObject.SetActive(false);
+        }
+
+        UnbindBattleController();
         UnbindBattleDeck();
         ClearHandUI();
     }
@@ -225,6 +249,260 @@ public class BattleHandPanel : UIPanelBase
             _boundDeck.OnDrawPileChanged -= RefreshDrawPileCount;
             _boundDeck.OnDiscardPileChanged -= RefreshDiscardPileCount;
             _boundDeck = null;
+        }
+    }
+
+    /// <summary>
+    /// 전투 컨트롤러를 바인딩하여 카드 시전 실패(OnCardPlayRejected) 피드백 이벤트를 수신합니다.
+    /// </summary>
+    public void BindBattleController(PlayerBattleController controller)
+    {
+        if (_boundController == controller) return;
+
+        UnbindBattleController();
+        _boundController = controller;
+
+        if (_boundController != null)
+        {
+            _boundController.OnCardPlayRejected += ShowUnplayableFeedback;
+        }
+    }
+
+    /// <summary>
+    /// 등록된 전투 컨트롤러 이벤트 구독을 해제합니다.
+    /// </summary>
+    public void UnbindBattleController()
+    {
+        if (_boundController != null)
+        {
+            _boundController.OnCardPlayRejected -= ShowUnplayableFeedback;
+            _boundController = null;
+        }
+    }
+
+    /// <summary>
+    /// 카드 사용 불가 사유 텍스트를 손패 위 중앙에 플로팅 경고 배지로 표시합니다.
+    /// </summary>
+    public void ShowUnplayableFeedback(Card card, CardPlayFailReason reason, string message)
+    {
+        string resolvedMessage = !string.IsNullOrEmpty(message) ? message : GetDefaultFeedbackMessage(reason);
+        if (string.IsNullOrEmpty(resolvedMessage))
+        {
+            return;
+        }
+
+        CancelFeedbackMotions();
+        EnsureUnplayableFeedbackUI();
+
+        if (unplayableFeedbackText == null || unplayableFeedbackRect == null || unplayableFeedbackCanvasGroup == null)
+        {
+            return;
+        }
+
+        unplayableFeedbackText.text = resolvedMessage;
+        unplayableFeedbackRect.gameObject.SetActive(true);
+        unplayableFeedbackRect.SetAsLastSibling();
+
+        float posX = unplayableFeedbackRect.anchoredPosition.x;
+        Vector2 startPos = new Vector2(posX, FeedbackStartY);
+        Vector2 targetPos = new Vector2(posX, FeedbackTargetY);
+
+        unplayableFeedbackRect.anchoredPosition = startPos;
+        unplayableFeedbackCanvasGroup.alpha = 1f;
+
+        if (!Application.isPlaying || !gameObject.activeInHierarchy || !unplayableFeedbackRect.gameObject.activeInHierarchy)
+        {
+            unplayableFeedbackRect.anchoredPosition = targetPos;
+            return;
+        }
+
+        if (_onFeedbackFadeComplete == null)
+        {
+            _onFeedbackFadeComplete = HandleFeedbackFadeComplete;
+        }
+
+        _feedbackMoveHandle = LMotion.Create(startPos, targetPos, FeedbackMoveDuration)
+            .WithEase(Ease.OutCubic)
+            .BindToAnchoredPosition(unplayableFeedbackRect);
+
+        _feedbackFadeHandle = LMotion.Create(1f, 0f, FeedbackFadeDuration)
+            .WithDelay(FeedbackHoldDuration, DelayType.FirstLoop, skipValuesDuringDelay: false)
+            .WithEase(Ease.InQuad)
+            .WithOnComplete(_onFeedbackFadeComplete)
+            .BindToAlpha(unplayableFeedbackCanvasGroup);
+    }
+
+    private void EnsureUnplayableFeedbackUI()
+    {
+        if (unplayableFeedbackRect != null && unplayableFeedbackText != null && unplayableFeedbackCanvasGroup != null)
+        {
+            return;
+        }
+
+        if (unplayableFeedbackRect == null && unplayableFeedbackText != null)
+        {
+            unplayableFeedbackRect = unplayableFeedbackText.rectTransform;
+        }
+
+        if (unplayableFeedbackRect == null && unplayableFeedbackCanvasGroup != null)
+        {
+            unplayableFeedbackRect = unplayableFeedbackCanvasGroup.transform as RectTransform;
+        }
+
+        if (unplayableFeedbackRect == null)
+        {
+            Transform existing = transform.Find("UnplayableFeedback");
+            if (existing != null)
+            {
+                unplayableFeedbackRect = existing as RectTransform;
+                if (unplayableFeedbackRect == null)
+                {
+                    unplayableFeedbackRect = existing.gameObject.AddComponent<RectTransform>();
+                }
+            }
+        }
+
+        if (unplayableFeedbackRect == null)
+        {
+            GameObject rootObj = new GameObject("UnplayableFeedback", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            rootObj.layer = gameObject.layer != 0 ? gameObject.layer : 5;
+            rootObj.transform.SetParent(transform, false);
+
+            unplayableFeedbackRect = rootObj.GetComponent<RectTransform>();
+            unplayableFeedbackRect.anchorMin = new Vector2(0.5f, 0f);
+            unplayableFeedbackRect.anchorMax = new Vector2(0.5f, 0f);
+            unplayableFeedbackRect.pivot = new Vector2(0.5f, 0.5f);
+            unplayableFeedbackRect.anchoredPosition = new Vector2(0f, FeedbackDefaultY);
+            unplayableFeedbackRect.sizeDelta = new Vector2(540f, 52f);
+
+            Image badgeImage = rootObj.GetComponent<Image>();
+            badgeImage.color = new Color(0.08f, 0.08f, 0.12f, 0.86f);
+            badgeImage.raycastTarget = false;
+
+            unplayableFeedbackCanvasGroup = rootObj.GetComponent<CanvasGroup>();
+            unplayableFeedbackCanvasGroup.interactable = false;
+            unplayableFeedbackCanvasGroup.blocksRaycasts = false;
+            unplayableFeedbackCanvasGroup.alpha = 0f;
+
+            unplayableFeedbackText = CreateFeedbackTextChild(unplayableFeedbackRect);
+            rootObj.SetActive(false);
+            return;
+        }
+
+        if (unplayableFeedbackCanvasGroup == null)
+        {
+            unplayableFeedbackCanvasGroup = unplayableFeedbackRect.GetComponent<CanvasGroup>();
+            if (unplayableFeedbackCanvasGroup == null)
+            {
+                unplayableFeedbackCanvasGroup = unplayableFeedbackRect.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+        unplayableFeedbackCanvasGroup.interactable = false;
+        unplayableFeedbackCanvasGroup.blocksRaycasts = false;
+
+        if (unplayableFeedbackText == null)
+        {
+            unplayableFeedbackText = unplayableFeedbackRect.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (unplayableFeedbackText == null)
+            {
+                unplayableFeedbackText = CreateFeedbackTextChild(unplayableFeedbackRect);
+            }
+        }
+        unplayableFeedbackText.raycastTarget = false;
+    }
+
+    private TextMeshProUGUI CreateFeedbackTextChild(RectTransform parentRect)
+    {
+        GameObject textObj = new GameObject("FeedbackText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObj.layer = parentRect.gameObject.layer;
+        textObj.transform.SetParent(parentRect, false);
+
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(18f, 6f);
+        textRect.offsetMax = new Vector2(-18f, -6f);
+
+        TextMeshProUGUI textComp = textObj.GetComponent<TextMeshProUGUI>();
+        TMP_FontAsset fontAsset = ResolveFeedbackFont();
+        if (fontAsset != null)
+        {
+            textComp.font = fontAsset;
+        }
+        textComp.fontSize = 22f;
+        textComp.enableAutoSizing = true;
+        textComp.fontSizeMin = 16f;
+        textComp.fontSizeMax = 24f;
+        textComp.fontStyle = FontStyles.Bold;
+        textComp.alignment = TextAlignmentOptions.Center;
+        textComp.color = new Color(1f, 0.42f, 0.36f, 1f);
+        textComp.raycastTarget = false;
+        return textComp;
+    }
+
+    private TMP_FontAsset ResolveFeedbackFont()
+    {
+        if (modeSwitchButtonText != null && modeSwitchButtonText.font != null)
+        {
+            return modeSwitchButtonText.font;
+        }
+
+        if (drawCountText != null && drawCountText.font != null)
+        {
+            return drawCountText.font;
+        }
+
+        if (TMP_Settings.defaultFontAsset != null)
+        {
+            return TMP_Settings.defaultFontAsset;
+        }
+
+        TMP_FontAsset[] loadedFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+        if (loadedFonts != null && loadedFonts.Length > 0)
+        {
+            return loadedFonts[0];
+        }
+
+        return null;
+    }
+
+    private static string GetDefaultFeedbackMessage(CardPlayFailReason reason)
+    {
+        switch (reason)
+        {
+            case CardPlayFailReason.NotPlayerTurn:
+                return "현재 플레이어의 턴이 아닙니다.";
+            case CardPlayFailReason.CharacterBusy:
+                return "현재 행동 중입니다.";
+            case CardPlayFailReason.InsufficientStamina:
+                return "스태미나가 부족합니다.";
+            case CardPlayFailReason.BlockedByEffect:
+                return "상태이상 효과로 카드를 사용할 수 없습니다.";
+            case CardPlayFailReason.ConditionNotMet:
+                return "카드 사용 조건을 충족하지 못했습니다.";
+            case CardPlayFailReason.NoValidTargets:
+                return "사거리 내에 유효한 대상이 없습니다.";
+            case CardPlayFailReason.Unknown:
+                return "카드를 사용할 수 없습니다.";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private void CancelFeedbackMotions()
+    {
+        if (_feedbackMoveHandle.IsActive()) _feedbackMoveHandle.TryCancel();
+        if (_feedbackFadeHandle.IsActive()) _feedbackFadeHandle.TryCancel();
+        _feedbackMoveHandle = MotionHandle.None;
+        _feedbackFadeHandle = MotionHandle.None;
+    }
+
+    private void HandleFeedbackFadeComplete()
+    {
+        _feedbackFadeHandle = MotionHandle.None;
+        if (unplayableFeedbackRect != null)
+        {
+            unplayableFeedbackRect.gameObject.SetActive(false);
         }
     }
 
@@ -419,6 +697,7 @@ public class BattleHandPanel : UIPanelBase
         float startX = -((count - 1) * spacing) / 2f;
         int drawStaggerIndex = 0;
         HandCardEntry zoomedEntry = null;
+        HandCardEntry draggingEntry = null;
         bool isPanelActive = gameObject.activeInHierarchy;
 
         for (int i = 0; i < count; i++)
@@ -432,6 +711,14 @@ public class BattleHandPanel : UIPanelBase
             if (entry.cardUI != null)
             {
                 entry.cardUI.SetHandSlot(targetPos, Vector3.one, i);
+            }
+
+            bool isDragging = entry.cardUI != null && entry.cardUI.IsDragging;
+            if (isDragging)
+            {
+                draggingEntry = entry;
+                CancelEntryHandles(entry);
+                continue;
             }
 
             // SiblingIndex를 순서대로 맞춰 겹침 렌더링 순서 보장
@@ -459,7 +746,7 @@ public class BattleHandPanel : UIPanelBase
             {
                 CancelEntryHandles(entry);
 
-                if (!isPanelActive || drawDuration <= 0f)
+                if (!Application.isPlaying || !isPanelActive || drawDuration <= 0f)
                 {
                     rect.anchoredPosition = targetPos;
                     rect.localScale = Vector3.one;
@@ -527,7 +814,7 @@ public class BattleHandPanel : UIPanelBase
                 }
 
                 float moveDuration = isEntering ? drawDuration : layoutDuration;
-                if (!isPanelActive || moveDuration <= 0f)
+                if (!Application.isPlaying || !isPanelActive || moveDuration <= 0f)
                 {
                     rect.anchoredPosition = targetPos;
                     rect.localScale = Vector3.one;
@@ -578,6 +865,12 @@ public class BattleHandPanel : UIPanelBase
         {
             zoomedEntry.cardObj.transform.SetAsLastSibling();
         }
+
+        // 드래그 중인 카드가 있다면 최상위 렌더링 순서 유지
+        if (draggingEntry != null && draggingEntry.cardObj != null)
+        {
+            draggingEntry.cardObj.transform.SetAsLastSibling();
+        }
     }
 
     private HandCardEntry CreateDrawnCardEntry(Card card)
@@ -606,9 +899,12 @@ public class BattleHandPanel : UIPanelBase
             Card capturedCard = card;
             entry.cardUI.OnCardClick.AddListener(() =>
             {
-                if (RunManager.instance != null && RunManager.instance.playerBattleController != null)
+                PlayerBattleController controller = _boundController != null
+                    ? _boundController
+                    : (RunManager.instance != null ? RunManager.instance.playerBattleController : null);
+                if (controller != null)
                 {
-                    RunManager.instance.playerBattleController.TryUseCard(capturedCard);
+                    controller.TryUseCard(capturedCard);
                 }
             });
         }
@@ -638,6 +934,7 @@ public class BattleHandPanel : UIPanelBase
         cardUI.zoomYOffset = 90f;
         cardUI.bIsCardHighlight = true;
         cardUI.bShowEffectAreaUI = true;
+        cardUI.usePlayGesture = true;
     }
 
     private void StartDiscardAnimation(HandCardEntry entry, int discardIndex)
@@ -668,7 +965,7 @@ public class BattleHandPanel : UIPanelBase
         entry.cardObj.transform.SetAsLastSibling();
 
         RectTransform rect = entry.rectTransform;
-        if (rect == null || !gameObject.activeInHierarchy || discardDuration <= 0f)
+        if (rect == null || !Application.isPlaying || !gameObject.activeInHierarchy || discardDuration <= 0f)
         {
             CompleteDiscardEntry(entry);
             return;
@@ -862,6 +1159,7 @@ public class BattleHandPanel : UIPanelBase
             cardUI.enableZoom = false;
             cardUI.bIsCardHighlight = false;
             cardUI.bShowEffectAreaUI = false;
+            cardUI.usePlayGesture = false;
             cardUI.ResetForPool();
         }
 
@@ -871,7 +1169,14 @@ public class BattleHandPanel : UIPanelBase
         }
         else if (cardObj != null)
         {
-            Destroy(cardObj);
+            if (Application.isPlaying)
+            {
+                Destroy(cardObj);
+            }
+            else
+            {
+                DestroyImmediate(cardObj);
+            }
         }
     }
 
@@ -921,6 +1226,8 @@ public class BattleHandPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        CancelFeedbackMotions();
+        UnbindBattleController();
         UnbindBattleDeck();
         ClearHandUI();
     }

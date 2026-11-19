@@ -24,6 +24,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public BattleUIPanel battleUI => _battleUI;
     public BattleHandPanel handUI => _battleUI != null ? _battleUI.HandPanel : null;
 
+    /// <summary>
+    /// 카드 시전 시도가 사전 조건 또는 사거리 검증에서 거부되었을 때 발행되는 이벤트입니다.
+    /// </summary>
+    public event System.Action<Card, CardPlayFailReason, string> OnCardPlayRejected;
+
     public void Dispose()
     {
         OnBattleEnd();
@@ -34,6 +39,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
         }
+
+        OnCardPlayRejected = null;
     }
 
     #region ICharacterController
@@ -311,9 +318,21 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     {
         if (card == null) return;
 
+        // 0. 플레이어 턴 여부 검사
+        if (RunManager.instance != null &&
+            RunManager.instance.battleManager != null &&
+            RunManager.instance.battleManager.currentTurnController != null &&
+            !ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
+        {
+            Debug.LogWarning("[PlayerBattleController] 현재 플레이어의 턴이 아니므로 카드를 사용할 수 없습니다.");
+            OnCardPlayRejected?.Invoke(card, CardPlayFailReason.NotPlayerTurn, "현재 플레이어의 턴이 아닙니다.");
+            return;
+        }
+
         if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle)
         {
             Debug.LogWarning("[PlayerBattleController] 캐릭터가 대기(Idle) 상태가 아니므로 카드를 사용할 수 없습니다.");
+            OnCardPlayRejected?.Invoke(card, CardPlayFailReason.CharacterBusy, "현재 행동 중입니다.");
             return;
         }
 
@@ -321,13 +340,15 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (ActionQueueManager.Instance.IsBusy)
         {
             Debug.LogWarning("[PlayerBattleController] 이전 행동을 수행 중입니다. 카드 사용이 무시됩니다.");
+            OnCardPlayRejected?.Invoke(card, CardPlayFailReason.CharacterBusy, "현재 행동 중입니다.");
             return;
         }
 
         // 2. 실시간 다중 비용 및 시전 가능 조건 검사
-        if (!card.CanPlay(controlledCharacter))
+        if (!card.TryCheckPlayable(controlledCharacter, out CardPlayFailReason failReason, out string failMsg))
         {
             Debug.LogWarning($"[PlayerBattleController] 시전 요구조건이 충족되지 않아 '{card.cardName}' 카드를 사용할 수 없습니다.");
+            OnCardPlayRejected?.Invoke(card, failReason, failMsg);
             return;
         }
 
@@ -341,6 +362,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             {
                 CancelCurrentState();
             }
+            OnCardPlayRejected?.Invoke(card, CardPlayFailReason.NoValidTargets, "사거리 내에 유효한 대상이 없습니다.");
             return;
         }
 
