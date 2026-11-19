@@ -22,15 +22,17 @@ public class TopHUDPanel : UIPanelBase
     [SerializeField] private Button deckButton;
     [SerializeField] private Button pauseMenuButton;
 
-    [Header("Tooltip Toggle")]
-    [SerializeField] private Button tooltipToggleButton;
-    [SerializeField] private TextMeshProUGUI tooltipToggleText;
-    [SerializeField] private Image tooltipToggleBgImage;
+    [Header("Battle Speed Toggle")]
+    [SerializeField] private Button speedToggleButton;
+    [SerializeField] private TextMeshProUGUI speedToggleText;
+    [SerializeField] private Image speedToggleBgImage;
 
-    private static readonly Color TooltipOnBgColor = new Color(0.14f, 0.28f, 0.36f, 0.95f);
-    private static readonly Color TooltipOnTextColor = new Color(0.72f, 0.96f, 1f, 1f);
-    private static readonly Color TooltipOffBgColor = new Color(0.28f, 0.16f, 0.18f, 0.95f);
-    private static readonly Color TooltipOffTextColor = new Color(0.86f, 0.65f, 0.65f, 1f);
+    private static readonly Color Speed1xBgColor = new Color(0.18f, 0.23f, 0.30f, 0.95f);
+    private static readonly Color Speed1xTextColor = new Color(0.82f, 0.88f, 0.94f, 1f);
+    private static readonly Color Speed1_5xBgColor = new Color(0.12f, 0.32f, 0.38f, 0.95f);
+    private static readonly Color Speed1_5xTextColor = new Color(0.55f, 0.96f, 1f, 1f);
+    private static readonly Color Speed2xBgColor = new Color(0.38f, 0.27f, 0.10f, 0.95f);
+    private static readonly Color Speed2xTextColor = new Color(1f, 0.86f, 0.38f, 1f);
 
     [Header("UI Texture")]
     [SerializeField] private Image currencyImage;
@@ -53,22 +55,24 @@ public class TopHUDPanel : UIPanelBase
         EnsureTierLayoutReferences();
     }
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
+        base.OnEnable();
         GameSceneManager.OnSceneLocationChanged += RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged += RefreshLocationAndNavigationState;
-        TooltipManager.OnTooltipEnabledChanged -= RefreshTooltipToggleVisual;
-        TooltipManager.OnTooltipEnabledChanged += RefreshTooltipToggleVisual;
+        BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
+        BattleManager.OnBattleSpeedChanged += RefreshSpeedToggleVisual;
         EnsureTierLayoutReferences();
         RefreshLocationAndNavigationState();
-        RefreshTooltipToggleVisual(TooltipManager.IsTooltipEnabled);
+        RefreshSpeedToggleVisual(BattleManager.GlobalBattleSpeed);
     }
 
-    private void OnDisable()
+    protected override void OnDisable()
     {
+        base.OnDisable();
         GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
-        TooltipManager.OnTooltipEnabledChanged -= RefreshTooltipToggleVisual;
+        BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
     }
 
     public override void OnOpen()
@@ -76,7 +80,7 @@ public class TopHUDPanel : UIPanelBase
         base.OnOpen();
         EnsureTierLayoutReferences();
         RefreshLocationAndNavigationState();
-        RefreshTooltipToggleVisual(TooltipManager.IsTooltipEnabled);
+        RefreshSpeedToggleVisual(BattleManager.GlobalBattleSpeed);
     }
 
     /// <summary>
@@ -223,7 +227,7 @@ public class TopHUDPanel : UIPanelBase
         }
 
         BindPauseMenuButton();
-        BindTooltipToggleButton();
+        BindSpeedToggleButton();
 
         if (AssetCacheManager.instance != null)
         {
@@ -240,31 +244,54 @@ public class TopHUDPanel : UIPanelBase
         }
     }
 
-    private void BindTooltipToggleButton()
+    private void BindSpeedToggleButton()
     {
-        if (tooltipToggleButton != null)
+        if (speedToggleButton != null)
         {
-            tooltipToggleButton.onClick.RemoveListener(HandleTooltipToggleClicked);
-            tooltipToggleButton.onClick.AddListener(HandleTooltipToggleClicked);
+            speedToggleButton.onClick.RemoveListener(HandleSpeedToggleClicked);
+            speedToggleButton.onClick.AddListener(HandleSpeedToggleClicked);
         }
     }
 
-    private void HandleTooltipToggleClicked()
+    private void HandleSpeedToggleClicked()
     {
-        TooltipManager.ToggleGlobalTooltipEnabled();
+        BattleManager.CycleGlobalBattleSpeed();
     }
 
-    private void RefreshTooltipToggleVisual(bool isEnabled)
+    private void RefreshSpeedToggleVisual(float speed)
     {
-        if (tooltipToggleText != null)
+        string speedLabel;
+        Color bgColor;
+        Color textColor;
+
+        if (Mathf.Approximately(speed, 2.0f) || speed > 1.75f)
         {
-            tooltipToggleText.text = isEnabled ? "[T] 툴팁: ON" : "[T] 툴팁: OFF";
-            tooltipToggleText.color = isEnabled ? TooltipOnTextColor : TooltipOffTextColor;
+            speedLabel = "배속: 2x";
+            bgColor = Speed2xBgColor;
+            textColor = Speed2xTextColor;
+        }
+        else if (Mathf.Approximately(speed, 1.5f) || speed > 1.25f)
+        {
+            speedLabel = "배속: 1.5x";
+            bgColor = Speed1_5xBgColor;
+            textColor = Speed1_5xTextColor;
+        }
+        else
+        {
+            speedLabel = "배속: 1x";
+            bgColor = Speed1xBgColor;
+            textColor = Speed1xTextColor;
         }
 
-        if (tooltipToggleBgImage != null)
+        if (speedToggleText != null)
         {
-            tooltipToggleBgImage.color = isEnabled ? TooltipOnBgColor : TooltipOffBgColor;
+            speedToggleText.text = speedLabel;
+            speedToggleText.color = textColor;
+        }
+
+        if (speedToggleBgImage != null)
+        {
+            speedToggleBgImage.color = bgColor;
         }
     }
 
@@ -376,29 +403,33 @@ public class TopHUDPanel : UIPanelBase
             }
         }
 
-        if (tooltipToggleButton == null)
+        if (speedToggleButton == null)
         {
-            Transform tooltipTr = hudPanel.Find("TooltipToggleButton");
-            if (tooltipTr != null)
+            Transform speedTr = hudPanel.Find("SpeedToggleButton");
+            if (speedTr == null)
             {
-                tooltipToggleButton = tooltipTr.GetComponent<Button>();
+                speedTr = hudPanel.Find("TooltipToggleButton");
+            }
+            if (speedTr != null)
+            {
+                speedToggleButton = speedTr.GetComponent<Button>();
             }
         }
 
-        if (tooltipToggleButton != null)
+        if (speedToggleButton != null)
         {
-            if (tooltipToggleText == null)
+            if (speedToggleText == null)
             {
-                tooltipToggleText = tooltipToggleButton.GetComponentInChildren<TextMeshProUGUI>(true);
+                speedToggleText = speedToggleButton.GetComponentInChildren<TextMeshProUGUI>(true);
             }
-            if (tooltipToggleBgImage == null)
+            if (speedToggleBgImage == null)
             {
-                tooltipToggleBgImage = tooltipToggleButton.GetComponent<Image>();
+                speedToggleBgImage = speedToggleButton.GetComponent<Image>();
             }
         }
 
         BindPauseMenuButton();
-        BindTooltipToggleButton();
+        BindSpeedToggleButton();
     }
 
     public void UpdateGold(int amount)

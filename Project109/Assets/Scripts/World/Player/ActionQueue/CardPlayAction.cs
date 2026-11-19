@@ -5,8 +5,19 @@ using EventStructs;
 
 public class CardPlayAction : BattleAction
 {
-    private static readonly WaitForSeconds _playDelay = new WaitForSeconds(0.4f);
-    private static readonly WaitForSeconds _postPlayDelay = new WaitForSeconds(0.3f);
+    private static readonly WaitForSeconds[] _playDelays = CreateScaledDelays(0.4f);
+    private static readonly WaitForSeconds[] _postPlayDelays = CreateScaledDelays(0.3f);
+
+    private static WaitForSeconds[] CreateScaledDelays(float baseSeconds)
+    {
+        float[] steps = BattleManager.SpeedSteps;
+        WaitForSeconds[] delays = new WaitForSeconds[steps.Length];
+        for (int i = 0; i < steps.Length; i++)
+        {
+            delays[i] = new WaitForSeconds(baseSeconds / Mathf.Max(0.1f, steps[i]));
+        }
+        return delays;
+    }
 
     public Card card { get; private set; }
     public List<Character> targets { get; private set; }
@@ -36,7 +47,7 @@ public class CardPlayAction : BattleAction
         caster.currentState = CharacterState.Skill;
 
         // 3. 연출을 위한 인게임 대기 (예: 투사체 날아가는 시간, 이펙트 시작 등)
-        yield return _playDelay;
+        yield return _playDelays[Mathf.Clamp(BattleManager.CurrentSpeedIndex, 0, _playDelays.Length - 1)];
 
         // 대기 중 시전자가 사망했거나 전투가 종료되었으면 즉시 중단
         if (caster == null || caster.isDead || IsBattleEnded())
@@ -105,7 +116,7 @@ public class CardPlayAction : BattleAction
         }
 
         // 6. 후처리 연출 대기 (애니메이션 마무리 동작)
-        yield return _postPlayDelay;
+        yield return _postPlayDelays[Mathf.Clamp(BattleManager.CurrentSpeedIndex, 0, _postPlayDelays.Length - 1)];
 
         // 돌진/도약 스킬 등으로 시전자가 이동 중이라면 이동이 완료될 때까지 안전하게 대기 (최대 3초 타임아웃 가드)
         float moveWaitElapsed = 0f;

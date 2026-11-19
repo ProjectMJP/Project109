@@ -20,13 +20,85 @@ public enum BattleResultType
 
 public class BattleManager : IInitializable, IDisposable
 {
+    private const string PREF_BATTLE_SPEED_INDEX = "Settings_BattleSpeedIndex";
+    public static readonly float[] SpeedSteps = { 1.0f, 1.5f, 2.0f };
+    public static int CurrentSpeedIndex { get; private set; }
+    public static float GlobalBattleSpeed => SpeedSteps[CurrentSpeedIndex];
+    public static event Action<float> OnBattleSpeedChanged;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void LoadSavedBattleSpeedOnStartup()
+    {
+        int savedIndex = PlayerPrefs.GetInt(PREF_BATTLE_SPEED_INDEX, 0);
+        SetGlobalBattleSpeedIndex(savedIndex, savePrefs: false);
+    }
+
+    public static void SetGlobalBattleSpeedIndex(int index, bool savePrefs = true)
+    {
+        int clampedIndex = Mathf.Clamp(index, 0, SpeedSteps.Length - 1);
+        CurrentSpeedIndex = clampedIndex;
+
+        float speed = GlobalBattleSpeed;
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            RunManager.instance.battleManager.battleTimeScale = speed;
+        }
+
+        if (savePrefs)
+        {
+            PlayerPrefs.SetInt(PREF_BATTLE_SPEED_INDEX, clampedIndex);
+            PlayerPrefs.Save();
+        }
+
+        OnBattleSpeedChanged?.Invoke(speed);
+    }
+
+    public static void SetGlobalBattleSpeed(float speed, bool savePrefs = true)
+    {
+        int bestIndex = 0;
+        float minDiff = float.MaxValue;
+        for (int i = 0; i < SpeedSteps.Length; i++)
+        {
+            float diff = Mathf.Abs(SpeedSteps[i] - speed);
+            if (diff < minDiff)
+            {
+                minDiff = diff;
+                bestIndex = i;
+            }
+        }
+
+        SetGlobalBattleSpeedIndex(bestIndex, savePrefs);
+    }
+
+    public static void CycleGlobalBattleSpeed()
+    {
+        int nextIndex = (CurrentSpeedIndex + 1) % SpeedSteps.Length;
+        SetGlobalBattleSpeedIndex(nextIndex, savePrefs: true);
+    }
+
+    public BattleManager()
+    {
+        battleTimeScale = GlobalBattleSpeed;
+        OnBattleSpeedChanged -= HandleBattleSpeedChanged;
+        OnBattleSpeedChanged += HandleBattleSpeedChanged;
+    }
+
     public void Initialize()
     {
         // 초기화 필요한 멤버 변수가 있다면 여기서 처리
+        battleTimeScale = GlobalBattleSpeed;
+        OnBattleSpeedChanged -= HandleBattleSpeedChanged;
+        OnBattleSpeedChanged += HandleBattleSpeedChanged;
+    }
+
+    private void HandleBattleSpeedChanged(float speed)
+    {
+        battleTimeScale = speed;
     }
 
     public void Dispose()
     {
+        OnBattleSpeedChanged -= HandleBattleSpeedChanged;
         ClearBattle();
         OnBattleIntroRequested = null;
         OnBattleWon = null;
@@ -95,6 +167,7 @@ public class BattleManager : IInitializable, IDisposable
     {
         // 이전 전투 잔여 데이터 강제 정리
         ClearBattle();
+        battleTimeScale = GlobalBattleSpeed;
 
         playerTeam = new List<ICharacterController>();
         if (players != null)

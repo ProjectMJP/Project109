@@ -7,7 +7,18 @@ using UnityEngine;
 /// </summary>
 public class EnemyMoveAction : BattleAction
 {
-    private static readonly WaitForSeconds _postMoveDelay = new WaitForSeconds(0.2f);
+    private static readonly WaitForSeconds[] _postMoveDelays = CreateScaledDelays(0.2f);
+
+    private static WaitForSeconds[] CreateScaledDelays(float baseSeconds)
+    {
+        float[] steps = BattleManager.SpeedSteps;
+        WaitForSeconds[] delays = new WaitForSeconds[steps.Length];
+        for (int i = 0; i < steps.Length; i++)
+        {
+            delays[i] = new WaitForSeconds(baseSeconds / Mathf.Max(0.1f, steps[i]));
+        }
+        return delays;
+    }
 
     public Tile TargetTile { get; private set; }
 
@@ -58,7 +69,7 @@ public class EnemyMoveAction : BattleAction
         }
 
         // 이동 완료 후 짧은 대기 (자연스러운 딜레이)
-        yield return _postMoveDelay;
+        yield return _postMoveDelays[Mathf.Clamp(BattleManager.CurrentSpeedIndex, 0, _postMoveDelays.Length - 1)];
         if (caster != null && caster.currentState != CharacterState.Die)
         {
             caster.currentState = CharacterState.Idle;

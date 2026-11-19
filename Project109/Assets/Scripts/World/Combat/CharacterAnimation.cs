@@ -8,12 +8,31 @@ public class CharacterAnimation : MonoBehaviour
     
     void Start()
     {
-        animator = transform.GetChild(0).GetComponent<Animator>();
+        if (transform.childCount > 0)
+        {
+            animator = transform.GetChild(0).GetComponent<Animator>();
+        }
         character = GetComponent<Character>();
 
         if (character != null)
         {
             character.OnCharacterStateChanged += HandleStateChanged;
+        }
+
+        if (animator != null)
+        {
+            animator.speed = BattleManager.GlobalBattleSpeed;
+        }
+
+        BattleManager.OnBattleSpeedChanged -= HandleBattleSpeedChanged;
+        BattleManager.OnBattleSpeedChanged += HandleBattleSpeedChanged;
+    }
+
+    private void HandleBattleSpeedChanged(float speed)
+    {
+        if (animator != null)
+        {
+            animator.speed = BattleManager.GlobalBattleSpeed;
         }
     }
 
@@ -44,6 +63,8 @@ public class CharacterAnimation : MonoBehaviour
 
     private void OnDestroy()
     {
+        BattleManager.OnBattleSpeedChanged -= HandleBattleSpeedChanged;
+
         if (character != null)
         {
             character.OnCharacterStateChanged -= HandleStateChanged;

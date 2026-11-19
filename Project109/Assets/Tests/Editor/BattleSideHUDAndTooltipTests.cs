@@ -30,12 +30,14 @@ public class BattleSideHUDAndTooltipTests
     public void SetUp()
     {
         TooltipManager.SetTooltipEnabled(true);
+        BattleManager.SetGlobalBattleSpeedIndex(0, savePrefs: false);
     }
 
     [TearDown]
     public void TearDown()
     {
         TooltipManager.SetTooltipEnabled(true);
+        BattleManager.SetGlobalBattleSpeedIndex(0, savePrefs: false);
 
         for (int i = _createdObjects.Count - 1; i >= 0; i--)
         {
@@ -225,8 +227,12 @@ public class BattleSideHUDAndTooltipTests
     }
 
     [Test]
-    public void TopHUDPanel_TooltipToggleButton_UpdatesLabelWithGlobalState()
+    public void TopHUDPanel_SpeedToggleButton_CyclesBattleSpeedAndUpdatesLabel()
     {
+        const string prefKey = "Settings_BattleSpeedIndex";
+        bool hadPref = PlayerPrefs.HasKey(prefKey);
+        int previousPref = PlayerPrefs.GetInt(prefKey, 0);
+
         GameObject topHudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/TopHUDPanel.prefab");
         Assert.IsNotNull(topHudPrefab, "TopHUDPanel.prefab을 찾을 수 없습니다.");
 
@@ -234,19 +240,203 @@ public class BattleSideHUDAndTooltipTests
         GameObject topHudGo = Track(UnityEngine.Object.Instantiate(topHudPrefab, canvas.transform, false));
         TopHUDPanel topHud = topHudGo.GetComponent<TopHUDPanel>();
         Assert.IsNotNull(topHud);
-        InvokePrivateMethod(topHud, "Awake");
 
-        TextMeshProUGUI toggleText = GetPrivateField<TextMeshProUGUI>(topHud, "tooltipToggleText");
-        Assert.IsNotNull(toggleText);
+        try
+        {
+            InvokePrivateMethod(topHud, "Awake");
+            InvokePrivateMethod(topHud, "OnEnable");
 
-        InvokePrivateMethod(topHud, "OnEnable");
-        Assert.AreEqual("[T] 툴팁: ON", toggleText.text);
+            Transform hudPanel = topHudGo.transform.Find("HUDPanel");
+            Assert.IsNotNull(hudPanel);
+            Assert.IsNotNull(hudPanel.Find("SpeedToggleButton"), "TopHUDPanel.prefab의 버튼 오브젝트 이름이 SpeedToggleButton이어야 합니다.");
+            Assert.IsNull(hudPanel.Find("TooltipToggleButton"), "레거시 TooltipToggleButton 오브젝트는 남아있지 않아야 합니다.");
 
-        TooltipManager.SetTooltipEnabled(false);
-        Assert.AreEqual("[T] 툴팁: OFF", toggleText.text);
+            Button speedButton = GetPrivateField<Button>(topHud, "speedToggleButton");
+            TextMeshProUGUI speedText = GetPrivateField<TextMeshProUGUI>(topHud, "speedToggleText");
+            Image speedBg = GetPrivateField<Image>(topHud, "speedToggleBgImage");
+            Assert.IsNotNull(speedButton);
+            Assert.IsNotNull(speedText);
+            Assert.IsNotNull(speedBg);
 
-        TooltipManager.SetTooltipEnabled(true);
-        Assert.AreEqual("[T] 툴팁: ON", toggleText.text);
+            Color color1xBg = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed1xBgColor");
+            Color color1xText = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed1xTextColor");
+            Color color1_5xBg = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed1_5xBgColor");
+            Color color1_5xText = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed1_5xTextColor");
+            Color color2xBg = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed2xBgColor");
+            Color color2xText = GetStaticPrivateField<Color>(typeof(TopHUDPanel), "Speed2xTextColor");
+
+            Assert.AreEqual(1.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual("배속: 1x", speedText.text);
+            Assert.AreEqual(color1xBg, speedBg.color);
+            Assert.AreEqual(color1xText, speedText.color);
+
+            speedButton.onClick.Invoke();
+            Assert.AreEqual(1.5f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual("배속: 1.5x", speedText.text);
+            Assert.AreEqual(color1_5xBg, speedBg.color);
+            Assert.AreEqual(color1_5xText, speedText.color);
+
+            speedButton.onClick.Invoke();
+            Assert.AreEqual(2.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual("배속: 2x", speedText.text);
+            Assert.AreEqual(color2xBg, speedBg.color);
+            Assert.AreEqual(color2xText, speedText.color);
+
+            speedButton.onClick.Invoke();
+            Assert.AreEqual(1.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual("배속: 1x", speedText.text);
+            Assert.AreEqual(color1xBg, speedBg.color);
+            Assert.AreEqual(color1xText, speedText.color);
+        }
+        finally
+        {
+            InvokePrivateMethod(topHud, "OnDisable");
+            RestoreIntPref(prefKey, hadPref, previousPref);
+        }
+    }
+
+    [Test]
+    public void BattleManager_SpeedToggle_SyncsBattleTimeScaleAndPersistsPref()
+    {
+        const string prefKey = "Settings_BattleSpeedIndex";
+        bool hadPref = PlayerPrefs.HasKey(prefKey);
+        int previousPref = PlayerPrefs.GetInt(prefKey, 0);
+
+        GameObject runGo = Track(new GameObject("TestRunManager_Speed"));
+        RunManager runManager = runGo.AddComponent<RunManager>();
+        InvokePrivateMethod(runManager, "Awake");
+
+        int callbackCount = 0;
+        float lastNotifiedSpeed = 0f;
+        void OnSpeedChanged(float speed)
+        {
+            callbackCount++;
+            lastNotifiedSpeed = speed;
+        }
+        BattleManager.OnBattleSpeedChanged += OnSpeedChanged;
+
+        try
+        {
+            BattleManager bm = runManager.battleManager;
+            Assert.IsNotNull(bm);
+            Assert.AreEqual(0, BattleManager.CurrentSpeedIndex);
+            Assert.AreEqual(1.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual(1.0f, bm.battleTimeScale, 0.001f);
+
+            // 1x -> 1.5x
+            BattleManager.CycleGlobalBattleSpeed();
+            Assert.AreEqual(1, BattleManager.CurrentSpeedIndex);
+            Assert.AreEqual(1.5f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual(1.5f, bm.battleTimeScale, 0.001f);
+            Assert.AreEqual(1, PlayerPrefs.GetInt(prefKey, -1));
+            Assert.AreEqual(1.5f, lastNotifiedSpeed, 0.001f);
+
+            // 1.5x -> 2x
+            BattleManager.CycleGlobalBattleSpeed();
+            Assert.AreEqual(2, BattleManager.CurrentSpeedIndex);
+            Assert.AreEqual(2.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual(2.0f, bm.battleTimeScale, 0.001f);
+            Assert.AreEqual(2, PlayerPrefs.GetInt(prefKey, -1));
+            Assert.AreEqual(2.0f, lastNotifiedSpeed, 0.001f);
+
+            // 신규 BattleManager 생성 및 Dispose 시 정적 구독자 유지 확인
+            BattleManager extraBm = new BattleManager();
+            Assert.AreEqual(2.0f, extraBm.battleTimeScale, 0.001f);
+            extraBm.Dispose();
+
+            int countBeforeCycle = callbackCount;
+            BattleManager.CycleGlobalBattleSpeed(); // 2x -> 1x
+            Assert.AreEqual(countBeforeCycle + 1, callbackCount, "BattleManager.Dispose 이후에도 정적 OnBattleSpeedChanged 구독자는 유지되어야 합니다.");
+            Assert.AreEqual(0, BattleManager.CurrentSpeedIndex);
+            Assert.AreEqual(1.0f, BattleManager.GlobalBattleSpeed, 0.001f);
+            Assert.AreEqual(1.0f, bm.battleTimeScale, 0.001f);
+            Assert.AreEqual(0, PlayerPrefs.GetInt(prefKey, -1));
+
+            // PlayerPrefs 복원 및 범위 클램프 검증
+            PlayerPrefs.SetInt(prefKey, 2);
+            PlayerPrefs.Save();
+            BattleManager.SetGlobalBattleSpeedIndex(0, savePrefs: false);
+            InvokeStaticPrivateMethod(typeof(BattleManager), "LoadSavedBattleSpeedOnStartup");
+            Assert.AreEqual(2, BattleManager.CurrentSpeedIndex);
+            Assert.AreEqual(2.0f, bm.battleTimeScale, 0.001f);
+
+            PlayerPrefs.SetInt(prefKey, 99);
+            PlayerPrefs.Save();
+            InvokeStaticPrivateMethod(typeof(BattleManager), "LoadSavedBattleSpeedOnStartup");
+            Assert.AreEqual(BattleManager.SpeedSteps.Length - 1, BattleManager.CurrentSpeedIndex);
+
+            // ActionQueue 정적 WaitForSeconds 캐시 배열 길이 검증
+            WaitForSeconds[] playDelays = GetStaticPrivateField<WaitForSeconds[]>(typeof(CardPlayAction), "_playDelays");
+            WaitForSeconds[] postPlayDelays = GetStaticPrivateField<WaitForSeconds[]>(typeof(CardPlayAction), "_postPlayDelays");
+            WaitForSeconds[] postMoveDelays = GetStaticPrivateField<WaitForSeconds[]>(typeof(EnemyMoveAction), "_postMoveDelays");
+            Assert.AreEqual(BattleManager.SpeedSteps.Length, playDelays.Length);
+            Assert.AreEqual(BattleManager.SpeedSteps.Length, postPlayDelays.Length);
+            Assert.AreEqual(BattleManager.SpeedSteps.Length, postMoveDelays.Length);
+            for (int i = 0; i < BattleManager.SpeedSteps.Length; i++)
+            {
+                Assert.IsNotNull(playDelays[i]);
+                Assert.IsNotNull(postPlayDelays[i]);
+                Assert.IsNotNull(postMoveDelays[i]);
+            }
+        }
+        finally
+        {
+            BattleManager.OnBattleSpeedChanged -= OnSpeedChanged;
+            InvokePrivateMethod(runManager, "OnDestroy");
+            RestoreIntPref(prefKey, hadPref, previousPref);
+        }
+    }
+
+    [Test]
+    public void PauseMenuPanel_SettingsTooltipToggle_SyncsWithGlobalTooltipManager()
+    {
+        GameObject pausePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/PauseMenuPanel.prefab");
+        Assert.IsNotNull(pausePrefab, "PauseMenuPanel.prefab을 찾을 수 없습니다.");
+
+        Canvas canvas = CreateTestCanvas("PauseMenuTooltipCanvas");
+        GameObject pauseGo = Track(UnityEngine.Object.Instantiate(pausePrefab, canvas.transform, false));
+        PauseMenuPanel pausePanel = pauseGo.GetComponent<PauseMenuPanel>();
+        Assert.IsNotNull(pausePanel);
+
+        try
+        {
+            InvokePrivateMethod(pausePanel, "Awake");
+            InvokePrivateMethod(pausePanel, "OnEnable");
+            pausePanel.OnOpen();
+
+            GameObject settingsGroup = GetPrivateField<GameObject>(pausePanel, "settingsGroup");
+            Button settingsBackButton = GetPrivateField<Button>(pausePanel, "settingsBackButton");
+            Toggle tooltipToggle = GetPrivateField<Toggle>(pausePanel, "tooltipToggle");
+            TextMeshProUGUI tooltipStatusText = GetPrivateField<TextMeshProUGUI>(pausePanel, "tooltipStatusText");
+
+            Assert.IsNotNull(settingsGroup);
+            Assert.IsNotNull(settingsBackButton);
+            Assert.IsNotNull(tooltipToggle);
+            Assert.IsNotNull(tooltipStatusText);
+
+            Transform tooltipRow = settingsGroup.transform.Find("TooltipRow");
+            Assert.IsNotNull(tooltipRow, "SettingsGroup 내에 TooltipRow가 자동 생성되어야 합니다.");
+            Assert.Less(tooltipRow.GetSiblingIndex(), settingsBackButton.transform.GetSiblingIndex(), "TooltipRow는 SettingsBackButton 위에 배치되어야 합니다.");
+
+            Assert.IsTrue(TooltipManager.IsTooltipEnabled);
+            Assert.IsTrue(tooltipToggle.isOn);
+            Assert.AreEqual("ON", tooltipStatusText.text);
+
+            // UI 토글 조작 -> TooltipManager 전역 상태 반영 확인
+            tooltipToggle.isOn = false;
+            Assert.IsFalse(TooltipManager.IsTooltipEnabled);
+            Assert.AreEqual("OFF", tooltipStatusText.text);
+
+            // 외부([T] 단축키 등)에서 상태 변경 -> 설정 UI 자동 동기화 확인
+            TooltipManager.SetTooltipEnabled(true);
+            Assert.IsTrue(tooltipToggle.isOn);
+            Assert.AreEqual("ON", tooltipStatusText.text);
+        }
+        finally
+        {
+            InvokePrivateMethod(pausePanel, "OnDisable");
+            InvokePrivateMethod(pausePanel, "OnDestroy");
+        }
     }
 
     [Test]
@@ -583,5 +773,32 @@ public class BattleSideHUDAndTooltipTests
         MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         Assert.IsNotNull(method, $"Method '{methodName}' not found on {target.GetType().Name}");
         return method.Invoke(target, args);
+    }
+
+    private static T GetStaticPrivateField<T>(Type targetType, string fieldName)
+    {
+        FieldInfo field = targetType.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(field, $"Static field '{fieldName}' not found on {targetType.Name}");
+        return (T)field.GetValue(null);
+    }
+
+    private static object InvokeStaticPrivateMethod(Type targetType, string methodName, params object[] args)
+    {
+        MethodInfo method = targetType.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(method, $"Static method '{methodName}' not found on {targetType.Name}");
+        return method.Invoke(null, args);
+    }
+
+    private static void RestoreIntPref(string key, bool hadKey, int previousValue)
+    {
+        if (hadKey)
+        {
+            PlayerPrefs.SetInt(key, previousValue);
+        }
+        else
+        {
+            PlayerPrefs.DeleteKey(key);
+        }
+        PlayerPrefs.Save();
     }
 }

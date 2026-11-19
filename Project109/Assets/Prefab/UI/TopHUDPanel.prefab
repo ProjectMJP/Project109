@@ -871,7 +871,7 @@ GameObject:
   - component: {fileID: 2240859791834385432}
   - component: {fileID: 2489424909699628864}
   m_Layer: 5
-  m_Name: TooltipToggleButton
+  m_Name: SpeedToggleButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -918,7 +918,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.14, g: 0.28, b: 0.36, a: 0.95}
+  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.95}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1232,9 +1232,9 @@ MonoBehaviour:
   mapButton: {fileID: 4876209154344134058}
   deckButton: {fileID: 4394499775083990617}
   pauseMenuButton: {fileID: 770000000000000205}
-  tooltipToggleButton: {fileID: 2489424909699628864}
-  tooltipToggleText: {fileID: 7238884573064769322}
-  tooltipToggleBgImage: {fileID: 2240859791834385432}
+  speedToggleButton: {fileID: 2489424909699628864}
+  speedToggleText: {fileID: 7238884573064769322}
+  speedToggleBgImage: {fileID: 2240859791834385432}
   currencyImage: {fileID: 2277063529915236526}
   specialResourceImage: {fileID: 2427239346549446146}
   mapButtonImage: {fileID: 890297666290495420}
@@ -1484,7 +1484,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "[T] \uD234\uD301: ON"
+  m_text: "\uBC30\uC18D: 1x"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
@@ -1494,7 +1494,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 0.72, g: 0.96, b: 1, a: 1}
+  m_fontColor: {r: 0.82, g: 0.88, b: 0.94, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:

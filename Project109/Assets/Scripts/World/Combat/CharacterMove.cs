@@ -234,7 +234,7 @@ public class CharacterMove
             : this.character.transform.position;
         Vector3 targetPosXZ = new Vector3(targetTile.transform.position.x, startPos.y, targetTile.transform.position.z);
         Vector3 midPoint = Vector3.Lerp(startPos, targetPosXZ, 0.5f);
-        float effectiveSpeed = moveSpeed * Mathf.Max(0.1f, speedMultiplier);
+        float baseEffectiveSpeed = moveSpeed * Mathf.Max(0.1f, speedMultiplier);
 
         while (Vector3.Distance(this.character.transform.position, midPoint) > 0.02f)
         {
@@ -244,6 +244,8 @@ public class CharacterMove
                 yield break;
             }
 
+            float battleSpeed = Mathf.Max(0.1f, BattleManager.GlobalBattleSpeed);
+            float effectiveSpeed = baseEffectiveSpeed * battleSpeed;
             this.character.transform.position = Vector3.MoveTowards(this.character.transform.position, midPoint, effectiveSpeed * Time.deltaTime);
             yield return null;
         }
@@ -259,6 +261,8 @@ public class CharacterMove
 
         while (this.character != null && !this.character.isDead && Vector3.Distance(this.character.transform.position, startPos) > 0.02f)
         {
+            float battleSpeed = Mathf.Max(0.1f, BattleManager.GlobalBattleSpeed);
+            float effectiveSpeed = baseEffectiveSpeed * battleSpeed;
             this.character.transform.position = Vector3.MoveTowards(this.character.transform.position, startPos, effectiveSpeed * Time.deltaTime);
             yield return null;
         }
@@ -325,7 +329,7 @@ public class CharacterMove
         bool halfwayInvoked = false;
 
         bool triggerHazards = !moveFlags.HasFlag(MoveFlag.Teleport);
-        float effectiveSpeed = moveSpeed * Mathf.Max(0.1f, speedMultiplier);
+        float baseEffectiveSpeed = moveSpeed * Mathf.Max(0.1f, speedMultiplier);
         int currentIndex = 0;
         while (currentIndex < movePath.Count)
         {
@@ -343,6 +347,10 @@ public class CharacterMove
                 continue;
             }
 
+            float battleSpeed = Mathf.Max(0.1f, BattleManager.GlobalBattleSpeed);
+            float effectiveSpeed = baseEffectiveSpeed * battleSpeed;
+            float effectiveTurnSpeed = turnSpeed * battleSpeed;
+
             // 목표 위치(캐릭터 지상 Y 평면 유지)로 이동 및 일반 이동 시 수평 회전 보간
             Vector3 rawTargetPos = stepTile.transform.position;
             Vector3 targetPos = new Vector3(rawTargetPos.x, this.character.transform.position.y, rawTargetPos.z);
@@ -357,7 +365,7 @@ public class CharacterMove
                 SetFacingDirection(newDirection, false);
 
                 Quaternion targetRotation = Quaternion.LookRotation(directionVector);
-                this.character.transform.rotation = Quaternion.RotateTowards(this.character.transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
+                this.character.transform.rotation = Quaternion.RotateTowards(this.character.transform.rotation, targetRotation, effectiveTurnSpeed * Time.deltaTime);
             }
 
             if (!halfwayInvoked && onHalfway != null)
