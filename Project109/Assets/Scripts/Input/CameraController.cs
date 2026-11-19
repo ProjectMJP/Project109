@@ -7,6 +7,7 @@ public class CameraController : MonoBehaviour
 
     private Camera mainCamera;
     private Vector3 dragOrigin;
+    private bool _isDraggingWorld = false;
 
     private void Awake()
     {
@@ -19,21 +20,34 @@ public class CameraController : MonoBehaviour
     private void Start()
     {
         if (mainCamera == null) mainCamera = Camera.main;
-
-        if (PlayerInputController.instance != null)
-        {
-            PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
-            PlayerInputController.instance.OnTouchStartEvent += HandleTouchStart;
-
-            PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
-            PlayerInputController.instance.OnTouchDragEvent += HandleTouchDrag;
-        }
+        SubscribeInputEvents();
     }
 
     private void OnEnable()
     {
         if (mainCamera == null) mainCamera = Camera.main;
+        SubscribeInputEvents();
+    }
 
+    private void OnDisable()
+    {
+        _isDraggingWorld = false;
+        UnsubscribeInputEvents();
+    }
+
+    private void OnDestroy()
+    {
+        _isDraggingWorld = false;
+        UnsubscribeInputEvents();
+
+        if (instance == this)
+        {
+            instance = null;
+        }
+    }
+
+    private void SubscribeInputEvents()
+    {
         if (PlayerInputController.instance != null)
         {
             PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
@@ -41,35 +55,61 @@ public class CameraController : MonoBehaviour
 
             PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
             PlayerInputController.instance.OnTouchDragEvent += HandleTouchDrag;
+
+            PlayerInputController.instance.OnTouchEndEvent -= HandleTouchEnd;
+            PlayerInputController.instance.OnTouchEndEvent += HandleTouchEnd;
         }
     }
 
-    private void OnDisable()
+    private void UnsubscribeInputEvents()
     {
-        if (PlayerInputController.instance != null)
+        // 종료/해제 시점에는 HasInstance를 먼저 확인하여 불필요한 싱글턴 지연 생성을 방지합니다.
+        if (PlayerInputController.HasInstance)
         {
             PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
             PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
+            PlayerInputController.instance.OnTouchEndEvent -= HandleTouchEnd;
         }
     }
 
     private void HandleTouchStart(Vector2 screenPos)
     {
-        if (mainCamera != null)
+        if (mainCamera == null ||
+            UIDragInputGuard.IsAnyUIDragging ||
+            (PlayerInputController.HasInstance && PlayerInputController.instance.IsPointerDragBlockedByUI))
         {
-            dragOrigin = mainCamera.ScreenToWorldPoint(screenPos);
+            _isDraggingWorld = false;
+            return;
         }
+
+        _isDraggingWorld = true;
+        dragOrigin = mainCamera.ScreenToWorldPoint(screenPos);
     }
 
     private void HandleTouchDrag(Vector2 screenPos)
     {
-        if (mainCamera == null) return;
+        if (!_isDraggingWorld || mainCamera == null)
+        {
+            return;
+        }
+
+        if (UIDragInputGuard.IsAnyUIDragging ||
+            (PlayerInputController.HasInstance && PlayerInputController.instance.IsPointerDragBlockedByUI))
+        {
+            _isDraggingWorld = false;
+            return;
+        }
 
         Vector3 dragDiff = dragOrigin - mainCamera.ScreenToWorldPoint(screenPos);
         mainCamera.transform.position = CameraMoveInClampArea(mainCamera.transform.position + dragDiff);
 
         // 부자연스러운 움직임을 막기 위해 마지막에 있던 마우스 위치값 업데이트
         dragOrigin = mainCamera.ScreenToWorldPoint(screenPos);
+    }
+
+    private void HandleTouchEnd()
+    {
+        _isDraggingWorld = false;
     }
 
     public void CameraFocusToTarget(Vector3 targetPos)

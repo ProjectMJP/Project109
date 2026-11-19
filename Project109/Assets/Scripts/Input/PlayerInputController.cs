@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PlayerInputController : MonoBehaviour
@@ -38,6 +39,7 @@ public class PlayerInputController : MonoBehaviour
     // 이벤트 정의
     public event Action<Vector2> OnTouchStartEvent;
     public event Action<Vector2> OnTouchDragEvent;
+    public event Action OnTouchEndEvent;
     public event Action<Vector2> OnTouchClickEvent;
     public event Action<Vector2> OnPointerHoverEvent; // 마우스/포인터 실시간 이동(호버) 이벤트
     public event Action OnCancelEvent; // 우클릭 및 ESC 취소 이벤트
@@ -47,6 +49,16 @@ public class PlayerInputController : MonoBehaviour
     /// UIManager.IsWorldInputBlocked 상태와 동기화됩니다.
     /// </summary>
     public bool IsWorldInputBlocked { get; set; } = false;
+
+    /// <summary>
+    /// 현재 포인터 드래그가 UI 위에서 시작되었거나 활성 UI 드래그 가드에 의해 차단되는지 여부입니다.
+    /// </summary>
+    public bool IsPointerDragBlockedByUI => _startedOverUI || UIDragInputGuard.IsAnyUIDragging;
+
+    /// <summary>
+    /// 에디터 테스트에서 포인터의 UI 위 여부를 결정론적으로 제어하기 위한 오버라이드 델리게이트입니다.
+    /// </summary>
+    public Func<bool> PointerOverUIOverrideForTest;
 
     /// <summary>
     /// OnCancelEvent가 발행되는 시점에 월드 입력이 차단 상태였는지 여부입니다.
@@ -65,6 +77,7 @@ public class PlayerInputController : MonoBehaviour
     private Vector2 lastHoverPos;
     private bool isClickPending;
     private Vector2 pendingClickPos;
+    private bool _startedOverUI = false;
     private bool _isInitialized = false;
 
     private void Update()
@@ -163,38 +176,83 @@ public class PlayerInputController : MonoBehaviour
 
     public void OnDisable()
     {
+        _startedOverUI = false;
         playerInputAction?.Disable();
     }
 
-
-    private void OnTouchStart(InputAction.CallbackContext context)
+    private bool IsPointerCurrentlyOverUI()
     {
-        startTouchPos = context.ReadValue<Vector2>();
+        if (PointerOverUIOverrideForTest != null)
+        {
+            return PointerOverUIOverrideForTest();
+        }
 
-        if (IsWorldInputBlocked) return;
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+    }
+
+    /// <summary>
+    /// 터치/드래그 시작 좌표를 기록하고 UI 위에서 시작되지 않았을 때만 월드 터치 시작 이벤트를 발행합니다.
+    /// </summary>
+    public void ProcessTouchStart(Vector2 pos)
+    {
+        startTouchPos = pos;
+        lastTouchPos = pos;
+        _startedOverUI = IsPointerCurrentlyOverUI();
+
+        if (IsWorldInputBlocked || IsPointerDragBlockedByUI)
+        {
+            return;
+        }
 
         OnTouchStartEvent?.Invoke(startTouchPos);
     }
 
-    private void OnDrag(InputAction.CallbackContext context)
+    /// <summary>
+    /// 터치/드래그 이동 좌표를 갱신하고 UI 드래그 차단 중이 아닐 때만 월드 드래그 이벤트를 발행합니다.
+    /// </summary>
+    public void ProcessTouchDrag(Vector2 pos)
     {
-        lastTouchPos = context.ReadValue<Vector2>();
+        lastTouchPos = pos;
 
-        if (IsWorldInputBlocked) return;
+        if (IsWorldInputBlocked || IsPointerDragBlockedByUI)
+        {
+            return;
+        }
 
         OnTouchDragEvent?.Invoke(lastTouchPos);
     }
 
-    private void OnTouchClick(InputAction.CallbackContext context)
+    /// <summary>
+    /// 터치/드래그 종료를 처리하여 UI 시작 플래그를 해제하고 종료 이벤트 및 클릭 판정을 수행합니다.
+    /// </summary>
+    public void ProcessTouchEnd()
     {
-        // 클릭과 드래그 판정 로직
-        if (Vector2.Distance(startTouchPos, lastTouchPos) <= 20.0f)
-        {
-            if (IsWorldInputBlocked) return;
+        bool wasBlocked = _startedOverUI || UIDragInputGuard.IsAnyUIDragging;
+        _startedOverUI = false;
 
+        OnTouchEndEvent?.Invoke();
+
+        // 클릭과 드래그 판정 로직
+        if (!wasBlocked && !IsWorldInputBlocked && Vector2.Distance(startTouchPos, lastTouchPos) <= 20.0f)
+        {
             isClickPending = true;
             pendingClickPos = lastTouchPos;
         }
+    }
+
+    private void OnTouchStart(InputAction.CallbackContext context)
+    {
+        ProcessTouchStart(context.ReadValue<Vector2>());
+    }
+
+    private void OnDrag(InputAction.CallbackContext context)
+    {
+        ProcessTouchDrag(context.ReadValue<Vector2>());
+    }
+
+    private void OnTouchClick(InputAction.CallbackContext context)
+    {
+        ProcessTouchEnd();
     }
 
     /// <summary>

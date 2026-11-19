@@ -75,6 +75,20 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private static readonly Vector2 DefaultCardSize = new Vector2(185f, 325f);
     private static readonly Vector2 CenterAnchorPivot = new Vector2(0.5f, 0.5f);
+    private static readonly List<CardUI> _activeDraggingCards = new List<CardUI>();
+    private static int _activeCardDragCount = 0;
+
+    /// <summary>
+    /// 현재 드래그 중인 카드 UI가 하나 이상 존재하는지 여부입니다.
+    /// </summary>
+    public static bool IsAnyCardDragging
+    {
+        get
+        {
+            PruneDeadDraggingCards();
+            return _activeCardDragCount > 0;
+        }
+    }
 
     /// <summary>
     /// 카드 호버 줌이 시작될 때 외부 레이아웃 트윈과의 충돌을 막기 위해 호출되는 이벤트입니다.
@@ -86,6 +100,67 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public bool IsEntering => _isEntering;
     public bool IsDiscarding => _isDiscarding;
     public bool IsDragging => _isDragging;
+
+    private static void PruneDeadDraggingCards()
+    {
+        if (_activeDraggingCards.Count == 0)
+        {
+            _activeCardDragCount = 0;
+            return;
+        }
+
+        for (int i = _activeDraggingCards.Count - 1; i >= 0; i--)
+        {
+            CardUI card = _activeDraggingCards[i];
+            if (card == null)
+            {
+                if (!ReferenceEquals(card, null))
+                {
+                    UIDragInputGuard.EndDrag(card);
+                }
+                _activeDraggingCards.RemoveAt(i);
+            }
+        }
+
+        _activeCardDragCount = _activeDraggingCards.Count;
+    }
+
+    /// <summary>
+    /// 카드의 드래그 상태와 전역 UI 드래그 가드 카운터를 멱등적으로 동기화합니다.
+    /// </summary>
+    private void SetDraggingState(bool dragging)
+    {
+        if (dragging)
+        {
+            if (this == null)
+            {
+                return;
+            }
+
+            _isDragging = true;
+            PruneDeadDraggingCards();
+            if (!_activeDraggingCards.Contains(this))
+            {
+                _activeDraggingCards.Add(this);
+            }
+            _activeCardDragCount = _activeDraggingCards.Count;
+            UIDragInputGuard.BeginDrag(this);
+            return;
+        }
+
+        _isDragging = false;
+        if (this == null)
+        {
+            PruneDeadDraggingCards();
+            UIDragInputGuard.EndDrag(this);
+            return;
+        }
+
+        _activeDraggingCards.Remove(this);
+        PruneDeadDraggingCards();
+        _activeCardDragCount = _activeDraggingCards.Count;
+        UIDragInputGuard.EndDrag(this);
+    }
 
     public RectTransform CachedRectTransform
     {
@@ -123,7 +198,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private void OnDisable()
     {
         bool wasDragging = _isDragging;
-        _isDragging = false;
+        SetDraggingState(false);
         _dragCanceled = false;
         _lastClickUnscaledTime = -10f;
 
@@ -169,6 +244,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private void OnDestroy()
     {
+        SetDraggingState(false);
         CancelHoverMotions();
     }
 
@@ -225,7 +301,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (!interactable)
         {
             bool wasDragging = _isDragging;
-            _isDragging = false;
+            SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
 
@@ -264,7 +340,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             CancelHoverMotions();
             isZoomed = false;
-            _isDragging = false;
+            SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
         }
@@ -279,7 +355,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (discarding)
         {
             _isEntering = false;
-            _isDragging = false;
+            SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
             SetInteractable(false);
@@ -324,7 +400,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         _isEntering = false;
         _isDiscarding = false;
         _hasHandSlot = false;
-        _isDragging = false;
+        SetDraggingState(false);
         _dragCanceled = false;
         _lastClickUnscaledTime = -10f;
         _cachedRootCanvas = null;
@@ -460,7 +536,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             isZoomed = false;
             _isEntering = false;
             _isDiscarding = false;
-            _isDragging = false;
+            SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
             SetInteractable(true);
@@ -506,7 +582,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             isZoomed = false;
             _isEntering = false;
             _isDiscarding = false;
-            _isDragging = false;
+            SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
             SetInteractable(true);
@@ -751,7 +827,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (!usePlayGesture || !_isInteractable || _isEntering || _isDiscarding) return;
         if (eventData != null && eventData.button != PointerEventData.InputButton.Left) return;
 
-        _isDragging = true;
+        SetDraggingState(true);
         _dragCanceled = false;
         _lastClickUnscaledTime = -10f;
 
@@ -834,7 +910,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     /// </summary>
     public void CancelDrag()
     {
-        _isDragging = false;
+        SetDraggingState(false);
         _dragCanceled = true;
         isZoomed = false;
 
@@ -854,7 +930,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     {
         if (!_isDragging) return;
 
-        _isDragging = false;
+        SetDraggingState(false);
         isZoomed = false;
 
         Vector2 basePos = _hasHandSlot ? _baseAnchoredPosition : (Vector2)originalPosition;
