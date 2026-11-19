@@ -6,6 +6,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using XLua;
 
+public enum TooltipPlacementMode
+{
+    AutoQuadrant,
+    HorizontalInward
+}
+
 public struct TooltipData
 {
     public string header;
@@ -21,7 +27,40 @@ public struct TooltipData
 [RequireComponent(typeof(RectTransform))]
 public class TooltipManager : MonoBehaviour
 {
+    private static bool _isTooltipEnabled = true;
+    public static bool IsTooltipEnabled => _isTooltipEnabled;
+    public static event System.Action<bool> OnTooltipEnabledChanged;
+
     private static TooltipManager instance;
+    public static bool HasInstance => instance != null;
+
+    public static void SetTooltipEnabled(bool enabled)
+    {
+        _isTooltipEnabled = enabled;
+        if (instance != null)
+        {
+            if (instance._hasActiveTooltipRequest)
+            {
+                instance.RenderCurrentTooltipState();
+            }
+            else if (!enabled && instance.gameObject.activeSelf)
+            {
+                instance.HideTooltip();
+            }
+        }
+        OnTooltipEnabledChanged?.Invoke(_isTooltipEnabled);
+    }
+
+    public static bool ToggleGlobalTooltipEnabled()
+    {
+        SetTooltipEnabled(!_isTooltipEnabled);
+        return _isTooltipEnabled;
+    }
+
+    public bool ToggleTooltipEnabled()
+    {
+        return ToggleGlobalTooltipEnabled();
+    }
     public static TooltipManager Instance
     {
         get
@@ -63,6 +102,9 @@ public class TooltipManager : MonoBehaviour
 
     // 고정 배치 타겟 임시 보관 및 진입 사분면 잠금 상태
     private RectTransform currentTargetRect;
+    private TooltipPlacementMode _currentPlacementMode = TooltipPlacementMode.AutoQuadrant;
+    private readonly List<TooltipData> _cachedTooltips = new List<TooltipData>(4);
+    private bool _hasActiveTooltipRequest = false;
     private readonly Vector3[] cornersCache = new Vector3[4];
     private float _lockedPivotX = 0f;
     private float _lockedPivotY = 1f;
@@ -209,7 +251,11 @@ public class TooltipManager : MonoBehaviour
         }
     }
 
-    public void ShowTooltip(string title, string content, RectTransform targetRect = null)
+    public void ShowTooltip(
+        string title,
+        string content,
+        RectTransform targetRect = null,
+        TooltipPlacementMode placementMode = TooltipPlacementMode.AutoQuadrant)
     {
         // 1. 본문의 [type.id] 키워드를 유저용 강조 텍스트로 치환
         string displayTitle = ReplaceKeywordsForDisplay(title);
@@ -220,13 +266,16 @@ public class TooltipManager : MonoBehaviour
         // 2. 원본 본문(content) 스캔 후 추가 키워드 검출
         AppendKeywordTooltips(content, tooltips);
 
-        ShowTooltips(tooltips, targetRect);
+        ShowTooltips(tooltips, targetRect, placementMode);
     }
 
     /// <summary>
     /// 카드 UI 등 이미 제목과 본문이 표시된 대상에서 키워드([cardtag.*], [effect.*] 등) 서브 툴팁만 추출해 표시합니다.
     /// </summary>
-    public void ShowKeywordTooltips(string content, RectTransform targetRect = null)
+    public void ShowKeywordTooltips(
+        string content,
+        RectTransform targetRect = null,
+        TooltipPlacementMode placementMode = TooltipPlacementMode.AutoQuadrant)
     {
         if (string.IsNullOrEmpty(content))
         {
@@ -242,7 +291,7 @@ public class TooltipManager : MonoBehaviour
             return;
         }
 
-        ShowTooltips(tooltips, targetRect);
+        ShowTooltips(tooltips, targetRect, placementMode);
     }
 
     private void AppendKeywordTooltips(string content, List<TooltipData> tooltips)
@@ -336,9 +385,41 @@ public class TooltipManager : MonoBehaviour
         }
     }
 
-    public void ShowTooltips(List<TooltipData> tooltips, RectTransform targetRect = null)
+    public void ShowTooltips(
+        List<TooltipData> tooltips,
+        RectTransform targetRect = null,
+        TooltipPlacementMode placementMode = TooltipPlacementMode.AutoQuadrant)
     {
-        if (tooltips == null || tooltips.Count == 0)
+        _cachedTooltips.Clear();
+        if (tooltips != null)
+        {
+            for (int i = 0; i < tooltips.Count; i++)
+            {
+                TooltipData data = tooltips[i];
+                if (!string.IsNullOrEmpty(data.header) || !string.IsNullOrEmpty(data.body))
+                {
+                    _cachedTooltips.Add(data);
+                }
+            }
+        }
+
+        if (_cachedTooltips.Count == 0)
+        {
+            HideTooltip();
+            return;
+        }
+
+        currentTargetRect = targetRect;
+        _currentPlacementMode = placementMode;
+        _hasLockedQuadrant = false;
+        _hasActiveTooltipRequest = true;
+
+        RenderCurrentTooltipState();
+    }
+
+    private void RenderCurrentTooltipState()
+    {
+        if (!_hasActiveTooltipRequest || _cachedTooltips.Count == 0)
         {
             HideTooltip();
             return;
@@ -350,36 +431,70 @@ public class TooltipManager : MonoBehaviour
         EnsureInitialized();
         ClearCurrentPanels();
 
-        currentTargetRect = targetRect;
-
-        foreach (var data in tooltips)
+        if (_isTooltipEnabled)
         {
-            if (string.IsNullOrEmpty(data.header) && string.IsNullOrEmpty(data.body)) continue;
-
-            TooltipPanel panel = GetOrCreatePanel();
-            if (panel != null)
+            for (int i = 0; i < _cachedTooltips.Count; i++)
             {
-                panel.Setup(data.header, data.body);
-                panel.transform.SetAsLastSibling();
-                panel.gameObject.SetActive(true);
-                activePanels.Add(panel);
+                TooltipData data = _cachedTooltips[i];
+                TooltipPanel panel = GetOrCreatePanel();
+                if (panel != null)
+                {
+                    panel.Setup(data.header, data.body);
+                    panel.transform.SetAsLastSibling();
+                    panel.gameObject.SetActive(true);
+                    activePanels.Add(panel);
+                }
+            }
+
+            // 가장 아래쪽 툴팁 박스에만 [T] 툴팁 숨기기 안내 캡션 표시
+            for (int i = 0; i < activePanels.Count; i++)
+            {
+                activePanels[i].SetHintCaptionVisible(i == activePanels.Count - 1, "[T] 툴팁 숨기기");
+            }
+        }
+        else
+        {
+            TooltipPanel compactPanel = GetOrCreatePanel();
+            if (compactPanel != null)
+            {
+                compactPanel.SetupCompactHint("[T] 툴팁 보기");
+                compactPanel.transform.SetAsLastSibling();
+                compactPanel.gameObject.SetActive(true);
+                activePanels.Add(compactPanel);
             }
         }
 
         // 레이아웃 즉시 계산 및 위치 지정
         Canvas.ForceUpdateCanvases();
+        for (int i = 0; i < activePanels.Count; i++)
+        {
+            if (activePanels[i] != null)
+            {
+                RectTransform panelRect = activePanels[i].transform as RectTransform;
+                if (panelRect != null)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+                }
+            }
+        }
         if (rectTransform != null)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
         }
-        LockQuadrantDirection();
+        if (!_hasLockedQuadrant)
+        {
+            LockQuadrantDirection();
+        }
         UpdatePosition();
     }
 
     public void HideTooltip()
     {
+        _cachedTooltips.Clear();
+        _hasActiveTooltipRequest = false;
         ClearCurrentPanels();
         currentTargetRect = null;
+        _currentPlacementMode = TooltipPlacementMode.AutoQuadrant;
         _hasLockedQuadrant = false;
         gameObject.SetActive(false);
     }
@@ -557,7 +672,14 @@ public class TooltipManager : MonoBehaviour
         }
 
         _lockedPivotX = refPos.x <= canvasCenter.x ? 0f : 1f;
-        _lockedPivotY = refPos.y >= canvasCenter.y ? 1f : 0f;
+        if (_currentPlacementMode == TooltipPlacementMode.HorizontalInward)
+        {
+            _lockedPivotY = 1f;
+        }
+        else
+        {
+            _lockedPivotY = refPos.y >= canvasCenter.y ? 1f : 0f;
+        }
         _hasLockedQuadrant = true;
     }
 
@@ -609,45 +731,55 @@ public class TooltipManager : MonoBehaviour
         if (currentTargetRect != null &&
             TryGetTargetCanvasBounds(canvasRect, parentEventCamera, out float targetMinX, out float targetMaxX, out float targetMinY, out float targetMaxY, out _))
         {
-            // 분기 A: currentTargetRect 모서리 고정 배치 (화면 중앙 방향 우선, 경계 초과 시 공간 확인 후 반전)
             float offsetX = Mathf.Max(8f, Mathf.Abs(targetOffset.x));
             float offsetY = targetOffset.y;
 
-            if (pivotX == 0f)
+            if (_currentPlacementMode == TooltipPlacementMode.HorizontalInward)
             {
-                finalX = targetMaxX + offsetX;
-                if (finalX + W > maxScreenX - padding && targetMinX - offsetX - W >= minScreenX + padding)
-                {
-                    pivotX = 1f;
-                    finalX = targetMinX - offsetX;
-                }
+                // 좌측 패널은 오른쪽으로(pivotX=0), 우측 패널은 왼쪽으로(pivotX=1) 화면 중앙 방향을 유지하고 상단 정렬
+                finalX = pivotX == 0f ? targetMaxX + offsetX : targetMinX - offsetX;
+                pivotY = 1f;
+                finalY = targetMaxY;
             }
             else
             {
-                finalX = targetMinX - offsetX;
-                if (finalX - W < minScreenX + padding && targetMaxX + offsetX + W <= maxScreenX - padding)
+                // 분기 A: currentTargetRect 모서리 고정 배치 (화면 중앙 방향 우선, 경계 초과 시 공간 확인 후 반전)
+                if (pivotX == 0f)
                 {
-                    pivotX = 0f;
                     finalX = targetMaxX + offsetX;
+                    if (finalX + W > maxScreenX - padding && targetMinX - offsetX - W >= minScreenX + padding)
+                    {
+                        pivotX = 1f;
+                        finalX = targetMinX - offsetX;
+                    }
                 }
-            }
+                else
+                {
+                    finalX = targetMinX - offsetX;
+                    if (finalX - W < minScreenX + padding && targetMaxX + offsetX + W <= maxScreenX - padding)
+                    {
+                        pivotX = 0f;
+                        finalX = targetMaxX + offsetX;
+                    }
+                }
 
-            if (pivotY == 1f)
-            {
-                finalY = targetMaxY - offsetY;
-                if (finalY - H < minScreenY + padding)
+                if (pivotY == 1f)
                 {
-                    pivotY = 0f;
-                    finalY = targetMinY + offsetY;
-                }
-            }
-            else
-            {
-                finalY = targetMinY + offsetY;
-                if (finalY + H > maxScreenY - padding)
-                {
-                    pivotY = 1f;
                     finalY = targetMaxY - offsetY;
+                    if (finalY - H < minScreenY + padding)
+                    {
+                        pivotY = 0f;
+                        finalY = targetMinY + offsetY;
+                    }
+                }
+                else
+                {
+                    finalY = targetMinY + offsetY;
+                    if (finalY + H > maxScreenY - padding)
+                    {
+                        pivotY = 1f;
+                        finalY = targetMaxY - offsetY;
+                    }
                 }
             }
         }

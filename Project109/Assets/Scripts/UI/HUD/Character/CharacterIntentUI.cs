@@ -250,7 +250,7 @@ public class CharacterIntentUI : MonoBehaviour, IWorldFollowUI, IPointerEnterHan
         if (_hasShownTooltip)
         {
             _hasShownTooltip = false;
-            if (TooltipManager.Instance != null && TooltipManager.Instance.gameObject.activeSelf)
+            if (TooltipManager.HasInstance && TooltipManager.Instance.gameObject.activeSelf)
             {
                 TooltipManager.Instance.HideTooltip();
             }

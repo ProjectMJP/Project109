@@ -22,6 +22,16 @@ public class TopHUDPanel : UIPanelBase
     [SerializeField] private Button deckButton;
     [SerializeField] private Button pauseMenuButton;
 
+    [Header("Tooltip Toggle")]
+    [SerializeField] private Button tooltipToggleButton;
+    [SerializeField] private TextMeshProUGUI tooltipToggleText;
+    [SerializeField] private Image tooltipToggleBgImage;
+
+    private static readonly Color TooltipOnBgColor = new Color(0.14f, 0.28f, 0.36f, 0.95f);
+    private static readonly Color TooltipOnTextColor = new Color(0.72f, 0.96f, 1f, 1f);
+    private static readonly Color TooltipOffBgColor = new Color(0.28f, 0.16f, 0.18f, 0.95f);
+    private static readonly Color TooltipOffTextColor = new Color(0.86f, 0.65f, 0.65f, 1f);
+
     [Header("UI Texture")]
     [SerializeField] private Image currencyImage;
     [SerializeField] private Image specialResourceImage;
@@ -47,14 +57,18 @@ public class TopHUDPanel : UIPanelBase
     {
         GameSceneManager.OnSceneLocationChanged += RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged += RefreshLocationAndNavigationState;
+        TooltipManager.OnTooltipEnabledChanged -= RefreshTooltipToggleVisual;
+        TooltipManager.OnTooltipEnabledChanged += RefreshTooltipToggleVisual;
         EnsureTierLayoutReferences();
         RefreshLocationAndNavigationState();
+        RefreshTooltipToggleVisual(TooltipManager.IsTooltipEnabled);
     }
 
     private void OnDisable()
     {
         GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
+        TooltipManager.OnTooltipEnabledChanged -= RefreshTooltipToggleVisual;
     }
 
     public override void OnOpen()
@@ -62,6 +76,7 @@ public class TopHUDPanel : UIPanelBase
         base.OnOpen();
         EnsureTierLayoutReferences();
         RefreshLocationAndNavigationState();
+        RefreshTooltipToggleVisual(TooltipManager.IsTooltipEnabled);
     }
 
     /// <summary>
@@ -208,6 +223,7 @@ public class TopHUDPanel : UIPanelBase
         }
 
         BindPauseMenuButton();
+        BindTooltipToggleButton();
 
         if (AssetCacheManager.instance != null)
         {
@@ -221,6 +237,34 @@ public class TopHUDPanel : UIPanelBase
         {
             pauseMenuButton.onClick.RemoveListener(OpenPauseMenu);
             pauseMenuButton.onClick.AddListener(OpenPauseMenu);
+        }
+    }
+
+    private void BindTooltipToggleButton()
+    {
+        if (tooltipToggleButton != null)
+        {
+            tooltipToggleButton.onClick.RemoveListener(HandleTooltipToggleClicked);
+            tooltipToggleButton.onClick.AddListener(HandleTooltipToggleClicked);
+        }
+    }
+
+    private void HandleTooltipToggleClicked()
+    {
+        TooltipManager.ToggleGlobalTooltipEnabled();
+    }
+
+    private void RefreshTooltipToggleVisual(bool isEnabled)
+    {
+        if (tooltipToggleText != null)
+        {
+            tooltipToggleText.text = isEnabled ? "[T] 툴팁: ON" : "[T] 툴팁: OFF";
+            tooltipToggleText.color = isEnabled ? TooltipOnTextColor : TooltipOffTextColor;
+        }
+
+        if (tooltipToggleBgImage != null)
+        {
+            tooltipToggleBgImage.color = isEnabled ? TooltipOnBgColor : TooltipOffBgColor;
         }
     }
 
@@ -332,7 +376,29 @@ public class TopHUDPanel : UIPanelBase
             }
         }
 
+        if (tooltipToggleButton == null)
+        {
+            Transform tooltipTr = hudPanel.Find("TooltipToggleButton");
+            if (tooltipTr != null)
+            {
+                tooltipToggleButton = tooltipTr.GetComponent<Button>();
+            }
+        }
+
+        if (tooltipToggleButton != null)
+        {
+            if (tooltipToggleText == null)
+            {
+                tooltipToggleText = tooltipToggleButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+            if (tooltipToggleBgImage == null)
+            {
+                tooltipToggleBgImage = tooltipToggleButton.GetComponent<Image>();
+            }
+        }
+
         BindPauseMenuButton();
+        BindTooltipToggleButton();
     }
 
     public void UpdateGold(int amount)
