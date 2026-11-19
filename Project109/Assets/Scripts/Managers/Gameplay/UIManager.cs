@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
@@ -146,6 +148,24 @@ public class UIManager : MonoBehaviour
         if (instance == this)
         {
             instance = null;
+        }
+    }
+
+    private void Update()
+    {
+        // 전역 [T] 단축키로 툴팁 표시 On/Off 토글 (입력 필드 포커스 중에는 무시)
+        if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
+        {
+            if (EventSystem.current != null)
+            {
+                GameObject selected = EventSystem.current.currentSelectedGameObject;
+                if (selected != null && selected.GetComponent<TMP_InputField>() != null)
+                {
+                    return;
+                }
+            }
+
+            TooltipManager.ToggleGlobalTooltipEnabled();
         }
     }
 
@@ -478,14 +498,6 @@ public class UIManager : MonoBehaviour
     public CharacterEffectListUI CreateEffectListUI(Transform target, Vector3 offset)
     {
         return CreateWorldUI<CharacterEffectListUI>(UIConstants.PREFAB_CHARACTER_EFFECT_LIST, target, offset);
-    }
-
-    /// <summary>
-    /// 캐릭터의 우측 이펙트 상세 툴팁(CharacterEffectDetailUI)을 World UI Layer 하위에 생성하여 반환합니다.
-    /// </summary>
-    public CharacterEffectDetailUI CreateEffectDetailUI(Transform target, Vector3 offset)
-    {
-        return CreateWorldUI<CharacterEffectDetailUI>(UIConstants.PREFAB_CHARACTER_EFFECT_DETAIL, target, offset);
     }
 
     /// <summary>
@@ -830,6 +842,11 @@ public class UIManager : MonoBehaviour
     public BattleTimelinePanel GetOrSpawnBattleTimelineUI()
     {
         return OpenUI<BattleTimelinePanel>(UIConstants.PANEL_BATTLE_TIMELINE, UILayerType.Top, false);
+    }
+
+    public BattleSideUnitHUDPanel GetOrSpawnBattleSideUnitHUD()
+    {
+        return OpenUI<BattleSideUnitHUDPanel>(UIConstants.PANEL_BATTLE_SIDE_UNIT_HUD, UILayerType.Top, false);
     }
     #endregion
 }

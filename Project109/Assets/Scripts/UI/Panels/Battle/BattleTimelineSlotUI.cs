@@ -57,7 +57,6 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
     private bool _isHighlighted;
     private bool _isPointerHovering;
     private bool _hasShownTooltip;
-    private Character _highlightedWorldChar;
 
     // 툴팁 문자열 재사용 버퍼
     private readonly StringBuilder _tooltipBuilder = new StringBuilder(192);
@@ -120,13 +119,6 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
     /// </summary>
     public void Bind(in TimelineEntry entry, bool isGhost = false)
     {
-        // 호버 중 대상 캐릭터가 바뀐 경우 기존 월드 하이라이트 정리
-        if (_highlightedWorldChar != null && _highlightedWorldChar != entry.character)
-        {
-            CharacterUIController.SetTimelineHighlightFor(_highlightedWorldChar, false);
-            _highlightedWorldChar = null;
-        }
-
         _boundEntry = entry;
         _isGhost = isGhost;
 
@@ -341,9 +333,6 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
             BattleTimelinePanel.Instance.NotifySlotPointerEnter(this);
         }
 
-        _highlightedWorldChar = _boundEntry.character;
-        CharacterUIController.SetTimelineHighlightFor(_highlightedWorldChar, true);
-
         ShowSlotTooltip();
     }
 
@@ -367,16 +356,10 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
             SetHighlighted(false);
         }
 
-        if (_highlightedWorldChar != null)
-        {
-            CharacterUIController.SetTimelineHighlightFor(_highlightedWorldChar, false);
-            _highlightedWorldChar = null;
-        }
-
         if (_hasShownTooltip)
         {
             _hasShownTooltip = false;
-            if (TooltipManager.Instance != null && TooltipManager.Instance.gameObject.activeSelf)
+            if (TooltipManager.HasInstance && TooltipManager.Instance.gameObject.activeSelf)
             {
                 TooltipManager.Instance.HideTooltip();
             }

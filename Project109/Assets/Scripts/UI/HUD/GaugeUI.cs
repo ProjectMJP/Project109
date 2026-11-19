@@ -22,13 +22,30 @@ public class GaugeUI : MonoBehaviour
             gaugeImageFilled = GetComponent<Image>();
         }
 
+        EnsureGaugeTextResolved();
+    }
+
+    private void EnsureGaugeTextResolved()
+    {
         if (gaugeText == null)
         {
-            gaugeText = GetComponentInChildren<TextMeshProUGUI>();
+            gaugeText = GetComponentInChildren<TextMeshProUGUI>(true);
             if (gaugeText == null && transform.parent != null)
             {
-                gaugeText = transform.parent.GetComponentInChildren<TextMeshProUGUI>();
+                gaugeText = transform.parent.GetComponentInChildren<TextMeshProUGUI>(true);
             }
+        }
+    }
+
+    /// <summary>
+    /// 게이지 수치 텍스트의 활성/비활성 표시 여부를 설정합니다.
+    /// </summary>
+    public void SetTextVisible(bool visible)
+    {
+        EnsureGaugeTextResolved();
+        if (gaugeText != null)
+        {
+            gaugeText.gameObject.SetActive(visible);
         }
     }
 

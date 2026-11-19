@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 1801369243050723180}
   - component: {fileID: 1700993845913266045}
   - component: {fileID: 1958439750202262461}
-  - component: {fileID: 6250169982118274846}
   m_Layer: 11
   m_Name: CharacterEffectListUI
   m_TagString: Untagged
@@ -36,7 +35,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 30}
+  m_SizeDelta: {x: 64, y: 10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1700993845913266045
 MonoBehaviour:
@@ -51,10 +50,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterEffectListUI
   targetTransform: {fileID: 0}
-  worldOffset: {x: 0, y: -1.8, z: 0}
+  worldOffset: {x: 0, y: -0.3, z: 0}
   useBillboard: 1
   effectContainer: {fileID: 1801369243050723180}
   effectItemPrefab: {fileID: 2042590773478752996, guid: 56e319e4c4cb8714097c59293af8ae52, type: 3}
+  useDotMode: 1
+  dotSize: 7
+  buffDotColor: {r: 0.24, g: 0.78, b: 1, a: 1}
+  debuffDotColor: {r: 0.95, g: 0.28, b: 0.3, a: 1}
+  dotSprite: {fileID: 0}
 --- !u!114 &1958439750202262461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -72,8 +76,8 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 4
-  m_Spacing: 5
+  m_ChildAlignment: 3
+  m_Spacing: 3
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 0
   m_ChildControlWidth: 0
@@ -81,17 +85,3 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!114 &6250169982118274846
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7743304361545892567}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
-  m_HorizontalFit: 2
-  m_VerticalFit: 2

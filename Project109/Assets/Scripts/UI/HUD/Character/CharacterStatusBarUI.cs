@@ -19,9 +19,13 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
     [SerializeField] private GaugeUI staminaGaugeUI;
     [SerializeField] private Color staminaColor = UIConstants.COLOR_STAMINA;
 
+    [Header("Display Options")]
+    [SerializeField] private bool showValueText = false;
+
     private Camera cachedCamera;
 
     public Transform TargetTransform => targetTransform;
+    public bool ShowValueText => showValueText;
     public Vector3 WorldOffset
     {
         get => worldOffset;
@@ -40,6 +44,7 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         else
         {
             healthGaugeUI.SetGaugeColor(healthColor);
+            healthGaugeUI.SetTextVisible(showValueText);
         }
 
         if (staminaGaugeUI == null)
@@ -49,6 +54,23 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         else
         {
             staminaGaugeUI.SetGaugeColor(staminaColor);
+            staminaGaugeUI.SetTextVisible(showValueText);
+        }
+    }
+
+    /// <summary>
+    /// 상태바 게이지 수치 텍스트 표시 여부를 동적으로 전환합니다.
+    /// </summary>
+    public void SetShowValueText(bool visible)
+    {
+        showValueText = visible;
+        if (healthGaugeUI != null)
+        {
+            healthGaugeUI.SetTextVisible(visible);
+        }
+        if (staminaGaugeUI != null)
+        {
+            staminaGaugeUI.SetTextVisible(visible);
         }
     }
 
@@ -67,37 +89,51 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
     }
 
     /// <summary>
-    /// 체력 및 실드 게이지의 채우기 비율, 색상, 수치 텍스트를 갱신합니다.
+    /// 체력 및 실드 게이지의 채우기 비율, 색상, (옵션) 수치 텍스트를 갱신합니다.
     /// </summary>
     public void UpdateHealth(float curHealth, float maxHealth, float shield)
     {
         if (healthGaugeUI == null) return;
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
-        int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);
-        int maxHp = Mathf.RoundToInt(maxHealth);
-        int shieldVal = Mathf.CeilToInt(shield);
-
-        string text = (shield > 0f) ? $"({shieldVal}) {curHp} / {maxHp}" : $"{curHp} / {maxHp}";
 
         // 실드 보유 시 색상 전환 (실드: 파랑, 기본: 빨강)
         healthGaugeUI.SetGaugeColor(shield > 0f ? shieldColor : healthColor);
-        healthGaugeUI.Refresh(rate, text);
+
+        if (showValueText)
+        {
+            int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);
+            int maxHp = Mathf.RoundToInt(maxHealth);
+            int shieldVal = Mathf.CeilToInt(shield);
+            string text = (shield > 0f) ? $"({shieldVal}) {curHp} / {maxHp}" : $"{curHp} / {maxHp}";
+            healthGaugeUI.Refresh(rate, text);
+        }
+        else
+        {
+            healthGaugeUI.Refresh(rate);
+        }
     }
 
     /// <summary>
-    /// 스태미나 게이지의 채우기 비율 및 수치 텍스트를 갱신합니다.
+    /// 스태미나 게이지의 채우기 비율 및 (옵션) 수치 텍스트를 갱신합니다.
     /// </summary>
     public void UpdateStamina(float curStamina, float maxStamina)
     {
         if (staminaGaugeUI == null) return;
 
         float rate = (maxStamina > 0f) ? Mathf.Clamp01(curStamina / maxStamina) : 0f;
-        int displayStamina = (curStamina >= maxStamina) ? Mathf.RoundToInt(curStamina) : Mathf.CeilToInt(curStamina);
-        int displayMaxStamina = Mathf.RoundToInt(maxStamina);
-        string text = $"{displayStamina} / {displayMaxStamina}";
 
-        staminaGaugeUI.Refresh(rate, text);
+        if (showValueText)
+        {
+            int displayStamina = (curStamina >= maxStamina) ? Mathf.RoundToInt(curStamina) : Mathf.CeilToInt(curStamina);
+            int displayMaxStamina = Mathf.RoundToInt(maxStamina);
+            string text = $"{displayStamina} / {displayMaxStamina}";
+            staminaGaugeUI.Refresh(rate, text);
+        }
+        else
+        {
+            staminaGaugeUI.Refresh(rate);
+        }
     }
 
     private void LateUpdate()

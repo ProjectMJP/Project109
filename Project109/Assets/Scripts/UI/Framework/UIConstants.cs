@@ -10,8 +10,6 @@ public static class UIConstants
     public const string PREFAB_CHARACTER_STATUS_BAR = "CharacterStatusBarUI";
     public const string PREFAB_CHARACTER_EFFECT_LIST = "CharacterEffectListUI";
     public const string PREFAB_CHARACTER_EFFECT_ITEM = "CharacterEffectItemUI";
-    public const string PREFAB_CHARACTER_EFFECT_DETAIL = "CharacterEffectDetailUI";
-    public const string PREFAB_CHARACTER_EFFECT_DETAIL_ITEM = "CharacterEffectDetailItemUI";
     public const string PREFAB_CHARACTER_INTENT = "CharacterIntentUI";
 
     // Addressable / UI Panel 키 (Screen / Canvas UI)
@@ -23,6 +21,8 @@ public static class UIConstants
     public const string PANEL_BATTLE_UI = "BattleUIPanel";
     public const string PANEL_BATTLE_TIMELINE = "BattleTimelinePanel";
     public const string PREFAB_BATTLE_TIMELINE_SLOT = "BattleTimelineSlotUI";
+    public const string PANEL_BATTLE_SIDE_UNIT_HUD = "BattleSideUnitHUDPanel";
+    public const string PREFAB_BATTLE_SIDE_UNIT_CARD = "BattleSideUnitCardUI";
     public const string PANEL_CONFIRM_DIALOG = "ConfirmDialog";
     public const string PANEL_RESTORE_NPC = "RestoreNPCUI";
     public const string PANEL_DIALOGUE = "DialogueUI";
@@ -35,11 +35,10 @@ public static class UIConstants
     public const string PANEL_STARTER_KIT_SHOWCASE = "StarterKitShowcasePanel";
     public const string PANEL_PAUSE_MENU = "PauseMenuPanel";
 
-    // 기본 월드 위치 오프셋 (캐릭터 머리/발 위치 기준)
-    public static readonly Vector3 DEFAULT_STATUS_BAR_OFFSET = new Vector3(0f, -2.2f, 0f);
-    public static readonly Vector3 DEFAULT_EFFECT_LIST_OFFSET = new Vector3(0f, -2.5f, 0f);
-    public static readonly Vector3 DEFAULT_EFFECT_DETAIL_OFFSET = new Vector3(0.75f, 1.35f, 0f);
-    public static readonly Vector3 DEFAULT_INTENT_OFFSET = new Vector3(0f, -1.85f, 0f);
+    // 기본 월드 위치 오프셋 (상태바/이펙트 도트는 발아래 배치, 적 행동 예고는 머리 위 단독 배치)
+    public static readonly Vector3 DEFAULT_STATUS_BAR_OFFSET = new Vector3(0f, -0.14f, 0f);
+    public static readonly Vector3 DEFAULT_EFFECT_LIST_OFFSET = new Vector3(0f, -0.30f, 0f);
+    public static readonly Vector3 DEFAULT_INTENT_OFFSET = new Vector3(0f, 1.75f, 0f);
 
     // 기본 게이지 색상 팔레트
     public static readonly Color COLOR_HEALTH = new Color(0.9f, 0.2f, 0.2f, 1.0f);

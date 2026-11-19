@@ -14,19 +14,15 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     [Header("World Position Offsets")]
     [SerializeField] private Vector3 statusBarOffset = UIConstants.DEFAULT_STATUS_BAR_OFFSET;
     [SerializeField] private Vector3 effectListOffset = UIConstants.DEFAULT_EFFECT_LIST_OFFSET;
-    [SerializeField] private Vector3 effectDetailOffset = UIConstants.DEFAULT_EFFECT_DETAIL_OFFSET;
     [SerializeField] private Vector3 intentOffset = UIConstants.DEFAULT_INTENT_OFFSET;
 
     private CharacterStatusBarUI statusBarUI;
     private CharacterEffectListUI effectListUI;
-    private CharacterEffectDetailUI effectDetailUI;
     private CharacterIntentUI intentUI;
     private bool _isBattleActive = false;
     private bool _isEventBusRegistered = false;
-    private bool _isEffectDetailOpen = false;
     private bool _isTimelineHighlighted = false;
 
-    private static CharacterUIController _activeInspectedController;
     private static readonly Dictionary<Character, CharacterUIController> _controllersByCharacter = new Dictionary<Character, CharacterUIController>();
 
     /// <summary>
@@ -42,31 +38,9 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         }
     }
 
-    /// <summary>
-    /// 현재 화면에 열려 있는 캐릭터 이펙트 상세 툴팁이 있는지 여부입니다.
-    /// </summary>
-    public static bool HasActiveEffectDetail =>
-        _activeInspectedController != null && _activeInspectedController._isEffectDetailOpen;
-
-    /// <summary>
-    /// 현재 열려 있는 캐릭터 이펙트 상세 툴팁이 있다면 즉시 닫습니다.
-    /// </summary>
-    public static void CloseActiveEffectDetail()
-    {
-        if (_activeInspectedController != null)
-        {
-            _activeInspectedController.CloseEffectDetail();
-        }
-        else
-        {
-            _activeInspectedController = null;
-        }
-    }
-
     public Character Character => character;
     public CharacterStatusBarUI StatusBarUI => statusBarUI;
     public CharacterEffectListUI EffectListUI => effectListUI;
-    public CharacterEffectDetailUI EffectDetailUI => effectDetailUI;
     public CharacterIntentUI IntentUI => intentUI;
 
     private void Awake()
@@ -105,7 +79,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             _controllersByCharacter.Remove(character);
         }
 
-        CloseEffectDetail();
         UnregisterEvents();
 
         // UIManager에 UI 해제 및 소멸 요청
@@ -121,12 +94,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             {
                 UIManager.instance.ReleaseWorldUI(effectListUI);
                 effectListUI = null;
-            }
-
-            if (effectDetailUI != null)
-            {
-                UIManager.instance.ReleaseWorldUI(effectDetailUI);
-                effectDetailUI = null;
             }
 
             if (intentUI != null)
@@ -162,11 +129,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         {
             effectListUI.RefreshDurations();
         }
-
-        if (_isEffectDetailOpen && effectDetailUI != null)
-        {
-            effectDetailUI.RefreshDurations();
-        }
     }
 
     /// <summary>
@@ -179,13 +141,9 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (statusBarUI == null)
         {
             statusBarUI = UIManager.instance.CreateStatusBarUI(transform, statusBarOffset);
-            if (statusBarUI != null)
+            if (statusBarUI != null && !_isBattleActive)
             {
-                if (!_isBattleActive) statusBarUI.Hide();
-                if (_isTimelineHighlighted)
-                {
-                    statusBarUI.transform.localScale = new Vector3(1.18f, 1.18f, 1.18f);
-                }
+                statusBarUI.Hide();
             }
         }
 
@@ -206,6 +164,11 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
                     intentUI.Hide();
                 }
             }
+        }
+
+        if (_isTimelineHighlighted)
+        {
+            SetTimelineHighlight(true);
         }
     }
 
@@ -321,7 +284,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnCharacterDied(Character c)
     {
-        CloseEffectDetail();
         HideUI();
     }
 
@@ -366,11 +328,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         {
             effectListUI.AddEffect(effect);
         }
-
-        if (_isEffectDetailOpen && effectDetailUI != null)
-        {
-            effectDetailUI.AddOrUpdateEffect(effect);
-        }
     }
 
     private void OnEffectStacked(Effect effect)
@@ -381,11 +338,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         {
             effectListUI.UpdateEffect(effect);
         }
-
-        if (_isEffectDetailOpen && effectDetailUI != null)
-        {
-            effectDetailUI.AddOrUpdateEffect(effect);
-        }
     }
 
     private void OnEffectRemoved(Effect effect)
@@ -395,15 +347,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (effectListUI != null)
         {
             effectListUI.RemoveEffect(effect);
-        }
-
-        if (_isEffectDetailOpen && effectDetailUI != null)
-        {
-            effectDetailUI.RemoveEffect(effect);
-            if (effectDetailUI.ActiveItemCount == 0)
-            {
-                CloseEffectDetail();
-            }
         }
     }
 
@@ -467,7 +410,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     public void OnBattleEnd()
     {
-        CloseEffectDetail();
         HideUI();
     }
 
@@ -490,93 +432,39 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     {
         _isBattleActive = false;
         SetTimelineHighlight(false);
-        CloseEffectDetail();
         if (statusBarUI != null) statusBarUI.Hide();
         if (effectListUI != null) effectListUI.Hide();
         if (intentUI != null) intentUI.Hide();
     }
 
     /// <summary>
-    /// 타임라인 슬롯 호버 시 월드 캐릭터 상태바를 강조하거나 기본 크기로 복원합니다.
+    /// 호버·타임라인 강조 시 해당 유닛의 월드 UI만 좌표 이동 없이 최상단 형제 순서(SetAsLastSibling)로 올리고 상태바를 소폭 강조합니다.
     /// </summary>
     public void SetTimelineHighlight(bool highlighted)
     {
         _isTimelineHighlighted = highlighted;
-        if (statusBarUI != null)
+        if (highlighted)
         {
-            statusBarUI.transform.localScale = highlighted ? new Vector3(1.18f, 1.18f, 1.18f) : Vector3.one;
+            if (effectListUI != null)
+            {
+                effectListUI.transform.SetAsLastSibling();
+            }
+            if (statusBarUI != null)
+            {
+                statusBarUI.transform.SetAsLastSibling();
+                statusBarUI.transform.localScale = new Vector3(1.12f, 1.12f, 1.12f);
+            }
+            if (intentUI != null)
+            {
+                intentUI.transform.SetAsLastSibling();
+            }
         }
-    }
-
-    /// <summary>
-    /// 이펙트 상세 툴팁 패널을 토글합니다.
-    /// </summary>
-    public bool ToggleEffectDetail()
-    {
-        if (_isEffectDetailOpen)
+        else
         {
-            CloseEffectDetail();
-            return false;
-        }
-
-        return OpenEffectDetail();
-    }
-
-    /// <summary>
-    /// 현재 캐릭터의 활성 이펙트 상세 툴팁 패널을 엽니다. (활성 이펙트가 없으면 false 반환)
-    /// </summary>
-    public bool OpenEffectDetail()
-    {
-        if (!_isBattleActive || character == null || character.isDead)
-        {
-            return false;
-        }
-
-        // 다른 캐릭터의 상세 패널이 열려 있으면 먼저 닫습니다.
-        if (_activeInspectedController != null && _activeInspectedController != this)
-        {
-            CloseActiveEffectDetail();
-        }
-
-        var effects = character.effectManager != null ? character.effectManager.GetEffects() : null;
-        if (effects == null || effects.Count == 0)
-        {
-            CloseEffectDetail();
-            return false;
-        }
-
-        if (effectDetailUI == null && UIManager.instance != null)
-        {
-            effectDetailUI = UIManager.instance.CreateEffectDetailUI(transform, effectDetailOffset);
-        }
-
-        if (effectDetailUI == null)
-        {
-            return false;
-        }
-
-        effectDetailUI.RebuildAll(effects);
-        effectDetailUI.Show();
-
-        _isEffectDetailOpen = true;
-        _activeInspectedController = this;
-        return true;
-    }
-
-    /// <summary>
-    /// 이펙트 상세 툴팁 패널을 닫습니다.
-    /// </summary>
-    public void CloseEffectDetail()
-    {
-        _isEffectDetailOpen = false;
-        if (_activeInspectedController == this)
-        {
-            _activeInspectedController = null;
-        }
-
-        if (effectDetailUI != null)
-        {
-            effectDetailUI.Hide();
+            if (statusBarUI != null)
+            {
+                statusBarUI.transform.localScale = Vector3.one;
+            }
         }
     }
 

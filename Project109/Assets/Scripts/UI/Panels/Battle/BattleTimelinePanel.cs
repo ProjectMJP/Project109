@@ -52,6 +52,8 @@ public class BattleTimelinePanel : UIPanelBase
     private Card _targetingCard;
     private Character _targetingHoveredCharacter;
     private Character _worldHoveredCharacter;
+    private Character _externalHoveredCharacter;
+    private Character _lastFocusedWorldChar;
     private BattleTimelineSlotUI _uiHoveredSlot;
     private TimelinePreviewRequest _currentPreview = TimelinePreviewRequest.None;
 
@@ -238,6 +240,7 @@ public class BattleTimelinePanel : UIPanelBase
         }
 
         _targetingHoveredCharacter = target;
+        RefreshSlotHighlights();
         RefreshGhostPreview();
     }
 
@@ -249,7 +252,18 @@ public class BattleTimelinePanel : UIPanelBase
         if (_targetingCard == null && _targetingHoveredCharacter == null) return;
         _targetingCard = null;
         _targetingHoveredCharacter = null;
+        RefreshSlotHighlights();
         RefreshGhostPreview();
+    }
+
+    /// <summary>
+    /// 사이드 유닛 HUD 등 외부 패널에서 호버된 캐릭터를 타임라인 및 월드 하이라이트에 동기화합니다.
+    /// </summary>
+    public void SetExternalHoverCharacter(Character target)
+    {
+        if (_externalHoveredCharacter == target) return;
+        _externalHoveredCharacter = target;
+        RefreshSlotHighlights();
     }
 
     /// <summary>
@@ -556,6 +570,7 @@ public class BattleTimelinePanel : UIPanelBase
             bool isEndTurnPredicted = _isEndTurnHovered && slot.isPredictedNextTurn;
             bool shouldHighlight = (slot.ui == _uiHoveredSlot)
                 || (_worldHoveredCharacter != null && slot.boundCharacter == _worldHoveredCharacter)
+                || (_externalHoveredCharacter != null && slot.boundCharacter == _externalHoveredCharacter)
                 || isEndTurnPredicted;
 
             slot.ui.SetHighlighted(shouldHighlight);
@@ -569,6 +584,35 @@ public class BattleTimelinePanel : UIPanelBase
                     slot.ui.SetPulseAlpha(Mathf.Lerp(0.5f, 1.0f, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f)));
                 }
             }
+        }
+
+        // 단일 포커스 캐릭터 산출 및 월드 UI 최상단 포커스(SetAsLastSibling) 동기화
+        Character focusedChar = _uiHoveredSlot != null
+            ? _uiHoveredSlot.BoundCharacter
+            : (_externalHoveredCharacter != null
+                ? _externalHoveredCharacter
+                : (_worldHoveredCharacter != null ? _worldHoveredCharacter : _targetingHoveredCharacter));
+
+        if (_lastFocusedWorldChar != focusedChar)
+        {
+            if (_lastFocusedWorldChar != null)
+            {
+                CharacterUIController.SetTimelineHighlightFor(_lastFocusedWorldChar, false);
+            }
+            if (focusedChar != null)
+            {
+                CharacterUIController.SetTimelineHighlightFor(focusedChar, true);
+            }
+            _lastFocusedWorldChar = focusedChar;
+        }
+
+        // 사이드 유닛 HUD로 외부 호버 전파 (_externalHoveredCharacter 제외하여 재귀 루프 방지)
+        if (BattleSideUnitHUDPanel.Instance != null)
+        {
+            Character sideExternal = _uiHoveredSlot != null
+                ? _uiHoveredSlot.BoundCharacter
+                : (_worldHoveredCharacter != null ? _worldHoveredCharacter : _targetingHoveredCharacter);
+            BattleSideUnitHUDPanel.Instance.SetExternalHoverCharacter(sideExternal);
         }
     }
 
@@ -914,8 +958,21 @@ public class BattleTimelinePanel : UIPanelBase
         _targetingCard = null;
         _targetingHoveredCharacter = null;
         _worldHoveredCharacter = null;
+        _externalHoveredCharacter = null;
         _uiHoveredSlot = null;
         _currentPreview = TimelinePreviewRequest.None;
+
+        if (_lastFocusedWorldChar != null)
+        {
+            CharacterUIController.SetTimelineHighlightFor(_lastFocusedWorldChar, false);
+            _lastFocusedWorldChar = null;
+        }
+
+        if (BattleSideUnitHUDPanel.Instance != null)
+        {
+            BattleSideUnitHUDPanel.Instance.SetExternalHoverCharacter(null);
+        }
+
         HideGhostSlots();
     }
 
@@ -1058,6 +1115,16 @@ public class BattleTimelinePanel : UIPanelBase
         {
             _targetingHoveredCharacter = null;
         }
+        if (_externalHoveredCharacter == c)
+        {
+            _externalHoveredCharacter = null;
+        }
+        if (_lastFocusedWorldChar == c)
+        {
+            CharacterUIController.SetTimelineHighlightFor(c, false);
+            _lastFocusedWorldChar = null;
+        }
+        RefreshSlotHighlights();
         MarkDirty();
     }
 

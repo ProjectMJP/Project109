@@ -20,6 +20,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 {
     private BattleUIPanel _battleUI;
     private BattleTimelinePanel _timelineUI;
+    private BattleSideUnitHUDPanel _sideUnitHUD;
     public BattleUIPanel battleUI => _battleUI;
     public BattleHandPanel handUI => _battleUI != null ? _battleUI.HandPanel : null;
 
@@ -126,6 +127,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 _timelineUI.BindBattle(RunManager.instance != null ? RunManager.instance.battleManager : null);
                 _timelineUI.Open();
             }
+
+            _sideUnitHUD = UIManager.instance.GetOrSpawnBattleSideUnitHUD();
+            if (_sideUnitHUD != null)
+            {
+                _sideUnitHUD.BindBattle(RunManager.instance != null ? RunManager.instance.battleManager : null);
+                _sideUnitHUD.Open();
+            }
         }
 
         if (_controlledCharacter != null)
@@ -136,8 +144,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnBattleEnd()
     {
-        CharacterUIController.CloseActiveEffectDetail();
-
         if (_controlledCharacter != null)
         {
             _controlledCharacter.eventBus.Remove<IOnBattleEnd>(this);
@@ -154,6 +160,13 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             _timelineUI.BindBattle(null);
             _timelineUI.Close();
             _timelineUI = null;
+        }
+
+        if (_sideUnitHUD != null)
+        {
+            _sideUnitHUD.BindBattle(null);
+            _sideUnitHUD.Close();
+            _sideUnitHUD = null;
         }
     }
 
@@ -216,8 +229,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnTurnEnd()
     {
-        CharacterUIController.CloseActiveEffectDetail();
-
         // 1. 이벤트 버스 — 등록된 IOnTurnEnd들 호출
         CombatEventDispatcher.DispatchTurnEnd(controlledCharacter.eventBus);
 
@@ -288,8 +299,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void UseCard(Card card, List<Character> targets, Vector2Int targetPosition)
     {
-        CharacterUIController.CloseActiveEffectDetail();
-
         // 즉시 실행하지 않고 액션 큐에 위임
         CardPlayAction playAction = new CardPlayAction(controlledCharacter, card, targets, targetPosition);
         ActionQueueManager.Instance.EnqueueAction(playAction);
@@ -353,7 +362,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (strategy.IsManualSelectionRequired)
         {
             // 수동 지정형: 타겟팅 모드로 진입
-            CharacterUIController.CloseActiveEffectDetail();
             _multiSelectedTargets.Clear();
             controlState = PlayerControlState.TargetSelection;
             activeCardForTargeting = card;
@@ -373,7 +381,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         else
         {
             // 즉시 시전형: 전략을 통해 대상을 즉시 수집 후 시전
-            CharacterUIController.CloseActiveEffectDetail();
             List<Character> immediateTargets = strategy.CollectImmediateTargets(this, card, casterPos);
             UseCard(card, immediateTargets, casterPos);
 
@@ -518,10 +525,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private int _lastBattleCancelFrame = -1;
 
     /// <summary>
-    /// 현재 배틀 컨트롤러가 이동, 타깃팅 선택, 또는 이펙트 상세 툴팁 표시 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
+    /// 현재 배틀 컨트롤러가 이동 또는 타깃팅 선택 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
     /// </summary>
-    public bool HasActiveBattleCancelTarget =>
-        controlState != PlayerControlState.Normal || CharacterUIController.HasActiveEffectDetail;
+    public bool HasActiveBattleCancelTarget => controlState != PlayerControlState.Normal;
 
     /// <summary>
     /// 현재 프레임에 배틀 타깃팅/이동 취소가 이미 소비되었는지 반환합니다.
@@ -550,17 +556,12 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 현재 조작 상태(이동 모드, 타겟 모드, 또는 이펙트 상세 툴팁) 취소
+    /// 현재 조작 상태(이동 모드, 타겟 모드) 취소
     /// </summary>
     public void CancelCurrentState()
     {
         if (controlState == PlayerControlState.Normal)
         {
-            if (CharacterUIController.HasActiveEffectDetail)
-            {
-                CharacterUIController.CloseActiveEffectDetail();
-                _lastBattleCancelFrame = Time.frameCount;
-            }
             return;
         }
         _lastBattleCancelFrame = Time.frameCount;
@@ -606,8 +607,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void EnablePlayerMove()
     {
-        CharacterUIController.CloseActiveEffectDetail();
-
         if (playerMove != null)
         {
             playerMove.CheckCanMoveTiles();
@@ -840,19 +839,6 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         if (controlState == PlayerControlState.Normal)
         {
-            Character clickedChar = TryGetCharacterFromScreenPosition(pos, targetTile);
-            if (clickedChar != null && !clickedChar.isDead)
-            {
-                CharacterUIController uiCtrl = clickedChar.GetComponent<CharacterUIController>();
-                if (uiCtrl != null)
-                {
-                    uiCtrl.ToggleEffectDetail();
-                }
-                return;
-            }
-
-            CharacterUIController.CloseActiveEffectDetail();
-
             if (targetTile != null)
             {
                 // 일반 모드: 클릭 시 해당 타일 방향으로 회전

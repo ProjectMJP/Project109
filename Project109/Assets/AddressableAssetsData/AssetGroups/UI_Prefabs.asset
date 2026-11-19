@@ -21,6 +21,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c703be4eae613d41b52b94566548bf9
+    m_Address: BattleSideUnitCardUI
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - UI
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0d469a0903396c345903f5f398836881
     m_Address: EffectAreaBackground
     m_ReadOnly: 0
@@ -177,12 +183,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9f1e5f9640db24249a92a5224e38e5e3
-    m_Address: CharacterEffectDetailItemUI
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - UI
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a82ffe4c2d93b064d8573c35f3166c77
     m_Address: CardRewardCanvas
     m_ReadOnly: 0
@@ -207,14 +207,14 @@ MonoBehaviour:
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c2a60781ac1aa88438250bb61a874ecd
-    m_Address: EraseCardDeckCanvas
+  - m_GUID: c26e164a7dea7af42992b6a3d53bae4a
+    m_Address: BattleSideUnitHUDPanel
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c4a11975b51cd59409c89218b4570f16
-    m_Address: CharacterEffectDetailUI
+  - m_GUID: c2a60781ac1aa88438250bb61a874ecd
+    m_Address: EraseCardDeckCanvas
     m_ReadOnly: 0
     m_SerializedLabels:
     - UI

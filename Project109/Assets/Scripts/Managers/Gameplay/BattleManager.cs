@@ -62,6 +62,8 @@ public class BattleManager : IInitializable, IDisposable
     private List<ICharacterController> enemyTeam = new();
     private readonly List<ICharacterController> allCombatantsCache = new();
     private readonly TimelinePredictor _timelinePredictor = new TimelinePredictor();
+    public IReadOnlyList<ICharacterController> PlayerTeam => playerTeam;
+    public IReadOnlyList<ICharacterController> EnemyTeam => enemyTeam;
     public ICharacterController currentTurnController { get; private set; }
     public float battleTimeScale = 1f;
     public int accumulativeGoldReward { get; set; }
