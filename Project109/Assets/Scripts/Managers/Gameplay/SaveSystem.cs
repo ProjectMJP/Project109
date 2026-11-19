@@ -441,6 +441,10 @@ public static class SaveSystem
         if (player.relicManager != null)
         {
             player.relicManager.ClearRelics();
+            if (player.playerStat != null)
+            {
+                player.playerStat.BattleMapLockBypassCount = 0;
+            }
             if (kitData.startRelics != null)
             {
                 foreach (string relicId in kitData.startRelics)
@@ -448,6 +452,10 @@ public static class SaveSystem
                     player.AddRelic(relicId);
                 }
             }
+        }
+        else if (player.playerStat != null)
+        {
+            player.playerStat.BattleMapLockBypassCount = 0;
         }
 
         Debug.Log($"[SaveSystem] 시작 키트 적용 완료 (키트: '{kitData.loadoutId}', 체력: {initialStat.maxHealth}, 스태미나: {initialStat.maxStamina}, 이동력: {initialStat.moveRange}).");
@@ -575,13 +583,24 @@ public static class SaveSystem
         }
 
         // 4. 유물 복원
-        if (player.relicManager != null && data.playerRelicNames != null)
+        if (player.relicManager != null)
         {
             player.relicManager.ClearRelics();
-            foreach (var relicName in data.playerRelicNames)
+            if (player.playerStat != null)
             {
-                player.AddRelic(relicName);
+                player.playerStat.BattleMapLockBypassCount = 0;
             }
+            if (data.playerRelicNames != null)
+            {
+                foreach (var relicName in data.playerRelicNames)
+                {
+                    player.AddRelic(relicName);
+                }
+            }
+        }
+        else if (player.playerStat != null)
+        {
+            player.playerStat.BattleMapLockBypassCount = 0;
         }
 
         // 5. 시작 무장 선택 및 해금 기록 복원

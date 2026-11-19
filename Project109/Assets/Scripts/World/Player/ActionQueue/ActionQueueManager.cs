@@ -5,6 +5,12 @@ using UnityEngine;
 public class ActionQueueManager : MonoBehaviour
 {
     private static ActionQueueManager _instance;
+
+    /// <summary>
+    /// 지연 생성(Lazy Instantiation)을 유발하지 않고 현재 활성 인스턴스가 존재하는지 확인합니다.
+    /// </summary>
+    public static bool HasInstance => _instance != null;
+
     public static ActionQueueManager Instance
     {
         get

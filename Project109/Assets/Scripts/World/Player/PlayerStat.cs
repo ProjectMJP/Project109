@@ -57,4 +57,14 @@ public class PlayerStat
     public int BonusShopCardCount { get; set; } = 0;
     public int BonusShopRelicCount { get; set; } = 0;
     public int ShopRerollCount { get; set; } = 0;
+
+    /// <summary>
+    /// 전투 중 탐험 지도를 통한 다음 노드 강제 이동을 허용하는 우회 카운트입니다.
+    /// </summary>
+    public int BattleMapLockBypassCount { get; set; } = 0;
+
+    /// <summary>
+    /// 전투 중 탐험 지도 이동 제한을 우회할 수 있는지 여부입니다.
+    /// </summary>
+    public bool CanBypassBattleMapLock => BattleMapLockBypassCount > 0;
 }

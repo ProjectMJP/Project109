@@ -344,9 +344,104 @@ public class RunManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 플레이어가 전투 중 탐험 지도 이동 제한을 우회할 수 있는지(테스트 통행증 등) 확인합니다.
+    /// </summary>
+    public bool HasBattleMapLockBypass(Player playerOverride = null)
+    {
+        Player player = playerOverride ?? (GameSceneManager.instance != null ? GameSceneManager.instance.player : null);
+        return player != null && player.playerStat != null && player.playerStat.CanBypassBattleMapLock;
+    }
+
+    /// <summary>
+    /// 현재 게임 상태에 따라 탐험 지도를 통해 다음 노드로 이동할 수 있는지 판정합니다.
+    /// </summary>
+    public bool CanMoveToNextNode(out string blockReason)
+    {
+        bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive;
+        return CanMoveToNextNode(null, isDialogueActive, out blockReason);
+    }
+
+    /// <summary>
+    /// 플레이어 및 대화 상태 주입을 지원하여 탐험 지도 다음 노드 이동 가능 여부와 차단 사유를 판정합니다.
+    /// </summary>
+    public bool CanMoveToNextNode(Player playerOverride, bool isDialogueActive, out string blockReason)
+    {
+        if (isDialogueActive)
+        {
+            blockReason = "NPC 대화 중에는 다음 노드로 이동할 수 없습니다.";
+            return false;
+        }
+
+        bool isBattleActive =
+            (currentStage != null && currentStage.currentMapState == MapState.Battle) ||
+            (battleManager != null && battleManager.battleState != BattleState.None && battleManager.battleState != BattleState.BattleEnd);
+
+        if (isBattleActive)
+        {
+            if (HasBattleMapLockBypass(playerOverride))
+            {
+                blockReason = string.Empty;
+                return true;
+            }
+
+            blockReason = "전투를 완료해야 다음 노드로 이동할 수 있습니다.";
+            return false;
+        }
+
+        blockReason = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// 테스트 우회 등으로 전투 중 다음 노드로 강제 이동할 때 액션 큐, 전투 상태, 컨트롤러 및 전투 UI를 안전하게 정리합니다.
+    /// </summary>
+    public void CleanupActiveBattleForForcedMove()
+    {
+        if (ActionQueueManager.HasInstance)
+        {
+            ActionQueueManager.Instance.ClearQueue();
+        }
+
+        if (currentStage != null)
+        {
+            currentStage.currentMapState = MapState.None;
+        }
+
+        if (playerBattleController != null)
+        {
+            playerBattleController.CancelCurrentState();
+        }
+
+        OnMapStateChanged(MapState.None);
+
+        // OnMapStateChanged 내부의 DispatchBattleEnd를 타지 못했거나 잔여 UI가 남은 경우를 대비한 멱등 정리 보장
+        if (playerBattleController != null)
+        {
+            playerBattleController.OnBattleEnd();
+        }
+
+        if (UIManager.instance != null)
+        {
+            UIManager.instance.ClearEffectAreaTiles();
+        }
+    }
+
     public void MoveToNode(ExploreNodeUI nextNodeUI)
     {
         if (nextNodeUI == null || nextNodeUI.NodeData == null) return;
+
+        if (!CanMoveToNextNode(out string blockReason))
+        {
+            Debug.LogWarning($"[RunManager] 노드 이동이 차단되었습니다: {blockReason}");
+            return;
+        }
+
+        if ((currentStage != null && currentStage.currentMapState == MapState.Battle) ||
+            (battleManager != null && battleManager.battleState != BattleState.None))
+        {
+            CleanupActiveBattleForForcedMove();
+        }
 
         if (UIManager.instance != null)
         {

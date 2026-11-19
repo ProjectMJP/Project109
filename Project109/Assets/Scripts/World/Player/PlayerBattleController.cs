@@ -32,15 +32,20 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     public void Dispose()
     {
         OnBattleEnd();
+        OnCardPlayRejected = null;
+    }
 
+    /// <summary>
+    /// PlayerInputController가 살아있는 경우에만 전투 입력 이벤트 구독을 안전하게 해제합니다.
+    /// </summary>
+    private void UnsubscribeInputEvents()
+    {
         if (PlayerInputController.HasInstance)
         {
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
         }
-
-        OnCardPlayRejected = null;
     }
 
     #region ICharacterController
@@ -152,12 +157,17 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
     public void OnBattleEnd()
     {
+        CancelCurrentState();
         _moveRequestToken++;
         if (playerMove != null)
         {
             playerMove.ClearCanMoveTiles();
         }
         controlState = PlayerControlState.Normal;
+        _lastHoveredCoord = new Vector2Int(-999, -999);
+        bonusDrawThisTurn = 0;
+
+        UnsubscribeInputEvents();
 
         if (_controlledCharacter != null)
         {
@@ -261,12 +271,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         // 4. 이벤트 구독 해제
-        if (PlayerInputController.HasInstance)
-        {
-            PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
-            PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
-            PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
-        }
+        UnsubscribeInputEvents();
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;

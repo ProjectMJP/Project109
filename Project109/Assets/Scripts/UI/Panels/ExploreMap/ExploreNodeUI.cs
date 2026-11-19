@@ -27,6 +27,18 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     [FormerlySerializedAs("IncountNodeExtraRewardObject")]
     public GameObject ExploreNodeUIExtraRewardObject;
 
+    private static readonly Color NormalNodeColor = Color.white;
+    private static readonly Color BlockedNodeColor = new Color(0.55f, 0.55f, 0.55f, 0.8f);
+
+    private Image _cachedImage;
+    private bool _isMoveBlocked;
+    private bool _isShowingMoveBlockedTooltip;
+
+    /// <summary>
+    /// 현재 노드가 전투 또는 대화 제한으로 인해 이동 차단 상태인지 여부입니다.
+    /// </summary>
+    public bool IsMoveBlocked => _isMoveBlocked;
+
     public void InitExploreNodeUI(ExploreNode data)
     {
         NodeData = data;
@@ -199,15 +211,50 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     public void OpenNodeCoverTexture() => RevealNode();
     public void CloseNodeCoverTexture() => HideNode();
 
+    /// <summary>
+    /// 전투 또는 대화 등으로 인해 다음 노드 이동이 차단된 상태의 시각 효과(반투명 어둡기 및 호버 강조 억제)를 적용합니다.
+    /// </summary>
+    public void SetMoveBlockedVisual(bool isBlocked)
+    {
+        _isMoveBlocked = isBlocked;
+
+        if (_cachedImage == null)
+        {
+            _cachedImage = GetComponent<Image>();
+        }
+        if (_cachedImage != null)
+        {
+            _cachedImage.color = isBlocked ? BlockedNodeColor : NormalNodeColor;
+        }
+
+        if (isBlocked)
+        {
+            if (ExploreNodeUIHighlightCircleObject != null)
+            {
+                ExploreNodeUIHighlightCircleObject.SetActive(false);
+            }
+        }
+        else
+        {
+            HideMoveBlockedTooltip();
+        }
+    }
+
     public void LoadMapDataFromExploreNodeUI()
     {
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        if (RunManager.instance == null) return;
+
+        if (!RunManager.instance.CanMoveToNextNode(out string blockReason))
         {
-            Debug.Log("[ExploreNodeUI] NPC 대화 중에는 맵 노드를 이동할 수 없습니다.");
+            Debug.Log($"[ExploreNodeUI] 노드 이동 불가: {blockReason}");
+            if (TooltipManager.Instance != null)
+            {
+                TooltipManager.Instance.ShowTooltip("이동 불가", blockReason, transform as RectTransform);
+                _isShowingMoveBlockedTooltip = true;
+            }
             return;
         }
 
-        if (RunManager.instance == null) return;
         var cur = RunManager.instance.currentExploreNode;
 
         if (cur != null && NodeData != null)
@@ -251,6 +298,15 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (_isMoveBlocked)
+        {
+            if (ExploreNodeUIHighlightCircleObject != null)
+            {
+                ExploreNodeUIHighlightCircleObject.SetActive(false);
+            }
+            return;
+        }
+
         if (ExploreNodeUIHighlightCircleObject != null)
         {
             ExploreNodeUIHighlightCircleObject.SetActive(true);
@@ -262,6 +318,32 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         if (ExploreNodeUIHighlightCircleObject != null)
         {
             ExploreNodeUIHighlightCircleObject.SetActive(false);
+        }
+
+        HideMoveBlockedTooltip();
+    }
+
+    private void OnDisable()
+    {
+        if (ExploreNodeUIHighlightCircleObject != null)
+        {
+            ExploreNodeUIHighlightCircleObject.SetActive(false);
+        }
+
+        HideMoveBlockedTooltip();
+    }
+
+    private void HideMoveBlockedTooltip()
+    {
+        if (!_isShowingMoveBlockedTooltip)
+        {
+            return;
+        }
+
+        _isShowingMoveBlockedTooltip = false;
+        if (TooltipManager.HasInstance && TooltipManager.Instance.gameObject.activeSelf)
+        {
+            TooltipManager.Instance.HideTooltip();
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,6 +9,9 @@ public class ExploreMapUI : UIPanelBase
     [SerializeField] private GameObject ViewLayout;
     [SerializeField] private GameObject ArrowObjects;
     [SerializeField] private int VerticalLayoutSpacing = 60;
+
+    [Header("Optional Notice UI")]
+    [SerializeField] private TMP_Text moveBlockedNoticeText;
 
     [Header("Prefab")]
     [SerializeField] private GameObject NodePrefab;
@@ -62,9 +66,12 @@ public class ExploreMapUI : UIPanelBase
             {
                 ExploreNode nodeData = floorNodes[idx];
                 ExploreNodeUI nodeUI = GameObject.Instantiate(NodePrefab, _exploreVerticalObjects[floor].transform).GetComponent<ExploreNodeUI>();
-                nodeUI.InitExploreNodeUI(nodeData);
-
-                _exploreMap[floor].Add(nodeUI);
+                if (nodeUI != null)
+                {
+                    nodeUI.ExploreMapUI = this;
+                    nodeUI.InitExploreNodeUI(nodeData);
+                    _exploreMap[floor].Add(nodeUI);
+                }
             }
 
             // UI 정렬을 위한 Padding 조절
@@ -126,15 +133,22 @@ public class ExploreMapUI : UIPanelBase
     }
 
     /// <summary>
-    /// 노드 데이터의 isRevealed 상태 및 현재 플레이어 위치 하이라이트를 UI에 동기화합니다.
+    /// 노드 데이터의 isRevealed 상태, 현재 플레이어 위치 하이라이트 및 이동 제한 시각화를 UI에 동기화합니다.
     /// </summary>
     public void RefreshMapVisuals()
     {
         if (RunManager.instance == null) return;
 
         ExploreNode currentNode = RunManager.instance.currentExploreNode;
+        bool canMove = RunManager.instance.CanMoveToNextNode(out string blockReason);
 
-        // 1. 모든 노드 시각 상태(가림막 공개/비공개, 호버 링 초기화, 방문/현재 위치 하이라이트) 동기화
+        if (moveBlockedNoticeText != null)
+        {
+            moveBlockedNoticeText.gameObject.SetActive(!canMove);
+            moveBlockedNoticeText.text = canMove ? string.Empty : blockReason;
+        }
+
+        // 1. 모든 노드 시각 상태(가림막 공개/비공개, 호버 링 초기화, 방문/현재 위치 하이라이트, 이동 차단 시각화) 동기화
         for (int f = 0; f < _exploreMap.Count; f++)
         {
             for (int i = 0; i < _exploreMap[f].Count; i++)
@@ -155,6 +169,13 @@ public class ExploreMapUI : UIPanelBase
                 {
                     nodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(isVisitedOrCurrent);
                 }
+
+                bool isNextConnectedNode = currentNode != null
+                    && nodeUI.NodeData != null
+                    && nodeUI.NodeData.floor == currentNode.floor + 1
+                    && currentNode.nextNodeIndices != null
+                    && currentNode.nextNodeIndices.Contains(nodeUI.NodeData.index);
+                nodeUI.SetMoveBlockedVisual(isNextConnectedNode && !canMove);
             }
         }
     }

@@ -32,7 +32,7 @@ startCards:
   - "테스트 전장 전체"
   - "테스트 다중 지정"
   - "테스트 무작위 사격"
-startRelics: ["가죽 장갑"]
+startRelics: ["가죽 장갑", "테스트 통행증"]
 startEffects: []
 loreEntries:
   - title: "무기 스토리 1 : 훈련용 강철 건틀릿"
