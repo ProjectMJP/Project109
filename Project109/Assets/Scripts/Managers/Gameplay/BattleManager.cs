@@ -318,8 +318,10 @@ public class BattleManager : IInitializable, IDisposable
     public void Update(float dt)
     {
         if (battleState != BattleState.Combat) return;
+        if (dt <= 0f || Time.timeScale <= 0f) return;
 
         float scaledDt = dt * battleTimeScale;
+        if (scaledDt <= 0f) return;
 
         // 모든 전투원에 대해 공정하게 스태미나 틱을 먼저 진행 (프레임 dt 누수 방지)
         ICharacterController highestOverflowCombatant = null;

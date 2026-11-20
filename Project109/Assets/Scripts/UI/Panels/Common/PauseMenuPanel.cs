@@ -97,6 +97,8 @@ public class PauseMenuPanel : UIPanelBase
     private bool _isTransitioning;
     private bool _isSyncingSettingsUI;
     private bool _relicListBuilt;
+    private bool _isTimePaused;
+    private float _timeScaleBeforePause = 1f;
 
     private RelicRarityFilter _relicRarityFilter = RelicRarityFilter.All;
     private RelicObtainSourceFilter _relicObtainSourceFilter = RelicObtainSourceFilter.All;
@@ -159,10 +161,13 @@ public class PauseMenuPanel : UIPanelBase
     {
         base.OnDisable();
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
+        // 비정상 비활성화·씬 언로드 시에도 게임 시간이 0에 고착되지 않도록 복원합니다.
+        RestoreGameTime(forceFallbackIfZero: false);
     }
 
     private void OnDestroy()
     {
+        RestoreGameTime(forceFallbackIfZero: false);
         LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
         UnbindListeners();
@@ -174,12 +179,38 @@ public class PauseMenuPanel : UIPanelBase
         _relicListBuilt = false;
     }
 
+    public override void Open()
+    {
+        if (UIManager.instance != null)
+        {
+            base.Open();
+            return;
+        }
+
+        gameObject.SetActive(true);
+        transform.SetAsLastSibling();
+        OnOpen();
+    }
+
+    public override void Close()
+    {
+        if (UIManager.instance != null)
+        {
+            base.Close();
+            return;
+        }
+
+        OnClose();
+        gameObject.SetActive(false);
+    }
+
     public override void OnOpen()
     {
         base.OnOpen();
         uiLayerType = UILayerType.Popup;
         blockWorldInput = true;
         _isTransitioning = false;
+        PauseGameTime();
 
         ResolveComponentReferences();
         EnsureTooltipSettingRow();
@@ -201,19 +232,15 @@ public class PauseMenuPanel : UIPanelBase
     {
         base.OnClose();
 
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }
 
-        RestoreOpenedDeckPanelIfClosed();
+        CloseOpenedDeckPanelIfNeeded();
         ClearStatusMessage();
         SwitchViewMode(ViewMode.Main);
-
-        if (Time.timeScale <= 0f)
-        {
-            Time.timeScale = 1f;
-        }
+        RestoreGameTime(forceFallbackIfZero: true);
     }
 
     private void BindListeners()
@@ -358,7 +385,7 @@ public class PauseMenuPanel : UIPanelBase
     private void OnBackToMainClicked()
     {
         ClearStatusMessage();
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }
@@ -394,8 +421,8 @@ public class PauseMenuPanel : UIPanelBase
         }
 
         // 2. 시간 배율 복원 및 팝업 닫기
-        Time.timeScale = 1f;
-        RestoreOpenedDeckPanelIfClosed();
+        RestoreGameTime(forceFallbackIfZero: true);
+        CloseOpenedDeckPanelIfNeeded();
         Close();
 
         // 3. 타이틀 씬(MainMenu)으로 전환 (GameOverPanel.OnReturnToTitleClicked 규약과 동일)
@@ -534,6 +561,46 @@ public class PauseMenuPanel : UIPanelBase
         if (tooltipStatusText != null)
         {
             tooltipStatusText.text = isEnabled ? "ON" : "OFF";
+        }
+    }
+
+    private void PauseGameTime()
+    {
+        if (!_isTimePaused)
+        {
+            // 중복 OnOpen 호출 시 0f로 덮어쓰지 않도록 최초 일시정지 진입 시점의 양수 배율만 보존합니다.
+            float currentScale = Time.timeScale;
+            _timeScaleBeforePause = currentScale > 0f ? currentScale : 1f;
+            _isTimePaused = true;
+        }
+
+        Time.timeScale = 0f;
+    }
+
+    private void RestoreGameTime(bool forceFallbackIfZero)
+    {
+        if (_isTimePaused)
+        {
+            _isTimePaused = false;
+            Time.timeScale = _timeScaleBeforePause > 0f ? _timeScaleBeforePause : 1f;
+            _timeScaleBeforePause = 1f;
+        }
+        else if (forceFallbackIfZero && Time.timeScale <= 0f)
+        {
+            Time.timeScale = 1f;
+        }
+    }
+
+    private void CloseOpenedDeckPanelIfNeeded()
+    {
+        if (_openedDeckPanel != null)
+        {
+            CardDeckViewPanel deckPanel = _openedDeckPanel;
+            RestoreOpenedDeckPanelIfClosed();
+            if (deckPanel.gameObject.activeSelf)
+            {
+                deckPanel.Close();
+            }
         }
     }
 

@@ -21,10 +21,12 @@ public class CompendiumAndObtainSourceTests
     private Dictionary<string, CardData> _backupCards;
     private Dictionary<string, RelicData> _backupRelics;
     private Dictionary<string, DropTableData> _backupDropTables;
+    private float _backupTimeScale;
 
     [SetUp]
     public void SetUp()
     {
+        _backupTimeScale = Time.timeScale;
         _backupCards = new Dictionary<string, CardData>(ModLoader.Instance.CardDatabase);
         _backupRelics = new Dictionary<string, RelicData>(ModLoader.Instance.RelicDatabase);
         _backupDropTables = new Dictionary<string, DropTableData>(ModLoader.Instance.DropTableDatabase);
@@ -37,6 +39,8 @@ public class CompendiumAndObtainSourceTests
     [TearDown]
     public void TearDown()
     {
+        Time.timeScale = _backupTimeScale > 0f ? _backupTimeScale : 1f;
+
         for (int i = 0; i < _createdCards.Count; i++)
         {
             if (_createdCards[i] != null && !_createdCards[i].IsDisposed)

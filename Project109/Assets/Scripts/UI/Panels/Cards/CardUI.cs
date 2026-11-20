@@ -477,11 +477,13 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             _hoverPosHandle = LMotion.Create(_rectTransform.anchoredPosition, targetPos, hoverMotionDuration)
                 .WithEase(hoverMotionEase)
+                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                 .BindToAnchoredPosition(_rectTransform);
         }
 
         _hoverScaleHandle = LMotion.Create(transform.localScale, targetScale, hoverMotionDuration)
             .WithEase(hoverMotionEase)
+            .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
             .BindToLocalScale(transform);
     }
 
@@ -983,11 +985,13 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             _hoverPosHandle = LMotion.Create(_rectTransform.anchoredPosition, targetPos, hoverMotionDuration)
                 .WithEase(hoverMotionEase)
+                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                 .BindToAnchoredPosition(_rectTransform);
         }
 
         _hoverScaleHandle = LMotion.Create(transform.localScale, targetScale, hoverMotionDuration)
             .WithEase(hoverMotionEase)
+            .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
             .BindToLocalScale(transform);
     }
 
