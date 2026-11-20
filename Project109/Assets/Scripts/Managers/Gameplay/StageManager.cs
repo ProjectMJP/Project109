@@ -56,10 +56,16 @@ public class StageManager : IInitializable, System.IDisposable
     private readonly List<GameObject> _currentSpawnNPCList = new List<GameObject>();
     private readonly List<GameObject> _currentSpawnEtcList = new List<GameObject>();
 
+    private const int EnemySpawnSeedSalt = 1;
+    private const int PlayerSpawnSeedSalt = 2;
+    private const int MapSelectionSeedSalt = 3;
+
     public IReadOnlyList<GameObject> currentSpawnEnemyList => _currentSpawnEnemyList;
     public IReadOnlyList<ICharacterController> currentEnemyControllers => _currentEnemyControllers;
     public IReadOnlyList<GameObject> currentSpawnNPCList => _currentSpawnNPCList;
     public IReadOnlyList<GameObject> currentSpawnEtcList => _currentSpawnEtcList;
+    public IReadOnlyList<CellData> currentSpawnEnemyCells => spawnEnemyCells;
+    public IReadOnlyList<CellData> currentSpawnPlayerCells => spawnPlayerCells;
 
     public void RegisterSpawnEnemy(GameObject enemy, ICharacterController controller = null)
     {
@@ -126,12 +132,31 @@ public class StageManager : IInitializable, System.IDisposable
             ? GameSceneManager.instance.player.character
             : null;
 
-        // 4. 스테이지 생성 실행
-        GenerateStage(enc.locationType, enc.encountType, playerChar, eventData, battleData);
+        // 4. 스폰 배치 및 맵 선택 재현을 위한 결정론적 시드 확정 (기존 세이브 호환)
+        if (enc.stageSeed == 0)
+        {
+            enc.stageSeed = ComputeDeterministicStageSeed(node.floor, node.index, enc.mapDataId, enc.battleDataId);
+        }
+
+        // 5. 스테이지 생성 실행 (저장된 맵 ID 우선 로드 및 결정론적 시드 적용)
+        GenerateStage(enc.locationType, enc.encountType, playerChar, eventData, battleData, enc.mapDataId, enc.stageSeed);
+
+        // 6. 최초 진입이거나 저장된 맵 ID가 유효하지 않아 폴백된 경우 선택된 맵 ID를 노드에 영속화
+        if (currentMapData != null && !string.Equals(enc.mapDataId, currentMapData.ID, StringComparison.Ordinal))
+        {
+            enc.mapDataId = currentMapData.ID;
+        }
     }
 
     // 이 함수는 노드에 진입할 때 호출됩니다.
-    public void GenerateStage(LocationType mapLocation, EncountType EncountType, Character playerCharacter = null, InteractableData secretEventData = null, BattleData battleData = null)
+    public void GenerateStage(
+        LocationType mapLocation,
+        EncountType EncountType,
+        Character playerCharacter = null,
+        InteractableData secretEventData = null,
+        BattleData battleData = null,
+        string preferredMapDataId = null,
+        int stageSeed = 0)
     {
         // 플레이어 캐릭터가 인자로 오지 않은 경우 GameSceneManager에서 자동 조회
         Character targetPlayer = playerCharacter != null ? playerCharacter
@@ -140,7 +165,7 @@ public class StageManager : IInitializable, System.IDisposable
         ClearStage();
 
         //이전의 맵 타일 및 생성된 오브젝트 제거 후 새롭게 맵 데이터 업데이트 및 타일 생성하도록 코딩 진행
-        UpdateMapData(mapLocation.ToString(), EncountType);
+        UpdateMapData(mapLocation.ToString(), EncountType, preferredMapDataId, stageSeed);
 
         // 1. 이미 존재하는 currentGameMap 인스턴스가 있다면 재사용
         if (currentGameMap == null)
@@ -237,12 +262,12 @@ public class StageManager : IInitializable, System.IDisposable
 
         if (battleData != null && battleData.monsterNames != null && EncountType.IsCombat())
         {
-            spawnEnemyCells.Shuffle();
+            ShuffleWithSeed(spawnEnemyCells, stageSeed, EnemySpawnSeedSalt);
             int spawnEnemyCount = Mathf.Min(spawnEnemyCells.Count, battleData.monsterNames.Count);
             GenerateEnemy(currentMapData, battleData.monsterNames, spawnEnemyCount);
         }
 
-        SpawnPlayerInMap(currentMapData, targetPlayer, spawnPlayerCells.Count);
+        SpawnPlayerInMap(currentMapData, targetPlayer, spawnPlayerCells.Count, stageSeed);
 
         if (!EncountType.IsCombat())
         {
@@ -287,7 +312,7 @@ public class StageManager : IInitializable, System.IDisposable
 
     private GameObject GenerateObjectInMap(string objectID, Vector2Int pos)
     {
-        if (AssetCacheManager.instance.TryGetModel(objectID, out GameObject prefab))
+        if (AssetCacheManager.instance != null && AssetCacheManager.instance.TryGetModel(objectID, out GameObject prefab))
         {
             GameObject spawned = UnityEngine.Object.Instantiate(prefab);
 
@@ -467,7 +492,7 @@ public class StageManager : IInitializable, System.IDisposable
             RegisterSpawnNPC(spawned);
         }
     }
-    public void SpawnPlayerInMap(MapDataSO mapData, Character playerCharacter, int spawnCount)
+    public void SpawnPlayerInMap(MapDataSO mapData, Character playerCharacter, int spawnCount, int stageSeed = 0)
     {
         if (playerCharacter == null || mapData == null)
         {
@@ -480,7 +505,7 @@ public class StageManager : IInitializable, System.IDisposable
             Debug.LogWarning("No Player Spawn Cells Found in Map Data!");
             return;
         }
-        spawnPlayerCells.Shuffle();
+        ShuffleWithSeed(spawnPlayerCells, stageSeed, PlayerSpawnSeedSalt);
 
         Vector2Int spawnCoord = spawnPlayerCells[0].position;
 
@@ -518,93 +543,251 @@ public class StageManager : IInitializable, System.IDisposable
         }
     }
 
-    void UpdateMapData(string stageName, EncountType EncountType)
+    void UpdateMapData(string stageName, EncountType EncountType, string preferredMapDataId = null, int stageSeed = 0)
     {
-        currentMapData = null;
-
-        // 1. 스테이지 번들에서 해당 EncountType 맵 조회
-        if (AssetCacheManager.instance != null && AssetCacheManager.instance.TryGetStageMapData(stageName, out StageMapDataBundle stageMapData))
-        {
-            List<MapDataSO> targetList = null;
-
-            switch (EncountType)
-            {
-                case EncountType.None:
-                    if (stageMapData.startMapDataList != null && stageMapData.startMapDataList.Count > 0)
-                    {
-                        targetList = stageMapData.startMapDataList;
-                    }
-                    else if (stageMapData.secretMapDataList != null && stageMapData.secretMapDataList.Count > 0)
-                    {
-                        targetList = stageMapData.secretMapDataList;
-                    }
-                    else
-                    {
-                        targetList = stageMapData.battleMapDataList;
-                    }
-                    break;
-                case EncountType.Battle:
-                    targetList = stageMapData.battleMapDataList;
-                    break;
-                case EncountType.Elite:
-                    targetList = stageMapData.eliteMapDataList;
-                    break;
-                case EncountType.Boss:
-                    targetList = stageMapData.bossMapDataList;
-                    break;
-                case EncountType.Secret:
-                case EncountType.SecretBox:
-                    targetList = stageMapData.secretMapDataList;
-                    break;
-                case EncountType.Store:
-                    targetList = stageMapData.storeMapDataList;
-                    break;
-                case EncountType.Restore:
-                    targetList = stageMapData.restoreMapDataList;
-                    break;
-            }
-
-            if (targetList != null && targetList.Count > 0)
-            {
-                currentMapData = targetList[Random.Range(0, targetList.Count)];
-            }
-            else if (stageMapData.battleMapDataList != null && stageMapData.battleMapDataList.Count > 0)
-            {
-                // 요청한 타입의 맵이 없으면 기본 전투 맵으로 Fallback
-                currentMapData = stageMapData.battleMapDataList[0];
-                Debug.LogWarning($"[StageManager] {EncountType} 맵이 없어 기본 전투 맵({currentMapData.stageName})으로 Fallback합니다.");
-            }
-        }
-
-        // 2. 번들에서 찾지 못했을 경우 전체 mapList에서 동일 locationType 또는 아무 맵이라도 Fallback
-        if (currentMapData == null && AssetCacheManager.instance != null && AssetCacheManager.instance.mapList != null && AssetCacheManager.instance.mapList.Count > 0)
-        {
-            foreach (var m in AssetCacheManager.instance.mapList)
-            {
-                if (m != null && m.locationType.ToString() == stageName)
-                {
-                    currentMapData = m;
-                    break;
-                }
-            }
-
-            if (currentMapData == null)
-            {
-                currentMapData = AssetCacheManager.instance.mapList[0];
-            }
-
-            string fallbackStageName = currentMapData != null ? currentMapData.stageName : "null";
-            Debug.LogWarning($"[StageManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({fallbackStageName})에서 Fallback했습니다.");
-        }
+        currentMapData = ResolveMapData(stageName, EncountType, preferredMapDataId, stageSeed, logDiagnostics: true);
 
         if (currentMapData != null)
         {
             Debug.Log($"[StageManager] Selected MapData: {currentMapData.stageName} (Location: {stageName}, Encount: {EncountType})");
         }
+    }
+
+    /// <summary>
+    /// 지정된 위치·조우 타입·저장된 맵 ID·시드를 기반으로 스테이지에 사용할 MapDataSO를 결정합니다.
+    /// 저장된 선호 맵 ID가 유효하면 최우선 복원하고, 미존재 시 스테이지 번들 풀 및 글로벌 폴백 규칙을 따릅니다.
+    /// </summary>
+    public static MapDataSO ResolveMapData(
+        string stageName,
+        EncountType encountType,
+        string preferredMapDataId = null,
+        int stageSeed = 0,
+        bool logDiagnostics = true)
+    {
+        if (AssetCacheManager.instance == null)
+        {
+            if (logDiagnostics)
+            {
+                Debug.LogError($"[StageManager] AssetCacheManager.instance가 없어 MapData를 조회할 수 없습니다! (Location: {stageName}, Encount: {encountType})");
+            }
+            return null;
+        }
+
+        // 1. 저장된 선호 맵 ID가 유효한 경우 우선 조회
+        if (!string.IsNullOrEmpty(preferredMapDataId))
+        {
+            if (AssetCacheManager.instance.TryGetMap(preferredMapDataId, out MapDataSO savedMap) && savedMap != null)
+            {
+                return savedMap;
+            }
+
+            if (AssetCacheManager.instance.mapList != null)
+            {
+                for (int i = 0; i < AssetCacheManager.instance.mapList.Count; i++)
+                {
+                    MapDataSO candidate = AssetCacheManager.instance.mapList[i];
+                    if (candidate != null && string.Equals(candidate.ID, preferredMapDataId, StringComparison.Ordinal))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            if (logDiagnostics)
+            {
+                Debug.LogWarning($"[StageManager] 저장된 맵 ID('{preferredMapDataId}')를 찾을 수 없어 기본 풀 선택으로 폴백합니다. (Location: {stageName}, Encount: {encountType})");
+            }
+        }
+
+        // 2. 스테이지 번들에서 해당 EncountType 맵 풀 조회
+        if (AssetCacheManager.instance.TryGetStageMapData(stageName, out StageMapDataBundle stageMapData))
+        {
+            List<MapDataSO> targetList = GetMapPoolForEncounter(stageMapData, encountType);
+            if (targetList != null && targetList.Count > 0)
+            {
+                int selectedIndex = 0;
+                if (targetList.Count > 1)
+                {
+                    if (stageSeed != 0)
+                    {
+                        System.Random rng = new System.Random(DeriveSubSeed(stageSeed, MapSelectionSeedSalt));
+                        selectedIndex = rng.Next(0, targetList.Count);
+                    }
+                    else
+                    {
+                        selectedIndex = Random.Range(0, targetList.Count);
+                    }
+                }
+
+                MapDataSO selected = targetList[selectedIndex];
+                if (selected != null)
+                {
+                    return selected;
+                }
+            }
+
+            if (stageMapData.battleMapDataList != null && stageMapData.battleMapDataList.Count > 0)
+            {
+                MapDataSO battleFallback = stageMapData.battleMapDataList[0];
+                if (battleFallback != null)
+                {
+                    if (logDiagnostics)
+                    {
+                        Debug.LogWarning($"[StageManager] {encountType} 맵이 없어 기본 전투 맵({battleFallback.stageName})으로 Fallback합니다.");
+                    }
+                    return battleFallback;
+                }
+            }
+        }
+
+        // 3. 번들에서 찾지 못했을 경우 전체 mapList에서 동일 locationType 또는 첫 유효 맵으로 Fallback
+        if (AssetCacheManager.instance.mapList != null && AssetCacheManager.instance.mapList.Count > 0)
+        {
+            MapDataSO fallbackMap = null;
+            for (int i = 0; i < AssetCacheManager.instance.mapList.Count; i++)
+            {
+                MapDataSO m = AssetCacheManager.instance.mapList[i];
+                if (m != null && m.locationType.ToString() == stageName)
+                {
+                    fallbackMap = m;
+                    break;
+                }
+            }
+
+            if (fallbackMap == null)
+            {
+                for (int i = 0; i < AssetCacheManager.instance.mapList.Count; i++)
+                {
+                    if (AssetCacheManager.instance.mapList[i] != null)
+                    {
+                        fallbackMap = AssetCacheManager.instance.mapList[i];
+                        break;
+                    }
+                }
+            }
+
+            if (fallbackMap != null)
+            {
+                if (logDiagnostics)
+                {
+                    Debug.LogWarning($"[StageManager] StageMapDataBundle에서 맵을 찾지 못해 글로벌 맵 리스트({fallbackMap.stageName})에서 Fallback했습니다.");
+                }
+                return fallbackMap;
+            }
+        }
+
+        if (logDiagnostics)
+        {
+            Debug.LogError($"[StageManager] MapData를 전혀 찾을 수 없습니다! (Location: {stageName}, Encount: {encountType})");
+        }
+        return null;
+    }
+
+    private static List<MapDataSO> GetMapPoolForEncounter(StageMapDataBundle stageMapData, EncountType encountType)
+    {
+        switch (encountType)
+        {
+            case EncountType.None:
+                if (stageMapData.startMapDataList != null && stageMapData.startMapDataList.Count > 0)
+                {
+                    return stageMapData.startMapDataList;
+                }
+                if (stageMapData.secretMapDataList != null && stageMapData.secretMapDataList.Count > 0)
+                {
+                    return stageMapData.secretMapDataList;
+                }
+                return stageMapData.battleMapDataList;
+            case EncountType.Battle:
+                return stageMapData.battleMapDataList;
+            case EncountType.Elite:
+                return stageMapData.eliteMapDataList;
+            case EncountType.Boss:
+                return stageMapData.bossMapDataList;
+            case EncountType.Secret:
+            case EncountType.SecretBox:
+                return stageMapData.secretMapDataList;
+            case EncountType.Store:
+                return stageMapData.storeMapDataList;
+            case EncountType.Restore:
+                return stageMapData.restoreMapDataList;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// 새 노드 배정용 비영(Non-Zero) 난수 스테이지 시드를 생성합니다.
+    /// </summary>
+    public static int GenerateRandomStageSeed()
+    {
+        return Random.Range(1, int.MaxValue);
+    }
+
+    /// <summary>
+    /// 시드가 기록되지 않은 기존 세이브나 수동 생성 노드를 위해 노드 좌표 및 식별자 기반의 안정적인 결정론적 시드를 계산합니다.
+    /// </summary>
+    public static int ComputeDeterministicStageSeed(int floor, int index, string mapDataId, string battleDataId)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u;
+            hash = (hash ^ (uint)floor) * 16777619u;
+            hash = (hash ^ (uint)index) * 16777619u;
+            hash = (hash ^ ComputeStableHash(mapDataId)) * 16777619u;
+            hash = (hash ^ ComputeStableHash(battleDataId)) * 16777619u;
+            return NormalizeNonZeroSeed(hash);
+        }
+    }
+
+    private static void ShuffleWithSeed<T>(IList<T> list, int stageSeed, int salt)
+    {
+        if (list == null || list.Count <= 1) return;
+
+        if (stageSeed != 0)
+        {
+            list.Shuffle(new System.Random(DeriveSubSeed(stageSeed, salt)));
+        }
         else
         {
-            Debug.LogError($"[StageManager] MapData를 전혀 찾을 수 없습니다! (Location: {stageName}, Encount: {EncountType})");
+            list.Shuffle();
         }
+    }
+
+    private static int DeriveSubSeed(int baseSeed, int salt)
+    {
+        unchecked
+        {
+            uint x = (uint)baseSeed ^ ((uint)salt * 0x9E3779B9u);
+            x ^= x >> 16;
+            x *= 0x85EBCA6Bu;
+            x ^= x >> 13;
+            x *= 0xC2B2AE35u;
+            x ^= x >> 16;
+            return NormalizeNonZeroSeed(x);
+        }
+    }
+
+    private static uint ComputeStableHash(string text)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u;
+            if (!string.IsNullOrEmpty(text))
+            {
+                for (int i = 0; i < text.Length; i++)
+                {
+                    hash ^= text[i];
+                    hash *= 16777619u;
+                }
+            }
+            return hash;
+        }
+    }
+
+    private static int NormalizeNonZeroSeed(uint rawHash)
+    {
+        int masked = (int)(rawHash & 0x7FFFFFFFu);
+        return masked == 0 ? 1 : masked;
     }
 
     public void ClearStage()

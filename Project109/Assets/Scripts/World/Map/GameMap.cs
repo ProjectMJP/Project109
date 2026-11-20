@@ -219,7 +219,7 @@ public class GameMap : MonoBehaviour
                     if (tile != null)
                     {
                         tile.ClearTile();
-                        Destroy(tile.gameObject);
+                        DestroyMapChildObject(tile.gameObject);
                     }
                 }
                 tileMap[col].Clear();
@@ -231,7 +231,7 @@ public class GameMap : MonoBehaviour
         // 2. 이동 인디케이터 오브젝트 파괴
         if (moveRangeIndicator != null)
         {
-            Destroy(moveRangeIndicator.gameObject);
+            DestroyMapChildObject(moveRangeIndicator.gameObject);
             moveRangeIndicator = null;
         }
 
@@ -241,7 +241,7 @@ public class GameMap : MonoBehaviour
             Transform child = transform.GetChild(i);
             if (child != null)
             {
-                Destroy(child.gameObject);
+                DestroyMapChildObject(child.gameObject);
             }
         }
 
@@ -254,6 +254,19 @@ public class GameMap : MonoBehaviour
         _gridOffset = Vector3.zero;
         mapColumn = 0;
         mapRow = 0;
+    }
+
+    private static void DestroyMapChildObject(GameObject obj)
+    {
+        if (obj == null) return;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            DestroyImmediate(obj);
+            return;
+        }
+#endif
+        Destroy(obj);
     }
 
     public void TileCreateByMapData(MapDataSO mapData)

@@ -51,10 +51,11 @@ public class EncounterData
     public ExtraEncountType extraEncountType;
     public BattleExtraRewardType battleExtraRewardType;
 
-    // 맵 데이터, 이벤트 데이터, 배틀 데이터는 직렬화 및 결정론적 생성을 위해 ID 형태로 보유
+    // 맵 데이터, 이벤트 데이터, 배틀 데이터 및 스폰 배치 시드는 직렬화 및 결정론적 생성을 위해 ID/정수 형태로 보유
     public string mapDataId;
     public string interactableDataId;
     public string battleDataId;
+    public int stageSeed;
 
     public EncounterData()
     {
@@ -65,5 +66,6 @@ public class EncounterData
         mapDataId = string.Empty;
         interactableDataId = string.Empty;
         battleDataId = string.Empty;
+        stageSeed = 0;
     }
 }

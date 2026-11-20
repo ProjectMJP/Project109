@@ -246,6 +246,7 @@ public class ExploreMapManager
         }
 
         SetBattleNodeData();
+        SetStageVariationData();
         LinkNodes();
         InitializeNodeVisibility(mapLength);
     }
@@ -328,6 +329,48 @@ public class ExploreMapManager
                                 enc.battleDataId = newData.ID;
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 탐험 맵 내 모든 노드에 스테이지 스폰 시드(stageSeed)와 맵 에셋 ID(mapDataId)를 사전 배정하여
+    /// 세이브·로드 시 맵 구성 및 유닛 초기 배치가 일관되게 유지되도록 합니다.
+    /// </summary>
+    private void SetStageVariationData()
+    {
+        if (MapData == null || MapData.floors == null) return;
+
+        for (int i = 0; i < MapData.floors.Count; i++)
+        {
+            List<ExploreNode> floorNodes = MapData.floors[i] != null ? MapData.floors[i].nodes : null;
+            if (floorNodes == null) continue;
+
+            for (int j = 0; j < floorNodes.Count; j++)
+            {
+                ExploreNode node = floorNodes[j];
+                if (node == null || node.encounterData == null) continue;
+
+                EncounterData enc = node.encounterData;
+                if (enc.stageSeed == 0)
+                {
+                    enc.stageSeed = StageManager.GenerateRandomStageSeed();
+                }
+
+                if (string.IsNullOrEmpty(enc.mapDataId))
+                {
+                    MapDataSO resolved = StageManager.ResolveMapData(
+                        enc.locationType.ToString(),
+                        enc.encountType,
+                        preferredMapDataId: null,
+                        stageSeed: enc.stageSeed,
+                        logDiagnostics: false);
+
+                    if (resolved != null)
+                    {
+                        enc.mapDataId = resolved.ID;
                     }
                 }
             }
