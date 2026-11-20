@@ -105,6 +105,10 @@ public class CardData : IModAssetResolver, IIdentifiable
     public string GetDescription()
     {
         if (string.IsNullOrEmpty(LocalizedDescription)) return string.Empty;
+        if (LuaManager.IsShuttingDown || LuaManager.IsDisposing)
+        {
+            return LocalizedDescription;
+        }
         if (_dummyInstance == null)
         {
             LuaTable dummyLua = null;
@@ -115,6 +119,27 @@ public class CardData : IModAssetResolver, IIdentifiable
             _dummyInstance = new Card(this, null, dummyLua, -1);
         }
         return _dummyInstance.GetDescription();
+    }
+
+    /// <summary>
+    /// 캐싱된 설명용 더미 카드 인스턴스와 프로토타입 LuaTable 참조를 안전하게 해제합니다.
+    /// </summary>
+    public void DisposeLuaResources()
+    {
+        if (_dummyInstance != null)
+        {
+            _dummyInstance.Dispose();
+            _dummyInstance = null;
+        }
+
+        if (luaPrototype != null)
+        {
+            if (LuaManager.IsLuaEnvAlive)
+            {
+                luaPrototype.Dispose();
+            }
+            luaPrototype = null;
+        }
     }
 
     /// <summary>

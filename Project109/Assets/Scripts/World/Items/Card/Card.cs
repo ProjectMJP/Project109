@@ -6,7 +6,7 @@ using GameItem.Types;
 using XLua;
 using EventStructs;
 
-public class Card : IDescribable
+public class Card : IDescribable, ILuaOwnedResource
 {
     // 임시 복제 카드 인스턴스들의 고유 ID 충돌 방지를 위한 전역 시퀀스 카운터 (음수 영역)
     private static int nextTemporaryRuntimeID = -1;
@@ -138,6 +138,11 @@ public class Card : IDescribable
         }
 
         // 1. Lua 측 OnInit 함수 호출 (초기화)
+        if (luaTable != null)
+        {
+            LuaManager.RegisterResource(this);
+        }
+
         var luaOnInit = luaTable?.Get<Action<LuaTable, Card, Character>>("OnInit");
         luaOnInit?.Invoke(luaTable, this, owner);
 
@@ -155,6 +160,10 @@ public class Card : IDescribable
         }
     }
 
+    public void ReleaseLuaResources()
+    {
+        Dispose();
+    }
 
     public void Dispose()
     {
@@ -171,10 +180,11 @@ public class Card : IDescribable
             attachedTags.Clear();
         }
 
-        bool isLuaValid = LuaManager.IsLuaEnvValid;
+        bool canInvokeLuaCallback = LuaManager.IsLuaEnvValid;
+        bool canDisposeLuaNative = LuaManager.IsLuaEnvAlive;
 
-        // 2. Lua 측 OnRemoved 함수 호출
-        if (luaTable != null && isLuaValid)
+        // 2. Lua 측 OnRemoved 함수 호출 (일반 런타임 제거 시에만 실행, 앱 종료/LuaEnv 해제 중에는 부작용 및 신규 델리게이트 생성 방지)
+        if (luaTable != null && canInvokeLuaCallback)
         {
             var luaOnRemoved = luaTable.Get<Action<LuaTable, Card, Character>>("OnRemoved");
             luaOnRemoved?.Invoke(luaTable, this, owner);
@@ -186,13 +196,13 @@ public class Card : IDescribable
             LuaEventBinder.UnbindCharacterEvents(owner.eventBus, activeProxies);
         }
 
-        // 4. 리소스 정리
-        activeProxies.Clear();
+        // 4. 리소스 정리 (InterfaceBridge 프록시, 캐싱 델리게이트, LuaTable 네이티브 참조 일괄 해제)
+        LuaEventBinder.DisposeProxies(activeProxies);
         _luaCanPlay = null;
         _luaSpendCosts = null;
         if (luaTable != null)
         {
-            if (isLuaValid)
+            if (canDisposeLuaNative)
             {
                 luaTable.Dispose();
             }
@@ -331,9 +341,12 @@ public class Card : IDescribable
     {
         string template = cardData?.LocalizedDescription ?? string.Empty;
 
-        var luaFunc = luaTable?.Get<Func<LuaTable, Card, string, string>>("GetDescription");
-        if (luaFunc != null)
-            return luaFunc(luaTable, this, template);
+        if (luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
+        {
+            var luaFunc = luaTable.Get<Func<LuaTable, Card, string, string>>("GetDescription");
+            if (luaFunc != null)
+                return luaFunc(luaTable, this, template);
+        }
 
         return template;
     }
@@ -343,8 +356,11 @@ public class Card : IDescribable
     /// </summary>
     public void Execute(CardInfo info)
     {
-        var luaFunc = luaTable?.Get<Action<LuaTable, CardInfo>>("Execute");
-        luaFunc?.Invoke(luaTable, info);
+        if (luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
+        {
+            var luaFunc = luaTable.Get<Action<LuaTable, CardInfo>>("Execute");
+            luaFunc?.Invoke(luaTable, info);
+        }
     }
 
     /// <summary>

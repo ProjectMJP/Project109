@@ -99,12 +99,28 @@ public class BattleManager : IInitializable, IDisposable
     public void Dispose()
     {
         OnBattleSpeedChanged -= HandleBattleSpeedChanged;
-        ClearBattle();
         OnBattleIntroRequested = null;
         OnBattleWon = null;
         OnBattleLost = null;
         OnBattleEnded = null;
         OnTimelineDirty = null;
+
+        if (LuaManager.IsShuttingDown || LuaManager.IsDisposing)
+        {
+            // 종료/LuaEnv 해제 경로에서는 Lua OnTurnEnd·OnBattleEnd 콜백을 유발하지 않고 안전 정리만 수행합니다.
+            CleanupCombatantsForShutdown();
+            battleState = BattleState.None;
+            accumulativeGoldReward = 0;
+
+            if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+            {
+                GameSceneManager.instance.player.DisposeBattleDeck(suppressEvents: true);
+            }
+        }
+        else
+        {
+            ClearBattle();
+        }
     }
 
     #region Battle Events
@@ -708,6 +724,43 @@ public class BattleManager : IInitializable, IDisposable
         {
             UIManager.instance.ClearWorldUILayer();
         }
+    }
+
+    private void CleanupCombatantsForShutdown()
+    {
+        currentTurnController = null;
+
+        for (int i = 0; i < playerTeam.Count; i++)
+        {
+            ICharacterController combatant = playerTeam[i];
+            if (combatant != null && combatant.controlledCharacter != null)
+            {
+                combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+                UnsubscribeCombatantIntentEvents(combatant.controlledCharacter);
+            }
+        }
+
+        for (int i = 0; i < enemyTeam.Count; i++)
+        {
+            ICharacterController combatant = enemyTeam[i];
+            if (combatant != null)
+            {
+                if (combatant.controlledCharacter != null)
+                {
+                    combatant.controlledCharacter.OnCharacterDied -= OnCharacterDied;
+                    UnsubscribeCombatantIntentEvents(combatant.controlledCharacter);
+                }
+
+                if (combatant is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+        }
+
+        playerTeam.Clear();
+        enemyTeam.Clear();
+        allCombatantsCache.Clear();
     }
 
     /// <summary>

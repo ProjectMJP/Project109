@@ -3,13 +3,14 @@ using System;
 using System.Collections.Generic;
 using XLua;
 
-public class Relic : IDescribable
+public class Relic : IDescribable, ILuaOwnedResource
 {
     public RelicData Data { get; private set; }
     public int Counter { get; set; }
 
     private readonly Player owner;
     private LuaTable luaLogic;
+    private bool _isDisposed = false;
 
     // 이벤트 구독 해제를 위해 만들어진 프록시 객체들을 담아둘 리스트
 
@@ -23,6 +24,8 @@ public class Relic : IDescribable
 
         if (luaLogic != null)
         {
+            LuaManager.RegisterResource(this);
+
             // 1. Lua 측 OnInit 함수 호출 (초기화, 카운터 세팅 등)
             var luaOnInit = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnInit");
             luaOnInit?.Invoke(luaLogic, this, owner);
@@ -41,12 +44,21 @@ public class Relic : IDescribable
         }
     }
 
+    public void ReleaseLuaResources()
+    {
+        Dispose();
+    }
+
     public void Dispose()
     {
-        bool isLuaValid = LuaManager.IsLuaEnvValid;
+        if (_isDisposed) return;
+        _isDisposed = true;
 
-        // 1. Lua 측 OnRemoved 함수 호출 (유물이 파괴되거나 게임오버 시)
-        if (luaLogic != null && isLuaValid)
+        bool canInvokeLuaCallback = LuaManager.IsLuaEnvValid;
+        bool canDisposeLuaNative = LuaManager.IsLuaEnvAlive;
+
+        // 1. Lua 측 OnRemoved 함수 호출 (유물이 파괴되거나 게임오버 시, 앱 종료/LuaEnv 해제 중에는 생략)
+        if (luaLogic != null && canInvokeLuaCallback)
         {
             var luaOnRemoved = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnRemoved");
             luaOnRemoved?.Invoke(luaLogic, this, owner);
@@ -66,11 +78,11 @@ public class Relic : IDescribable
             }
         }
 
-        // 3. 리소스 정리
-        activeProxies.Clear();
+        // 3. 리소스 정리 (InterfaceBridge 프록시 및 LuaTable 네이티브 참조 해제)
+        LuaEventBinder.DisposeProxies(activeProxies);
         if (luaLogic != null)
         {
-            if (isLuaValid)
+            if (canDisposeLuaNative)
             {
                 luaLogic.Dispose();
             }
@@ -86,9 +98,12 @@ public class Relic : IDescribable
     {
         string template = Data?.description ?? string.Empty;
 
-        var luaFunc = luaLogic?.Get<Func<LuaTable, Relic, string, string>>("GetDescription");
-        if (luaFunc != null)
-            return luaFunc(luaLogic, this, template);
+        if (luaLogic != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
+        {
+            var luaFunc = luaLogic.Get<Func<LuaTable, Relic, string, string>>("GetDescription");
+            if (luaFunc != null)
+                return luaFunc(luaLogic, this, template);
+        }
 
         return template;
     }

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using XLua;
 
-public class CardTag
+public class CardTag : ILuaOwnedResource
 {
     // 이 태그가 부착된 대상 카드
     public Card targetCard { get; private set; }
@@ -15,11 +15,21 @@ public class CardTag
 
     private LuaTable luaTable;
     private readonly List<object> activeProxies = new List<object>();
+    private bool _isDisposed = false;
 
     public CardTag(string tagName, LuaTable luaLogic)
     {
         this.tagName = tagName;
         this.luaTable = luaLogic;
+        if (this.luaTable != null)
+        {
+            LuaManager.RegisterResource(this);
+        }
+    }
+
+    public void ReleaseLuaResources()
+    {
+        OnDetached();
     }
 
     /// <summary>
@@ -50,12 +60,16 @@ public class CardTag
     /// </summary>
     public void OnDetached()
     {
-        bool isLuaValid = LuaManager.IsLuaEnvValid;
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        bool canInvokeLuaCallback = LuaManager.IsLuaEnvValid;
+        bool canDisposeLuaNative = LuaManager.IsLuaEnvAlive;
 
         if (luaTable != null)
         {
-            // 1. Lua 측 OnRemoved 실행
-            if (isLuaValid)
+            // 1. Lua 측 OnRemoved 실행 (일반 런타임 해제 시에만 호출)
+            if (canInvokeLuaCallback)
             {
                 var luaOnRemoved = luaTable.Get<Action<LuaTable, CardTag>>("OnRemoved");
                 luaOnRemoved?.Invoke(luaTable, this);
@@ -68,11 +82,11 @@ public class CardTag
             }
         }
 
-        // 3. 리소스 정리
-        activeProxies.Clear();
+        // 3. 리소스 정리 (InterfaceBridge 프록시 및 LuaTable 네이티브 참조 해제)
+        LuaEventBinder.DisposeProxies(activeProxies);
         if (luaTable != null)
         {
-            if (isLuaValid)
+            if (canDisposeLuaNative)
             {
                 luaTable.Dispose();
             }
@@ -87,7 +101,7 @@ public class CardTag
     /// </summary>
     public string GetDisplayName()
     {
-        if (luaTable != null)
+        if (luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
         {
             var luaFunc = luaTable.Get<System.Func<LuaTable, string>>("GetDisplayName");
             string result = luaFunc?.Invoke(luaTable);
@@ -104,7 +118,7 @@ public class CardTag
     /// </summary>
     public string GetDescription()
     {
-        if (luaTable != null)
+        if (luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
         {
             var luaFunc = luaTable.Get<System.Func<LuaTable, string>>("GetDescription");
             string result = luaFunc?.Invoke(luaTable);

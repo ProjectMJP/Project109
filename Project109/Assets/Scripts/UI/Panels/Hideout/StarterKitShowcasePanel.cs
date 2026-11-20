@@ -44,6 +44,8 @@ public class StarterKitShowcasePanel : UIPanelBase
         }
 
         RegisterPanelListeners();
+        LuaManager.OnBeforeLuaEnvDispose -= DisposePreviewCards;
+        LuaManager.OnBeforeLuaEnvDispose += DisposePreviewCards;
     }
 
     protected override void OnEnable()
@@ -94,6 +96,7 @@ public class StarterKitShowcasePanel : UIPanelBase
 
     private void OnDestroy()
     {
+        LuaManager.OnBeforeLuaEnvDispose -= DisposePreviewCards;
         UnsubscribePlayerEvents();
         DisposePreviewCards();
         ClearSpawnedSlots();

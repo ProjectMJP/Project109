@@ -73,8 +73,8 @@ public class RelicManager : IDisposable
 
     public void Dispose()
     {
-        ClearRelics();
         OnRelicAddedEvent = null;
         OnRelicRemovedEvent = null;
+        ClearRelics();
     }
 }

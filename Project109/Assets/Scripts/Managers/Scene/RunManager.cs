@@ -35,6 +35,8 @@ public class RunManager : MonoBehaviour
             exploreMapManager = new ExploreMapManager();
 
             EnsurePlayerInstancesInitialized();
+            LuaManager.OnBeforeLuaEnvDispose -= CleanupRunManagers;
+            LuaManager.OnBeforeLuaEnvDispose += CleanupRunManagers;
         }
         else
         {
@@ -320,23 +322,49 @@ public class RunManager : MonoBehaviour
 
     #endregion
 
-    void OnDestroy()
+    private void CleanupRunManagers()
     {
-        // C# 컨트롤러 및 매니저 생명주기 마무리 (Dispose 일괄 호출)
-        playerBattleController?.Dispose();
-        playerExploreController?.Dispose();
+        if (ActionQueueManager.HasInstance)
+        {
+            ActionQueueManager actionQueue = ActionQueueManager.Instance;
+            if (actionQueue != null)
+            {
+                actionQueue.ClearQueue(invokeCanceled: false);
+            }
+        }
+
+        // C# 컨트롤러 및 매니저 생명주기 마무리 (Dispose 일괄 호출, 멱등 보장)
+        if (playerBattleController != null)
+        {
+            playerBattleController.Dispose();
+            playerBattleController = null;
+        }
+        if (playerExploreController != null)
+        {
+            playerExploreController.Dispose();
+            playerExploreController = null;
+        }
+        _activePlayerController = null;
 
         if (battleManager != null)
         {
             battleManager.OnBattleWon -= HandleBattleWon;
             battleManager.OnBattleLost -= HandleBattleLost;
             battleManager.Dispose();
+            battleManager = null;
         }
 
         if (currentStage != null)
         {
             currentStage.Dispose();
+            currentStage = null;
         }
+    }
+
+    void OnDestroy()
+    {
+        LuaManager.OnBeforeLuaEnvDispose -= CleanupRunManagers;
+        CleanupRunManagers();
 
         if (instance == this)
         {

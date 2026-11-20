@@ -88,11 +88,28 @@ public class Character : MonoBehaviour, IDamageable
         effectManager = new EffectManager(this);
         characterMove = new CharacterMove(this);
         EnsureBaseStatInitialized();
+        LuaManager.OnBeforeLuaEnvDispose -= CleanupLuaResources;
+        LuaManager.OnBeforeLuaEnvDispose += CleanupLuaResources;
     }
 
     private void OnDestroy()
     {
+        LuaManager.OnBeforeLuaEnvDispose -= CleanupLuaResources;
+        CleanupLuaResources();
+    }
+
+    /// <summary>
+    /// LuaEnv 해제 직전 또는 오브젝트 파괴 시 코루틴(돌진 Lua 콜백 등), 상태이상, EventBus의 Lua 참조를 모두 해제합니다.
+    /// </summary>
+    private void CleanupLuaResources()
+    {
+        if (this != null)
+        {
+            StopAllCoroutines();
+        }
+        characterMove?.StopMoving();
         effectManager?.Dispose();
+        eventBus?.Clear();
     }
 
     private void EnsureBaseStatInitialized()
@@ -906,7 +923,11 @@ public class Character : MonoBehaviour, IDamageable
 
         // 3. 무효화(Cancel) 판정 검사
         if (info.effectFlags.HasFlag(EffectFlag.Cancel))
+        {
+            // 무효화되어 EffectManager에 등록되지 않은 Effect의 LuaTable 누수 방지
+            info.effect?.ReleaseLuaResources();
             return; // 인공물 등에 의해 막혔으므로 종료
+        }
 
         // 4. 무사히 통과했으므로 진짜로 버프 추가 (이때 Added, Stacked 등의 UI 이벤트가 터짐)
         this.effectManager.AddEffect(info.caster, info.effect, info.FinalStack, info.FinalDuration);

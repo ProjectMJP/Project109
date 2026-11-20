@@ -41,6 +41,13 @@ public class ModLoader
     private int _starterKitLoadOrder;
 
     private static ModLoader _instance;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        _instance = null;
+    }
+
     public static ModLoader Instance
     {
         get
@@ -53,10 +60,42 @@ public class ModLoader
         }
     }
 
-    private ModLoader() { }
+    private ModLoader()
+    {
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeLuaResources;
+        LuaManager.OnBeforeLuaEnvDispose += DisposeLuaResources;
+    }
+
+    /// <summary>
+    /// 정적 모드 데이터베이스(CardData._dummyInstance 및 각 스키마의 luaPrototype)가 보유한 모든 Lua 참조를 일괄 해제합니다.
+    /// </summary>
+    public void DisposeLuaResources()
+    {
+        foreach (CardData data in CardDatabase.Values)
+        {
+            data?.DisposeLuaResources();
+        }
+        foreach (RelicData data in RelicDatabase.Values)
+        {
+            data?.DisposeLuaResources();
+        }
+        foreach (EffectData data in EffectDatabase.Values)
+        {
+            data?.DisposeLuaResources();
+        }
+        foreach (NPCUnitData data in NPCUnitDatabase.Values)
+        {
+            data?.DisposeLuaResources();
+        }
+    }
 
     public void LoadAllMods()
     {
+        // PlayMode 재진입 또는 핫 리로드 시 LuaManager 종료 훅 구독을 보장하고 기존 Lua 참조를 선제 해제
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeLuaResources;
+        LuaManager.OnBeforeLuaEnvDispose += DisposeLuaResources;
+        DisposeLuaResources();
+
         EffectDatabase.Clear();
         RelicDatabase.Clear();
         CardDatabase.Clear();
@@ -94,6 +133,26 @@ public class ModLoader
 
 
         Debug.Log($"[ModLoader] 총 {EffectDatabase.Count}개의 이펙트 데이터, {RelicDatabase.Count}개의 유물 데이터, {CardDatabase.Count}개의 카드 데이터, {StarterKitDatabase.Count}개의 시작 키트 데이터, {NPCUnitDatabase.Count}개의 적 데이터, {BattleDatabase.Count}개의 전투 데이터, {InteractableDatabase.Count}개의 상호작용 데이터, {DropTableDatabase.Count}개의 드롭 테이블 데이터가 로드되었습니다.");
+    }
+
+    private static void DisposeSingleSchemaLuaResources(object schemaData)
+    {
+        if (schemaData is CardData cardData)
+        {
+            cardData.DisposeLuaResources();
+        }
+        else if (schemaData is RelicData relicData)
+        {
+            relicData.DisposeLuaResources();
+        }
+        else if (schemaData is EffectData effectData)
+        {
+            effectData.DisposeLuaResources();
+        }
+        else if (schemaData is NPCUnitData npcUnitData)
+        {
+            npcUnitData.DisposeLuaResources();
+        }
     }
 
     private void LoadModDirectory(string modDir, bool isCoreMod = false)
@@ -233,6 +292,10 @@ public class ModLoader
                     string key = keySelector(data);
                     if (!string.IsNullOrEmpty(key))
                     {
+                        if (targetDict.TryGetValue(key, out T previous) && previous != null && !ReferenceEquals(previous, data))
+                        {
+                            DisposeSingleSchemaLuaResources(previous);
+                        }
                         onLoaded?.Invoke(data);
                         targetDict[key] = data;
                     }

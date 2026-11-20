@@ -58,6 +58,8 @@ public class GameSceneManager : MonoBehaviour
             instance = this;
             currentSaveSlot = selectedSaveSlot;
             _pendingSessionSaveData = null;
+            LuaManager.OnBeforeLuaEnvDispose -= DisposePlayerSession;
+            LuaManager.OnBeforeLuaEnvDispose += DisposePlayerSession;
         }
         else
         {
@@ -65,8 +67,20 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
+    private void DisposePlayerSession()
+    {
+        if (player != null)
+        {
+            player.Dispose();
+            player = null;
+        }
+    }
+
     private void OnDestroy()
     {
+        LuaManager.OnBeforeLuaEnvDispose -= DisposePlayerSession;
+        DisposePlayerSession();
+
         _pendingSessionSaveData = null;
         if (_spawnedPlayerObject != null)
         {

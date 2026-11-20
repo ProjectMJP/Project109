@@ -5,16 +5,26 @@ using UnityEngine;
 public class ActionQueueManager : MonoBehaviour
 {
     private static ActionQueueManager _instance;
+    private static bool _isShuttingDown = false;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        _instance = null;
+        _isShuttingDown = false;
+    }
 
     /// <summary>
     /// 지연 생성(Lazy Instantiation)을 유발하지 않고 현재 활성 인스턴스가 존재하는지 확인합니다.
     /// </summary>
-    public static bool HasInstance => _instance != null;
+    public static bool HasInstance => _instance != null && !_isShuttingDown;
 
     public static ActionQueueManager Instance
     {
         get
         {
+            if (_isShuttingDown) return null;
+
             if (_instance == null)
             {
                 _instance = FindFirstObjectByType<ActionQueueManager>();
@@ -40,11 +50,34 @@ public class ActionQueueManager : MonoBehaviour
         if (_instance == null)
         {
             _instance = this;
+            LuaManager.OnBeforeLuaEnvDispose -= HandleBeforeLuaEnvDispose;
+            LuaManager.OnBeforeLuaEnvDispose += HandleBeforeLuaEnvDispose;
         }
         else if (_instance != this)
         {
             Destroy(gameObject);
         }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isShuttingDown = true;
+    }
+
+    private void OnDestroy()
+    {
+        LuaManager.OnBeforeLuaEnvDispose -= HandleBeforeLuaEnvDispose;
+        ClearQueue(invokeCanceled: false);
+        if (_instance == this)
+        {
+            _instance = null;
+        }
+    }
+
+    private void HandleBeforeLuaEnvDispose()
+    {
+        // LuaEnv 종료 직전 대기 중이던 CardPlayAction/코루틴이 Lua 참조를 붙잡지 않도록 콜백 없이 즉시 비웁니다.
+        ClearQueue(invokeCanceled: false);
     }
 
     public bool IsBusy => _isProcessing || _actionQueue.Count > 0;
@@ -135,18 +168,27 @@ public class ActionQueueManager : MonoBehaviour
     /// <summary>
     /// 전투 종료 시 큐 강제 클리어 및 대기 중 액션 리소스 정리
     /// </summary>
-    public void ClearQueue()
+    public void ClearQueue(bool invokeCanceled = true)
     {
-        StopAllCoroutines();
+        if (this != null)
+        {
+            StopAllCoroutines();
+        }
         if (_currentAction != null)
         {
-            _currentAction.OnCanceled();
+            if (invokeCanceled)
+            {
+                _currentAction.OnCanceled();
+            }
             _currentAction = null;
         }
         while (_actionQueue.Count > 0)
         {
             var action = _actionQueue.Dequeue();
-            action?.OnCanceled();
+            if (invokeCanceled)
+            {
+                action?.OnCanceled();
+            }
         }
         _isProcessing = false;
     }

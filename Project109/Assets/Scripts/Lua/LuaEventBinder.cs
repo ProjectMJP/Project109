@@ -15,6 +15,28 @@ public static partial class LuaEventBinder
     public static partial void BindPlayerEvents(LuaTable luaTable, EventBus<IPlayerEvent> eventBus, List<object> activeProxies);
     public static partial void UnbindPlayerEvents(EventBus<IPlayerEvent> eventBus, List<object> activeProxies);
 
+    /// <summary>
+    /// EventBus 구독 해제 후 활성 프록시 리스트에 남아 있던 XLua InterfaceBridge(LuaBase) 네이티브 참조를 즉시 해제합니다.
+    /// </summary>
+    public static void DisposeProxies(List<object> activeProxies)
+    {
+        if (activeProxies == null || activeProxies.Count == 0)
+        {
+            return;
+        }
+
+        bool canDisposeLua = LuaManager.IsLuaEnvAlive;
+        for (int i = 0; i < activeProxies.Count; i++)
+        {
+            if (canDisposeLua && activeProxies[i] is LuaBase luaProxy)
+            {
+                luaProxy.Dispose();
+            }
+        }
+
+        activeProxies.Clear();
+    }
+
 
     // =========================================================
     // 3. Helper Methods (내부 동작용 — 컴파일 타임 상수 문자열 주입으로 GC 무할당)

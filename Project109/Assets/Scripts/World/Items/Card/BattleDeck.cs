@@ -46,17 +46,20 @@ public class BattleDeck
     /// <summary>
     /// 전투 종료 또는 덱 재초기화 시 런타임 복제 카드들의 리소스를 해제하고 이벤트 버스 구독을 완전히 정리합니다.
     /// </summary>
-    public void DisposeDeck()
+    public void DisposeDeck(bool suppressEvents = false)
     {
         DisposeCardList(drawPile);
         DisposeCardList(hand);
         DisposeCardList(discardPile);
         DisposeCardList(exhaustPile);
 
-        OnHandChanged?.Invoke();
-        OnDrawPileChanged?.Invoke();
-        OnDiscardPileChanged?.Invoke();
-        OnExhaustPileChanged?.Invoke();
+        if (!suppressEvents)
+        {
+            OnHandChanged?.Invoke();
+            OnDrawPileChanged?.Invoke();
+            OnDiscardPileChanged?.Invoke();
+            OnExhaustPileChanged?.Invoke();
+        }
     }
 
     private void DisposeCardList(List<Card> cardList)

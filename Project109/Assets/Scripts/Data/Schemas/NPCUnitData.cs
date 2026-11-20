@@ -30,6 +30,21 @@ public class NPCUnitData : IModAssetResolver, IIdentifiable
     [YamlIgnore]
     public LuaTable luaPrototype { get; set; }
 
+    /// <summary>
+    /// 프로토타입 LuaTable 네이티브 참조를 안전하게 해제합니다.
+    /// </summary>
+    public void DisposeLuaResources()
+    {
+        if (luaPrototype != null)
+        {
+            if (LuaManager.IsLuaEnvAlive)
+            {
+                luaPrototype.Dispose();
+            }
+            luaPrototype = null;
+        }
+    }
+
     public bool ResolveAndValidate(string modDirectory)
     {
         // 루아 스크립트 검증 및 사전 로딩 (NPCs 또는 Enemies 폴더 호환성 지원)

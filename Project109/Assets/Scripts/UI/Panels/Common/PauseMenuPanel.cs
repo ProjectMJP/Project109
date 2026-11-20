@@ -143,6 +143,8 @@ public class PauseMenuPanel : UIPanelBase
         EnsureRelicFilterSortBar();
         BindListeners();
         BindRelicFilterSortListeners();
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
+        LuaManager.OnBeforeLuaEnvDispose += DisposeCompendiumCards;
     }
 
     protected override void OnEnable()
@@ -161,6 +163,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
         UnbindListeners();
         UnbindRelicFilterSortListeners();

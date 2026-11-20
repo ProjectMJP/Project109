@@ -37,6 +37,8 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
         {
             TryGetComponent<HideoutWorldLabel>(out _worldLabel);
         }
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
+        LuaManager.OnBeforeLuaEnvDispose += DisposeCompendiumCards;
     }
 
     private void Start()
@@ -46,6 +48,7 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
 
     private void OnDestroy()
     {
+        LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
         DisposeCompendiumCards();
     }
 

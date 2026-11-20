@@ -2,37 +2,101 @@ using UnityEngine;
 using XLua;
 using System.IO;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
+[DefaultExecutionOrder(10000)]
 public class LuaManager : MonoBehaviour
 {
     private static LuaManager _instance;
     private static bool _isShuttingDown = false;
+    private bool _isDisposing = false;
+
+    /// <summary>
+    /// LuaEnv.Dispose() 실행 직전에 발행되는 중앙 종료 정리 훅입니다.
+    /// 씬 오브젝트·매니저·정적 데이터베이스는 이 이벤트에서 모든 LuaTable 및 C#↔Lua 델리게이트 참조를 해제해야 합니다.
+    /// </summary>
+    public static event System.Action OnBeforeLuaEnvDispose;
+
+    // 도메인 객체가 소유한 Lua 리소스의 누수 방지 안전망(WeakReference이므로 정상 GC를 방해하지 않음)
+    private static readonly List<System.WeakReference<ILuaOwnedResource>> _trackedResources =
+        new List<System.WeakReference<ILuaOwnedResource>>();
+    private static int _registrationsSincePrune = 0;
+    private const int PruneThreshold = 64;
 
     /// <summary>애플리케이션 종료 진행 여부.</summary>
     public static bool IsShuttingDown => _isShuttingDown;
 
-    /// <summary>싱글턴과 LuaEnv 네이티브 상태가 모두 유효한지 안전하게 확인합니다. (Instance 생성 부수효과 없음)</summary>
-    public static bool IsLuaEnvValid =>
+    /// <summary>LuaManager.Dispose()가 현재 정리 파이프라인을 실행 중인지 여부.</summary>
+    public static bool IsDisposing => _instance != null && _instance._isDisposing;
+
+    /// <summary>
+    /// 네이티브 LuaState가 아직 살아 있어 LuaTable/LuaBase.Dispose() 호출이 안전한지 확인합니다.
+    /// 종료 정리(OnApplicationQuit / OnBeforeLuaEnvDispose) 도중에도 LuaEnv가 닫히기 전까지 true를 유지합니다.
+    /// </summary>
+    public static bool IsLuaEnvAlive =>
         _instance != null &&
-        !_isShuttingDown &&
         _instance.luaEnv != null &&
         _instance.luaEnv.rawL != System.IntPtr.Zero;
+
+    /// <summary>
+    /// 싱글턴과 LuaEnv 네이티브 상태가 모두 유효하고 일반 런타임 콜백 실행이 안전한지 확인합니다. (Instance 생성 부수효과 없음)
+    /// </summary>
+    public static bool IsLuaEnvValid =>
+        IsLuaEnvAlive &&
+        !_isShuttingDown &&
+        !_instance._isDisposing;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStaticState()
     {
         _isShuttingDown = false;
         _instance = null;
+        OnBeforeLuaEnvDispose = null;
+        _trackedResources.Clear();
+        _registrationsSincePrune = 0;
+    }
+
+    /// <summary>
+    /// Lua 리소스를 보유한 도메인 객체를 약한 참조 안전망에 등록합니다.
+    /// 소유자 OnDestroy가 누락되거나 역순 파괴되더라도 LuaEnv.Dispose() 직전에 강제 회수됩니다.
+    /// </summary>
+    public static void RegisterResource(ILuaOwnedResource resource)
+    {
+        if (resource == null || !IsLuaEnvAlive)
+        {
+            return;
+        }
+
+        _trackedResources.Add(new System.WeakReference<ILuaOwnedResource>(resource));
+        _registrationsSincePrune++;
+        if (_registrationsSincePrune >= PruneThreshold)
+        {
+            PruneDeadTrackedResources();
+        }
+    }
+
+    private static void PruneDeadTrackedResources()
+    {
+        _registrationsSincePrune = 0;
+        for (int i = _trackedResources.Count - 1; i >= 0; i--)
+        {
+            if (!_trackedResources[i].TryGetTarget(out _))
+            {
+                _trackedResources.RemoveAt(i);
+            }
+        }
     }
 
     public static LuaManager Instance 
     { 
         get 
         { 
-            if (_isShuttingDown || !Application.isPlaying) return null;
+            if (_isShuttingDown || (_instance != null && _instance._isDisposing)) return null;
 
             if (_instance == null)
             {
+                if (!Application.isPlaying) return null;
+
                 _instance = FindFirstObjectByType<LuaManager>();
                 if (_instance == null)
                 {
@@ -518,7 +582,7 @@ public class LuaManager : MonoBehaviour
     /// </summary>
     public LuaTable NewInstance(LuaTable proto)
     {
-        if (proto == null || luaEnv == null) return null;
+        if (proto == null || luaEnv == null || _isShuttingDown || _isDisposing || luaEnv.rawL == System.IntPtr.Zero) return null;
 
         try
         {
@@ -537,7 +601,7 @@ public class LuaManager : MonoBehaviour
     /// </summary>
     public LuaTable LoadCardTagScript(string filePath)
     {
-        if (!File.Exists(filePath) || luaEnv == null) return null;
+        if (!File.Exists(filePath) || luaEnv == null || _isShuttingDown || _isDisposing || luaEnv.rawL == System.IntPtr.Zero) return null;
 
         string tagName = Path.GetFileNameWithoutExtension(filePath);
         try
@@ -557,6 +621,12 @@ public class LuaManager : MonoBehaviour
 
             if (resultProto != null)
             {
+                if (cardTagPrototypes.TryGetValue(tagName, out LuaTable previousProto) &&
+                    previousProto != null &&
+                    !ReferenceEquals(previousProto, resultProto))
+                {
+                    previousProto.Dispose();
+                }
                 cardTagPrototypes[tagName] = resultProto;
             }
             else
@@ -582,6 +652,16 @@ public class LuaManager : MonoBehaviour
     public void RegisterCardTagPrototype(string tagName, LuaTable proto)
     {
         if (string.IsNullOrEmpty(tagName) || proto == null) return;
+
+        if (cardTagPrototypes.TryGetValue(tagName, out LuaTable previousProto) &&
+            previousProto != null &&
+            !ReferenceEquals(previousProto, proto) &&
+            luaEnv != null &&
+            luaEnv.rawL != System.IntPtr.Zero)
+        {
+            previousProto.Dispose();
+        }
+
         cardTagPrototypes[tagName] = proto;
     }
 
@@ -591,7 +671,7 @@ public class LuaManager : MonoBehaviour
     /// </summary>
     public LuaTable GetCardTagPrototype(string tagName)
     {
-        if (string.IsNullOrEmpty(tagName)) return null;
+        if (string.IsNullOrEmpty(tagName) || _isShuttingDown || _isDisposing || luaEnv == null || luaEnv.rawL == System.IntPtr.Zero) return null;
 
         if (cardTagPrototypes.TryGetValue(tagName, out var proto))
         {
@@ -622,25 +702,144 @@ public class LuaManager : MonoBehaviour
         return null;
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void DisposeCardTagPrototypes()
+    {
+        bool canDisposeTables = luaEnv != null && luaEnv.rawL != System.IntPtr.Zero;
+        if (canDisposeTables)
+        {
+            foreach (var pair in cardTagPrototypes)
+            {
+                if (pair.Value != null)
+                {
+                    pair.Value.Dispose();
+                }
+            }
+        }
+
+        cardTagPrototypes.Clear();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void InvokeBeforeDisposeHooks()
+    {
+        System.Action handlers = OnBeforeLuaEnvDispose;
+        if (handlers == null)
+        {
+            return;
+        }
+
+        System.Delegate[] invocationList = handlers.GetInvocationList();
+        for (int i = 0; i < invocationList.Length; i++)
+        {
+            try
+            {
+                ((System.Action)invocationList[i]).Invoke();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[LuaManager] OnBeforeLuaEnvDispose 핸들러 실행 중 예외 발생:\n{ex}");
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ReleaseAllTrackedResources()
+    {
+        if (_trackedResources.Count == 0)
+        {
+            return;
+        }
+
+        // 해제 도중 컬렉션 변경을 피하기 위해 스냅샷 순회
+        for (int i = _trackedResources.Count - 1; i >= 0; i--)
+        {
+            if (_trackedResources[i].TryGetTarget(out ILuaOwnedResource resource) && resource != null)
+            {
+                try
+                {
+                    resource.ReleaseLuaResources();
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[LuaManager] 추적 중인 Lua 리소스({resource.GetType().Name}) 해제 중 예외 발생:\n{ex}");
+                }
+            }
+        }
+
+        _trackedResources.Clear();
+        _registrationsSincePrune = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ReleaseAllLuaReferencesBeforeDispose()
+    {
+        // 1. 씬/매니저/UI/정적 DB(ModLoader 등)의 Lua 소유자 선행 해제 (파괴 순서 비결정성 제거)
+        InvokeBeforeDisposeHooks();
+
+        // 2. 약한 참조 안전망에 남아 있는 고아 Card/CardTag/Effect/Relic/NPCUnitController 일괄 회수
+        ReleaseAllTrackedResources();
+
+        // 3. LuaManager 자체 캐시(NewInstance 델리게이트, 카드 태그 프로토타입, Choice 스크립트) 해제
+        _cachedNewInstance = null;
+        DisposeCardTagPrototypes();
+        _scriptPathIndex.Clear();
+        DisposeChoiceScripts();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ScrubConservativeStackSlots()
+    {
+        // Mono 보수적 스택 스캔이 이전 호출 프레임의 DelegateBridge 레지스터/스택 슬롯을 붙잡지 않도록 덮어씁니다.
+        System.Span<byte> scrub = stackalloc byte[512];
+        scrub.Clear();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void FlushLuaAndManagedGc(LuaEnv env)
+    {
+        // Lua(translator.objects) <-> C#(DelegateBridge) 간 지연 파이널라이저 순환 참조를 완전히 해소하기 위해 2회 GC 사이클을 수행합니다.
+        for (int pass = 0; pass < 2; pass++)
+        {
+            env.Tick();
+            env.FullGc();
+            System.GC.Collect();
+            System.GC.WaitForPendingFinalizers();
+            System.GC.Collect();
+            env.Tick();
+        }
+    }
+
     /// <summary>
-    /// XLua 환경 및 내부 캐시를 안전하게 파괴합니다.
+    /// XLua 환경 및 내부 캐시를 결정론적 순서로 안전하게 파괴합니다.
     /// </summary>
     public void Dispose()
     {
-        _cachedNewInstance = null;
-        cardTagPrototypes.Clear();
-        _scriptPathIndex.Clear();
-        DisposeChoiceScripts();
-
-        if (luaEnv != null)
+        if (_isDisposing && luaEnv == null)
         {
+            return;
+        }
+
+        _isDisposing = true;
+        try
+        {
+            // 주의: 아래 해제 단계 동안 IsLuaEnvAlive == true(rawL 유효), IsLuaEnvValid == false(_isDisposing == true)가 유지되어
+            // 게임플레이 OnRemoved Lua 콜백은 차단하면서도 LuaTable/LuaBase.Dispose()는 빠짐없이 실행됩니다.
+            ReleaseAllLuaReferencesBeforeDispose();
+            ScrubConservativeStackSlots();
+
             LuaEnv envToDispose = luaEnv;
             luaEnv = null;
 
-            if (envToDispose.rawL != System.IntPtr.Zero)
+            if (envToDispose != null && envToDispose.rawL != System.IntPtr.Zero)
             {
+                FlushLuaAndManagedGc(envToDispose);
                 envToDispose.Dispose();
             }
+        }
+        finally
+        {
+            _isDisposing = false;
         }
     }
 }

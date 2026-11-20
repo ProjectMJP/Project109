@@ -28,11 +28,11 @@ public class Player : IDisposable
         battleDeck.InitDeck(masterDeck);
     }
 
-    public void DisposeBattleDeck()
+    public void DisposeBattleDeck(bool suppressEvents = false)
     {
         if (battleDeck != null)
         {
-            battleDeck.DisposeDeck();
+            battleDeck.DisposeDeck(suppressEvents);
         }
     }
 
@@ -133,6 +133,9 @@ public class Player : IDisposable
 
     public void Dispose()
     {
+        battleDeck?.DisposeDeck(suppressEvents: true);
+        deck?.Dispose();
         relicManager?.Dispose();
+        eventBus?.Clear();
     }
 }

@@ -8,7 +8,7 @@ public enum EffectType
     Debuff
 }
 
-public class Effect : IDescribable
+public class Effect : IDescribable, ILuaOwnedResource
 {
     // Lua 스크립트에서 접근할 수 있도록 getter를 public으로 개방
     public Character caster { get; protected set; }
@@ -23,12 +23,18 @@ public class Effect : IDescribable
     public EffectData Data { get; private set; }
     private LuaTable luaTable;
     private List<object> activeProxies = new List<object>();
+    private bool _isDisposed = false;
 
     // 데이터 기반(모딩) 이펙트용 단일 생성자
     public Effect(EffectData data, LuaTable luaLogic)
     {
         this.Data = data;
         this.luaTable = luaLogic;
+
+        if (this.luaTable != null)
+        {
+            LuaManager.RegisterResource(this);
+        }
 
         // 추가적인 Lua 자체 초기화 호출
         var luaOnInit = luaTable?.Get<Action<LuaTable, Effect>>("OnInit");
@@ -99,31 +105,24 @@ public class Effect : IDescribable
         }
     }
 
-    public void OnRemoved()
+    /// <summary>
+    /// 게임플레이 OnRemoved Lua 콜백을 실행하지 않고 이벤트 바인딩과 네이티브 LuaTable 참조만 즉시 해제합니다.
+    /// (적용 취소·스택 병합 폐기·애플리케이션 종료 정리에 사용)
+    /// </summary>
+    public void ReleaseLuaResources()
     {
-        bool isLuaValid = LuaManager.IsLuaEnvValid;
+        if (_isDisposed) return;
+        _isDisposed = true;
 
-        if (luaTable != null)
+        if (target != null && target.eventBus != null)
         {
-            // 1. Lua 측 OnRemoved 실행
-            if (isLuaValid)
-            {
-                var luaOnRemoved = luaTable.Get<Action<LuaTable, Effect>>("OnRemoved");
-                luaOnRemoved?.Invoke(luaTable, this);
-            }
-
-            // 2. 이벤트 버스 구독 해제
-            if (target != null && target.eventBus != null)
-            {
-                LuaEventBinder.UnbindCharacterEvents(target.eventBus, activeProxies);
-            }
+            LuaEventBinder.UnbindCharacterEvents(target.eventBus, activeProxies);
         }
 
-        // 3. 리소스 정리
-        activeProxies.Clear();
+        LuaEventBinder.DisposeProxies(activeProxies);
         if (luaTable != null)
         {
-            if (isLuaValid)
+            if (LuaManager.IsLuaEnvAlive)
             {
                 luaTable.Dispose();
             }
@@ -134,6 +133,21 @@ public class Effect : IDescribable
         target = null;
     }
 
+    public void OnRemoved()
+    {
+        if (_isDisposed) return;
+
+        // 1. Lua 측 OnRemoved 실행 (일반 런타임 제거 시에만 실행)
+        if (luaTable != null && LuaManager.IsLuaEnvValid)
+        {
+            var luaOnRemoved = luaTable.Get<Action<LuaTable, Effect>>("OnRemoved");
+            luaOnRemoved?.Invoke(luaTable, this);
+        }
+
+        // 2. 이벤트 버스 구독 해제 및 네이티브 LuaTable/프록시 정리
+        ReleaseLuaResources();
+    }
+
     /// <summary>
     /// YAML description 템플릿을 Lua에 넘겨 토큰 치환을 위임합니다.
     /// Lua에 GetDescription이 없으면 템플릿 원문을 반환합니다.
@@ -142,9 +156,12 @@ public class Effect : IDescribable
     {
         string template = Data?.description ?? string.Empty;
 
-        var luaFunc = luaTable?.Get<Func<LuaTable, Effect, string, string>>("GetDescription");
-        if (luaFunc != null)
-            return luaFunc(luaTable, this, template);
+        if (luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
+        {
+            var luaFunc = luaTable.Get<Func<LuaTable, Effect, string, string>>("GetDescription");
+            if (luaFunc != null)
+                return luaFunc(luaTable, this, template);
+        }
 
         // Lua GetDescription이 없으면 템플릿 그대로 반환
         // (동적 값이 없는 단순 효과는 YAML에 토큰 없이 작성하면 됨)

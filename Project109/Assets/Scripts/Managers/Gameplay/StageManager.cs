@@ -622,10 +622,7 @@ public class StageManager : IInitializable, System.IDisposable
         // 현재 씬에 존재하는 적 오브젝트를 모두 제거
         foreach (GameObject enemy in _currentSpawnEnemyList)
         {
-            if (enemy != null)
-            {
-                UnityEngine.Object.Destroy(enemy);
-            }
+            DestroySceneObject(enemy);
         }
         _currentSpawnEnemyList.Clear();
 
@@ -633,20 +630,14 @@ public class StageManager : IInitializable, System.IDisposable
         // 현재 씬에 존재하는 NPC 오브젝트를 모두 제거
         foreach (GameObject obj in _currentSpawnNPCList)
         {
-            if (obj != null)
-            {
-                UnityEngine.Object.Destroy(obj);
-            }
+            DestroySceneObject(obj);
         }
         _currentSpawnNPCList.Clear();
 
         // 현재 씬에 존재하는 장애물, 함정 오브젝트를 모두 제거
         foreach (GameObject etc in _currentSpawnEtcList)
         {
-            if (etc != null)
-            {
-                UnityEngine.Object.Destroy(etc);
-            }
+            DestroySceneObject(etc);
         }
         _currentSpawnEtcList.Clear();
 
@@ -655,6 +646,19 @@ public class StageManager : IInitializable, System.IDisposable
         {
             currentGameMap.ClearTiles();
         }
+    }
+
+    private static void DestroySceneObject(GameObject obj)
+    {
+        if (obj == null) return;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            UnityEngine.Object.DestroyImmediate(obj);
+            return;
+        }
+#endif
+        UnityEngine.Object.Destroy(obj);
     }
 
     #region Monster & NPC Resolution Helpers (O(1) Cached)

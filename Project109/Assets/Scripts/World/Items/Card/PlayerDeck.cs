@@ -50,6 +50,22 @@ public class PlayerDeck
     }
 
     /// <summary>
+    /// 세션/애플리케이션 종료 시 게임플레이 제거 이벤트를 발행하지 않고 모든 마스터 덱 카드의 Lua 리소스를 일괄 해제합니다.
+    /// </summary>
+    public void Dispose()
+    {
+        for (int i = cards.Count - 1; i >= 0; i--)
+        {
+            if (cards[i] != null)
+            {
+                cards[i].Dispose();
+            }
+        }
+        cards.Clear();
+        sharedMasteryStates.Clear();
+    }
+
+    /// <summary>
     /// 현재 덱에 보관된 카드 리스트를 반환합니다. (불필요한 복사 할당을 방지하기 위해 읽기 전용으로 노출)
     /// </summary>
     public IReadOnlyList<Card> GetCards()

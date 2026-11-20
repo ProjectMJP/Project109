@@ -60,6 +60,21 @@ public class RelicData : IModAssetResolver, IIdentifiable
     [YamlIgnore]
     public LuaTable luaPrototype { get; set; }
 
+    /// <summary>
+    /// 프로토타입 LuaTable 네이티브 참조를 안전하게 해제합니다.
+    /// </summary>
+    public void DisposeLuaResources()
+    {
+        if (luaPrototype != null)
+        {
+            if (LuaManager.IsLuaEnvAlive)
+            {
+                luaPrototype.Dispose();
+            }
+            luaPrototype = null;
+        }
+    }
+
     public bool ResolveAndValidate(string modDirectory)
     {
         // 1. 아이콘 스프라이트 링크 (Default.png 폴백 지원)

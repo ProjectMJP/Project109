@@ -47,6 +47,11 @@ public class EffectManager : IDisposable
         if (existing != null)
         {
             existing.OnStacked(stack, duration);
+            if (!ReferenceEquals(existing, effect))
+            {
+                // 스택 병합으로 채택되지 않은 임시 Effect의 LuaTable 누수 방지
+                effect.ReleaseLuaResources();
+            }
             OnEffectStacked?.Invoke(existing);
         }
         else
@@ -142,9 +147,9 @@ public class EffectManager : IDisposable
 
     public void Dispose()
     {
-        ClearAllEffects(true);
         OnEffectAdded = null;
         OnEffectStacked = null;
         OnEffectRemoved = null;
+        ClearAllEffects(true);
     }
 }

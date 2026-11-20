@@ -4,7 +4,7 @@ using CardTypes;
 using EventStructs;
 using UnityEngine;
 
-public class NPCUnitController : ICharacterController, IDisposable
+public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedResource
 {
     public Character controlledCharacter { get; private set; }
 
@@ -28,6 +28,7 @@ public class NPCUnitController : ICharacterController, IDisposable
         controlledCharacter = character;
         _unitData = unitData;
         _cardLookup = cardLookup;
+        LuaManager.RegisterResource(this);
 
         // 루아 테이블 복제 및 바인딩
         if (_unitData != null && _unitData.luaPrototype != null)
@@ -307,6 +308,11 @@ public class NPCUnitController : ICharacterController, IDisposable
         Dispose();
     }
 
+    public void ReleaseLuaResources()
+    {
+        Dispose();
+    }
+
     public void Dispose()
     {
         if (_isDisposed) return;
@@ -328,7 +334,7 @@ public class NPCUnitController : ICharacterController, IDisposable
 
         if (_luaTable != null)
         {
-            if (_ownsLuaTable && LuaManager.IsLuaEnvValid)
+            if (_ownsLuaTable && LuaManager.IsLuaEnvAlive)
             {
                 _luaTable.Dispose();
             }
@@ -360,7 +366,7 @@ public class NPCUnitController : ICharacterController, IDisposable
         }
 
         // 1. 루아 AI 스크립트 의사결정 함수 호출 시도
-        if (_luaTable != null)
+        if (_luaTable != null && !LuaManager.IsShuttingDown && !LuaManager.IsDisposing)
         {
             // Evaluate 함수 (Table 반환) 호출 검사
             var luaEvaluate = _luaTable.Get<Func<XLua.LuaTable, Character, XLua.LuaTable>>("Evaluate");
