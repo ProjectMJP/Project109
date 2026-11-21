@@ -4,8 +4,11 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using XLua;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -28,6 +31,8 @@ public class DialogueChoiceCachingTests
 
         SetStaticField<LuaManager>("_instance", null);
         SetStaticField<LuaManager>("_isShuttingDown", false);
+        SetStaticField<PlayerInputController>("_instance", null);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
         SetStaticAutoProperty<DialogueManager>("Instance", null);
         SetStaticAutoProperty<UIManager>("instance", null);
         SetStaticAutoProperty<GameSceneManager>("instance", null);
@@ -269,11 +274,8 @@ end
     private static void ClearStackSlot()
     {
         // Mono 보수적 스택 스캔이 이전 프레임의 DelegateBridge 레지스터/슬롯을 붙잡지 않도록 스택 슬롯을 덮어씁니다.
-        long a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0, h = 0;
-        if (a + b + c + d + e + f + g + h != 0)
-        {
-            Assert.Fail();
-        }
+        Span<byte> scrub = stackalloc byte[512];
+        scrub.Clear();
     }
 
     [Test]
@@ -355,6 +357,126 @@ end
         RestoreBonfire bonfire = bonfireGo.AddComponent<RestoreBonfire>();
         LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("DialogueManager\\.Instance가 존재하지 않아"));
         Assert.DoesNotThrow(() => bonfire.OnInteract());
+    }
+
+    [Test]
+    public void DialogueUI_ClickToAdvance_SkipsTypingAdvancesLinesAndStopsAtChoices()
+    {
+        GameObject inputGo = Track(new GameObject("TestPlayerInputController"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        SetStaticField<PlayerInputController>("_instance", inputCtrl);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+
+        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+
+        GameObject dialoguePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/DialogueUI.prefab");
+        GameObject uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/UIManager.prefab");
+        Assert.IsNotNull(dialoguePrefab, "DialogueUI.prefab을 찾을 수 없습니다.");
+        Assert.IsNotNull(uiManagerPrefab, "UIManager.prefab을 찾을 수 없습니다.");
+
+        SetPrivateField(cache, "uiDict", new Dictionary<string, GameObject>
+        {
+            { UIConstants.PANEL_DIALOGUE, dialoguePrefab }
+        });
+
+        GameObject uiManagerGo = Track(UnityEngine.Object.Instantiate(uiManagerPrefab));
+        UIManager uiManager = uiManagerGo.GetComponent<UIManager>();
+        DialogueManager dm = uiManagerGo.GetComponent<DialogueManager>();
+        Assert.IsNotNull(uiManager);
+        Assert.IsNotNull(dm);
+        InvokePrivateMethod(uiManager, "Awake");
+        InvokePrivateMethod(dm, "Awake");
+
+        DialogueData data = new DialogueData
+        {
+            dialogueID = "Test_ClickToAdvance",
+            startNodeID = "START",
+            nodes = new List<DialogueNode>
+            {
+                new DialogueNode
+                {
+                    nodeID = "START",
+                    speakerName = "테스터",
+                    lines = new List<string>
+                    {
+                        "첫 번째 대사입니다.",
+                        "두 번째 대사입니다."
+                    },
+                    choices = new List<ChoiceData>
+                    {
+                        new ChoiceData
+                        {
+                            description = "대화를 끝낸다",
+                            nextNodeID = "END_DIALOGUE",
+                            luaScript = string.Empty
+                        }
+                    }
+                }
+            }
+        };
+
+        dm.StartDialogue(data);
+        DialogueUI ui = GetPrivateField<DialogueUI>(dm, "dialogueUI");
+        Assert.IsNotNull(ui);
+        Assert.IsTrue(dm.IsDialogueActive);
+        Assert.IsFalse(dm.IsWaitingForChoice);
+        Assert.IsTrue(ui.IsTyping, "대사 시작 직후 타이핑 코루틴이 실행 중이어야 합니다.");
+        Assert.AreEqual("첫 번째 대사입니다.", ui.description.text);
+
+        // 1. 선택지/넘기기 버튼 영역 버블링 클릭은 무시되어야 합니다.
+        List<Button> activeButtons = GetPrivateField<List<Button>>(ui, "_activeButtons");
+        Assert.AreEqual(1, activeButtons.Count);
+        PointerEventData buttonAreaClick = new PointerEventData(EventSystem.current)
+        {
+            pointerPress = activeButtons[0].gameObject,
+            pointerCurrentRaycast = new RaycastResult { gameObject = activeButtons[0].gameObject }
+        };
+        ui.OnPointerClick(buttonAreaClick);
+        Assert.IsTrue(ui.IsTyping, "선택지 버튼 영역 클릭은 본문 스킵/진행을 중복 실행하면 안 됩니다.");
+
+        // 2. 타이핑 중 본문 클릭 시 1회 클릭으로 스킵만 수행하고 줄을 넘기지 않아야 합니다.
+        PointerEventData bodyClick = new PointerEventData(EventSystem.current)
+        {
+            pointerPress = ui.description.gameObject,
+            pointerCurrentRaycast = new RaycastResult { gameObject = ui.description.gameObject }
+        };
+        ui.OnPointerClick(bodyClick);
+        Assert.IsFalse(ui.IsTyping, "타이핑 중 클릭 시 즉시 타이핑이 스킵되어야 합니다.");
+        Assert.AreEqual(0, GetPrivateField<int>(dm, "currentLineIndex"));
+        Assert.AreEqual("첫 번째 대사입니다.", ui.description.text);
+
+        // 3. 타이핑 완료 상태에서 본문 클릭 시 다음 대사로 진행해야 합니다.
+        ui.OnPointerClick(bodyClick);
+        Assert.AreEqual(1, GetPrivateField<int>(dm, "currentLineIndex"));
+        Assert.AreEqual("두 번째 대사입니다.", ui.description.text);
+        Assert.IsFalse(dm.IsWaitingForChoice);
+        Assert.IsTrue(ui.IsTyping);
+
+        // 4. 유지된 "▶" 버튼으로도 스킵 및 다음 진행(선택지 노출)이 동일 로직으로 동작해야 합니다.
+        activeButtons = GetPrivateField<List<Button>>(ui, "_activeButtons");
+        Assert.AreEqual(1, activeButtons.Count);
+        activeButtons[0].onClick.Invoke();
+        Assert.IsFalse(ui.IsTyping);
+        Assert.AreEqual(1, GetPrivateField<int>(dm, "currentLineIndex"));
+
+        activeButtons[0].onClick.Invoke();
+        Assert.IsTrue(dm.IsWaitingForChoice, "마지막 대사 이후에는 선택지 대기 상태여야 합니다.");
+        activeButtons = GetPrivateField<List<Button>>(ui, "_activeButtons");
+        Assert.AreEqual(1, activeButtons.Count);
+        StringAssert.Contains("대화를 끝낸다", activeButtons[0].GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text);
+
+        // 5. 선택지 대기 중 본문 클릭으로는 대화가 진행되거나 닫히지 않아야 합니다.
+        ui.OnPointerClick(bodyClick);
+        Assert.IsTrue(dm.IsDialogueActive);
+        Assert.IsTrue(dm.IsWaitingForChoice);
+
+        // 6. 선택지 클릭 시 대화가 정상 종료되어야 합니다.
+        activeButtons[0].onClick.Invoke();
+        Assert.IsFalse(dm.IsDialogueActive);
+        Assert.IsFalse(dm.IsWaitingForChoice);
+        Assert.IsFalse(ui.gameObject.activeSelf);
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

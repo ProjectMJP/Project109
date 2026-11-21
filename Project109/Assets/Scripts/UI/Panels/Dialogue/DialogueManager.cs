@@ -43,6 +43,9 @@ public class DialogueManager : MonoBehaviour
 
     private string luaNextNodeOverride = null;
     private bool endDialogueTriggered = false;
+    private bool _isWaitingForChoice = false;
+
+    public bool IsWaitingForChoice => _isWaitingForChoice;
 
     private void Awake()
     {
@@ -66,6 +69,11 @@ public class DialogueManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (dialogueUI != null)
+        {
+            dialogueUI.OnAdvanceRequested -= HandleAdvanceRequested;
+        }
+
         if (Instance == this)
         {
             Instance = null;
@@ -90,6 +98,8 @@ public class DialogueManager : MonoBehaviour
         }
 
         dialogueUI = opened;
+        dialogueUI.OnAdvanceRequested -= HandleAdvanceRequested;
+        dialogueUI.OnAdvanceRequested += HandleAdvanceRequested;
         dialogueUI.gameObject.SetActive(false);
     }
 
@@ -165,6 +175,7 @@ public class DialogueManager : MonoBehaviour
         pendingNextNodeID = null;
         luaNextNodeOverride = null;
         endDialogueTriggered = false;
+        _isWaitingForChoice = false;
     }
 
     /// <summary>
@@ -172,23 +183,44 @@ public class DialogueManager : MonoBehaviour
     /// </summary>
     public void ShowNextLineOrChoices()
     {
-        if (currentNode == null) return;
+        if (currentNode == null || dialogueUI == null) return;
 
-        if (currentLineIndex < currentNode.lines.Count)
+        if (currentNode.lines != null && currentLineIndex < currentNode.lines.Count)
         {
+            _isWaitingForChoice = false;
             dialogueUI.ClearChoiceButton();
             dialogueUI.SetDescription(currentNode.lines[currentLineIndex]);
 
             Button nextBtn = dialogueUI.CreateChoiceButton("▶");
-            nextBtn.onClick.AddListener(() =>
+            if (nextBtn != null)
             {
-                currentLineIndex++;
-                ShowNextLineOrChoices();
-            });
+                nextBtn.onClick.AddListener(HandleAdvanceRequested);
+            }
         }
         else
         {
+            _isWaitingForChoice = true;
             SetupChoiceButtons();
+        }
+    }
+
+    private void HandleAdvanceRequested()
+    {
+        if (!IsDialogueActive || isDialoguePaused || currentNode == null || _isWaitingForChoice)
+        {
+            return;
+        }
+
+        if (dialogueUI != null && dialogueUI.IsTyping)
+        {
+            dialogueUI.SkipTyping();
+            return;
+        }
+
+        if (currentNode.lines != null && currentLineIndex < currentNode.lines.Count)
+        {
+            currentLineIndex++;
+            ShowNextLineOrChoices();
         }
     }
 

@@ -27,10 +27,14 @@ public class DialogueUI : UIPanelBase, IPointerClickHandler
     private Coroutine _typingCoroutine;
     private string _fullDescriptionText = string.Empty;
 
+    public event Action OnAdvanceRequested;
+
     public bool IsTyping => _typingCoroutine != null;
 
     private void OnDestroy()
     {
+        OnAdvanceRequested = null;
+
         // 씬 전환/UI 파괴 시 풀링된 버튼들 정리
         foreach (var btn in _buttonPool)
         {
@@ -107,10 +111,50 @@ public class DialogueUI : UIPanelBase, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (IsPointerOverChoiceButton(eventData))
+        {
+            return;
+        }
+
         if (IsTyping)
         {
             SkipTyping();
+            return;
         }
+
+        OnAdvanceRequested?.Invoke();
+    }
+
+    private bool IsPointerOverChoiceButton(PointerEventData eventData)
+    {
+        if (eventData == null) return false;
+
+        if (IsChoiceButtonObject(eventData.pointerCurrentRaycast.gameObject))
+        {
+            return true;
+        }
+
+        if (IsChoiceButtonObject(eventData.pointerPress))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsChoiceButtonObject(GameObject target)
+    {
+        if (target == null) return false;
+
+        Button parentButton = target.GetComponentInParent<Button>();
+        if (parentButton == null) return false;
+
+        if (eventButtonSpawnPoint != null && parentButton.transform.IsChildOf(eventButtonSpawnPoint))
+        {
+            return true;
+        }
+
+        return _activeButtons.Contains(parentButton);
     }
 
     /// <summary>
