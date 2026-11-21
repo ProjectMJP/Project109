@@ -745,8 +745,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             targetTile = tileHit.collider.GetComponentInParent<Tile>();
         }
 
-        // 2. Tile 레이어 히트 실패 시 일반 레이캐스트
-        if (targetTile == null && Physics.Raycast(ray, out RaycastHit generalHit, 10000.0f))
+        // 2. Tile 레이어 히트 실패 시 일반 레이캐스트 (장애물 레이어 제외)
+        int obstacleLayerMask = LayerMask.GetMask("Obstacle");
+        int generalMask = Physics.DefaultRaycastLayers & ~obstacleLayerMask;
+        if (targetTile == null && Physics.Raycast(ray, out RaycastHit generalHit, 10000.0f, generalMask))
         {
             targetTile = generalHit.collider.GetComponentInParent<Tile>();
             if (targetTile == null && GameMap.current != null)

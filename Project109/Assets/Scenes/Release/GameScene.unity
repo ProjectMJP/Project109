@@ -166,6 +166,7 @@ GameObject:
   - component: {fileID: 757858230}
   - component: {fileID: 757858233}
   - component: {fileID: 757858234}
+  - component: {fileID: 757858235}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -305,6 +306,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f975a3b951f6905489b29513836f2a62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraController
+--- !u!114 &757858235
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 757858229}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f9517ca45c7aa64e90063089546109a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObstacleSeeThroughController
+  targetCamera: {fileID: 757858231}
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 4096
+  castRadius: 0.35
+  castDistance: 60
+  unitHeightOffset: 0.9
+  scanInterval: 0.05
+  maxHitsPerUnit: 16
 --- !u!1 &809202282
 GameObject:
   m_ObjectHideFlags: 0

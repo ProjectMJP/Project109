@@ -5294,14 +5294,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: faf3822a154beff4383a4ec66a0c5582, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardKey: Card
-  eventKey: Event
-  battleKey: Battle
   mapKey: Map
   modelKey: Model
   textureKey: Texture
   uiKey: UI
-  interactableKey: Interactable
 --- !u!1 &813495787
 GameObject:
   m_ObjectHideFlags: 0
@@ -14708,7 +14704,6 @@ GameObject:
   - component: {fileID: 2077144585}
   - component: {fileID: 2077144586}
   - component: {fileID: 2077144589}
-  - component: {fileID: 2077144590}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -14832,21 +14827,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 84a83d654a65d3544bd6b4452dd06088, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DialogueManager
-  dialogueUICanvasPrefab: {fileID: 7807475992176815723, guid: b65a7c25ceb324846bcf5b895b3da63d, type: 3}
---- !u!114 &2077144590
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2077144576}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 48427dbd7af275045a771806d5046478, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MouseSeeThroughController
-  maskRadius: 0.125
-  fadeSoftness: 0.02
 --- !u!1 &2084750084
 GameObject:
   m_ObjectHideFlags: 0
