@@ -49,22 +49,6 @@ namespace GameItem.Types
         // 가독성 및 UI/아이템 일원화를 위한 별칭
         Card = CardChoice
     }
-
-    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
-    public enum RewardItemType
-    {
-        Card = RewardType.CardChoice,
-        Relic = RewardType.Relic
-    }
-
-    [System.Obsolete("RewardType으로 통합되었습니다. RewardType을 사용하십시오.")]
-    public enum ItemRewardUIType
-    {
-        Gold = RewardType.Gold,
-        MemorySharp = RewardType.MemorySharp,
-        Card = RewardType.CardChoice,
-        Relic = RewardType.Relic
-    }
 }
 
 namespace CardTypes

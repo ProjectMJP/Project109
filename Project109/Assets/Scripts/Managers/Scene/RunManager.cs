@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GameItem.Types;
 using UnityEngine;
 
 public class RunManager : MonoBehaviour
@@ -64,6 +65,13 @@ public class RunManager : MonoBehaviour
     public ExploreMapUI currentExploreUI;
 
     public static event System.Action OnRunLocationChanged;
+    public static event System.Action OnNodeContextChanged;
+
+    [Header("Pending Node Reward Session")]
+    public PendingRewardSession pendingRewardSession = new PendingRewardSession();
+
+    public bool HasPendingRewards => pendingRewardSession != null && pendingRewardSession.HasPendingRewards;
+    public int PendingRewardCount => pendingRewardSession != null ? pendingRewardSession.Count : 0;
 
     private void Start()
     {
@@ -137,11 +145,15 @@ public class RunManager : MonoBehaviour
     /// </summary>
     public void ResetRunProgress()
     {
+        CloseNodeRewardAndShopPanels();
+        ClearPendingRewards(notify: false);
+
         currentStageLevel = 1;
         currentExploreMapFloor = 0;
         currentExploreNode = null;
         beforeExploreNode = null;
         OnRunLocationChanged?.Invoke();
+        NotifyNodeContextChanged();
 
         if (exploreMapManager != null)
         {
@@ -209,6 +221,12 @@ public class RunManager : MonoBehaviour
         {
             LoadCurrentNodeDataInMap();
         }
+
+        NotifyNodeContextChanged();
+        if (HasPendingRewards)
+        {
+            OpenPendingRewardUI();
+        }
     }
 
     public void OnMapStateChanged(MapState newState)
@@ -275,6 +293,388 @@ public class RunManager : MonoBehaviour
 
     #region Battle Event Handlers
 
+    #region Pending Reward Session
+
+    public void NotifyNodeContextChanged()
+    {
+        OnNodeContextChanged?.Invoke();
+    }
+
+    public int GetDefaultCardChoiceCount()
+    {
+        Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        if (player != null && player.playerStat != null && player.playerStat.RewardCardCount > 0)
+        {
+            return player.playerStat.RewardCardCount;
+        }
+        return 3;
+    }
+
+    public void ClearPendingRewards(bool notify = true)
+    {
+        pendingRewardSession?.Clear();
+        if (notify)
+        {
+            NotifyNodeContextChanged();
+        }
+    }
+
+    public List<PendingRewardEntry> ExportPendingRewardsForSave()
+    {
+        return pendingRewardSession != null
+            ? pendingRewardSession.ExportEntriesCopy()
+            : new List<PendingRewardEntry>();
+    }
+
+    public void RestorePendingRewardsFromSave(List<PendingRewardEntry> savedEntries)
+    {
+        if (pendingRewardSession == null)
+        {
+            pendingRewardSession = new PendingRewardSession();
+        }
+        pendingRewardSession.ReplaceEntries(savedEntries);
+        NotifyNodeContextChanged();
+    }
+
+    public void PopulateBattleVictoryRewards(int bonusGold = 0)
+    {
+        if (pendingRewardSession == null)
+        {
+            pendingRewardSession = new PendingRewardSession();
+        }
+
+        int totalGold = 0;
+        int baseMemorySharp = 0;
+        bool grantDefaultCardChoice = false;
+        bool grantRareCardChoice = false;
+        bool grantRelic = false;
+
+        if (currentExploreNode != null && currentExploreNode.encounterData != null)
+        {
+            switch (currentExploreNode.encounterData.encountType)
+            {
+                case EncountType.Battle:
+                    totalGold = 60;
+                    baseMemorySharp = 2;
+                    grantDefaultCardChoice = true;
+                    if (currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Card)
+                    {
+                        grantRareCardChoice = true;
+                    }
+                    else if (currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Relic)
+                    {
+                        grantRelic = true;
+                    }
+                    else if (currentExploreNode.encounterData.battleExtraRewardType == BattleExtraRewardType.Gold)
+                    {
+                        totalGold += UnityEngine.Random.Range(100, 151);
+                    }
+                    break;
+
+                case EncountType.Elite:
+                    totalGold = 80;
+                    baseMemorySharp = 5;
+                    grantDefaultCardChoice = true;
+                    grantRelic = true;
+                    break;
+
+                case EncountType.Boss:
+                    totalGold = 150;
+                    baseMemorySharp = 10;
+                    grantDefaultCardChoice = true;
+                    break;
+            }
+        }
+        else
+        {
+            totalGold = 60;
+            baseMemorySharp = 2;
+            grantDefaultCardChoice = true;
+        }
+
+        totalGold += bonusGold;
+
+        int cardChoiceCount = GetDefaultCardChoiceCount();
+        if (totalGold > 0)
+        {
+            pendingRewardSession.AddGoldReward(totalGold);
+        }
+        if (baseMemorySharp > 0)
+        {
+            pendingRewardSession.AddMemoryShardReward(baseMemorySharp);
+        }
+        if (grantDefaultCardChoice)
+        {
+            pendingRewardSession.AddCardChoiceReward("Default_Card_Table", cardChoiceCount);
+        }
+        if (grantRareCardChoice)
+        {
+            pendingRewardSession.AddCardChoiceReward("Rare_Card_Table", cardChoiceCount);
+        }
+        if (grantRelic)
+        {
+            pendingRewardSession.AddRelicReward("Default_Relic_Table");
+        }
+
+        PreRollPendingEntries();
+        NotifyNodeContextChanged();
+    }
+
+    public void PopulateRewardDataToSession(RewardData rewardData, int bonusGold = 0)
+    {
+        if (pendingRewardSession == null)
+        {
+            pendingRewardSession = new PendingRewardSession();
+        }
+
+        if (rewardData != null && rewardData.rewards != null && rewardData.rewards.Count > 0)
+        {
+            int remainingBonusGold = bonusGold;
+            for (int i = 0; i < rewardData.rewards.Count; i++)
+            {
+                RewardItemConfig rewardConfig = rewardData.rewards[i];
+                if (rewardConfig == null) continue;
+
+                int value = 0;
+                if (rewardConfig.minValue > 0 || rewardConfig.maxValue > 0)
+                {
+                    int minVal = rewardConfig.minValue;
+                    int maxVal = Mathf.Max(minVal, rewardConfig.maxValue);
+                    value = UnityEngine.Random.Range(minVal, maxVal + 1);
+                }
+
+                switch (rewardConfig.rewardType)
+                {
+                    case RewardType.Gold:
+                        int goldAmount = value + remainingBonusGold;
+                        remainingBonusGold = 0;
+                        if (goldAmount > 0)
+                        {
+                            pendingRewardSession.AddGoldReward(goldAmount);
+                        }
+                        break;
+
+                    case RewardType.MemorySharp:
+                        if (value > 0)
+                        {
+                            pendingRewardSession.AddMemoryShardReward(value);
+                        }
+                        break;
+
+                    case RewardType.CardChoice:
+                        pendingRewardSession.AddCardChoiceReward(
+                            rewardConfig.referenceID,
+                            value > 1 ? value : GetDefaultCardChoiceCount());
+                        break;
+
+                    case RewardType.Relic:
+                        int relicCount = value > 0 ? value : 1;
+                        for (int r = 0; r < relicCount; r++)
+                        {
+                            pendingRewardSession.AddRelicReward(rewardConfig.referenceID);
+                        }
+                        break;
+
+                    case RewardType.SpecificCard:
+                        pendingRewardSession.AddEntry(RewardType.SpecificCard, rewardConfig.referenceID, 1);
+                        break;
+
+                    case RewardType.SpecificRelic:
+                        pendingRewardSession.AddEntry(RewardType.SpecificRelic, rewardConfig.referenceID, 1);
+                        break;
+                }
+            }
+
+            if (remainingBonusGold > 0)
+            {
+                pendingRewardSession.AddGoldReward(remainingBonusGold);
+            }
+        }
+        else if (currentExploreNode != null && currentExploreNode.encounterData != null &&
+                 currentExploreNode.encounterData.encountType != EncountType.SecretBox)
+        {
+            PopulateBattleVictoryRewards(bonusGold);
+            return;
+        }
+        else
+        {
+            pendingRewardSession.AddGoldReward(60 + bonusGold);
+            pendingRewardSession.AddMemoryShardReward(3);
+            pendingRewardSession.AddCardChoiceReward("Default_Card_Table", GetDefaultCardChoiceCount());
+            pendingRewardSession.AddRelicReward("Default_Relic_Table");
+        }
+
+        PreRollPendingEntries();
+        NotifyNodeContextChanged();
+    }
+
+    public PendingRewardEntry AddSingleRewardToSession(RewardType rewardType, string referenceID, int amount = 1)
+    {
+        if (pendingRewardSession == null)
+        {
+            pendingRewardSession = new PendingRewardSession();
+        }
+
+        RewardType normalizedType = rewardType == RewardType.Card ? RewardType.CardChoice : rewardType;
+        PendingRewardEntry createdEntry = null;
+
+        switch (normalizedType)
+        {
+            case RewardType.Gold:
+                pendingRewardSession.AddGoldReward(amount);
+                break;
+
+            case RewardType.MemorySharp:
+                pendingRewardSession.AddMemoryShardReward(amount);
+                break;
+
+            case RewardType.CardChoice:
+                int choiceCount = amount > 1 ? amount : GetDefaultCardChoiceCount();
+                createdEntry = pendingRewardSession.AddCardChoiceReward(referenceID, choiceCount);
+                break;
+
+            case RewardType.Relic:
+                createdEntry = pendingRewardSession.AddRelicReward(referenceID);
+                break;
+
+            default:
+                createdEntry = pendingRewardSession.AddEntry(normalizedType, referenceID, amount);
+                break;
+        }
+
+        PreRollPendingEntries();
+        NotifyNodeContextChanged();
+        return createdEntry;
+    }
+
+    public RewardListUIHandler OpenPendingRewardUI()
+    {
+        if (!HasPendingRewards || UIManager.instance == null)
+        {
+            return null;
+        }
+
+        RewardListUIHandler panel = UIManager.instance.OpenUI<RewardListUIHandler>(UIConstants.PANEL_REWARD_LIST, UILayerType.Normal);
+        if (panel != null)
+        {
+            panel.RefreshFromSession();
+        }
+        NotifyNodeContextChanged();
+        return panel;
+    }
+
+    public bool TryClaimPendingReward(string entryId, CardData selectedCard = null, RelicData resolvedRelic = null)
+    {
+        PendingRewardEntry entry = pendingRewardSession != null ? pendingRewardSession.FindEntry(entryId) : null;
+        if (entry == null)
+        {
+            return false;
+        }
+
+        Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        RewardType normalizedType = entry.rewardType == RewardType.Card ? RewardType.CardChoice : entry.rewardType;
+
+        switch (normalizedType)
+        {
+            case RewardType.Gold:
+                if (player == null || player.playerStat == null) return false;
+                player.playerStat.InGameCurrencyGold += entry.amount;
+                break;
+
+            case RewardType.MemorySharp:
+                if (player == null || player.playerStat == null) return false;
+                player.playerStat.InGameCurrencyMemorySharp += entry.amount;
+                break;
+
+            case RewardType.CardChoice:
+            case RewardType.SpecificCard:
+                if (selectedCard == null || player == null || player.deck == null) return false;
+                player.deck.AddCard(selectedCard);
+                break;
+
+            case RewardType.Relic:
+            case RewardType.SpecificRelic:
+                if (player == null) return false;
+                RelicData relicToGrant = resolvedRelic;
+                if (relicToGrant == null && GameItemRewardManager.instance != null)
+                {
+                    relicToGrant = GameItemRewardManager.instance.ResolveOrRollRelicForEntry(entry);
+                }
+                if (relicToGrant == null && !string.IsNullOrEmpty(entry.rolledRelicName) && GameItemRewardManager.instance != null)
+                {
+                    relicToGrant = GameItemRewardManager.instance.GetRelicDataByName(entry.rolledRelicName);
+                }
+                if (relicToGrant == null) return false;
+                player.AddRelic(relicToGrant.relicName);
+                break;
+
+            default:
+                return false;
+        }
+
+        pendingRewardSession.RemoveEntry(entryId);
+
+        if (GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon)
+        {
+            SaveGame();
+        }
+
+        NotifyNodeContextChanged();
+        return true;
+    }
+
+    public void CloseNodeRewardAndShopPanels()
+    {
+        if (UIManager.instance == null)
+        {
+            return;
+        }
+
+        CardRewardPanel cardRewardPanel = UIManager.instance.GetUI<CardRewardPanel>(UIConstants.PANEL_CARD_REWARD);
+        if (cardRewardPanel != null && cardRewardPanel.gameObject.activeSelf)
+        {
+            UIManager.instance.CloseUI(cardRewardPanel);
+        }
+
+        RewardListUIHandler rewardListPanel = UIManager.instance.GetUI<RewardListUIHandler>(UIConstants.PANEL_REWARD_LIST);
+        if (rewardListPanel != null && rewardListPanel.gameObject.activeSelf)
+        {
+            UIManager.instance.CloseUI(rewardListPanel);
+        }
+
+        ShopPanel shopPanel = UIManager.instance.GetUI<ShopPanel>(UIConstants.PANEL_SHOP_NPC);
+        if (shopPanel != null && shopPanel.gameObject.activeSelf)
+        {
+            UIManager.instance.CloseUI(shopPanel);
+        }
+    }
+
+    private void PreRollPendingEntries()
+    {
+        if (pendingRewardSession == null || pendingRewardSession.entries == null || GameItemRewardManager.instance == null)
+        {
+            return;
+        }
+
+        int defaultChoiceCount = GetDefaultCardChoiceCount();
+        for (int i = 0; i < pendingRewardSession.entries.Count; i++)
+        {
+            PendingRewardEntry entry = pendingRewardSession.entries[i];
+            if (entry == null) continue;
+
+            if (entry.rewardType == RewardType.CardChoice || entry.rewardType == RewardType.Card || entry.rewardType == RewardType.SpecificCard)
+            {
+                GameItemRewardManager.instance.ResolveOrRollCardsForEntry(entry, defaultChoiceCount);
+            }
+            else if (entry.rewardType == RewardType.Relic || entry.rewardType == RewardType.SpecificRelic)
+            {
+                GameItemRewardManager.instance.ResolveOrRollRelicForEntry(entry);
+            }
+        }
+    }
+
+    #endregion
+
     private void HandleBattleWon()
     {
         Debug.Log("[RunManager] 전투 승리 이벤트 수신: 맵 상태 복귀 및 보상 처리 시작");
@@ -284,19 +684,14 @@ public class RunManager : MonoBehaviour
             currentStage.currentMapState = MapState.None;
         }
 
-        // 전투 중 누적된 처치 골드를 보상 상자에 안전하게 이관
+        // 전투 중 누적된 처치 골드를 미수령 보상 세션에 적재
         int battleGold = (battleManager != null) ? battleManager.accumulativeGoldReward : 0;
         if (battleManager != null)
         {
             battleManager.accumulativeGoldReward = 0; // 중복 합산 방지
         }
 
-        Player player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
-        if (GameItemRewardManager.instance != null && player != null && player.character != null)
-        {
-            Vector3 spawnPos = player.character.transform.position;
-            GameItemRewardManager.instance.SpawnRewardBox(spawnPos, battleGold);
-        }
+        PopulateBattleVictoryRewards(battleGold);
 
         if (currentExploreNode != null)
         {
@@ -305,6 +700,7 @@ public class RunManager : MonoBehaviour
         SaveGame();
 
         OnMapStateChanged(MapState.None);
+        OpenPendingRewardUI();
     }
 
     private void HandleBattleLost()
@@ -359,6 +755,8 @@ public class RunManager : MonoBehaviour
             currentStage.Dispose();
             currentStage = null;
         }
+
+        ClearPendingRewards(notify: false);
     }
 
     void OnDestroy()
@@ -471,6 +869,9 @@ public class RunManager : MonoBehaviour
             CleanupActiveBattleForForcedMove();
         }
 
+        CloseNodeRewardAndShopPanels();
+        ClearPendingRewards(notify: false);
+
         if (UIManager.instance != null)
         {
             UIManager.instance.ClearWorldUILayer();
@@ -490,6 +891,7 @@ public class RunManager : MonoBehaviour
         }
         currentExploreMapFloor += 1;
         OnRunLocationChanged?.Invoke();
+        NotifyNodeContextChanged();
 
         // 다음 층으로 이동했으므로 플레이어 시야 범위 내의 노드 데이터 공개 상태 갱신
         if (exploreMapManager != null)

@@ -269,24 +269,48 @@ public class DialogueActionExecutor
 
     public void SpawnReward(string rewardTypeStr, string rarityStr, Vector3 spawnPos)
     {
-        if (GameItemRewardManager.instance == null)
+        if (RunManager.instance == null)
         {
-            Debug.LogError("[DialogueActionExecutor] GameItemRewardManager.instance가 존재하지 않습니다.");
+            Debug.LogError("[DialogueActionExecutor] RunManager.instance가 존재하지 않습니다.");
             return;
         }
 
-        RewardType rType = RewardType.Card;
-        if (rewardTypeStr.Equals("relic", StringComparison.OrdinalIgnoreCase))
+        string safeType = rewardTypeStr ?? string.Empty;
+        string safeRarity = rarityStr ?? string.Empty;
+
+        RewardType rType = RewardType.CardChoice;
+        if (safeType.Equals("relic", StringComparison.OrdinalIgnoreCase))
         {
             rType = RewardType.Relic;
+        }
+        else if (safeType.Equals("gold", StringComparison.OrdinalIgnoreCase))
+        {
+            rType = RewardType.Gold;
+        }
+        else if (safeType.Equals("memory", StringComparison.OrdinalIgnoreCase) ||
+                 safeType.Equals("memorysharp", StringComparison.OrdinalIgnoreCase) ||
+                 safeType.Equals("shard", StringComparison.OrdinalIgnoreCase))
+        {
+            rType = RewardType.MemorySharp;
+        }
+
+        if (rType == RewardType.Gold || rType == RewardType.MemorySharp)
+        {
+            int parsedAmount = int.TryParse(safeRarity, out int numericValue) && numericValue > 0 ? numericValue : 50;
+            RunManager.instance.AddSingleRewardToSession(rType, string.Empty, parsedAmount);
+            if (DialogueManager.Instance == null || !DialogueManager.Instance.IsDialogueActive)
+            {
+                RunManager.instance.OpenPendingRewardUI();
+            }
+            return;
         }
 
         // 1. 전달받은 rarityStr 자체가 ModLoader의 DropTableDatabase에 등록된 테이블 ID라면 직접 우선 사용
         string dropTableID = null;
-        if (!string.IsNullOrEmpty(rarityStr) && ModLoader.Instance != null && ModLoader.Instance.DropTableDatabase != null &&
-            ModLoader.Instance.DropTableDatabase.ContainsKey(rarityStr))
+        if (!string.IsNullOrEmpty(safeRarity) && ModLoader.Instance != null && ModLoader.Instance.DropTableDatabase != null &&
+            ModLoader.Instance.DropTableDatabase.ContainsKey(safeRarity))
         {
-            dropTableID = rarityStr;
+            dropTableID = safeRarity;
         }
         else
         {
@@ -294,11 +318,11 @@ public class DialogueActionExecutor
             if (rType == RewardType.Relic)
             {
                 dropTableID = "Default_Relic_Table";
-                if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
+                if (safeRarity.Equals("rare", StringComparison.OrdinalIgnoreCase))
                 {
                     dropTableID = "Rare_Relic_Table";
                 }
-                else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
+                else if (safeRarity.Equals("unique", StringComparison.OrdinalIgnoreCase))
                 {
                     dropTableID = "Unique_Relic_Table";
                 }
@@ -306,18 +330,23 @@ public class DialogueActionExecutor
             else
             {
                 dropTableID = "Default_Card_Table";
-                if (rarityStr.Equals("rare", StringComparison.OrdinalIgnoreCase))
+                if (safeRarity.Equals("rare", StringComparison.OrdinalIgnoreCase))
                 {
                     dropTableID = "Rare_Card_Table";
                 }
-                else if (rarityStr.Equals("unique", StringComparison.OrdinalIgnoreCase))
+                else if (safeRarity.Equals("unique", StringComparison.OrdinalIgnoreCase))
                 {
                     dropTableID = "Unique_Card_Table";
                 }
             }
         }
 
-        GameItemRewardManager.instance.InstantiateItemReward(rType, dropTableID, spawnPos);
+        RunManager.instance.AddSingleRewardToSession(rType, dropTableID, 1);
+
+        if (DialogueManager.Instance == null || !DialogueManager.Instance.IsDialogueActive)
+        {
+            RunManager.instance.OpenPendingRewardUI();
+        }
     }
 
     #endregion

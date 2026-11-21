@@ -28,6 +28,7 @@ public static class UIConstants
     public const string PANEL_DIALOGUE = "DialogueUI";
     public const string PANEL_SHOP_NPC = "ShopNPCUI";
     public const string PANEL_REWARD_LIST = "RewardListCanvas";
+    public const string PANEL_CARD_REWARD = "CardRewardCanvas";
     public const string PANEL_UPGRADE_CARD_DECK = "UpgradeCardDeckCanvas";
     public const string PANEL_ERASE_CARD_DECK = "EraseCardDeckCanvas";
     public const string PANEL_BATTLE_NOTICE = "UIBattleNotice";

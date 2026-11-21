@@ -46,6 +46,7 @@ public class RunSaveData
 
     public List<CardSaveEntry> playerDeckCards = new List<CardSaveEntry>();
     public List<string> playerRelicNames = new List<string>();
+    public List<PendingRewardEntry> pendingRewards = new List<PendingRewardEntry>();
 
     // 시작 무장(진열대) 선택 및 해금 상태 저장용
     public string selectedStarterKitId;
@@ -127,6 +128,8 @@ public static class SaveSystem
                         data.beforeExploreNodeIndex = runManager.beforeExploreNode.index;
                     }
                 }
+
+                data.pendingRewards = runManager.ExportPendingRewardsForSave();
             }
             else
             {
@@ -139,6 +142,7 @@ public static class SaveSystem
                 data.currentExploreNodeIndex = -1;
                 data.beforeExploreNodeFloor = -1;
                 data.beforeExploreNodeIndex = -1;
+                data.pendingRewards = new List<PendingRewardEntry>();
             }
 
 
@@ -686,6 +690,8 @@ public static class SaveSystem
             runManager.currentExploreNode = null;
             runManager.beforeExploreNode = null;
         }
+
+        runManager.RestorePendingRewardsFromSave(data.pendingRewards);
 
         Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={data.currentMapName}, Stage={data.currentStageLevel}, Floor={data.currentExploreMapFloor}");
     }

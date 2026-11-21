@@ -6,7 +6,6 @@ public class ShopNPC : InteractableObject
 {
     public const string DISCOUNT_RELIC_ID = "할인 카드";
 
-    public GameObject shopUICanvasPrefab;
     private ShopPanel shopUI;
 
     [Header("Shop Display Settings")]

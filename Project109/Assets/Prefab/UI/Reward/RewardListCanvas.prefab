@@ -54,8 +54,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiLayerType: 1
+  blockWorldInput: 1
   rewardItemPrefab: {fileID: 6132954356533299990, guid: 11a681e781fbbf84da6c378e7b96f130, type: 3}
   rewardItemSpawnTransform: {fileID: 6411053645864664870}
+  closeButton: {fileID: 1532910287343246031}
 --- !u!1 &313859661234868033
 GameObject:
   m_ObjectHideFlags: 0
@@ -702,19 +704,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 6426651382392701566}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 129270960498674068}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &8448210654252767062
 GameObject:
   m_ObjectHideFlags: 0

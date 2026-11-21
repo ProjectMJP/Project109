@@ -22,6 +22,10 @@ public class TopHUDPanel : UIPanelBase
     [SerializeField] private Button deckButton;
     [SerializeField] private Button pauseMenuButton;
 
+    [Header("Node Reopen Button")]
+    [SerializeField] private Button nodeReopenButton;
+    [SerializeField] private TextMeshProUGUI nodeReopenButtonText;
+
     [Header("Battle Speed Toggle")]
     [SerializeField] private Button speedToggleButton;
     [SerializeField] private TextMeshProUGUI speedToggleText;
@@ -58,12 +62,18 @@ public class TopHUDPanel : UIPanelBase
     protected override void OnEnable()
     {
         base.OnEnable();
+        GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
         GameSceneManager.OnSceneLocationChanged += RefreshLocationAndNavigationState;
+        RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged += RefreshLocationAndNavigationState;
+        RunManager.OnNodeContextChanged -= RefreshNodeReopenButton;
+        RunManager.OnNodeContextChanged += RefreshNodeReopenButton;
         BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
         BattleManager.OnBattleSpeedChanged += RefreshSpeedToggleVisual;
         EnsureTierLayoutReferences();
+        EnsureNodeReopenButtonBound();
         RefreshLocationAndNavigationState();
+        RefreshNodeReopenButton();
         RefreshSpeedToggleVisual(BattleManager.GlobalBattleSpeed);
     }
 
@@ -72,14 +82,19 @@ public class TopHUDPanel : UIPanelBase
         base.OnDisable();
         GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
         RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
+        RunManager.OnNodeContextChanged -= RefreshNodeReopenButton;
         BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
     }
 
     public override void OnOpen()
     {
         base.OnOpen();
+        RunManager.OnNodeContextChanged -= RefreshNodeReopenButton;
+        RunManager.OnNodeContextChanged += RefreshNodeReopenButton;
         EnsureTierLayoutReferences();
+        EnsureNodeReopenButtonBound();
         RefreshLocationAndNavigationState();
+        RefreshNodeReopenButton();
         RefreshSpeedToggleVisual(BattleManager.GlobalBattleSpeed);
     }
 
@@ -110,7 +125,9 @@ public class TopHUDPanel : UIPanelBase
         // 기본 버튼 클릭 리스너 연결
         SetupHUD(ToggleExploreMap, ToggleDeckView);
         EnsureTierLayoutReferences();
+        EnsureNodeReopenButtonBound();
         RefreshLocationAndNavigationState();
+        RefreshNodeReopenButton();
     }
 
     /// <summary>
@@ -133,6 +150,15 @@ public class TopHUDPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
+        RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
+        RunManager.OnNodeContextChanged -= RefreshNodeReopenButton;
+        BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
+
+        if (nodeReopenButton != null)
+        {
+            nodeReopenButton.onClick.RemoveListener(HandleNodeReopenClicked);
+        }
         UnbindPlayer();
     }
 
@@ -324,6 +350,8 @@ public class TopHUDPanel : UIPanelBase
             mapButton.interactable = inDungeon;
         }
 
+        RefreshNodeReopenButton();
+
         if (locationFloorText == null)
         {
             return;
@@ -353,6 +381,90 @@ public class TopHUDPanel : UIPanelBase
 
         string stageDisplay = FormatStageDisplayName(stageRaw);
         locationFloorText.text = $"{stageDisplay} - {floor}F";
+    }
+
+    private void EnsureNodeReopenButtonBound()
+    {
+        if (nodeReopenButton == null)
+        {
+            Transform btnTransform = transform.Find("NodeReopenButton");
+            if (btnTransform != null)
+            {
+                nodeReopenButton = btnTransform.GetComponent<Button>();
+            }
+        }
+
+        if (nodeReopenButton != null && nodeReopenButtonText == null)
+        {
+            Transform labelTransform = nodeReopenButton.transform.Find("Label");
+            if (labelTransform != null)
+            {
+                nodeReopenButtonText = labelTransform.GetComponent<TextMeshProUGUI>();
+            }
+            else
+            {
+                nodeReopenButtonText = nodeReopenButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+        }
+
+        if (nodeReopenButton != null)
+        {
+            nodeReopenButton.onClick.RemoveListener(HandleNodeReopenClicked);
+            nodeReopenButton.onClick.AddListener(HandleNodeReopenClicked);
+        }
+    }
+
+    public void RefreshNodeReopenButton()
+    {
+        EnsureNodeReopenButtonBound();
+        if (nodeReopenButton == null)
+        {
+            return;
+        }
+
+        bool inDungeon = GameSceneManager.instance == null || GameSceneManager.instance.isInDungeon;
+        bool inBattle = RunManager.instance != null &&
+                        RunManager.instance.currentStage != null &&
+                        RunManager.instance.currentStage.currentMapState == MapState.Battle;
+
+        if (!inBattle && inDungeon && RunManager.instance != null &&
+            RunManager.instance.HasPendingRewards && !IsRewardListOpen())
+        {
+            if (!nodeReopenButton.gameObject.activeSelf)
+            {
+                nodeReopenButton.gameObject.SetActive(true);
+            }
+
+            if (nodeReopenButtonText != null)
+            {
+                nodeReopenButtonText.text = $"보상 확인({RunManager.instance.PendingRewardCount})";
+            }
+            return;
+        }
+
+        if (nodeReopenButton.gameObject.activeSelf)
+        {
+            nodeReopenButton.gameObject.SetActive(false);
+        }
+    }
+
+    private static bool IsRewardListOpen()
+    {
+        if (UIManager.instance == null)
+        {
+            return false;
+        }
+
+        RewardListUIHandler panel = UIManager.instance.GetUI<RewardListUIHandler>(UIConstants.PANEL_REWARD_LIST);
+        return panel != null && panel.IsPanelOpen && panel.gameObject.activeInHierarchy;
+    }
+
+    private void HandleNodeReopenClicked()
+    {
+        if (RunManager.instance != null && RunManager.instance.HasPendingRewards)
+        {
+            RunManager.instance.OpenPendingRewardUI();
+        }
     }
 
     private static string FormatStageDisplayName(string rawStage)

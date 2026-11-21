@@ -19,9 +19,6 @@ public class GameItemRewardManager : MonoBehaviour
         }
     }
 
-    [SerializeField] private GameObject rewardObjectPrefab;
-    [SerializeField] private GameObject rewardBoxPrefab;
-
     // Cards
     private List<CardData> commonCardList = new List<CardData>();
     private List<CardData> uncommonCardList = new List<CardData>();
@@ -389,52 +386,135 @@ public class GameItemRewardManager : MonoBehaviour
         return list[Random.Range(0, list.Count)];
     }
 
-    public void InstantiateItemReward(RewardType rewardType, string dropTableID, Vector3 spawnPosition)
+    /// <summary>
+    /// 카드 ID(cardName)로 ModLoader.CardDatabase에서 CardData를 조회합니다.
+    /// </summary>
+    public CardData GetCardDataByName(string cardName)
     {
-        if (rewardBoxPrefab == null)
-            return;
-
-        RewardChest newRewardBox = Instantiate(rewardBoxPrefab, spawnPosition, Quaternion.identity).GetComponent<RewardChest>();
-
-        if (newRewardBox != null)
+        if (string.IsNullOrEmpty(cardName) || ModLoader.Instance == null || ModLoader.Instance.CardDatabase == null)
         {
-            RewardData tempReward = new RewardData();
-            RewardItemConfig config = new RewardItemConfig();
-            config.rewardType = (rewardType == RewardType.Card || rewardType == RewardType.CardChoice) ? RewardType.CardChoice : rewardType;
-            config.minValue = 1;
-            config.maxValue = 1;
-            config.referenceID = dropTableID;
-            tempReward.rewards.Add(config);
-
-            newRewardBox.SetRewardData(tempReward);
+            return null;
         }
 
-        // 맵 이동 시 지워질 오브젝트 목록으로 등록
-        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
-        {
-            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
-        }
+        ModLoader.Instance.CardDatabase.TryGetValue(cardName, out CardData cardData);
+        return cardData;
     }
 
-    public void SpawnRewardBox(Vector3 spawnPosition, int bonusGold = 0)
+    /// <summary>
+    /// 유물 ID(relicName)로 ModLoader.RelicDatabase에서 RelicData를 조회합니다.
+    /// </summary>
+    public RelicData GetRelicDataByName(string relicName)
     {
-        if (RunManager.instance == null || RunManager.instance.currentExploreNode == null)
+        if (string.IsNullOrEmpty(relicName) || ModLoader.Instance == null || ModLoader.Instance.RelicDatabase == null)
         {
-            return;
+            return null;
         }
 
-        RewardChest newRewardBox = Instantiate(rewardBoxPrefab, spawnPosition, Quaternion.identity).GetComponent<RewardChest>();
+        ModLoader.Instance.RelicDatabase.TryGetValue(relicName, out RelicData relicData);
+        return relicData;
+    }
 
-        if (newRewardBox != null)
+    /// <summary>
+    /// 미수령 카드 보상 엔트리에 대해 기추첨 결과를 재사용하거나, 최초 추첨 후 엔트리에 고정 기록합니다.
+    /// </summary>
+    public List<CardData> ResolveOrRollCardsForEntry(PendingRewardEntry entry, int fallbackCount = 3)
+    {
+        List<CardData> result = new List<CardData>();
+        if (entry == null)
         {
-            newRewardBox.SetRewardItemList(bonusGold);
+            return GetUniqueRandomCards("Default_Card_Table", Mathf.Max(1, fallbackCount));
         }
 
-        // 맵 이동 시 지워질 오브젝트 목록으로 등록
-        if (newRewardBox != null && RunManager.instance != null && RunManager.instance.currentStage != null)
+        if (entry.rewardType == RewardType.SpecificCard && !string.IsNullOrEmpty(entry.referenceID))
         {
-            RunManager.instance.currentStage.RegisterSpawnNPC(newRewardBox.gameObject);
+            CardData specificCard = GetCardDataByName(entry.referenceID);
+            if (specificCard != null)
+            {
+                if (entry.rolledCardNames == null)
+                {
+                    entry.rolledCardNames = new List<string>();
+                }
+                entry.rolledCardNames.Clear();
+                entry.rolledCardNames.Add(specificCard.cardName);
+                result.Add(specificCard);
+                return result;
+            }
         }
+
+        if (entry.rolledCardNames != null && entry.rolledCardNames.Count > 0)
+        {
+            for (int i = 0; i < entry.rolledCardNames.Count; i++)
+            {
+                CardData cachedCard = GetCardDataByName(entry.rolledCardNames[i]);
+                if (cachedCard != null)
+                {
+                    result.Add(cachedCard);
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                return result;
+            }
+        }
+
+        int targetCount = entry.amount > 0 ? entry.amount : Mathf.Max(1, fallbackCount);
+        string dropTableID = string.IsNullOrEmpty(entry.referenceID) ? "Default_Card_Table" : entry.referenceID;
+        List<CardData> rolledCards = GetUniqueRandomCards(dropTableID, targetCount);
+
+        if (entry.rolledCardNames == null)
+        {
+            entry.rolledCardNames = new List<string>();
+        }
+        entry.rolledCardNames.Clear();
+
+        for (int i = 0; i < rolledCards.Count; i++)
+        {
+            if (rolledCards[i] != null && !string.IsNullOrEmpty(rolledCards[i].cardName))
+            {
+                entry.rolledCardNames.Add(rolledCards[i].cardName);
+            }
+        }
+
+        return rolledCards;
+    }
+
+    /// <summary>
+    /// 미수령 유물 보상 엔트리에 대해 기추첨 유물을 재사용하거나, 최초 추첨 후 엔트리에 고정 기록합니다.
+    /// </summary>
+    public RelicData ResolveOrRollRelicForEntry(PendingRewardEntry entry)
+    {
+        if (entry == null)
+        {
+            return GetRandomRelicDataByDropTable("Default_Relic_Table");
+        }
+
+        if (entry.rewardType == RewardType.SpecificRelic && !string.IsNullOrEmpty(entry.referenceID))
+        {
+            RelicData specificRelic = GetRelicDataByName(entry.referenceID);
+            if (specificRelic != null)
+            {
+                entry.rolledRelicName = specificRelic.relicName;
+                return specificRelic;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(entry.rolledRelicName))
+        {
+            RelicData cachedRelic = GetRelicDataByName(entry.rolledRelicName);
+            if (cachedRelic != null)
+            {
+                return cachedRelic;
+            }
+        }
+
+        string dropTableID = string.IsNullOrEmpty(entry.referenceID) ? "Default_Relic_Table" : entry.referenceID;
+        RelicData rolledRelic = GetRandomRelicDataByDropTable(dropTableID);
+        if (rolledRelic != null && !string.IsNullOrEmpty(rolledRelic.relicName))
+        {
+            entry.rolledRelicName = rolledRelic.relicName;
+        }
+        return rolledRelic;
     }
 
     /// <summary>

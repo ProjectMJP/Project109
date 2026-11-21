@@ -6,13 +6,12 @@ using UnityEngine.UI;
 
 public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
-    [SerializeField] private GameObject cardRewardUIPrefab;
-
-    private GameObject currentRewardUIObject;
-    private ItemRewardUIType currentItemRewardUIType;
-
-    [SerializeField] private RelicData rewardRelicData;
-    private int rewardValue;
+    private PendingRewardEntry _boundEntry;
+    private RewardListUIHandler _ownerPanel;
+    private RelicData _resolvedRelicData;
+    private CardData _resolvedSpecificCard;
+    private RewardType _rewardType;
+    private int _rewardValue;
 
     [SerializeField] private Image itemTexture;
     [SerializeField] private TextMeshProUGUI itemText;
@@ -21,116 +20,169 @@ public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointer
     [SerializeField] private Sprite goldTexture;
     [SerializeField] private Sprite memorySharpTexture;
 
-    void Start()
+    public PendingRewardEntry BoundEntry => _boundEntry;
+
+    public void BindPendingEntry(PendingRewardEntry entry, RewardListUIHandler ownerPanel)
     {
+        _boundEntry = entry;
+        _ownerPanel = ownerPanel;
+        _resolvedRelicData = null;
+        _resolvedSpecificCard = null;
 
-    }
-
-    public void SetReward(ItemRewardUIType npcType, string referenceID, int value)
-    {
-        currentItemRewardUIType = npcType;
-
-        switch (npcType)
+        if (entry == null)
         {
-            case ItemRewardUIType.Gold:
-                rewardValue = value;
-                itemTexture.sprite = goldTexture;
-                itemText.text = $"{value}";
-                break;
-            case ItemRewardUIType.MemorySharp:
-                rewardValue = value;
-                itemTexture.sprite = memorySharpTexture;
-                itemText.text = $"{value}";
-                break;
-            case ItemRewardUIType.Card:
-                currentRewardUIObject = Instantiate(cardRewardUIPrefab);
-                CardRewardPanel cardRewardHandler = currentRewardUIObject.GetComponent<CardRewardPanel>();
-                int defaultRewardCount = (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null)
-                    ? GameSceneManager.instance.player.playerStat.RewardCardCount : 3;
-                cardRewardHandler.SettingCards(referenceID, value > 0 ? value : defaultRewardCount);
-                cardRewardHandler.rootObject = this.gameObject;
-                cardRewardHandler.gameObject.SetActive(false);
+            return;
+        }
 
-                itemTexture.gameObject.SetActive(false);
-                itemText.text = "새로운 기억 보상!";
-                break;
-            case ItemRewardUIType.Relic:    //단일 유물 획득 보상
-                rewardRelicData = GameItemRewardManager.instance.GetRandomRelicDataByDropTable(referenceID);
+        _rewardType = entry.rewardType == RewardType.Card ? RewardType.CardChoice : entry.rewardType;
+        _rewardValue = entry.amount;
 
-                // if (AssetCacheManager.instance.TryGetTexture(rewardRelicData.texturePath, out Sprite texture))
-                // {
-                //     itemTexture.sprite = texture;
-                // }
-                // else
-                // {
-                //     Debug.LogWarning($"[ItemRewardUIHandler] 유물 텍스처 로드 실패: {rewardRelicData.texturePath}");
-                // }
-                itemText.text = $"{rewardRelicData.relicName}";
+        switch (_rewardType)
+        {
+            case RewardType.Gold:
+                if (itemTexture != null)
+                {
+                    itemTexture.gameObject.SetActive(true);
+                    if (goldTexture != null) itemTexture.sprite = goldTexture;
+                }
+                if (itemText != null)
+                {
+                    itemText.text = $"{entry.amount} 골드";
+                }
+                break;
+
+            case RewardType.MemorySharp:
+                if (itemTexture != null)
+                {
+                    itemTexture.gameObject.SetActive(true);
+                    if (memorySharpTexture != null) itemTexture.sprite = memorySharpTexture;
+                }
+                if (itemText != null)
+                {
+                    itemText.text = $"기억의 파편 x{entry.amount}";
+                }
+                break;
+
+            case RewardType.CardChoice:
+                if (itemTexture != null)
+                {
+                    itemTexture.gameObject.SetActive(false);
+                }
+                if (itemText != null)
+                {
+                    itemText.text = "새로운 기억 보상!";
+                }
+                break;
+
+            case RewardType.SpecificCard:
+                if (itemTexture != null)
+                {
+                    itemTexture.gameObject.SetActive(false);
+                }
+                if (GameItemRewardManager.instance != null)
+                {
+                    _resolvedSpecificCard = GameItemRewardManager.instance.GetCardDataByName(entry.referenceID);
+                }
+                if (itemText != null)
+                {
+                    itemText.text = _resolvedSpecificCard != null ? _resolvedSpecificCard.LocalizedName : "새로운 기억 보상!";
+                }
+                break;
+
+            case RewardType.Relic:
+            case RewardType.SpecificRelic:
+                if (GameItemRewardManager.instance != null)
+                {
+                    _resolvedRelicData = GameItemRewardManager.instance.ResolveOrRollRelicForEntry(entry);
+                }
+
+                if (itemTexture != null)
+                {
+                    if (_resolvedRelicData != null && _resolvedRelicData.iconSprite != null)
+                    {
+                        itemTexture.sprite = _resolvedRelicData.iconSprite;
+                        itemTexture.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        itemTexture.gameObject.SetActive(false);
+                    }
+                }
+
+                if (itemText != null)
+                {
+                    itemText.text = _resolvedRelicData != null ? _resolvedRelicData.LocalizedName : "유물 보상";
+                }
                 break;
         }
     }
-
-    public GameObject GetRewardUI() { return currentRewardUIObject; }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        //UI 클릭 시 보상 UI 활성화
-        switch (currentItemRewardUIType)
+        if (_boundEntry == null)
         {
-            case ItemRewardUIType.Gold:
-                if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null)
-                {
-                    GameSceneManager.instance.player.playerStat.InGameCurrencyGold += rewardValue;
-                }
-                break;
-            case ItemRewardUIType.MemorySharp:
-                if (GameSceneManager.instance != null && GameSceneManager.instance.player != null && GameSceneManager.instance.player.playerStat != null)
-                {
-                    GameSceneManager.instance.player.playerStat.InGameCurrencyMemorySharp += rewardValue;
-                }
-                break;
-            case ItemRewardUIType.Card:
-                currentRewardUIObject.GetComponent<CardRewardPanel>().Open();
-                break;
-            case ItemRewardUIType.Relic:
-                if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
-                {
-                    GameSceneManager.instance.player.AddRelic(rewardRelicData.relicName);
-                }
-                //이 유물 선택지를 제공한 UI 제거
-                if (TooltipManager.Instance != null)
-                {
-                    TooltipManager.Instance.HideTooltip();
-                }
-                break;
+            return;
         }
 
-        Destroy(gameObject);
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip();
+        }
+
+        if (_rewardType == RewardType.CardChoice || _rewardType == RewardType.SpecificCard)
+        {
+            if (UIManager.instance != null)
+            {
+                CardRewardPanel cardPanel = UIManager.instance.OpenUI<CardRewardPanel>(UIConstants.PANEL_CARD_REWARD, UILayerType.Popup);
+                if (cardPanel != null)
+                {
+                    cardPanel.BindPendingEntry(_boundEntry, _ownerPanel);
+                }
+            }
+            return;
+        }
+
+        if (RunManager.instance != null && RunManager.instance.TryClaimPendingReward(_boundEntry.entryId, _resolvedSpecificCard, _resolvedRelicData))
+        {
+            if (_ownerPanel != null)
+            {
+                _ownerPanel.NotifyRewardClaimed();
+            }
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        //마우스 오버 시 UI 하이라이트 활성화
+        if (TooltipManager.Instance == null || _boundEntry == null)
+        {
+            return;
+        }
+
+        RectTransform targetRect = transform as RectTransform;
+        if ((_rewardType == RewardType.Relic || _rewardType == RewardType.SpecificRelic) && _resolvedRelicData != null)
+        {
+            TooltipManager.Instance.ShowTooltip(_resolvedRelicData.LocalizedName, _resolvedRelicData.LocalizedDescription, targetRect);
+        }
+        else if (_rewardType == RewardType.CardChoice)
+        {
+            int count = _boundEntry.amount > 0 ? _boundEntry.amount : 3;
+            TooltipManager.Instance.ShowTooltip("카드 보상", $"제시된 {count}장의 카드 중 1장을 선택해 덱에 추가합니다.", targetRect);
+        }
+        else if (_rewardType == RewardType.Gold)
+        {
+            TooltipManager.Instance.ShowTooltip("골드", $"{_rewardValue} 골드를 획득합니다.", targetRect);
+        }
+        else if (_rewardType == RewardType.MemorySharp)
+        {
+            TooltipManager.Instance.ShowTooltip("기억의 파편", $"기억의 파편 {_rewardValue}개를 획득합니다.", targetRect);
+        }
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        //마우스 오버 시 UI 하이라이트 비활성화
-    }
-
-    private void OnDestroy()
-    {
-        if (currentRewardUIObject != null)
+        if (TooltipManager.Instance != null)
         {
-            CardRewardPanel panel = currentRewardUIObject.GetComponent<CardRewardPanel>();
-            if (panel != null)
-            {
-                panel.Close();
-            }
-            else
-            {
-                Destroy(currentRewardUIObject);
-            }
+            TooltipManager.Instance.HideTooltip();
         }
     }
 }

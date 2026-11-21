@@ -368,6 +368,11 @@ public class DialogueManager : MonoBehaviour
         {
             dialogueUI.Close();
         }
+
+        if (RunManager.instance != null && RunManager.instance.HasPendingRewards)
+        {
+            RunManager.instance.OpenPendingRewardUI();
+        }
     }
 
     private bool TryGetChoiceCallbacks(
