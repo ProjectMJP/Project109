@@ -168,7 +168,7 @@ public class StarterKitShowcasePanel : UIPanelBase
         ClearSpawnedSlots();
         if (slotContainer == null || slotTemplate == null) return;
 
-        TMP_FontAsset sharedFont = ResolveSharedFontAsset();
+        TMP_FontAsset sharedFont = TMPFontUtility.ResolveDefaultFont(titleText, shardBalanceText, statusMessageText);
 
         for (int i = 0; i < _sortedKits.Count; i++)
         {
@@ -408,14 +408,6 @@ public class StarterKitShowcasePanel : UIPanelBase
         Close();
     }
 
-    private TMP_FontAsset ResolveSharedFontAsset()
-    {
-        if (titleText != null && titleText.font != null) return titleText.font;
-        if (shardBalanceText != null && shardBalanceText.font != null) return shardBalanceText.font;
-        if (statusMessageText != null && statusMessageText.font != null) return statusMessageText.font;
-        return TMP_Settings.defaultFontAsset;
-    }
-
     private void EnsureHierarchyAndReferences()
     {
         if (titleText == null) titleText = FindComponent<TextMeshProUGUI>("MainContainer/Header/TitleText");
@@ -445,7 +437,7 @@ public class StarterKitShowcasePanel : UIPanelBase
         RectTransform rootRect = transform as RectTransform;
         StretchFull(rootRect);
 
-        TMP_FontAsset font = ResolveSharedFontAsset();
+        TMP_FontAsset font = TMPFontUtility.ResolveDefaultFont(titleText, shardBalanceText, statusMessageText);
 
         // 1. 전체화면 반투명 딤 배경
         GameObject dimObj = CreateChild("DimBackground", transform);

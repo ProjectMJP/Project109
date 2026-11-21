@@ -236,7 +236,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 38dfb705a20bb7b43aaa3bc85a87a9ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  uiLayerType: 1
+  blockWorldInput: 1
   contentTransform: {fileID: 1652251970}
+  titleText: {fileID: 0}
+  confirmButton: {fileID: 0}
+  confirmButtonText: {fileID: 0}
+  closeButton: {fileID: 0}
+  filterSortBarRoot: {fileID: 0}
+  classFilterButton: {fileID: 0}
+  classFilterText: {fileID: 0}
+  rarityFilterButton: {fileID: 0}
+  rarityFilterText: {fileID: 0}
+  typeFilterButton: {fileID: 0}
+  typeFilterText: {fileID: 0}
+  obtainSourceFilterButton: {fileID: 0}
+  obtainSourceFilterText: {fileID: 0}
+  sortCriteriaButton: {fileID: 0}
+  sortCriteriaText: {fileID: 0}
+  sortDirectionButton: {fileID: 0}
+  sortDirectionText: {fileID: 0}
 --- !u!1 &45716255
 GameObject:
   m_ObjectHideFlags: 0
@@ -300,6 +319,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -321,9 +342,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &45716259
 MeshFilter:
@@ -841,19 +864,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8148f142444a5d46be0a43fa6d6f7e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  uiLayerType: 1
+  blockWorldInput: 1
   ViewLayout: {fileID: 1153175530}
   ArrowObjects: {fileID: 1438581550}
-  ExploreVerticalObjects: []
-  currentMapFloor: 0
   VerticalLayoutSpacing: 25
-  StoreNumber: 1
-  RestoreNumber: 1
-  SecretNumber: 6
-  BoxNumber: 4
-  EliteNumber: 3
+  moveBlockedNoticeText: {fileID: 0}
   NodePrefab: {fileID: 6755921633396738693, guid: 93606f9f75bbb154eb0ac1fcb6b4fcb8, type: 3}
   ArrowLinePrefab: {fileID: 1474871927579401902, guid: 9f3d076dcc29fc242b99dd685282a4a5, type: 3}
-  ArrowHeadPrefab: {fileID: 8803386731921163441, guid: 9ae535d8426b9e84fa63527557882197, type: 3}
   ExploreMapVerticalLayoutPrefab: {fileID: 1065554264690257181, guid: 26cf7374cc52cd747b1631168f752624, type: 3}
 --- !u!114 &290354952
 MonoBehaviour:
@@ -1049,7 +1067,6 @@ MonoBehaviour:
   m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
   m_RequiresDepthTexture: 0
   m_RequiresColorTexture: 0
-  m_Version: 2
   m_TaaSettings:
     m_Quality: 3
     m_FrameInfluence: 0.1
@@ -1057,6 +1074,7 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!1 &408422016
 GameObject:
   m_ObjectHideFlags: 0
@@ -1128,14 +1146,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 2
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 2
     m_Resolution: -1
@@ -1212,17 +1230,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
   m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 1
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &417770247
 GameObject:
   m_ObjectHideFlags: 0
@@ -1494,8 +1518,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Open ExploreMap
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1530,6 +1554,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1640,7 +1665,6 @@ MonoBehaviour:
   m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
   m_RequiresDepthTexture: 0
   m_RequiresColorTexture: 0
-  m_Version: 2
   m_TaaSettings:
     m_Quality: 3
     m_FrameInfluence: 0.1
@@ -1648,6 +1672,7 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!20 &563181696
 Camera:
   m_ObjectHideFlags: 0
@@ -1732,11 +1757,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b95d795d28533345b18a4a6f4f300ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  canvasRect: {fileID: 0}
-  relicDescription: {fileID: 3248461293091051393}
-  relicDescriptionText: {fileID: 3248461293091051391}
-  cardEffectAreaBackground: {fileID: 1889792639}
-  cardCheckHandler: {fileID: 2143283312}
+  worldUILayer: {fileID: 0}
+  normalUILayer: {fileID: 0}
+  topUILayer: {fileID: 0}
+  popupUILayer: {fileID: 0}
 --- !u!114 &604326095
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2398,6 +2422,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -2419,9 +2445,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &910258129
 MeshFilter:
@@ -2858,8 +2886,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2894,6 +2922,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -3200,8 +3229,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3236,6 +3265,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -3442,17 +3472,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerInputController: {fileID: 0}
---- !u!114 &1567907229 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8738879886526210552, guid: 7bf842e38fdd34c45a527b95f26c8f4f, type: 3}
-  m_PrefabInstance: {fileID: 1044578805}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2b329e4534f3a8a4f833c39e9e06100b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!224 &1567907230 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 2742698040176174491, guid: 7bf842e38fdd34c45a527b95f26c8f4f, type: 3}
@@ -4487,7 +4506,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f414a5b0b739948a4821d7b3d16b11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardHandler: {fileID: 1567907229}
+  uiLayerType: 1
+  blockWorldInput: 1
+  cardUI: {fileID: 0}
+  detailDescriptionUIPrefab: {fileID: 0}
+  detailDescriptionUITransform: {fileID: 0}
+  closeBackgroundButton: {fileID: 0}
 --- !u!114 &2143283313
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4713,25 +4737,9 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9a3555da2307c024f802ea5de2627f7b, type: 3}
---- !u!114 &3248461293091051391 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 6055435384773419354, guid: 9a3555da2307c024f802ea5de2627f7b, type: 3}
-  m_PrefabInstance: {fileID: 3248461293091051390}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!224 &3248461293091051392 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6810214745882581005, guid: 9a3555da2307c024f802ea5de2627f7b, type: 3}
-  m_PrefabInstance: {fileID: 3248461293091051390}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &3248461293091051393 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4846824470073675771, guid: 9a3555da2307c024f802ea5de2627f7b, type: 3}
   m_PrefabInstance: {fileID: 3248461293091051390}
   m_PrefabAsset: {fileID: 0}
 --- !u!1660057539 &9223372036854775807

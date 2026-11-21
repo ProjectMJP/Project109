@@ -671,6 +671,7 @@ MonoBehaviour:
   ViewLayout: {fileID: 1153175530}
   ArrowObjects: {fileID: 1438581550}
   VerticalLayoutSpacing: 25
+  moveBlockedNoticeText: {fileID: 0}
   NodePrefab: {fileID: 6755921633396738693, guid: 93606f9f75bbb154eb0ac1fcb6b4fcb8, type: 3}
   ArrowLinePrefab: {fileID: 1474871927579401902, guid: 9f3d076dcc29fc242b99dd685282a4a5, type: 3}
   ExploreMapVerticalLayoutPrefab: {fileID: 1065554264690257181, guid: 26cf7374cc52cd747b1631168f752624, type: 3}
@@ -1269,8 +1270,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Open ExploreMap
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1587,14 +1588,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: faf3822a154beff4383a4ec66a0c5582, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardKey: Card
-  eventKey: Event
-  battleKey: Battle
   mapKey: Map
   modelKey: Model
   textureKey: Texture
   uiKey: UI
-  interactableKey: Interactable
 --- !u!4 &1172628324
 Transform:
   m_ObjectHideFlags: 0
@@ -1911,8 +1908,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2197,8 +2194,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

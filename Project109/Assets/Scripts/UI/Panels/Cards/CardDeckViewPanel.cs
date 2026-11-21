@@ -637,7 +637,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
             return;
         }
 
-        TMP_FontAsset fontAsset = ResolveDefaultFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont();
 
         GameObject barObj = CreateUIObject("FilterSortBar", transform);
         RectTransform barRect = barObj.GetComponent<RectTransform>();
@@ -856,22 +856,6 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         go.layer = 5;
         go.transform.SetParent(parent, false);
         return go;
-    }
-
-    private static TMP_FontAsset ResolveDefaultFont()
-    {
-        if (TMP_Settings.defaultFontAsset != null)
-        {
-            return TMP_Settings.defaultFontAsset;
-        }
-
-        TMP_FontAsset[] loadedFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-        if (loadedFonts != null && loadedFonts.Length > 0)
-        {
-            return loadedFonts[0];
-        }
-
-        return null;
     }
 
     private static void DestroyOrImmediate(GameObject target)

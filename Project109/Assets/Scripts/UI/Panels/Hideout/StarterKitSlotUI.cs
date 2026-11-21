@@ -471,10 +471,7 @@ public class StarterKitSlotUI : MonoBehaviour
     private TMP_FontAsset ResolveFontAsset()
     {
         if (_sharedFontAsset != null) return _sharedFontAsset;
-        if (weaponNameText != null && weaponNameText.font != null) return weaponNameText.font;
-        if (historyTitleText != null && historyTitleText.font != null) return historyTitleText.font;
-        if (statsSummaryText != null && statsSummaryText.font != null) return statsSummaryText.font;
-        return TMP_Settings.defaultFontAsset;
+        return TMPFontUtility.ResolveDefaultFont(weaponNameText, historyTitleText, statsSummaryText);
     }
 
     private void EnsureHierarchyAndReferences()

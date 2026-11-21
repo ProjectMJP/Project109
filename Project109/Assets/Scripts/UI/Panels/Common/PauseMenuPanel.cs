@@ -1,6 +1,6 @@
+using GameItem.Types;
 using System;
 using System.Collections.Generic;
-using GameItem.Types;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -869,7 +869,7 @@ public class PauseMenuPanel : UIPanelBase
             return;
         }
 
-        TMP_FontAsset fontAsset = ResolveDefaultFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(titleText);
         for (int i = 0; i < _filteredCompendiumRelics.Count; i++)
         {
             GameObject rowObj = CreateRelicEntryRow(relicListContent, _filteredCompendiumRelics[i], fontAsset);
@@ -1050,7 +1050,7 @@ public class PauseMenuPanel : UIPanelBase
             return;
         }
 
-        TMP_FontAsset fontAsset = ResolveDefaultFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(titleText);
 
         GameObject barObj = CreateUIObject("RelicFilterSortBar", relicCompendiumGroup.transform);
         ConfigureSingleRowFilterSortBar(barObj);
@@ -1416,9 +1416,7 @@ public class PauseMenuPanel : UIPanelBase
         Transform rowTr = settingsGroup.transform.Find("TooltipRow");
         if (rowTr == null)
         {
-            TMP_FontAsset fontAsset = (fullScreenStatusText != null && fullScreenStatusText.font != null)
-                ? fullScreenStatusText.font
-                : ResolveDefaultFont();
+            TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(fullScreenStatusText);
             rowTr = CreateTooltipSettingRow(settingsGroup.transform, fontAsset);
         }
         else
@@ -1481,7 +1479,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void BuildFallbackHierarchy()
     {
-        TMP_FontAsset fontAsset = ResolveDefaultFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont();
 
         RectTransform rootRect = GetComponent<RectTransform>();
         if (rootRect == null)
@@ -1956,21 +1954,5 @@ public class PauseMenuPanel : UIPanelBase
             tmp.font = fontAsset;
         }
         return tmp;
-    }
-
-    private static TMP_FontAsset ResolveDefaultFont()
-    {
-        if (TMP_Settings.defaultFontAsset != null)
-        {
-            return TMP_Settings.defaultFontAsset;
-        }
-
-        TMP_FontAsset[] loadedFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-        if (loadedFonts != null && loadedFonts.Length > 0)
-        {
-            return loadedFonts[0];
-        }
-
-        return null;
     }
 }

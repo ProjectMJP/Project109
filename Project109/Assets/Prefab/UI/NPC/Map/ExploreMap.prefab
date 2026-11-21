@@ -340,17 +340,10 @@ MonoBehaviour:
   blockWorldInput: 1
   ViewLayout: {fileID: 4743359117475517606}
   ArrowObjects: {fileID: 2219211168601149840}
-  ExploreVerticalObjects: []
-  currentMapFloor: 1
   VerticalLayoutSpacing: 60
-  StoreNumber: 1
-  RestoreNumber: 2
-  SecretNumber: 4
-  BoxNumber: 1
-  EliteNumber: 2
+  moveBlockedNoticeText: {fileID: 0}
   NodePrefab: {fileID: 6755921633396738693, guid: 93606f9f75bbb154eb0ac1fcb6b4fcb8, type: 3}
   ArrowLinePrefab: {fileID: 1474871927579401902, guid: 9f3d076dcc29fc242b99dd685282a4a5, type: 3}
-  ArrowHeadPrefab: {fileID: 8803386731921163441, guid: 9ae535d8426b9e84fa63527557882197, type: 3}
   ExploreMapVerticalLayoutPrefab: {fileID: 1065554264690257181, guid: 26cf7374cc52cd747b1631168f752624, type: 3}
 --- !u!1 &2219211168601149840
 GameObject:
@@ -563,8 +556,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 98275428364c09444b0db637bbca0884, type: 2}
+  m_sharedMaterial: {fileID: 330105162385329556, guid: 98275428364c09444b0db637bbca0884, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

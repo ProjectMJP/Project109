@@ -620,7 +620,7 @@ public class ShopPanel : UIPanelBase
 
     private void EnsureRuntimeControls()
     {
-        TMP_FontAsset fontAsset = ResolveDefaultFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText);
 
         if (headerCloseButton == null)
         {
@@ -768,7 +768,7 @@ public class ShopPanel : UIPanelBase
             FontStyles.Bold,
             TextAlignmentOptions.Center,
             NormalPriceColor,
-            ResolveDefaultFont());
+            TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText));
         priceTmp.enableAutoSizing = true;
         priceTmp.fontSizeMin = 11f;
         priceTmp.fontSizeMax = isCardSlot ? 22f : 18f;
@@ -836,46 +836,6 @@ public class ShopPanel : UIPanelBase
             tmp.font = fontAsset;
         }
         return tmp;
-    }
-
-    private TMP_FontAsset ResolveDefaultFont()
-    {
-        if (rerollButtonText != null && rerollButtonText.font != null &&
-            (rerollButtonText.font.name.Contains("NEXON") || rerollButtonText.font.name.Contains("LINESeed")))
-        {
-            return rerollButtonText.font;
-        }
-
-        if (feedbackText != null && feedbackText.font != null &&
-            (feedbackText.font.name.Contains("NEXON") || feedbackText.font.name.Contains("LINESeed")))
-        {
-            return feedbackText.font;
-        }
-
-        TMP_FontAsset[] loadedFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-        if (loadedFonts != null)
-        {
-            for (int i = 0; i < loadedFonts.Length; i++)
-            {
-                TMP_FontAsset font = loadedFonts[i];
-                if (font != null && (font.name.Contains("NEXON") || font.name.Contains("LINESeed")))
-                {
-                    return font;
-                }
-            }
-        }
-
-        if (TMP_Settings.defaultFontAsset != null)
-        {
-            return TMP_Settings.defaultFontAsset;
-        }
-
-        if (loadedFonts != null && loadedFonts.Length > 0)
-        {
-            return loadedFonts[0];
-        }
-
-        return null;
     }
 
     private static void DestroyOrImmediate(GameObject target)

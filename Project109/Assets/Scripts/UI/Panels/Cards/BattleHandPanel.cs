@@ -424,7 +424,7 @@ public class BattleHandPanel : UIPanelBase
         textRect.offsetMax = new Vector2(-18f, -6f);
 
         TextMeshProUGUI textComp = textObj.GetComponent<TextMeshProUGUI>();
-        TMP_FontAsset fontAsset = ResolveFeedbackFont();
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(modeSwitchButtonText, drawCountText);
         if (fontAsset != null)
         {
             textComp.font = fontAsset;
@@ -438,32 +438,6 @@ public class BattleHandPanel : UIPanelBase
         textComp.color = new Color(1f, 0.42f, 0.36f, 1f);
         textComp.raycastTarget = false;
         return textComp;
-    }
-
-    private TMP_FontAsset ResolveFeedbackFont()
-    {
-        if (modeSwitchButtonText != null && modeSwitchButtonText.font != null)
-        {
-            return modeSwitchButtonText.font;
-        }
-
-        if (drawCountText != null && drawCountText.font != null)
-        {
-            return drawCountText.font;
-        }
-
-        if (TMP_Settings.defaultFontAsset != null)
-        {
-            return TMP_Settings.defaultFontAsset;
-        }
-
-        TMP_FontAsset[] loadedFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-        if (loadedFonts != null && loadedFonts.Length > 0)
-        {
-            return loadedFonts[0];
-        }
-
-        return null;
     }
 
     private static string GetDefaultFeedbackMessage(CardPlayFailReason reason)
