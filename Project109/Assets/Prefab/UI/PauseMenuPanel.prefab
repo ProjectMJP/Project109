@@ -91,6 +91,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PauseMenuPanel
   uiLayerType: 3
   blockWorldInput: 1
+  windowFrameRect: {fileID: 1000000000000000686}
+  defaultWindowSize: {x: 460, y: 520}
+  relicCompendiumWindowSize: {x: 1420, y: 840}
   mainMenuGroup: {fileID: 1000000000000002193}
   settingsGroup: {fileID: 1000000000000009454}
   relicCompendiumGroup: {fileID: 1000000000000018359}
@@ -105,10 +108,21 @@ MonoBehaviour:
   masterVolumeValueText: {fileID: 1000000000000011235}
   fullScreenToggle: {fileID: 1000000000000016852}
   fullScreenStatusText: {fileID: 1000000000000015345}
+  tooltipToggle: {fileID: 0}
+  tooltipStatusText: {fileID: 0}
   settingsBackButton: {fileID: 1000000000000017674}
   relicListContent: {fileID: 1000000000000020551}
   relicCountText: {fileID: 1000000000000019044}
   relicBackButton: {fileID: 1000000000000021647}
+  relicFilterSortBarRoot: {fileID: 0}
+  relicRarityFilterButton: {fileID: 0}
+  relicRarityFilterText: {fileID: 0}
+  relicObtainSourceFilterButton: {fileID: 0}
+  relicObtainSourceFilterText: {fileID: 0}
+  relicSortCriteriaButton: {fileID: 0}
+  relicSortCriteriaText: {fileID: 0}
+  relicSortDirectionButton: {fileID: 0}
+  relicSortDirectionText: {fileID: 0}
 --- !u!1 &1000000000000000549
 GameObject:
   m_ObjectHideFlags: 0
@@ -3594,7 +3608,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: -16}
-  m_SizeDelta: {x: -56, y: -128}
+  m_SizeDelta: {x: -64, y: -124}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1000000000000018633
 GameObject:
@@ -3769,8 +3783,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 12}
-  m_SizeDelta: {x: 0, y: -96}
+  m_AnchoredPosition: {x: 0, y: -11}
+  m_SizeDelta: {x: 0, y: -146}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1000000000000019455
 CanvasRenderer:
@@ -3829,7 +3843,7 @@ MonoBehaviour:
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
-  m_ScrollSensitivity: 25
+  m_ScrollSensitivity: 35
   m_Viewport: {fileID: 1000000000000019866}
   m_HorizontalScrollbar: {fileID: 0}
   m_VerticalScrollbar: {fileID: 0}
@@ -3939,8 +3953,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1000000000000020551}
-  - component: {fileID: 1000000000000020688}
   - component: {fileID: 1000000000000020825}
+  - component: {fileID: 3839700493418045776}
   m_Layer: 5
   m_Name: Content
   m_TagString: Untagged
@@ -3967,32 +3981,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 1}
---- !u!114 &1000000000000020688
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000000000000020414}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 59f8146938fff824cb5fd77236b75775, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.VerticalLayoutGroup
-  m_Padding:
-    m_Left: 4
-    m_Right: 4
-    m_Top: 4
-    m_Bottom: 4
-  m_ChildAlignment: 0
-  m_Spacing: 8
-  m_ChildForceExpandWidth: 1
-  m_ChildForceExpandHeight: 0
-  m_ChildControlWidth: 1
-  m_ChildControlHeight: 1
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
-  m_ReverseArrangement: 0
 --- !u!114 &1000000000000020825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4007,6 +3995,30 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
   m_HorizontalFit: 0
   m_VerticalFit: 2
+--- !u!114 &3839700493418045776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000020414}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a8695521f0d02e499659fee002a26c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GridLayoutGroup
+  m_Padding:
+    m_Left: 12
+    m_Right: 12
+    m_Top: 12
+    m_Bottom: 12
+  m_ChildAlignment: 0
+  m_StartCorner: 0
+  m_StartAxis: 0
+  m_CellSize: {x: 428, y: 120}
+  m_Spacing: {x: 14, y: 12}
+  m_Constraint: 1
+  m_ConstraintCount: 3
 --- !u!1 &1000000000000021099
 GameObject:
   m_ObjectHideFlags: 0
@@ -4041,10 +4053,10 @@ RectTransform:
   - {fileID: 1000000000000021921}
   m_Father: {fileID: 1000000000000018496}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.2, y: 0}
-  m_AnchorMax: {x: 0.8, y: 0}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 48}
+  m_SizeDelta: {x: 260, y: 48}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &1000000000000021373
 CanvasRenderer:

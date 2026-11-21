@@ -45,6 +45,11 @@ public class PauseMenuPanel : UIPanelBase
         Name = 1
     }
 
+    [Header("Window Layout")]
+    [SerializeField] private RectTransform windowFrameRect;
+    [SerializeField] private Vector2 defaultWindowSize = new Vector2(460f, 520f);
+    [SerializeField] private Vector2 relicCompendiumWindowSize = new Vector2(1420f, 840f);
+
     [Header("Sub-View Containers")]
     [SerializeField] private GameObject mainMenuGroup;
     [SerializeField] private GameObject settingsGroup;
@@ -297,6 +302,18 @@ public class PauseMenuPanel : UIPanelBase
         if (settingsGroup != null) settingsGroup.SetActive(mode == ViewMode.Settings);
         if (relicCompendiumGroup != null) relicCompendiumGroup.SetActive(mode == ViewMode.RelicCompendium);
 
+        if (windowFrameRect != null)
+        {
+            windowFrameRect.sizeDelta = mode == ViewMode.RelicCompendium
+                ? relicCompendiumWindowSize
+                : defaultWindowSize;
+        }
+
+        if (mode == ViewMode.RelicCompendium)
+        {
+            EnsureRelicCompendiumLayout();
+        }
+
         if (titleText != null)
         {
             switch (mode)
@@ -368,6 +385,7 @@ public class PauseMenuPanel : UIPanelBase
     {
         ClearStatusMessage();
         ResetRelicFilterAndSortState();
+        EnsureRelicCompendiumLayout();
         EnsureRelicFilterSortBar();
         BindRelicFilterSortListeners();
         EnsureRelicCompendiumBuilt();
@@ -882,11 +900,20 @@ public class PauseMenuPanel : UIPanelBase
         _isRelicSortAscending = true;
     }
 
-    private void EnsureRelicFilterSortBar()
+    private void EnsureRelicCompendiumLayout()
     {
         if (relicCompendiumGroup == null)
         {
             return;
+        }
+
+        RectTransform relicGroupRect = relicCompendiumGroup.GetComponent<RectTransform>();
+        if (relicGroupRect != null)
+        {
+            relicGroupRect.anchorMin = Vector2.zero;
+            relicGroupRect.anchorMax = Vector2.one;
+            relicGroupRect.offsetMin = new Vector2(32f, 46f);
+            relicGroupRect.offsetMax = new Vector2(-32f, -78f);
         }
 
         if (relicCountText != null)
@@ -898,7 +925,7 @@ public class PauseMenuPanel : UIPanelBase
                 countRect.anchorMax = new Vector2(1f, 1f);
                 countRect.pivot = new Vector2(0.5f, 1f);
                 countRect.anchoredPosition = Vector2.zero;
-                countRect.sizeDelta = new Vector2(0f, 26f);
+                countRect.sizeDelta = new Vector2(0f, 28f);
             }
         }
 
@@ -909,82 +936,207 @@ public class PauseMenuPanel : UIPanelBase
         }
         if (scrollTr != null)
         {
-            RectTransform scrollRect = scrollTr.GetComponent<RectTransform>();
+            RectTransform scrollRectTransform = scrollTr.GetComponent<RectTransform>();
+            if (scrollRectTransform != null)
+            {
+                scrollRectTransform.anchorMin = Vector2.zero;
+                scrollRectTransform.anchorMax = Vector2.one;
+                scrollRectTransform.offsetMin = new Vector2(0f, 62f);
+                scrollRectTransform.offsetMax = new Vector2(0f, -84f);
+            }
+
+            ScrollRect scrollRect = scrollTr.GetComponent<ScrollRect>();
             if (scrollRect != null)
             {
-                scrollRect.anchorMin = Vector2.zero;
-                scrollRect.anchorMax = Vector2.one;
-                scrollRect.offsetMin = new Vector2(0f, 56f);
-                scrollRect.offsetMax = new Vector2(0f, -100f);
+                scrollRect.horizontal = false;
+                scrollRect.vertical = true;
+                scrollRect.scrollSensitivity = 35f;
+            }
+        }
+
+        if (relicBackButton != null)
+        {
+            RectTransform backRect = relicBackButton.GetComponent<RectTransform>();
+            if (backRect != null)
+            {
+                backRect.anchorMin = new Vector2(0.5f, 0f);
+                backRect.anchorMax = new Vector2(0.5f, 0f);
+                backRect.pivot = new Vector2(0.5f, 0f);
+                backRect.anchoredPosition = Vector2.zero;
+                backRect.sizeDelta = new Vector2(260f, 48f);
+            }
+        }
+
+        if (relicListContent != null)
+        {
+            EnsureGridContentLayout(relicListContent);
+        }
+    }
+
+    private static void EnsureGridContentLayout(Transform contentTransform)
+    {
+        if (contentTransform == null)
+        {
+            return;
+        }
+
+        RectTransform contentRect = contentTransform.GetComponent<RectTransform>();
+        if (contentRect != null)
+        {
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+        }
+
+        // Unity는 한 오브젝트에 하나의 LayoutGroup만 허용하므로 기존 세로/가로 레이아웃을 먼저 제거합니다.
+        VerticalLayoutGroup existingVertical = contentTransform.GetComponent<VerticalLayoutGroup>();
+        if (existingVertical != null)
+        {
+            DestroyOrImmediateComponent(existingVertical);
+        }
+
+        HorizontalLayoutGroup existingHorizontal = contentTransform.GetComponent<HorizontalLayoutGroup>();
+        if (existingHorizontal != null)
+        {
+            DestroyOrImmediateComponent(existingHorizontal);
+        }
+
+        GridLayoutGroup gridLayout = contentTransform.GetComponent<GridLayoutGroup>();
+        if (gridLayout == null)
+        {
+            gridLayout = contentTransform.gameObject.AddComponent<GridLayoutGroup>();
+        }
+        gridLayout.cellSize = new Vector2(428f, 120f);
+        gridLayout.spacing = new Vector2(14f, 12f);
+        gridLayout.padding = new RectOffset(12, 12, 12, 12);
+        gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
+        gridLayout.childAlignment = TextAnchor.UpperLeft;
+        gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        gridLayout.constraintCount = 3;
+
+        ContentSizeFitter fitter = contentTransform.GetComponent<ContentSizeFitter>();
+        if (fitter == null)
+        {
+            fitter = contentTransform.gameObject.AddComponent<ContentSizeFitter>();
+        }
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
+    private void EnsureRelicFilterSortBar()
+    {
+        if (relicCompendiumGroup == null)
+        {
+            return;
+        }
+
+        EnsureRelicCompendiumLayout();
+
+        if (relicFilterSortBarRoot == null)
+        {
+            Transform existingBar = relicCompendiumGroup.transform.Find("RelicFilterSortBar");
+            if (existingBar != null)
+            {
+                relicFilterSortBarRoot = existingBar.gameObject;
             }
         }
 
         if (relicFilterSortBarRoot != null)
         {
+            ConfigureSingleRowFilterSortBar(relicFilterSortBarRoot);
             ResolveRelicFilterSortChildReferences(relicFilterSortBarRoot.transform);
-            return;
-        }
-
-        Transform existingBar = relicCompendiumGroup.transform.Find("RelicFilterSortBar");
-        if (existingBar != null)
-        {
-            relicFilterSortBarRoot = existingBar.gameObject;
-            ResolveRelicFilterSortChildReferences(existingBar);
             return;
         }
 
         TMP_FontAsset fontAsset = ResolveDefaultFont();
 
         GameObject barObj = CreateUIObject("RelicFilterSortBar", relicCompendiumGroup.transform);
-        RectTransform barRect = barObj.GetComponent<RectTransform>();
-        barRect.anchorMin = new Vector2(0f, 1f);
-        barRect.anchorMax = new Vector2(1f, 1f);
-        barRect.pivot = new Vector2(0.5f, 1f);
-        barRect.anchoredPosition = new Vector2(0f, -28f);
-        barRect.sizeDelta = new Vector2(0f, 66f);
-
-        VerticalLayoutGroup vLayout = barObj.AddComponent<VerticalLayoutGroup>();
-        vLayout.spacing = 4f;
-        vLayout.childControlWidth = true;
-        vLayout.childControlHeight = true;
-        vLayout.childForceExpandWidth = true;
-        vLayout.childForceExpandHeight = true;
-
-        GameObject filterRow = CreateUIObject("FilterRow", barObj.transform);
-        HorizontalLayoutGroup filterRowLayout = filterRow.AddComponent<HorizontalLayoutGroup>();
-        filterRowLayout.spacing = 6f;
-        filterRowLayout.childControlWidth = true;
-        filterRowLayout.childControlHeight = true;
-        filterRowLayout.childForceExpandWidth = true;
-        filterRowLayout.childForceExpandHeight = true;
-
-        GameObject sortRow = CreateUIObject("SortRow", barObj.transform);
-        HorizontalLayoutGroup sortRowLayout = sortRow.AddComponent<HorizontalLayoutGroup>();
-        sortRowLayout.spacing = 6f;
-        sortRowLayout.childControlWidth = true;
-        sortRowLayout.childControlHeight = true;
-        sortRowLayout.childForceExpandWidth = true;
-        sortRowLayout.childForceExpandHeight = true;
+        ConfigureSingleRowFilterSortBar(barObj);
 
         relicFilterSortBarRoot = barObj;
 
         Color filterBg = new Color(0.20f, 0.27f, 0.38f, 1f);
         Color sortBg = new Color(0.22f, 0.33f, 0.28f, 1f);
 
-        relicRarityFilterButton = CreateCompactFilterButton("RelicRarityFilterButton", filterRow.transform, "등급: 전체", filterBg, fontAsset, out relicRarityFilterText);
-        relicObtainSourceFilterButton = CreateCompactFilterButton("RelicObtainSourceFilterButton", filterRow.transform, "획득처: 전체", filterBg, fontAsset, out relicObtainSourceFilterText);
-        relicSortCriteriaButton = CreateCompactFilterButton("RelicSortCriteriaButton", sortRow.transform, "정렬: 등급순", sortBg, fontAsset, out relicSortCriteriaText);
-        relicSortDirectionButton = CreateCompactFilterButton("RelicSortDirectionButton", sortRow.transform, "▲ 오름차순", sortBg, fontAsset, out relicSortDirectionText);
+        relicRarityFilterButton = CreateCompactFilterButton("RelicRarityFilterButton", barObj.transform, "등급: 전체", filterBg, fontAsset, out relicRarityFilterText);
+        relicObtainSourceFilterButton = CreateCompactFilterButton("RelicObtainSourceFilterButton", barObj.transform, "획득처: 전체", filterBg, fontAsset, out relicObtainSourceFilterText);
+        relicSortCriteriaButton = CreateCompactFilterButton("RelicSortCriteriaButton", barObj.transform, "정렬: 등급순", sortBg, fontAsset, out relicSortCriteriaText);
+        relicSortDirectionButton = CreateCompactFilterButton("RelicSortDirectionButton", barObj.transform, "▲ 오름차순", sortBg, fontAsset, out relicSortDirectionText);
+    }
+
+    private static void ConfigureSingleRowFilterSortBar(GameObject barObj)
+    {
+        if (barObj == null)
+        {
+            return;
+        }
+
+        RectTransform barRect = barObj.GetComponent<RectTransform>();
+        if (barRect != null)
+        {
+            barRect.anchorMin = new Vector2(0f, 1f);
+            barRect.anchorMax = new Vector2(1f, 1f);
+            barRect.pivot = new Vector2(0.5f, 1f);
+            barRect.anchoredPosition = new Vector2(0f, -34f);
+            barRect.sizeDelta = new Vector2(0f, 42f);
+        }
+
+        // 구 2줄 구조(FilterRow/SortRow)가 남아있을 경우 1줄 가로 배치로 승격 정리합니다.
+        Transform filterRow = barObj.transform.Find("FilterRow");
+        Transform sortRow = barObj.transform.Find("SortRow");
+        if (filterRow != null)
+        {
+            ReparentChildrenTo(filterRow, barObj.transform);
+            DestroyOrImmediate(filterRow.gameObject);
+        }
+        if (sortRow != null)
+        {
+            ReparentChildrenTo(sortRow, barObj.transform);
+            DestroyOrImmediate(sortRow.gameObject);
+        }
+
+        VerticalLayoutGroup existingV = barObj.GetComponent<VerticalLayoutGroup>();
+        if (existingV != null)
+        {
+            DestroyOrImmediateComponent(existingV);
+        }
+
+        HorizontalLayoutGroup hLayout = barObj.GetComponent<HorizontalLayoutGroup>();
+        if (hLayout == null)
+        {
+            hLayout = barObj.AddComponent<HorizontalLayoutGroup>();
+        }
+        hLayout.spacing = 12f;
+        hLayout.childControlWidth = true;
+        hLayout.childControlHeight = true;
+        hLayout.childForceExpandWidth = true;
+        hLayout.childForceExpandHeight = true;
+    }
+
+    private static void ReparentChildrenTo(Transform source, Transform targetParent)
+    {
+        if (source == null || targetParent == null)
+        {
+            return;
+        }
+
+        while (source.childCount > 0)
+        {
+            Transform child = source.GetChild(0);
+            child.SetParent(targetParent, false);
+        }
     }
 
     private void ResolveRelicFilterSortChildReferences(Transform barTransform)
     {
         if (barTransform == null) return;
 
-        ResolveCompactButton(barTransform, "FilterRow/RelicRarityFilterButton", "RelicRarityFilterButton", ref relicRarityFilterButton, ref relicRarityFilterText);
-        ResolveCompactButton(barTransform, "FilterRow/RelicObtainSourceFilterButton", "RelicObtainSourceFilterButton", ref relicObtainSourceFilterButton, ref relicObtainSourceFilterText);
-        ResolveCompactButton(barTransform, "SortRow/RelicSortCriteriaButton", "RelicSortCriteriaButton", ref relicSortCriteriaButton, ref relicSortCriteriaText);
-        ResolveCompactButton(barTransform, "SortRow/RelicSortDirectionButton", "RelicSortDirectionButton", ref relicSortDirectionButton, ref relicSortDirectionText);
+        ResolveCompactButton(barTransform, "RelicRarityFilterButton", "FilterRow/RelicRarityFilterButton", ref relicRarityFilterButton, ref relicRarityFilterText);
+        ResolveCompactButton(barTransform, "RelicObtainSourceFilterButton", "FilterRow/RelicObtainSourceFilterButton", ref relicObtainSourceFilterButton, ref relicObtainSourceFilterText);
+        ResolveCompactButton(barTransform, "RelicSortCriteriaButton", "SortRow/RelicSortCriteriaButton", ref relicSortCriteriaButton, ref relicSortCriteriaText);
+        ResolveCompactButton(barTransform, "RelicSortDirectionButton", "SortRow/RelicSortDirectionButton", ref relicSortDirectionButton, ref relicSortDirectionText);
     }
 
     private static void ResolveCompactButton(
@@ -1083,7 +1235,7 @@ public class PauseMenuPanel : UIPanelBase
     {
         GameObject btnObj = CreateUIObject(name, parent);
         LayoutElement layoutElem = btnObj.AddComponent<LayoutElement>();
-        layoutElem.minHeight = 28f;
+        layoutElem.minHeight = 36f;
         layoutElem.flexibleWidth = 1f;
 
         Image img = btnObj.AddComponent<Image>();
@@ -1092,20 +1244,33 @@ public class PauseMenuPanel : UIPanelBase
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
 
-        labelText = CreateTMPText("Label", btnObj.transform, initialText, 14, FontStyles.Bold, TextAlignmentOptions.Center, fontAsset);
+        labelText = CreateTMPText("Label", btnObj.transform, initialText, 16, FontStyles.Bold, TextAlignmentOptions.Center, fontAsset);
         labelText.enableAutoSizing = true;
-        labelText.fontSizeMin = 10;
-        labelText.fontSizeMax = 14;
+        labelText.fontSizeMin = 11;
+        labelText.fontSizeMax = 16;
         RectTransform txtRect = labelText.GetComponent<RectTransform>();
         txtRect.anchorMin = Vector2.zero;
         txtRect.anchorMax = Vector2.one;
-        txtRect.offsetMin = new Vector2(6f, 2f);
-        txtRect.offsetMax = new Vector2(-6f, -2f);
+        txtRect.offsetMin = new Vector2(8f, 4f);
+        txtRect.offsetMax = new Vector2(-8f, -4f);
 
         return btn;
     }
 
     private static void DestroyOrImmediate(GameObject target)
+    {
+        if (target == null) return;
+        if (Application.isPlaying)
+        {
+            Destroy(target);
+        }
+        else
+        {
+            DestroyImmediate(target);
+        }
+    }
+
+    private static void DestroyOrImmediateComponent(Component target)
     {
         if (target == null) return;
         if (Application.isPlaying)
@@ -1165,6 +1330,15 @@ public class PauseMenuPanel : UIPanelBase
 
     private void ResolveComponentReferences()
     {
+        if (windowFrameRect == null)
+        {
+            Transform frameTr = transform.Find("WindowFrame");
+            if (frameTr != null)
+            {
+                windowFrameRect = frameTr as RectTransform;
+            }
+        }
+
         if (mainMenuGroup != null &&
             settingsGroup != null &&
             resumeButton != null &&
@@ -1331,7 +1505,8 @@ public class PauseMenuPanel : UIPanelBase
         RectTransform windowRect = windowObj.GetComponent<RectTransform>();
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(460f, 520f);
+        windowRect.sizeDelta = defaultWindowSize;
+        windowFrameRect = windowRect;
         Image windowBg = windowObj.AddComponent<Image>();
         windowBg.color = new Color(0.11f, 0.13f, 0.18f, 0.97f);
 
@@ -1400,8 +1575,8 @@ public class PauseMenuPanel : UIPanelBase
         RectTransform relicGroupRect = relicCompendiumGroup.GetComponent<RectTransform>();
         relicGroupRect.anchorMin = Vector2.zero;
         relicGroupRect.anchorMax = Vector2.one;
-        relicGroupRect.offsetMin = new Vector2(28f, 48f);
-        relicGroupRect.offsetMax = new Vector2(-28f, -80f);
+        relicGroupRect.offsetMin = new Vector2(32f, 46f);
+        relicGroupRect.offsetMax = new Vector2(-32f, -78f);
 
         relicCountText = CreateTMPText("RelicCountText", relicCompendiumGroup.transform, "등록된 유물: 0종", 18, FontStyles.Normal, TextAlignmentOptions.Left, fontAsset);
         RectTransform countRect = relicCountText.GetComponent<RectTransform>();
@@ -1414,11 +1589,11 @@ public class PauseMenuPanel : UIPanelBase
         relicListContent = CreateScrollListContent(relicCompendiumGroup.transform);
         relicBackButton = CreateActionButton("RelicBackButton", relicCompendiumGroup.transform, "뒤로", new Color(0.26f, 0.30f, 0.38f, 1f), fontAsset);
         RectTransform relicBackRect = relicBackButton.GetComponent<RectTransform>();
-        relicBackRect.anchorMin = new Vector2(0.2f, 0f);
-        relicBackRect.anchorMax = new Vector2(0.8f, 0f);
+        relicBackRect.anchorMin = new Vector2(0.5f, 0f);
+        relicBackRect.anchorMax = new Vector2(0.5f, 0f);
         relicBackRect.pivot = new Vector2(0.5f, 0f);
         relicBackRect.anchoredPosition = Vector2.zero;
-        relicBackRect.sizeDelta = new Vector2(0f, 48f);
+        relicBackRect.sizeDelta = new Vector2(260f, 48f);
 
         relicCompendiumGroup.SetActive(false);
     }
@@ -1573,8 +1748,8 @@ public class PauseMenuPanel : UIPanelBase
         RectTransform scrollRectTransform = scrollObj.GetComponent<RectTransform>();
         scrollRectTransform.anchorMin = Vector2.zero;
         scrollRectTransform.anchorMax = Vector2.one;
-        scrollRectTransform.offsetMin = new Vector2(0f, 56f);
-        scrollRectTransform.offsetMax = new Vector2(0f, -100f);
+        scrollRectTransform.offsetMin = new Vector2(0f, 62f);
+        scrollRectTransform.offsetMax = new Vector2(0f, -84f);
 
         Image scrollBg = scrollObj.AddComponent<Image>();
         scrollBg.color = new Color(0.07f, 0.08f, 0.12f, 0.9f);
@@ -1591,30 +1766,14 @@ public class PauseMenuPanel : UIPanelBase
         mask.showMaskGraphic = false;
 
         GameObject content = CreateUIObject("Content", viewport.transform);
-        RectTransform contentRect = content.GetComponent<RectTransform>();
-        contentRect.anchorMin = new Vector2(0f, 1f);
-        contentRect.anchorMax = new Vector2(1f, 1f);
-        contentRect.pivot = new Vector2(0.5f, 1f);
-        contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, 0f);
-
-        VerticalLayoutGroup vLayout = content.AddComponent<VerticalLayoutGroup>();
-        vLayout.spacing = 8f;
-        vLayout.padding = new RectOffset(4, 4, 4, 4);
-        vLayout.childControlWidth = true;
-        vLayout.childControlHeight = true;
-        vLayout.childForceExpandWidth = true;
-        vLayout.childForceExpandHeight = false;
-
-        ContentSizeFitter fitter = content.AddComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        EnsureGridContentLayout(content.transform);
 
         ScrollRect scroll = scrollObj.AddComponent<ScrollRect>();
         scroll.viewport = vpRect;
-        scroll.content = contentRect;
+        scroll.content = content.GetComponent<RectTransform>();
         scroll.horizontal = false;
         scroll.vertical = true;
-        scroll.scrollSensitivity = 25f;
+        scroll.scrollSensitivity = 35f;
 
         return content.transform;
     }
@@ -1622,22 +1781,44 @@ public class PauseMenuPanel : UIPanelBase
     private static GameObject CreateRelicEntryRow(Transform parent, RelicData relicData, TMP_FontAsset fontAsset)
     {
         GameObject rowObj = CreateUIObject($"Relic_{relicData.relicName}", parent);
-        LayoutElement rowLayout = rowObj.AddComponent<LayoutElement>();
-        rowLayout.preferredHeight = 72f;
-        rowLayout.minHeight = 72f;
 
         Image rowBg = rowObj.AddComponent<Image>();
-        rowBg.color = new Color(0.15f, 0.17f, 0.24f, 0.95f);
+        rowBg.color = new Color(0.14f, 0.17f, 0.24f, 0.96f);
+
+        Color rarityColor = GetRelicRarityColor(relicData.rarity);
+
+        GameObject accentObj = CreateUIObject("RarityAccent", rowObj.transform);
+        RectTransform accentRect = accentObj.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 0f);
+        accentRect.anchorMax = new Vector2(0f, 1f);
+        accentRect.pivot = new Vector2(0f, 0.5f);
+        accentRect.offsetMin = Vector2.zero;
+        accentRect.offsetMax = new Vector2(5f, 0f);
+        Image accentImg = accentObj.AddComponent<Image>();
+        accentImg.color = rarityColor;
+        accentImg.raycastTarget = false;
+
+        GameObject iconFrameObj = CreateUIObject("IconFrame", rowObj.transform);
+        RectTransform iconFrameRect = iconFrameObj.GetComponent<RectTransform>();
+        iconFrameRect.anchorMin = new Vector2(0f, 0.5f);
+        iconFrameRect.anchorMax = new Vector2(0f, 0.5f);
+        iconFrameRect.pivot = new Vector2(0f, 0.5f);
+        iconFrameRect.anchoredPosition = new Vector2(16f, 0f);
+        iconFrameRect.sizeDelta = new Vector2(68f, 68f);
+        Image iconFrameBg = iconFrameObj.AddComponent<Image>();
+        iconFrameBg.color = new Color(0.08f, 0.10f, 0.14f, 0.9f);
+        iconFrameBg.raycastTarget = false;
 
         GameObject iconObj = CreateUIObject("Icon", rowObj.transform);
         RectTransform iconRect = iconObj.GetComponent<RectTransform>();
         iconRect.anchorMin = new Vector2(0f, 0.5f);
         iconRect.anchorMax = new Vector2(0f, 0.5f);
         iconRect.pivot = new Vector2(0f, 0.5f);
-        iconRect.anchoredPosition = new Vector2(10f, 0f);
-        iconRect.sizeDelta = new Vector2(52f, 52f);
+        iconRect.anchoredPosition = new Vector2(18f, 0f);
+        iconRect.sizeDelta = new Vector2(64f, 64f);
         Image iconImg = iconObj.AddComponent<Image>();
         iconImg.preserveAspect = true;
+        iconImg.raycastTarget = false;
         if (relicData.iconSprite != null)
         {
             iconImg.sprite = relicData.iconSprite;
@@ -1648,26 +1829,78 @@ public class PauseMenuPanel : UIPanelBase
             iconImg.color = new Color(0.35f, 0.35f, 0.42f, 0.8f);
         }
 
+        GameObject badgeObj = CreateUIObject("RarityBadge", rowObj.transform);
+        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+        badgeRect.anchorMin = new Vector2(1f, 1f);
+        badgeRect.anchorMax = new Vector2(1f, 1f);
+        badgeRect.pivot = new Vector2(1f, 1f);
+        badgeRect.anchoredPosition = new Vector2(-10f, -10f);
+        badgeRect.sizeDelta = new Vector2(78f, 22f);
+        Image badgeBg = badgeObj.AddComponent<Image>();
+        badgeBg.color = new Color(rarityColor.r * 0.36f, rarityColor.g * 0.36f, rarityColor.b * 0.36f, 0.95f);
+        badgeBg.raycastTarget = false;
+
+        TextMeshProUGUI badgeText = CreateTMPText("Label", badgeObj.transform, GetRelicRarityBadgeLabel(relicData.rarity), 12, FontStyles.Bold, TextAlignmentOptions.Center, fontAsset);
+        badgeText.color = Color.Lerp(rarityColor, Color.white, 0.35f);
+        RectTransform badgeTxtRect = badgeText.GetComponent<RectTransform>();
+        badgeTxtRect.anchorMin = Vector2.zero;
+        badgeTxtRect.anchorMax = Vector2.one;
+        badgeTxtRect.offsetMin = new Vector2(4f, 1f);
+        badgeTxtRect.offsetMax = new Vector2(-4f, -1f);
+
         string title = !string.IsNullOrEmpty(relicData.LocalizedName) ? relicData.LocalizedName : relicData.relicName;
-        TextMeshProUGUI nameText = CreateTMPText("NameText", rowObj.transform, title, 18, FontStyles.Bold, TextAlignmentOptions.Left, fontAsset);
+        TextMeshProUGUI nameText = CreateTMPText("NameText", rowObj.transform, title, 18, FontStyles.Bold, TextAlignmentOptions.MidlineLeft, fontAsset);
+        nameText.textWrappingMode = TextWrappingModes.NoWrap;
+        nameText.overflowMode = TextOverflowModes.Ellipsis;
         RectTransform nameRect = nameText.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0f, 1f);
         nameRect.anchorMax = new Vector2(1f, 1f);
         nameRect.pivot = new Vector2(0f, 1f);
-        nameRect.offsetMin = new Vector2(72f, -28f);
-        nameRect.offsetMax = new Vector2(-10f, -6f);
+        nameRect.offsetMin = new Vector2(92f, -36f);
+        nameRect.offsetMax = new Vector2(-96f, -10f);
 
         string desc = !string.IsNullOrEmpty(relicData.LocalizedDescription) ? relicData.LocalizedDescription : string.Empty;
         TextMeshProUGUI descText = CreateTMPText("DescText", rowObj.transform, desc, 14, FontStyles.Normal, TextAlignmentOptions.TopLeft, fontAsset);
-        descText.color = new Color(0.80f, 0.84f, 0.90f, 1f);
+        descText.color = new Color(0.82f, 0.86f, 0.92f, 1f);
         descText.textWrappingMode = TextWrappingModes.Normal;
+        descText.overflowMode = TextOverflowModes.Ellipsis;
         RectTransform descRect = descText.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0f, 0f);
         descRect.anchorMax = new Vector2(1f, 1f);
-        descRect.offsetMin = new Vector2(72f, 6f);
-        descRect.offsetMax = new Vector2(-10f, -28f);
+        descRect.offsetMin = new Vector2(92f, 10f);
+        descRect.offsetMax = new Vector2(-12f, -40f);
 
         return rowObj;
+    }
+
+    private static Color GetRelicRarityColor(RelicRarity rarity)
+    {
+        switch (rarity)
+        {
+            case RelicRarity.Rare:
+                return new Color(0.28f, 0.62f, 0.96f, 1f);
+            case RelicRarity.Unique:
+                return new Color(0.72f, 0.42f, 0.94f, 1f);
+            case RelicRarity.Boss:
+                return new Color(0.95f, 0.56f, 0.22f, 1f);
+            default:
+                return new Color(0.55f, 0.62f, 0.72f, 1f);
+        }
+    }
+
+    private static string GetRelicRarityBadgeLabel(RelicRarity rarity)
+    {
+        switch (rarity)
+        {
+            case RelicRarity.Rare:
+                return "Rare";
+            case RelicRarity.Unique:
+                return "Unique";
+            case RelicRarity.Boss:
+                return "Boss";
+            default:
+                return "Common";
+        }
     }
 
     private static Button CreateActionButton(string name, Transform parent, string label, Color bgColor, TMP_FontAsset fontAsset)

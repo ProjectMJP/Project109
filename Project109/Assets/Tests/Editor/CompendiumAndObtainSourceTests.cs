@@ -597,4 +597,105 @@ public class CompendiumAndObtainSourceTests
         Assert.LessOrEqual(relicScrollRect.offsetMax.y, barBottomY, "RelicScrollView 상단이 RelicFilterSortBar와 겹치면 안 됩니다.");
         Assert.AreEqual(1, pausePanel.DisplayedRelicCount);
     }
+
+    [Test]
+    public void PauseMenuPanel_RelicCompendium_ExpandsWindowToThreeColumnCardGrid_WithoutOverlapOn1080p()
+    {
+        GameObject canvasGo = Track(new GameObject("CompendiumLayoutTestCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster)));
+        Canvas canvas = canvasGo.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        RectTransform canvasRect = canvasGo.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(1920f, 1080f);
+
+        GameObject pausePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/PauseMenuPanel.prefab");
+        Assert.IsNotNull(pausePrefab, "PauseMenuPanel.prefab을 찾을 수 없습니다.");
+
+        GameObject pauseGo = Track(UnityEngine.Object.Instantiate(pausePrefab, canvasGo.transform, false));
+        PauseMenuPanel pausePanel = pauseGo.GetComponent<PauseMenuPanel>();
+        Assert.IsNotNull(pausePanel);
+
+        for (int i = 0; i < 15; i++)
+        {
+            RelicRarity rarity = (RelicRarity)(i % 4);
+            RelicData relic = CreateTestRelic($"grid_relic_{i}", $"테스트 유물 {i}", rarity, ItemObtainSource.Standard);
+            ModLoader.Instance.RelicDatabase[relic.relicName] = relic;
+        }
+
+        pausePanel.OnOpen();
+        RectTransform windowFrame = pauseGo.transform.Find("WindowFrame") as RectTransform;
+        Assert.IsNotNull(windowFrame);
+        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta, "기본 일시정지 메뉴 크기는 460x520이어야 합니다.");
+
+        Button relicCompendiumBtn = GetPrivateField<Button>(pausePanel, "relicCompendiumButton");
+        Button relicBackBtn = GetPrivateField<Button>(pausePanel, "relicBackButton");
+        Button settingsBtn = GetPrivateField<Button>(pausePanel, "settingsButton");
+        Button settingsBackBtn = GetPrivateField<Button>(pausePanel, "settingsBackButton");
+
+        // 1. 유물 도감 진입 시 대화면 확장 (1420x840) 및 3열 GridLayoutGroup 확인
+        relicCompendiumBtn.onClick.Invoke();
+        Assert.AreEqual(new Vector2(1420f, 840f), windowFrame.sizeDelta, "유물 도감 진입 시 WindowFrame이 1420x840으로 확장되어야 합니다.");
+        Assert.AreEqual(15, pausePanel.DisplayedRelicCount);
+
+        Transform relicGroup = windowFrame.Find("RelicCompendiumGroup");
+        Transform contentTr = relicGroup.Find("RelicScrollView/Viewport/Content");
+        Assert.IsNotNull(contentTr);
+        Assert.IsNull(contentTr.GetComponent<VerticalLayoutGroup>(), "기존 VerticalLayoutGroup은 제거되어야 합니다.");
+
+        GridLayoutGroup grid = contentTr.GetComponent<GridLayoutGroup>();
+        Assert.IsNotNull(grid, "Content에 GridLayoutGroup이 부착되어야 합니다.");
+        Assert.AreEqual(GridLayoutGroup.Constraint.FixedColumnCount, grid.constraint);
+        Assert.AreEqual(3, grid.constraintCount);
+
+        // 2. 카드형 항목 구성 요소(Icon, NameText, RarityBadge, DescText) 검증
+        Assert.AreEqual(15, contentTr.childCount);
+        Transform firstCard = contentTr.GetChild(0);
+        Assert.IsNotNull(firstCard.Find("Icon"));
+        Assert.IsNotNull(firstCard.Find("NameText"));
+        Assert.IsNotNull(firstCard.Find("RarityBadge"));
+        Assert.IsNotNull(firstCard.Find("DescText"));
+
+        // 3. 1920x1080 기준 상단 카운트 / 1줄 필터바 / 스크롤 영역 / 하단 뒤로 버튼 비겹침 검증
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(windowFrame);
+
+        RectTransform countRect = relicGroup.Find("RelicCountText") as RectTransform;
+        RectTransform barRect = relicGroup.Find("RelicFilterSortBar") as RectTransform;
+        RectTransform scrollRect = relicGroup.Find("RelicScrollView") as RectTransform;
+        RectTransform backRect = relicGroup.Find("RelicBackButton") as RectTransform;
+
+        Assert.IsNotNull(barRect.GetComponent<HorizontalLayoutGroup>(), "RelicFilterSortBar는 1줄 HorizontalLayoutGroup이어야 합니다.");
+        Assert.GreaterOrEqual(GetMinY(countRect), GetMaxY(barRect), "RelicCountText와 RelicFilterSortBar가 겹치면 안 됩니다.");
+        Assert.GreaterOrEqual(GetMinY(barRect), GetMaxY(scrollRect), "RelicFilterSortBar와 RelicScrollView가 겹치면 안 됩니다.");
+        Assert.GreaterOrEqual(GetMinY(scrollRect), GetMaxY(backRect), "RelicScrollView와 RelicBackButton이 겹치면 안 됩니다.");
+
+        // 4. 뒤로/설정 전환 및 닫기 시 기존 460x520 크기 원복 확인
+        relicBackBtn.onClick.Invoke();
+        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta, "Main 메뉴 복귀 시 WindowFrame이 460x520으로 복원되어야 합니다.");
+
+        settingsBtn.onClick.Invoke();
+        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta);
+        settingsBackBtn.onClick.Invoke();
+
+        relicCompendiumBtn.onClick.Invoke();
+        Assert.AreEqual(new Vector2(1420f, 840f), windowFrame.sizeDelta);
+        pausePanel.OnClose();
+        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta, "패널 닫기 시 WindowFrame이 460x520으로 복원되어야 합니다.");
+    }
+
+    private static float GetMinY(RectTransform rect)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        return Mathf.Min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+    }
+
+    private static float GetMaxY(RectTransform rect)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        return Mathf.Max(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+    }
 }
