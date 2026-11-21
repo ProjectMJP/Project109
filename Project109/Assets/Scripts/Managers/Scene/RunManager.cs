@@ -73,6 +73,23 @@ public class RunManager : MonoBehaviour
     public bool HasPendingRewards => pendingRewardSession != null && pendingRewardSession.HasPendingRewards;
     public int PendingRewardCount => pendingRewardSession != null ? pendingRewardSession.Count : 0;
 
+    public ShopNPC ActiveNodeShopNPC { get; private set; }
+    public bool CanReopenCurrentNodeShop => ActiveNodeShopNPC != null && ActiveNodeShopNPC.gameObject != null && ActiveNodeShopNPC.gameObject.activeInHierarchy;
+
+    public void SetActiveNodeShop(ShopNPC shopNpc)
+    {
+        ActiveNodeShopNPC = shopNpc;
+        NotifyNodeContextChanged();
+    }
+
+    public void ReopenCurrentNodeShop()
+    {
+        if (CanReopenCurrentNodeShop)
+        {
+            ActiveNodeShopNPC.OpenShopDirectly();
+        }
+    }
+
     private void Start()
     {
         // 1. 플레이어 컨트롤러 인스턴스 초기화 (Player 자체는 GameSceneManager가 소유)
@@ -145,6 +162,7 @@ public class RunManager : MonoBehaviour
     /// </summary>
     public void ResetRunProgress()
     {
+        ActiveNodeShopNPC = null;
         CloseNodeRewardAndShopPanels();
         ClearPendingRewards(notify: false);
 
@@ -756,6 +774,7 @@ public class RunManager : MonoBehaviour
             currentStage = null;
         }
 
+        ActiveNodeShopNPC = null;
         ClearPendingRewards(notify: false);
     }
 
@@ -869,6 +888,7 @@ public class RunManager : MonoBehaviour
             CleanupActiveBattleForForcedMove();
         }
 
+        ActiveNodeShopNPC = null;
         CloseNodeRewardAndShopPanels();
         ClearPendingRewards(notify: false);
 

@@ -399,6 +399,10 @@ public class ShopNPC : InteractableObject
 
         if (shopUI != null)
         {
+            if (RunManager.instance != null)
+            {
+                RunManager.instance.SetActiveNodeShop(this);
+            }
             shopUI.BindShop(this);
             shopUI.CreateStoreItemCollections(actionCards.Count, relics.Count, 0);
             shopUI.RefreshShopDisplay();

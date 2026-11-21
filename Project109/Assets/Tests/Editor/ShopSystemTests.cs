@@ -14,6 +14,7 @@ public class ShopSystemTests
 {
     private readonly List<UnityEngine.Object> _createdObjects = new List<UnityEngine.Object>();
     private readonly List<Player> _createdPlayers = new List<Player>();
+    private readonly List<StageManager> _createdStages = new List<StageManager>();
 
     private Dictionary<string, CardData> _backupCards;
     private Dictionary<string, RelicData> _backupRelics;
@@ -23,6 +24,7 @@ public class ShopSystemTests
     private GameItemRewardManager _prevRewardManager;
     private AssetCacheManager _prevAssetCacheManager;
     private RunManager _prevRunManager;
+    private UIManager _prevUIManager;
 
     [SetUp]
     public void SetUp()
@@ -35,6 +37,7 @@ public class ShopSystemTests
         _prevRewardManager = GameItemRewardManager.instance;
         _prevAssetCacheManager = AssetCacheManager.instance;
         _prevRunManager = RunManager.instance;
+        _prevUIManager = UIManager.instance;
 
         ModLoader.Instance.CardDatabase.Clear();
         ModLoader.Instance.RelicDatabase.Clear();
@@ -44,6 +47,15 @@ public class ShopSystemTests
     [TearDown]
     public void TearDown()
     {
+        for (int i = _createdStages.Count - 1; i >= 0; i--)
+        {
+            if (_createdStages[i] != null)
+            {
+                _createdStages[i].Dispose();
+            }
+        }
+        _createdStages.Clear();
+
         for (int i = 0; i < _createdPlayers.Count; i++)
         {
             if (_createdPlayers[i] != null)
@@ -66,6 +78,11 @@ public class ShopSystemTests
         SetStaticBackingField<GameItemRewardManager>("instance", _prevRewardManager);
         SetStaticBackingField<AssetCacheManager>("instance", _prevAssetCacheManager);
         SetStaticBackingField<RunManager>("instance", _prevRunManager);
+        SetStaticBackingField<UIManager>("instance", _prevUIManager);
+        SetStaticBackingField<GameMap>("current", null);
+        SetStaticField<PlayerInputController>("_instance", null);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+        SetStaticField<RunManager>("OnNodeContextChanged", null);
 
         ModLoader.Instance.CardDatabase.Clear();
         foreach (var kvp in _backupCards)
@@ -685,26 +702,53 @@ public class ShopSystemTests
         Assert.AreEqual(0, instanceGo.GetComponentsInChildren<Canvas>(true).Length, "ShopNPCUI 프리팹 내부에는 Canvas가 없어야 합니다.");
         Assert.AreEqual(0, instanceGo.GetComponentsInChildren<CanvasScaler>(true).Length, "ShopNPCUI 프리팹 내부에는 CanvasScaler가 없어야 합니다.");
 
-        // 2. 직렬화 필드 전부 비-null 바인딩 및 potionCollection null 확인
+        // 2. TopHUD 하단 전면 레이아웃 & 상단 유물 안전 여백(y 0.92..1.00) & NPC 배너/우하단 단일 닫기 검증
+        RectTransform rootRect = instanceGo.GetComponent<RectTransform>();
+        Assert.AreEqual(Vector2.zero, rootRect.anchorMin);
+        Assert.AreEqual(Vector2.one, rootRect.anchorMax);
+        Assert.AreEqual(Vector2.zero, rootRect.offsetMin);
+        Assert.AreEqual(-58f, rootRect.offsetMax.y, 0.5f, "TopHUD 상단 바 높이(58px) 아래를 전체 사용해야 합니다.");
+
+        RectTransform headerRect = FindTransformByName(instanceGo.transform, "Header") as RectTransform;
+        Assert.IsNotNull(headerRect);
+        Assert.LessOrEqual(headerRect.anchorMax.y, 0.925f, "TopHUD 좌상단 유물 줄과 겹치지 않도록 상단 여백이 확보되어야 합니다.");
+
+        Transform portraitTransform = FindTransformByName(headerRect, "MerchantPortrait");
+        Assert.IsNotNull(portraitTransform, "Header 내부에 MerchantPortrait 이미지가 배치되어야 합니다.");
+        Image portraitImg = portraitTransform.GetComponent<Image>();
+        Assert.IsNotNull(portraitImg);
+        Assert.IsNotNull(portraitImg.sprite, "MerchantPortrait에 상인 스프라이트가 연결되어야 합니다.");
+
+        // 3. 직렬화 필드 및 레거시 Clean Cut 검증 (upgradeCardButton/headerCloseButton 제거)
+        BindingFlags allInstance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        Assert.IsNull(typeof(ShopPanel).GetField("upgradeCardButton", allInstance), "미지원 카드 강화 버튼 필드는 Clean Cut 제거되어야 합니다.");
+        Assert.IsNull(typeof(ShopPanel).GetField("headerCloseButton", allInstance), "중복 헤더 닫기 버튼 필드는 Clean Cut 제거되어야 합니다.");
+        Assert.IsNull(typeof(ShopPanel).GetMethod("OpenUpgradeCardUI", allInstance));
+
         Assert.IsNotNull(panel.cardCollection);
         Assert.IsNotNull(panel.relicCollection);
         Assert.IsNull(panel.potionCollection);
-        Assert.IsNotNull(panel.upgradeCardButton);
         Assert.IsNotNull(panel.closeUIButton);
-        Assert.IsNotNull(panel.headerCloseButton);
         Assert.IsNotNull(panel.rerollButton);
         Assert.IsNotNull(panel.rerollButtonText);
         Assert.IsNotNull(panel.feedbackText);
         Assert.IsFalse(panel.feedbackText.gameObject.activeSelf, "FeedbackText는 초기 비활성 상태여야 합니다.");
 
-        // 3. 레거시 오브젝트(PotionCollection, CardCollectionTrigger, RelicCollectionTrigger) 제거 검증
+        RectTransform closeRect = panel.closeUIButton.GetComponent<RectTransform>();
+        Assert.AreEqual(new Vector2(1f, 0f), closeRect.anchorMin);
+        Assert.AreEqual(new Vector2(1f, 0f), closeRect.anchorMax);
+        Assert.AreEqual(new Vector2(1f, 0f), closeRect.pivot);
+
+        // 4. 레거시 및 제거 대상 오브젝트 미존재 검증
         Assert.IsNull(FindTransformByName(instanceGo.transform, "PotionCollection"));
         Assert.IsNull(FindTransformByName(instanceGo.transform, "CardCollectionTrigger"));
         Assert.IsNull(FindTransformByName(instanceGo.transform, "RelicCollectionTrigger"));
+        Assert.IsNull(FindTransformByName(instanceGo.transform, "HeaderCloseButton"));
+        Assert.IsNull(FindTransformByName(instanceGo.transform, "UpgradeCardButton"));
 
-        // 4. 프리팹 내 모든 TextMeshProUGUI에 NEXON 한글 폰트 적용 및 LiberationSans 미사용 검증
+        // 5. 프리팹 내 모든 TextMeshProUGUI에 NEXON 한글 폰트 적용 및 LiberationSans 미사용 검증
         TextMeshProUGUI[] allTexts = instanceGo.GetComponentsInChildren<TextMeshProUGUI>(true);
-        Assert.GreaterOrEqual(allTexts.Length, 6);
+        Assert.GreaterOrEqual(allTexts.Length, 5);
         for (int i = 0; i < allTexts.Length; i++)
         {
             TextMeshProUGUI tmp = allTexts[i];
@@ -713,7 +757,7 @@ public class ShopSystemTests
             StringAssert.DoesNotContain("LiberationSans", tmp.font.name, $"{tmp.name}에 LiberationSans가 남아있으면 안 됩니다.");
         }
 
-        // 5. ScrollRect + GridLayoutGroup(4열) + ContentSizeFitter 구조 검증
+        // 6. ScrollRect + GridLayoutGroup(4열) + ContentSizeFitter 구조 검증
         ScrollRect scrollRect = instanceGo.GetComponentInChildren<ScrollRect>(true);
         Assert.IsNotNull(scrollRect);
         Assert.IsTrue(scrollRect.vertical);
@@ -738,7 +782,7 @@ public class ShopSystemTests
         Assert.AreEqual(GridLayoutGroup.Constraint.FixedColumnCount, relicGrid.constraint);
         Assert.AreEqual(3, relicGrid.constraintCount);
 
-        // 6. 8장 카드 및 3개 유물 바인딩 후 4x2 그리드 레이아웃 확인
+        // 7. 8장 카드 및 3개 유물 바인딩 후 4x2 그리드 레이아웃 확인
         GameObject npcGo = Track(new GameObject("TestShopNPC"));
         ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
         shopNpc.AddRandomItems();
@@ -755,7 +799,6 @@ public class ShopSystemTests
         LayoutRebuilder.ForceRebuildLayoutImmediate(panel.cardCollection.GetComponent<RectTransform>());
         LayoutRebuilder.ForceRebuildLayoutImmediate(panel.relicCollection.GetComponent<RectTransform>());
 
-        // 0..3번 카드는 1행(동일 Y), 4..7번 카드는 2행(더 낮은 Y)에 배치되어야 함
         float row0Y = panel.cardList[0].CachedRectTransform.anchoredPosition.y;
         float row1Y = panel.cardList[4].CachedRectTransform.anchoredPosition.y;
         Assert.Greater(row0Y, row1Y + 300f, "4x2 그리드 2행 카드가 1행 아래에 충분한 가격 배지 간격을 두고 배치되어야 합니다.");
@@ -770,9 +813,160 @@ public class ShopSystemTests
                 0.5f);
         }
 
-        // 헤더 닫기 버튼 클릭 시 패널 닫힘 확인
-        panel.headerCloseButton.onClick.Invoke();
+        // 단일 하단 닫기 버튼 클릭 시 패널 닫힘 확인
+        panel.closeUIButton.onClick.Invoke();
         Assert.IsFalse(panel.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void ShopNPC_CloseAndReopenViaTopHUD_PreservesStockAndClearsOnMoveToNode()
+    {
+        GameObject inputGo = Track(new GameObject("TestPlayerInputController"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        SetStaticField<PlayerInputController>("_instance", inputCtrl);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+
+        Player player = CreateTestPlayer(500);
+        CreateTestGameSceneManager(player, isInDungeon: true);
+        SeedShopDatabasesAndRewardManager(cardCount: 14, relicCount: 8);
+        AssetCacheManager cache = SetupTestAssetCacheWithShopPrefabs();
+
+        GameObject shopPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/ShopUI/ShopNPCUI.prefab");
+        GameObject topHudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/TopHUDPanel.prefab");
+        GameObject uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/UIManager.prefab");
+        Assert.IsNotNull(shopPrefab);
+        Assert.IsNotNull(topHudPrefab);
+        Assert.IsNotNull(uiManagerPrefab);
+
+        MapDataSO nextMap = Track(ScriptableObject.CreateInstance<MapDataSO>());
+        nextMap.name = "Temple_Store_Next_Test";
+        nextMap.stageName = "Temple";
+        nextMap.locationType = LocationType.Temple;
+        nextMap.EncountType = EncountType.Store;
+        nextMap.width = 4;
+        nextMap.height = 4;
+        nextMap.cellSize = 1f;
+        nextMap.InitializeGrid();
+        nextMap.cells[0].eventID = "PlayerSpawn";
+
+        SetPrivateField(cache, "mapDict", new Dictionary<string, MapDataSO> { { nextMap.ID, nextMap } });
+        SetPrivateField(cache, "stageMapDataDict", new Dictionary<string, StageMapDataBundle>
+        {
+            {
+                LocationType.Temple.ToString(),
+                new StageMapDataBundle
+                {
+                    stageName = "Temple",
+                    storeMapDataList = new List<MapDataSO> { nextMap },
+                    battleMapDataList = new List<MapDataSO> { nextMap }
+                }
+            }
+        });
+
+        FieldInfo uiDictField = typeof(AssetCacheManager).GetField("uiDict", BindingFlags.Instance | BindingFlags.NonPublic);
+        Dictionary<string, GameObject> uiDict = (Dictionary<string, GameObject>)uiDictField.GetValue(cache);
+        uiDict[UIConstants.PANEL_SHOP_NPC] = shopPrefab;
+        uiDict[UIConstants.PANEL_TOP_HUD] = topHudPrefab;
+
+        GameObject uiManagerGo = Track(UnityEngine.Object.Instantiate(uiManagerPrefab));
+        UIManager uiManager = uiManagerGo.GetComponent<UIManager>();
+        InvokePrivateMethod(uiManager, "Awake");
+
+        GameObject mapGo = Track(new GameObject("TestGameMap"));
+        GameMap gameMap = mapGo.AddComponent<GameMap>();
+        InvokePrivateMethod(gameMap, "Awake");
+        gameMap.prefabTile = Track(new GameObject("TilePrefab", typeof(Tile)));
+
+        GameObject runGo = Track(new GameObject("TestRunManager"));
+        RunManager runManager = runGo.AddComponent<RunManager>();
+        InvokePrivateMethod(runManager, "Awake");
+        StageManager stageManager = new StageManager();
+        stageManager.Initialize(gameMap);
+        _createdStages.Add(stageManager);
+        runManager.currentStage = stageManager;
+        runManager.exploreMapManager = new ExploreMapManager();
+
+        TopHUDPanel topHud = uiManager.OpenUI<TopHUDPanel>(UIConstants.PANEL_TOP_HUD, UILayerType.Top);
+        Assert.IsNotNull(topHud);
+        topHud.BindPlayer(player);
+
+        Button reopenButton = GetPrivateField<Button>(topHud, "nodeReopenButton");
+        TMP_Text reopenText = GetPrivateField<TMP_Text>(topHud, "nodeReopenButtonText");
+
+        GameObject npcGo = Track(new GameObject("ActiveStoreShopNPC"));
+        ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
+        shopNpc.OpenShopDirectly();
+
+        ShopPanel shopPanel = uiManager.GetUI<ShopPanel>(UIConstants.PANEL_SHOP_NPC);
+        Assert.IsNotNull(shopPanel);
+        Assert.IsTrue(shopPanel.IsPanelOpen);
+        Assert.IsTrue(shopPanel.gameObject.activeSelf);
+        Assert.AreSame(shopNpc, runManager.ActiveNodeShopNPC);
+        Assert.IsFalse(reopenButton.gameObject.activeSelf, "상점이 열려 있는 동안에는 재입장 버튼이 숨겨져야 합니다.");
+
+        // 리롤 1회 후 첫 카드명 기록
+        Assert.IsTrue(shopNpc.TryReroll(out string failMsg), failMsg);
+        string rerolledFirstCard = shopNpc.actionCards[0] != null ? shopNpc.actionCards[0].cardName : null;
+        int rerollCostAfterReroll = shopNpc.GetCurrentRerollCost(player);
+
+        // 1. 나가기 클릭 시 창 닫히고 우하단 재입장 버튼 활성화
+        shopPanel.closeUIButton.onClick.Invoke();
+        Assert.IsFalse(shopPanel.IsPanelOpen);
+        Assert.IsFalse(shopPanel.gameObject.activeSelf);
+        Assert.IsTrue(reopenButton.gameObject.activeSelf);
+        Assert.AreEqual("재입장", reopenText.text);
+
+        // 2. 재입장 버튼 클릭 시 진열·리롤 상태를 유지한 채 다시 열림
+        reopenButton.onClick.Invoke();
+        Assert.IsTrue(shopPanel.IsPanelOpen);
+        Assert.IsTrue(shopPanel.gameObject.activeSelf);
+        Assert.IsFalse(reopenButton.gameObject.activeSelf);
+        Assert.AreEqual(rerolledFirstCard, shopNpc.actionCards[0] != null ? shopNpc.actionCards[0].cardName : null);
+        Assert.AreEqual(rerollCostAfterReroll, shopNpc.GetCurrentRerollCost(player));
+
+        // 3. 닫은 뒤 다음 노드로 이동하면 상점 재입장 상태와 버튼이 모두 정리됨
+        shopPanel.closeUIButton.onClick.Invoke();
+        Assert.IsTrue(reopenButton.gameObject.activeSelf);
+
+        GameObject nextNodeGo = Track(new GameObject("NextStoreNode", typeof(Image)));
+        ExploreNodeUI nextNodeUI = nextNodeGo.AddComponent<ExploreNodeUI>();
+        nextNodeUI.InitExploreNodeUI(new ExploreNode
+        {
+            floor = 1,
+            index = 0,
+            encounterData = new EncounterData
+            {
+                encountType = EncountType.Store,
+                locationType = LocationType.Temple,
+                mapDataId = nextMap.ID
+            }
+        });
+
+        runManager.MoveToNode(nextNodeUI);
+        Assert.IsNull(runManager.ActiveNodeShopNPC);
+        Assert.IsFalse(runManager.CanReopenCurrentNodeShop);
+        Assert.IsFalse(reopenButton.gameObject.activeSelf);
+    }
+
+    private static void SetStaticField<TTarget>(string fieldName, object value)
+    {
+        FieldInfo field = typeof(TTarget).GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(field, $"{typeof(TTarget).Name}.{fieldName} 정적 필드를 찾을 수 없습니다.");
+        field.SetValue(null, value);
+    }
+
+    private static T GetPrivateField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(field, $"{target.GetType().Name}.{fieldName} 필드를 찾을 수 없습니다.");
+        return (T)field.GetValue(target);
+    }
+
+    private static void InvokePrivateMethod(object target, string methodName, params object[] args)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.IsNotNull(method, $"{target.GetType().Name}.{methodName} 메서드를 찾을 수 없습니다.");
+        method.Invoke(target, args);
     }
 
     private static Transform FindTransformByName(Transform root, string targetName)

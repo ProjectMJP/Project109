@@ -17,9 +17,7 @@ public class ShopPanel : UIPanelBase
     public List<RelicUI> relicList = new List<RelicUI>();
     public List<GameObject> potionList = new List<GameObject>();
 
-    public Button upgradeCardButton;
     public Button closeUIButton;
-    public Button headerCloseButton;
 
     [Header("Reroll & Feedback Controls")]
     public Button rerollButton;
@@ -30,6 +28,7 @@ public class ShopPanel : UIPanelBase
     private readonly Dictionary<Component, TextMeshProUGUI> _slotPriceTexts = new Dictionary<Component, TextMeshProUGUI>();
 
     public ShopNPC BoundShop => _boundShop;
+    public bool IsPanelOpen { get; private set; }
 
     private void Awake()
     {
@@ -52,16 +51,28 @@ public class ShopPanel : UIPanelBase
     public override void OnOpen()
     {
         base.OnOpen();
+        IsPanelOpen = true;
         EnsureRuntimeControls();
         BindButtonListeners();
         HideFeedback();
         RefreshShopDisplay();
+
+        if (RunManager.instance != null)
+        {
+            RunManager.instance.NotifyNodeContextChanged();
+        }
     }
 
     public override void OnClose()
     {
+        IsPanelOpen = false;
         base.OnClose();
         HideFeedback();
+
+        if (RunManager.instance != null)
+        {
+            RunManager.instance.NotifyNodeContextChanged();
+        }
     }
 
     public void BindShop(ShopNPC ownerShop)
@@ -74,22 +85,10 @@ public class ShopPanel : UIPanelBase
 
     private void BindButtonListeners()
     {
-        if (upgradeCardButton != null)
-        {
-            upgradeCardButton.onClick.RemoveListener(OpenUpgradeCardUI);
-            upgradeCardButton.onClick.AddListener(OpenUpgradeCardUI);
-        }
-
         if (closeUIButton != null)
         {
             closeUIButton.onClick.RemoveListener(CloseUI);
             closeUIButton.onClick.AddListener(CloseUI);
-        }
-
-        if (headerCloseButton != null)
-        {
-            headerCloseButton.onClick.RemoveListener(CloseUI);
-            headerCloseButton.onClick.AddListener(CloseUI);
         }
 
         if (rerollButton != null)
@@ -101,19 +100,9 @@ public class ShopPanel : UIPanelBase
 
     private void UnbindButtonListeners()
     {
-        if (upgradeCardButton != null)
-        {
-            upgradeCardButton.onClick.RemoveListener(OpenUpgradeCardUI);
-        }
-
         if (closeUIButton != null)
         {
             closeUIButton.onClick.RemoveListener(CloseUI);
-        }
-
-        if (headerCloseButton != null)
-        {
-            headerCloseButton.onClick.RemoveListener(CloseUI);
         }
 
         if (rerollButton != null)
@@ -604,15 +593,6 @@ public class ShopPanel : UIPanelBase
         }
     }
 
-    public void OpenUpgradeCardUI()
-    {
-        if (UIManager.instance != null)
-        {
-            UIManager.instance.OpenUI("UpgradeCardDeckCanvas", UILayerType.Normal, true);
-        }
-        Debug.Log("Card Upgrade is Process!");
-    }
-
     public void CloseUI()
     {
         Close();
@@ -621,15 +601,6 @@ public class ShopPanel : UIPanelBase
     private void EnsureRuntimeControls()
     {
         TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText);
-
-        if (headerCloseButton == null)
-        {
-            Transform existingHeaderClose = FindChildRecursive(transform, "HeaderCloseButton");
-            if (existingHeaderClose != null)
-            {
-                headerCloseButton = existingHeaderClose.GetComponent<Button>();
-            }
-        }
 
         if (rerollButton == null)
         {

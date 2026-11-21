@@ -442,6 +442,21 @@ public class TopHUDPanel : UIPanelBase
             return;
         }
 
+        if (!inBattle && inDungeon && RunManager.instance != null &&
+            RunManager.instance.CanReopenCurrentNodeShop && !IsShopPanelOpen())
+        {
+            if (!nodeReopenButton.gameObject.activeSelf)
+            {
+                nodeReopenButton.gameObject.SetActive(true);
+            }
+
+            if (nodeReopenButtonText != null)
+            {
+                nodeReopenButtonText.text = "재입장";
+            }
+            return;
+        }
+
         if (nodeReopenButton.gameObject.activeSelf)
         {
             nodeReopenButton.gameObject.SetActive(false);
@@ -459,11 +474,31 @@ public class TopHUDPanel : UIPanelBase
         return panel != null && panel.IsPanelOpen && panel.gameObject.activeInHierarchy;
     }
 
+    private static bool IsShopPanelOpen()
+    {
+        if (UIManager.instance == null)
+        {
+            return false;
+        }
+
+        ShopPanel panel = UIManager.instance.GetUI<ShopPanel>(UIConstants.PANEL_SHOP_NPC);
+        return panel != null && panel.IsPanelOpen && panel.gameObject.activeInHierarchy;
+    }
+
     private void HandleNodeReopenClicked()
     {
-        if (RunManager.instance != null && RunManager.instance.HasPendingRewards)
+        if (RunManager.instance == null)
+        {
+            return;
+        }
+
+        if (RunManager.instance.HasPendingRewards)
         {
             RunManager.instance.OpenPendingRewardUI();
+        }
+        else if (RunManager.instance.CanReopenCurrentNodeShop)
+        {
+            RunManager.instance.ReopenCurrentNodeShop();
         }
     }
 
