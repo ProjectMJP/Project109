@@ -696,32 +696,56 @@ public static class SaveSystem
     private static ExploreNode FindExploreNode(ExploreMapData mapData, int floor, int index)
     {
         if (mapData == null || mapData.floors == null) return null;
-        if (floor < 0 || index < 0 || floor >= mapData.floors.Count) return null;
+        if (floor < 0 || index < 0) return null;
 
-        ExploreFloorData floorData = mapData.floors[floor];
-        if (floorData == null || floorData.nodes == null) return null;
-
-        if (index < floorData.nodes.Count)
+        if (floor < mapData.floors.Count)
         {
-            ExploreNode directMatch = floorData.nodes[index];
-            if (directMatch != null && directMatch.floor == floor && directMatch.index == index)
+            ExploreFloorData floorData = mapData.floors[floor];
+            if (floorData != null && floorData.nodes != null)
             {
-                return directMatch;
+                if (index < floorData.nodes.Count)
+                {
+                    ExploreNode directMatch = floorData.nodes[index];
+                    if (directMatch != null && directMatch.floor == floor && directMatch.index == index)
+                    {
+                        return directMatch;
+                    }
+                }
+
+                for (int i = 0; i < floorData.nodes.Count; i++)
+                {
+                    ExploreNode candidate = floorData.nodes[i];
+                    if (candidate != null && candidate.floor == floor && candidate.index == index)
+                    {
+                        return candidate;
+                    }
+                }
             }
         }
 
-        for (int i = 0; i < floorData.nodes.Count; i++)
+        // 희소 또는 재구성된 ExploreMapData에서도 (floor, index) 정확 일치 노드를 복원할 수 있도록 전체 층 폴백 탐색
+        for (int f = 0; f < mapData.floors.Count; f++)
         {
-            ExploreNode candidate = floorData.nodes[i];
-            if (candidate != null && candidate.floor == floor && candidate.index == index)
+            ExploreFloorData candidateFloor = mapData.floors[f];
+            if (candidateFloor == null || candidateFloor.nodes == null) continue;
+
+            for (int i = 0; i < candidateFloor.nodes.Count; i++)
             {
-                return candidate;
+                ExploreNode candidate = candidateFloor.nodes[i];
+                if (candidate != null && candidate.floor == floor && candidate.index == index)
+                {
+                    return candidate;
+                }
             }
         }
 
-        if (index < floorData.nodes.Count)
+        if (floor < mapData.floors.Count)
         {
-            return floorData.nodes[index];
+            ExploreFloorData floorData = mapData.floors[floor];
+            if (floorData != null && floorData.nodes != null && index < floorData.nodes.Count)
+            {
+                return floorData.nodes[index];
+            }
         }
 
         return null;

@@ -488,7 +488,7 @@ public class StageSaveVariationConsistencyTests
         }
         Assert.AreEqual(2, observedMaps.Count, "복수 맵 풀에서 Map_Temple_Battle_1과 Map_Temple_Battle_2가 모두 선택 가능해야 합니다.");
 
-        // 1차 진입: 맵 및 스폰 생성 후 JSON 직렬화
+        // 1차 진입: 맵 및 스폰 생성 후 JSON 직렬화 (실제 다층 탐험 맵 구조 0..2 구성)
         var (_, runManager1, stageManager1, playerChar1) = CreateTestSession();
         ExploreNode initialNode = new ExploreNode(2, 1);
         initialNode.encounterData.locationType = LocationType.Temple;
@@ -498,9 +498,16 @@ public class StageSaveVariationConsistencyTests
         initialNode.encounterData.stageSeed = 24681357;
 
         ExploreMapData initialMapData = new ExploreMapData();
-        ExploreFloorData floorData = new ExploreFloorData();
-        floorData.nodes.Add(initialNode);
-        initialMapData.floors.Add(floorData);
+        ExploreFloorData floor0 = new ExploreFloorData();
+        floor0.nodes.Add(new ExploreNode(0, 0));
+        ExploreFloorData floor1 = new ExploreFloorData();
+        floor1.nodes.Add(new ExploreNode(1, 0));
+        ExploreFloorData floor2 = new ExploreFloorData();
+        floor2.nodes.Add(new ExploreNode(2, 0));
+        floor2.nodes.Add(initialNode);
+        initialMapData.floors.Add(floor0);
+        initialMapData.floors.Add(floor1);
+        initialMapData.floors.Add(floor2);
 
         runManager1.currentMapName = "Temple";
         runManager1.exploreMapManager.RestoreMapData(initialMapData);
@@ -524,6 +531,7 @@ public class StageSaveVariationConsistencyTests
 
         var (_, runManager2, stageManager2, playerChar2) = CreateTestSession();
         SaveSystem.RestoreRunData(reloadedSave, runManager2);
+        Assert.IsNotNull(runManager2.currentExploreNode, "재로드 후 currentExploreNode가 복원되어야 합니다.");
         UnityEngine.Random.InitState(987654);
 
         stageManager2.GenerateStage(runManager2.currentExploreNode);
@@ -687,5 +695,144 @@ public class StageSaveVariationConsistencyTests
                 }
             }
         }
+    }
+
+    [Test]
+    public void RunManagerMoveToNode_AndPauseMenuSavePath_PersistMapDataIdAndSeedAcrossReloads()
+    {
+        MapDataSO battleMap1 = CreateBattleMapData(
+            "Map_Temple_Battle_1",
+            LocationType.Temple,
+            EncountType.Battle,
+            new[]
+            {
+                new Vector2Int(3, 0), new Vector2Int(3, 1), new Vector2Int(3, 2),
+                new Vector2Int(4, 0), new Vector2Int(4, 1), new Vector2Int(4, 2)
+            },
+            new[]
+            {
+                new Vector2Int(0, 0), new Vector2Int(0, 1), new Vector2Int(0, 2), new Vector2Int(0, 3)
+            });
+
+        MapDataSO battleMap2 = CreateBattleMapData(
+            "Map_Temple_Battle_2",
+            LocationType.Temple,
+            EncountType.Battle,
+            new[]
+            {
+                new Vector2Int(4, 2), new Vector2Int(4, 3), new Vector2Int(4, 4),
+                new Vector2Int(5, 1), new Vector2Int(5, 2), new Vector2Int(5, 3)
+            },
+            new[]
+            {
+                new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(1, 2), new Vector2Int(1, 3)
+            });
+
+        RegisterTestBattleAndMonsters("Battle_MoveNode_Test", "Goblin_A", "Goblin_B", "Goblin_C");
+        CreateSeededAssetCache(
+            new List<MapDataSO> { battleMap1, battleMap2 },
+            CreateTestMonsterPrefabs("Goblin_A", "Goblin_B", "Goblin_C"));
+
+        // 1. RunManager.MoveToNode() 경로: mapDataId가 비어있던 노드로 진입 시 맵 선택 -> 노드 기록 -> 자동 저장 확인
+        var (_, runManager1, stageManager1, playerChar1) = CreateTestSession();
+        BattleManager bm1 = new BattleManager();
+        SetInstanceAutoProperty(runManager1, "battleManager", bm1);
+
+        ExploreMapData mapData = new ExploreMapData();
+        ExploreFloorData floor0 = new ExploreFloorData();
+        ExploreNode startNode = new ExploreNode(0, 0) { isCleared = true, isVisited = true };
+        floor0.nodes.Add(startNode);
+
+        ExploreFloorData floor1 = new ExploreFloorData();
+        ExploreNode targetNode = new ExploreNode(1, 0);
+        targetNode.encounterData.locationType = LocationType.Temple;
+        targetNode.encounterData.encountType = EncountType.Battle;
+        targetNode.encounterData.battleDataId = "Battle_MoveNode_Test";
+        targetNode.encounterData.mapDataId = string.Empty;
+        targetNode.encounterData.stageSeed = 135792468;
+        floor1.nodes.Add(targetNode);
+
+        mapData.floors.Add(floor0);
+        mapData.floors.Add(floor1);
+
+        runManager1.currentMapName = "Temple";
+        runManager1.currentStageLevel = 1;
+        runManager1.currentExploreMapFloor = 0;
+        runManager1.exploreMapManager.RestoreMapData(mapData);
+        runManager1.currentExploreNode = startNode;
+
+        GameObject nodeUiGo = Track(new GameObject("TestExploreNodeUI", typeof(RectTransform)));
+        ExploreNodeUI nextNodeUI = nodeUiGo.AddComponent<ExploreNodeUI>();
+        SetInstanceAutoProperty(nextNodeUI, "NodeData", targetNode);
+
+        UnityEngine.Random.InitState(11111);
+        runManager1.MoveToNode(nextNodeUI);
+
+        Assert.IsFalse(string.IsNullOrEmpty(targetNode.encounterData.mapDataId), "MoveToNode 이후 선택된 mapDataId가 노드에 기록되어야 합니다.");
+        Assert.AreEqual(targetNode.encounterData.mapDataId, stageManager1.currentMapData.ID);
+        Assert.AreEqual(MapState.Battle, stageManager1.currentMapState);
+        Assert.AreEqual(BattleState.Combat, bm1.battleState);
+
+        string expectedMapId = stageManager1.currentMapData.ID;
+        int expectedSeed = targetNode.encounterData.stageSeed;
+        List<Vector2Int> expectedEnemyCells = ExtractPositions(stageManager1.currentSpawnEnemyCells);
+        List<Vector2Int> expectedPlayerCells = ExtractPositions(stageManager1.currentSpawnPlayerCells);
+        List<Vector2Int> expectedSpawnedEnemies = ExtractSpawnedEnemyCoords(stageManager1, stageManager1.currentMapData);
+        Vector2Int expectedPlayerCoord = stageManager1.currentMapData.WorldToCell(playerChar1.transform.position);
+
+        Assert.IsTrue(SaveSystem.TryLoadGameData(TestSaveSlot, out RunSaveData moveSaved, forceReload: true));
+        string moveSavedJson = JsonUtility.ToJson(moveSaved);
+        StringAssert.Contains($"\"mapDataId\":\"{expectedMapId}\"", moveSavedJson);
+        StringAssert.Contains($"\"stageSeed\":{expectedSeed}", moveSavedJson);
+
+        // 2. ResumeRunAfterLoad() 재로드 시 동일 맵 및 스폰 배치 100% 재현 검증
+        var (gsm2, runManager2, stageManager2, playerChar2) = CreateTestSession();
+        BattleManager bm2 = new BattleManager();
+        SetInstanceAutoProperty(runManager2, "battleManager", bm2);
+        SaveSystem.RestoreRunData(moveSaved, runManager2);
+        UnityEngine.Random.InitState(22222);
+
+        runManager2.ResumeRunAfterLoad();
+
+        Assert.IsNotNull(runManager2.currentExploreNode);
+        Assert.AreEqual(expectedMapId, stageManager2.currentMapData.ID);
+        CollectionAssert.AreEqual(expectedEnemyCells, ExtractPositions(stageManager2.currentSpawnEnemyCells));
+        CollectionAssert.AreEqual(expectedPlayerCells, ExtractPositions(stageManager2.currentSpawnPlayerCells));
+        CollectionAssert.AreEqual(expectedSpawnedEnemies, ExtractSpawnedEnemyCoords(stageManager2, stageManager2.currentMapData));
+        Assert.AreEqual(expectedPlayerCoord, stageManager2.currentMapData.WorldToCell(playerChar2.transform.position));
+
+        // 3. 전투 중 PauseMenuPanel 타이틀 복귀 저장 경로(SaveSystem.SaveGame(activeRun, saveSlot)) 수행 후 재로드 검증
+        SaveSystem.DeleteSaveFile(TestSaveSlot);
+        RunManager activeRun = gsm2.isInDungeon ? RunManager.instance : null;
+        SaveSystem.SaveGame(activeRun, gsm2.currentSaveSlot);
+
+        Assert.IsTrue(SaveSystem.TryLoadGameData(TestSaveSlot, out RunSaveData pauseSaved, forceReload: true));
+
+        var (_, runManager3, stageManager3, playerChar3) = CreateTestSession();
+        BattleManager bm3 = new BattleManager();
+        SetInstanceAutoProperty(runManager3, "battleManager", bm3);
+        SaveSystem.RestoreRunData(pauseSaved, runManager3);
+        UnityEngine.Random.InitState(99999);
+
+        runManager3.ResumeRunAfterLoad();
+
+        Assert.IsNotNull(runManager3.currentExploreNode);
+        Assert.AreEqual(expectedMapId, stageManager3.currentMapData.ID);
+        Assert.AreEqual(expectedSeed, runManager3.currentExploreNode.encounterData.stageSeed);
+        CollectionAssert.AreEqual(expectedEnemyCells, ExtractPositions(stageManager3.currentSpawnEnemyCells));
+        CollectionAssert.AreEqual(expectedPlayerCells, ExtractPositions(stageManager3.currentSpawnPlayerCells));
+        CollectionAssert.AreEqual(expectedSpawnedEnemies, ExtractSpawnedEnemyCoords(stageManager3, stageManager3.currentMapData));
+        Assert.AreEqual(expectedPlayerCoord, stageManager3.currentMapData.WorldToCell(playerChar3.transform.position));
+
+        bm1.Dispose();
+        bm2.Dispose();
+        bm3.Dispose();
+    }
+
+    private static void SetInstanceAutoProperty(object target, string propName, object value)
+    {
+        FieldInfo backing = target.GetType().GetField($"<{propName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(backing, $"{target.GetType().Name}.{propName} 자동 프로퍼티 백킹 필드를 찾을 수 없습니다.");
+        backing.SetValue(target, value);
     }
 }
