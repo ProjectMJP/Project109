@@ -194,6 +194,7 @@ public class DialogueUI : UIPanelBase, IPointerClickHandler
         if (targetButton != null)
         {
             targetButton.gameObject.SetActive(true);
+            targetButton.interactable = true;
             targetButton.transform.SetAsLastSibling();
 
             var textMesh = targetButton.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -231,5 +232,20 @@ public class DialogueUI : UIPanelBase, IPointerClickHandler
             }
         }
         _activeButtons.Clear();
+    }
+
+    /// <summary>
+    /// 현재 활성화된 선택지 버튼들의 상호작용 가능 상태를 일괄 설정합니다.
+    /// </summary>
+    public void SetChoiceButtonsInteractable(bool interactable)
+    {
+        for (int i = 0; i < _activeButtons.Count; i++)
+        {
+            Button btn = _activeButtons[i];
+            if (btn != null)
+            {
+                btn.interactable = interactable;
+            }
+        }
     }
 }

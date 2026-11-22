@@ -5,6 +5,7 @@ end
 
 function ExecuteChoice(dm)
     dm:HealWithOverhealToMaxHealth(20, 0.5)
+    dm:MarkActiveInteractableUsed()
 end
 
 function GetDescription(dm)

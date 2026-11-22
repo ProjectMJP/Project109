@@ -8,9 +8,6 @@ public class RestoreBonfire : InteractableObject
     [Header("Restore Dialogue Settings")]
     [SerializeField] private string defaultDialogueID = "Restore_Bonfire_Dialogue";
 
-    private bool isUsed = false;
-    public bool IsUsed => isUsed;
-
     public override void SetInteractableData(InteractableData data)
     {
         if (data == null && ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null)
@@ -20,9 +17,9 @@ public class RestoreBonfire : InteractableObject
         base.SetInteractableData(data);
     }
 
-    public void MarkAsUsed()
+    public override void MarkAsUsed()
     {
-        isUsed = true;
+        base.MarkAsUsed();
         Debug.Log("[RestoreBonfire] 모닥불이 사용 완료(소모) 처리되었습니다.");
     }
 
@@ -40,11 +37,7 @@ public class RestoreBonfire : InteractableObject
 
         if (ModLoader.Instance != null && ModLoader.Instance.DialogueDatabase.TryGetValue(dialogueID, out var dialogueData))
         {
-            DialogueManager.Instance.StartDialogue(dialogueData, this);
-            if (isUsed)
-            {
-                DialogueManager.Instance.GoToNode("USED");
-            }
+            DialogueManager.Instance.StartDialogue(dialogueData, this, isUsed ? "USED" : null);
         }
         else
         {

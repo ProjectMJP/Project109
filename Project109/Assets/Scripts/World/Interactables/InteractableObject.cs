@@ -5,9 +5,21 @@ public class InteractableObject : MonoBehaviour, IInteractable
     [SerializeField]
     protected InteractableData interactableData; // 상호작용 관련 기획 데이터
 
+    protected bool isUsed = false;
+
     public InteractableData InteractableData => interactableData;
+    public bool IsUsed => isUsed;
 
     public bool RequiresCameraFocus => true;
+
+    /// <summary>
+    /// 상호작용 오브젝트를 사용 완료(소모) 상태로 전환합니다.
+    /// </summary>
+    public virtual void MarkAsUsed()
+    {
+        isUsed = true;
+        Debug.Log($"[InteractableObject] 상호작용 오브젝트가 사용 완료 처리되었습니다: {(interactableData != null ? interactableData.interactableID : name)}");
+    }
 
     /// <summary>
     /// 스폰된 베이스 오브젝트에 상호작용 타입에 맞는 컴포넌트를 구성하고 데이터를 초기화합니다.
@@ -150,6 +162,19 @@ public class InteractableObject : MonoBehaviour, IInteractable
 
             if (ModLoader.Instance != null && ModLoader.Instance.DialogueDatabase.TryGetValue(interactableData.targetDialogueID, out var dialogueData))
             {
+                if (isUsed)
+                {
+                    if (HasDialogueNode(dialogueData, "USED"))
+                    {
+                        DialogueManager.Instance.StartDialogue(dialogueData, this, "USED");
+                    }
+                    else
+                    {
+                        Debug.Log($"[InteractableObject] 이미 사용 완료된 상호작용 오브젝트입니다: {interactableData.interactableID}");
+                    }
+                    return;
+                }
+
                 DialogueManager.Instance.StartDialogue(dialogueData, this);
             }
             else
@@ -161,5 +186,24 @@ public class InteractableObject : MonoBehaviour, IInteractable
         {
             Debug.LogWarning("[InteractableObject] targetDialogueID가 설정되어 있지 않습니다.");
         }
+    }
+
+    protected static bool HasDialogueNode(DialogueData data, string nodeID)
+    {
+        if (data == null || data.nodes == null || string.IsNullOrEmpty(nodeID))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < data.nodes.Count; i++)
+        {
+            DialogueNode node = data.nodes[i];
+            if (node != null && string.Equals(node.nodeID, nodeID, System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -479,6 +479,235 @@ end
         Assert.IsFalse(ui.gameObject.activeSelf);
     }
 
+    [Test]
+    public void StartShrine_DataAndLuaScripts_MarkUsedAndDefineUsedNode()
+    {
+        string coreRoot = Path.Combine(Application.streamingAssetsPath, "Mods", "Core");
+        string[] luaNames =
+        {
+            "StartShrine_BlessingLife.lua",
+            "StartShrine_BlessingCard.lua",
+            "StartShrine_BlessingRelic.lua"
+        };
+
+        foreach (string luaName in luaNames)
+        {
+            string luaPath = Path.Combine(coreRoot, "Scripts", "Choices", luaName);
+            Assert.IsTrue(File.Exists(luaPath), $"성소 선택지 Lua 스크립트를 찾을 수 없습니다: {luaPath}");
+            string luaCode = File.ReadAllText(luaPath, System.Text.Encoding.UTF8);
+            StringAssert.Contains("dm:MarkActiveInteractableUsed()", luaCode, $"{luaName}은 축복 수령 시 오브젝트를 소모 처리해야 합니다.");
+        }
+
+        string dialogueYamlPath = Path.Combine(coreRoot, "YAML", "Dialogues", "Region_Start_Shrine_Dialogue.yaml");
+        Assert.IsTrue(File.Exists(dialogueYamlPath), $"성소 다이얼로그 YAML을 찾을 수 없습니다: {dialogueYamlPath}");
+
+        IDeserializer deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
+        DialogueData dialogueData = deserializer.Deserialize<DialogueData>(File.ReadAllText(dialogueYamlPath, System.Text.Encoding.UTF8));
+        Assert.IsNotNull(dialogueData);
+
+        DialogueNode usedNode = dialogueData.nodes.Find(n => n != null && n.nodeID == "USED");
+        Assert.IsNotNull(usedNode, "Region_Start_Shrine_Dialogue.yaml에는 재상호작용 시 표시할 USED 노드가 정의되어야 합니다.");
+        Assert.IsNotNull(usedNode.choices);
+        foreach (ChoiceData choice in usedNode.choices)
+        {
+            Assert.IsTrue(string.IsNullOrEmpty(choice.luaScript), "USED 노드의 선택지는 보상 Lua 스크립트를 실행하면 안 됩니다.");
+        }
+    }
+
+    [Test]
+    public void InteractableObject_MarkActiveInteractableUsed_PreventsDuplicateStartAndRoutesToUsedOrBlocks()
+    {
+        GameObject inputGo = Track(new GameObject("TestPlayerInputController"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        SetStaticField<PlayerInputController>("_instance", inputCtrl);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+
+        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+
+        GameObject dialoguePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/DialogueUI.prefab");
+        GameObject uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/UIManager.prefab");
+        Assert.IsNotNull(dialoguePrefab);
+        Assert.IsNotNull(uiManagerPrefab);
+        SetPrivateField(cache, "uiDict", new Dictionary<string, GameObject>
+        {
+            { UIConstants.PANEL_DIALOGUE, dialoguePrefab }
+        });
+
+        GameObject uiManagerGo = Track(UnityEngine.Object.Instantiate(uiManagerPrefab));
+        UIManager uiManager = uiManagerGo.GetComponent<UIManager>();
+        DialogueManager dm = uiManagerGo.GetComponent<DialogueManager>();
+        InvokePrivateMethod(uiManager, "Awake");
+        InvokePrivateMethod(dm, "Awake");
+
+        // 1. USED 노드가 있는 성소 다이얼로그
+        DialogueData shrineDialogue = new DialogueData
+        {
+            dialogueID = "Test_Shrine_Dialogue",
+            startNodeID = "START",
+            nodes = new List<DialogueNode>
+            {
+                new DialogueNode
+                {
+                    nodeID = "START",
+                    speakerName = "제단",
+                    lines = new List<string> { "축복을 고르세요." },
+                    choices = new List<ChoiceData>()
+                },
+                new DialogueNode
+                {
+                    nodeID = "USED",
+                    speakerName = "제단",
+                    lines = new List<string> { "이미 사용되었습니다." },
+                    choices = new List<ChoiceData>()
+                }
+            }
+        };
+        ModLoader.Instance.DialogueDatabase[shrineDialogue.dialogueID] = shrineDialogue;
+
+        GameObject shrineGo = Track(new GameObject("TestShrine"));
+        InteractableObject shrine = shrineGo.AddComponent<InteractableObject>();
+        SetPrivateField(shrine, "interactableData", new InteractableData
+        {
+            interactableID = "Test_Shrine",
+            targetDialogueID = shrineDialogue.dialogueID
+        });
+
+        shrine.OnInteract();
+        Assert.IsTrue(dm.IsDialogueActive);
+        Assert.AreEqual("START", GetPrivateField<DialogueNode>(dm, "currentNode").nodeID);
+
+        dm.MarkActiveInteractableUsed();
+        Assert.IsTrue(shrine.IsUsed);
+        dm.EndDialogue();
+
+        // 재상호작용 시 START가 아닌 USED 노드로 진입해야 함
+        shrine.OnInteract();
+        Assert.IsTrue(dm.IsDialogueActive);
+        Assert.AreEqual("USED", GetPrivateField<DialogueNode>(dm, "currentNode").nodeID);
+        dm.EndDialogue();
+
+        // 2. USED 노드가 없는 일반 1회성 오브젝트는 소모 후 재상호작용 자체를 차단해야 함
+        DialogueData singleUseNoUsedNode = new DialogueData
+        {
+            dialogueID = "Test_NoUsedNode_Dialogue",
+            startNodeID = "START",
+            nodes = new List<DialogueNode>
+            {
+                new DialogueNode
+                {
+                    nodeID = "START",
+                    speakerName = "오브젝트",
+                    lines = new List<string> { "1회 대사" },
+                    choices = new List<ChoiceData>()
+                }
+            }
+        };
+        ModLoader.Instance.DialogueDatabase[singleUseNoUsedNode.dialogueID] = singleUseNoUsedNode;
+
+        GameObject objGo = Track(new GameObject("TestNoUsedInteractable"));
+        InteractableObject noUsedObj = objGo.AddComponent<InteractableObject>();
+        SetPrivateField(noUsedObj, "interactableData", new InteractableData
+        {
+            interactableID = "Test_NoUsed",
+            targetDialogueID = singleUseNoUsedNode.dialogueID
+        });
+
+        noUsedObj.MarkAsUsed();
+        noUsedObj.OnInteract();
+        Assert.IsFalse(dm.IsDialogueActive, "USED 노드가 없는 소모 완료 오브젝트는 대화를 재시작하면 안 됩니다.");
+    }
+
+    [Test]
+    public void DialogueManager_OnChoiceClicked_RapidDoubleInvokeExecutesChoiceOnce()
+    {
+        GameObject inputGo = Track(new GameObject("TestPlayerInputController"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        SetStaticField<PlayerInputController>("_instance", inputCtrl);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+
+        LuaManager luaManager = CreateIsolatedLuaManager();
+        string tempDir = CreateTempDir();
+        string choiceFile = Path.Combine(tempDir, "Test_CountChoice.lua");
+        File.WriteAllText(choiceFile, @"
+local execCount = 0
+function CanSelect(dm) return true end
+function ExecuteChoice(dm)
+    execCount = execCount + 1
+    _G.__testChoiceExecCount = execCount
+end
+function GetDescription(dm) return 'Count test' end
+", System.Text.Encoding.UTF8);
+
+        var method = typeof(LuaManager).GetMethod("LoadChoiceScriptsFromDirectory", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(method);
+        method.Invoke(luaManager, new object[] { tempDir });
+
+        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+
+        GameObject dialoguePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/DialogueUI.prefab");
+        GameObject uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/UIManager.prefab");
+        SetPrivateField(cache, "uiDict", new Dictionary<string, GameObject>
+        {
+            { UIConstants.PANEL_DIALOGUE, dialoguePrefab }
+        });
+
+        GameObject uiManagerGo = Track(UnityEngine.Object.Instantiate(uiManagerPrefab));
+        UIManager uiManager = uiManagerGo.GetComponent<UIManager>();
+        DialogueManager dm = uiManagerGo.GetComponent<DialogueManager>();
+        InvokePrivateMethod(uiManager, "Awake");
+        InvokePrivateMethod(dm, "Awake");
+
+        DialogueData data = new DialogueData
+        {
+            dialogueID = "Test_RapidClick",
+            startNodeID = "START",
+            nodes = new List<DialogueNode>
+            {
+                new DialogueNode
+                {
+                    nodeID = "START",
+                    speakerName = "제단",
+                    lines = new List<string>(),
+                    choices = new List<ChoiceData>
+                    {
+                        new ChoiceData
+                        {
+                            description = "테스트 선택지",
+                            nextNodeID = "END_BLESSING",
+                            luaScript = "Test_CountChoice"
+                        }
+                    }
+                },
+                new DialogueNode
+                {
+                    nodeID = "END_BLESSING",
+                    speakerName = "제단",
+                    lines = new List<string> { "완료" },
+                    choices = new List<ChoiceData>()
+                }
+            }
+        };
+
+        dm.StartDialogue(data);
+        DialogueUI ui = GetPrivateField<DialogueUI>(dm, "dialogueUI");
+        List<Button> activeButtons = GetPrivateField<List<Button>>(ui, "_activeButtons");
+        Assert.AreEqual(1, activeButtons.Count);
+        Button choiceButton = activeButtons[0];
+
+        // 동일 프레임/연타로 두 번 연속 호출되어도 Lua 실행은 1회만 발생해야 함
+        choiceButton.onClick.Invoke();
+        InvokePrivateMethod(dm, "OnChoiceClicked", data.nodes[0].choices[0]);
+
+        int execCount = luaManager.luaEnv.Global.Get<int>("__testChoiceExecCount");
+        Assert.AreEqual(1, execCount, "선택지 연타 시 ExecuteChoice는 1회만 실행되어야 합니다.");
+    }
+
     private static void SetPrivateField(object target, string fieldName, object value)
     {
         Type type = target.GetType();

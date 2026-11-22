@@ -108,7 +108,7 @@ public class DialogueManager : MonoBehaviour
     /// <summary>
     /// 외부(예: NPCInteraction)에서 다이얼로그 대화를 개시할 때 호출하는 진입점입니다.
     /// </summary>
-    public void StartDialogue(DialogueData data, InteractableObject trigger = null)
+    public void StartDialogue(DialogueData data, InteractableObject trigger = null, string overrideStartNodeID = null)
     {
         if (data == null)
         {
@@ -135,7 +135,10 @@ public class DialogueManager : MonoBehaviour
 
         dialogueUI.Open();
 
-        GoToNode(data.startNodeID);
+        string initialNodeID = !string.IsNullOrEmpty(overrideStartNodeID) && nodeMap.ContainsKey(overrideStartNodeID)
+            ? overrideStartNodeID
+            : data.startNodeID;
+        GoToNode(initialNodeID);
     }
 
     /// <summary>
@@ -326,6 +329,17 @@ public class DialogueManager : MonoBehaviour
 
     private void OnChoiceClicked(ChoiceData choice)
     {
+        if (!IsDialogueActive || isDialoguePaused || !_isWaitingForChoice)
+        {
+            return;
+        }
+
+        _isWaitingForChoice = false;
+        if (dialogueUI != null)
+        {
+            dialogueUI.SetChoiceButtonsInteractable(false);
+        }
+
         if (!string.IsNullOrEmpty(choice.luaScript))
         {
             TryGetChoiceCallbacks(choice.luaScript, out _, out _, out var execute, out _);

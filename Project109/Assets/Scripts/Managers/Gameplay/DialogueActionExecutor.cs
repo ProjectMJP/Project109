@@ -379,9 +379,18 @@ public class DialogueActionExecutor
 
     public void MarkActiveInteractableUsed(InteractableObject activeInteractable)
     {
-        if (activeInteractable is RestoreBonfire restoreBonfire)
+        if (activeInteractable != null)
         {
-            restoreBonfire.MarkAsUsed();
+            activeInteractable.MarkAsUsed();
+        }
+
+        if (RunManager.instance != null && RunManager.instance.currentExploreNode != null)
+        {
+            RunManager.instance.currentExploreNode.isCleared = true;
+            if (GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon)
+            {
+                RunManager.instance.SaveGame();
+            }
         }
     }
 

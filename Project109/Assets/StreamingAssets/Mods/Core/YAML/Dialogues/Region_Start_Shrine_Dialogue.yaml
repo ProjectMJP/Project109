@@ -23,3 +23,11 @@ nodes:
   - description: 지나간다.
     nextNodeID: ""
     luaScript: ""
+- nodeID: USED
+  speakerName: 고대의 축복 제단
+  lines:
+  - "이미 축복의 힘이 사라져 희미한 흔적만 남아 있습니다."
+  choices:
+  - description: 지나간다.
+    nextNodeID: ""
+    luaScript: ""

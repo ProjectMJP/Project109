@@ -5,6 +5,7 @@ end
 
 function ExecuteChoice(dm)
     dm:SpawnReward("card", "Default_Card_Table")
+    dm:MarkActiveInteractableUsed()
 end
 
 function GetDescription(dm)

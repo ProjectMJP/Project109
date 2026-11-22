@@ -5,6 +5,7 @@ end
 
 function ExecuteChoice(dm)
     dm:SpawnReward("relic", "Default_Relic_Table")
+    dm:MarkActiveInteractableUsed()
 end
 
 function GetDescription(dm)

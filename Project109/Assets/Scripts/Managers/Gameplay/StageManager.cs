@@ -489,6 +489,14 @@ public class StageManager : IInitializable, System.IDisposable
 
         if (newNPC != null)
         {
+            if (RunManager.instance != null &&
+                RunManager.instance.currentExploreNode != null &&
+                RunManager.instance.currentExploreNode.isCleared &&
+                !(newNPC is ShopNPC))
+            {
+                newNPC.MarkAsUsed();
+            }
+
             RegisterSpawnNPC(spawned);
         }
     }
