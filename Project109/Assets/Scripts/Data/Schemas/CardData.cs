@@ -9,6 +9,12 @@ using YamlDotNet.Serialization;
 
 public class CardData : IModAssetResolver, IIdentifiable
 {
+    public const int DefaultCommonGoldValue = 50;
+    public const int DefaultUncommonGoldValue = 75;
+    public const int DefaultRareGoldValue = 120;
+    public const int DefaultUniqueGoldValue = 150;
+    public const float DefaultShopPriceVarianceRatio = 0.1f;
+
     private static readonly string[] _luaFallbackGlobals = { "card" };
 
     // cardName이 고유 식별자(ID) 역할을 겸합니다.
@@ -59,6 +65,58 @@ public class CardData : IModAssetResolver, IIdentifiable
     public CardRarity rarity { get; set; }
     public ItemObtainSource obtainSource { get; set; } = ItemObtainSource.Standard;
     public int stamina { get; set; }
+
+    /// <summary>
+    /// 카드 등급(Rarity)에 따른 기본 골드 가치입니다.
+    /// </summary>
+    [YamlIgnore]
+    public int BaseGoldValue => GetBaseGoldValue(rarity);
+
+    /// <summary>
+    /// 카드 등급별 기준 골드 가치를 반환합니다.
+    /// </summary>
+    public static int GetBaseGoldValue(CardRarity rarity)
+    {
+        return rarity switch
+        {
+            CardRarity.Common => DefaultCommonGoldValue,
+            CardRarity.Uncommon => DefaultUncommonGoldValue,
+            CardRarity.Rare => DefaultRareGoldValue,
+            CardRarity.Unique => DefaultUniqueGoldValue,
+            _ => DefaultCommonGoldValue
+        };
+    }
+
+    /// <summary>
+    /// 카드 등급 기준가와 허용 변동폭 비율을 바탕으로 상점 진열 가격 최소/최대 범위를 계산합니다.
+    /// </summary>
+    public static void GetGoldPriceRange(CardRarity rarity, float varianceRatio, out int minPrice, out int maxPrice)
+    {
+        int baseValue = GetBaseGoldValue(rarity);
+        float clampedVariance = Mathf.Clamp(varianceRatio, 0f, 0.5f);
+        minPrice = Mathf.Max(1, Mathf.RoundToInt(baseValue * (1f - clampedVariance)));
+        maxPrice = Mathf.Max(minPrice, Mathf.RoundToInt(baseValue * (1f + clampedVariance)));
+    }
+
+    /// <summary>
+    /// 카드 등급 기준가와 변동폭 비율에 따라 상점 슬롯의 원가를 산출합니다.
+    /// </summary>
+    public static int RollShopBasePrice(
+        CardRarity rarity,
+        float varianceRatio = DefaultShopPriceVarianceRatio,
+        Func<int, int, int> inclusiveRangeRoller = null)
+    {
+        GetGoldPriceRange(rarity, varianceRatio, out int minPrice, out int maxPrice);
+        if (minPrice >= maxPrice)
+        {
+            return minPrice;
+        }
+
+        int rolled = inclusiveRangeRoller != null
+            ? inclusiveRangeRoller(minPrice, maxPrice)
+            : UnityEngine.Random.Range(minPrice, maxPrice + 1);
+        return Mathf.Clamp(rolled, minPrice, maxPrice);
+    }
 
     // 마스터리 최대 포인트
     public int maxMasteryPoint { get; set; }

@@ -32,6 +32,27 @@ public class RelicData : IModAssetResolver, IIdentifiable
     public GameItem.Types.RelicRarity rarity { get; set; }
     public GameItem.Types.ItemObtainSource obtainSource { get; set; } = GameItem.Types.ItemObtainSource.Standard;
 
+    /// <summary>
+    /// 유물 등급(Rarity)에 따른 기본 골드 가치입니다.
+    /// </summary>
+    [YamlIgnore]
+    public int BaseGoldValue => GetBaseGoldValue(rarity);
+
+    /// <summary>
+    /// 유물 등급별 기준 골드 가치를 반환합니다.
+    /// </summary>
+    public static int GetBaseGoldValue(GameItem.Types.RelicRarity rarity)
+    {
+        return rarity switch
+        {
+            GameItem.Types.RelicRarity.Common => 150,
+            GameItem.Types.RelicRarity.Rare => 250,
+            GameItem.Types.RelicRarity.Unique => 300,
+            GameItem.Types.RelicRarity.Boss => 400,
+            _ => 150
+        };
+    }
+
     // 업그레이드 시 변환될 유물의 ID (null이거나 비어있으면 업그레이드 불가)
     public string upgradedRelicId { get; set; }
 

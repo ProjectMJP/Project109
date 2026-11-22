@@ -17,11 +17,16 @@ public class ShopNPC : InteractableObject
     public int rerollCostIncrement = 25;
     public bool resetRerollCostPerShopVisit = false;
 
+    [Header("Pricing Settings")]
+    [Range(0f, 0.5f)]
+    public float cardPriceVarianceRatio = CardData.DefaultShopPriceVarianceRatio;
+
     public List<CardData> actionCards = new List<CardData>();
     public List<RelicData> relics = new List<RelicData>();
 
     private bool isInitialized = false;
     private int currentRerollCount = 0;
+    private readonly List<int> cardSlotBasePrices = new List<int>();
     private readonly HashSet<int> purchasedCardSlots = new HashSet<int>();
     private readonly HashSet<int> purchasedRelicSlots = new HashSet<int>();
     private Player _boundPlayer;
@@ -105,19 +110,7 @@ public class ShopNPC : InteractableObject
 
     public static int CalculateCardPrice(CardData card, bool applyDiscount)
     {
-        int basePrice = 50;
-        if (card != null)
-        {
-            basePrice = card.rarity switch
-            {
-                CardRarity.Common => 50,
-                CardRarity.Uncommon => 75,
-                CardRarity.Rare => 120,
-                CardRarity.Unique => 150,
-                _ => 50
-            };
-        }
-
+        int basePrice = card != null ? card.BaseGoldValue : CardData.DefaultCommonGoldValue;
         return applyDiscount ? Mathf.RoundToInt(basePrice * 0.7f) : basePrice;
     }
 
@@ -128,25 +121,36 @@ public class ShopNPC : InteractableObject
 
     public static int CalculateRelicPrice(RelicData relic, bool applyDiscount)
     {
-        int basePrice = 150;
-        if (relic != null)
-        {
-            basePrice = relic.rarity switch
-            {
-                RelicRarity.Common => 150,
-                RelicRarity.Rare => 250,
-                RelicRarity.Unique => 300,
-                RelicRarity.Boss => 400,
-                _ => 150
-            };
-        }
-
+        int basePrice = relic != null ? relic.BaseGoldValue : 150;
         return applyDiscount ? Mathf.RoundToInt(basePrice * 0.7f) : basePrice;
     }
 
     public int GetCardPrice(CardData card, Player player = null)
     {
         return CalculateCardPrice(card, ResolvePlayer(player));
+    }
+
+    public int GetCardSlotBasePrice(int slotIndex)
+    {
+        if (slotIndex >= 0 && slotIndex < cardSlotBasePrices.Count && cardSlotBasePrices[slotIndex] > 0)
+        {
+            return cardSlotBasePrices[slotIndex];
+        }
+
+        if (slotIndex >= 0 && slotIndex < actionCards.Count && actionCards[slotIndex] != null)
+        {
+            return actionCards[slotIndex].BaseGoldValue;
+        }
+
+        return CardData.DefaultCommonGoldValue;
+    }
+
+    public int GetCardSlotPrice(int slotIndex, Player player = null)
+    {
+        int basePrice = GetCardSlotBasePrice(slotIndex);
+        return HasDiscountRelic(ResolvePlayer(player))
+            ? Mathf.RoundToInt(basePrice * 0.7f)
+            : basePrice;
     }
 
     public int GetRelicPrice(RelicData relic, Player player = null)
@@ -189,7 +193,7 @@ public class ShopNPC : InteractableObject
         }
 
         CardData cardData = actionCards[slotIndex];
-        int price = GetCardPrice(cardData, targetPlayer);
+        int price = GetCardSlotPrice(slotIndex, targetPlayer);
         int gold = targetPlayer.playerStat.InGameCurrencyGold;
         if (gold < price)
         {
@@ -294,6 +298,7 @@ public class ShopNPC : InteractableObject
     {
         actionCards.Clear();
         relics.Clear();
+        cardSlotBasePrices.Clear();
         purchasedCardSlots.Clear();
         purchasedRelicSlots.Clear();
 
@@ -303,8 +308,16 @@ public class ShopNPC : InteractableObject
         int targetCardCount = GetEffectiveCardCount(targetPlayer);
         int targetRelicCount = GetEffectiveRelicCount(targetPlayer);
 
-        // 1. 카드 추첨 (중복 방지)
+        // 1. 카드 추첨 (중복 방지) 및 등급별 변동 원가 확정
         actionCards.AddRange(GameItemRewardManager.instance.GetUniqueRandomCards("Shop_Card_Table", targetCardCount));
+        for (int i = 0; i < actionCards.Count; i++)
+        {
+            CardData drawnCard = actionCards[i];
+            int slotPrice = drawnCard != null
+                ? CardData.RollShopBasePrice(drawnCard.rarity, cardPriceVarianceRatio)
+                : CardData.DefaultCommonGoldValue;
+            cardSlotBasePrices.Add(slotPrice);
+        }
 
         // 2. 유물 추첨 (중복 및 보유 유물 제외)
         if (targetRelicCount > 0)

@@ -426,6 +426,71 @@ public class ShopSystemTests
     }
 
     [Test]
+    public void CardData_RarityGoldValueAndShopVariance_FollowsPolicy()
+    {
+        // 1. CardData 및 RelicData 등급별 기준 골드 가치 & 단조 증가 검증
+        Assert.AreEqual(50, CardData.GetBaseGoldValue(CardRarity.Common));
+        Assert.AreEqual(75, CardData.GetBaseGoldValue(CardRarity.Uncommon));
+        Assert.AreEqual(120, CardData.GetBaseGoldValue(CardRarity.Rare));
+        Assert.AreEqual(150, CardData.GetBaseGoldValue(CardRarity.Unique));
+
+        CardData commonCard = new CardData { cardName = "c_common", rarity = CardRarity.Common };
+        CardData uncommonCard = new CardData { cardName = "c_uncommon", rarity = CardRarity.Uncommon };
+        CardData rareCard = new CardData { cardName = "c_rare", rarity = CardRarity.Rare };
+        CardData uniqueCard = new CardData { cardName = "c_unique", rarity = CardRarity.Unique };
+
+        Assert.AreEqual(50, commonCard.BaseGoldValue);
+        Assert.AreEqual(75, uncommonCard.BaseGoldValue);
+        Assert.AreEqual(120, rareCard.BaseGoldValue);
+        Assert.AreEqual(150, uniqueCard.BaseGoldValue);
+        Assert.Less(commonCard.BaseGoldValue, uncommonCard.BaseGoldValue);
+        Assert.Less(uncommonCard.BaseGoldValue, rareCard.BaseGoldValue);
+        Assert.Less(rareCard.BaseGoldValue, uniqueCard.BaseGoldValue);
+
+        Assert.AreEqual(150, new RelicData { relicName = "r_common", rarity = RelicRarity.Common }.BaseGoldValue);
+        Assert.AreEqual(250, new RelicData { relicName = "r_rare", rarity = RelicRarity.Rare }.BaseGoldValue);
+        Assert.AreEqual(300, new RelicData { relicName = "r_unique", rarity = RelicRarity.Unique }.BaseGoldValue);
+        Assert.AreEqual(400, new RelicData { relicName = "r_boss", rarity = RelicRarity.Boss }.BaseGoldValue);
+
+        // 2. 변동폭 0% 및 10% 범위 계산 검증
+        CardData.GetGoldPriceRange(CardRarity.Common, 0f, out int zeroMin, out int zeroMax);
+        Assert.AreEqual(50, zeroMin);
+        Assert.AreEqual(50, zeroMax);
+        Assert.AreEqual(50, CardData.RollShopBasePrice(CardRarity.Common, 0f));
+
+        CardData.GetGoldPriceRange(CardRarity.Rare, 0.1f, out int rareMin, out int rareMax);
+        Assert.AreEqual(108, rareMin);
+        Assert.AreEqual(132, rareMax);
+        Assert.AreEqual(108, CardData.RollShopBasePrice(CardRarity.Rare, 0.1f, (min, max) => min));
+        Assert.AreEqual(132, CardData.RollShopBasePrice(CardRarity.Rare, 0.1f, (min, max) => max));
+
+        // 3. ShopNPC.AddRandomItems()로 생성된 슬롯 가격이 등급별 ±10% 범위 내에 있고 실제 결제 금액과 일치하는지 검증
+        Player player = CreateTestPlayer(2000);
+        CreateTestGameSceneManager(player, isInDungeon: true);
+        SeedShopDatabasesAndRewardManager(cardCount: 14, relicCount: 6);
+
+        GameObject npcGo = Track(new GameObject("TestShopNPC_Pricing"));
+        ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
+        shopNpc.BindPlayer(player);
+        shopNpc.AddRandomItems();
+
+        Assert.AreEqual(8, shopNpc.actionCards.Count);
+        for (int i = 0; i < shopNpc.actionCards.Count; i++)
+        {
+            CardData slotCard = shopNpc.actionCards[i];
+            CardData.GetGoldPriceRange(slotCard.rarity, shopNpc.cardPriceVarianceRatio, out int minExpected, out int maxExpected);
+            int slotPrice = shopNpc.GetCardSlotPrice(i, player);
+            Assert.GreaterOrEqual(slotPrice, minExpected, $"{slotCard.rarity} 카드 슬롯 {i} 가격이 최소치보다 작습니다.");
+            Assert.LessOrEqual(slotPrice, maxExpected, $"{slotCard.rarity} 카드 슬롯 {i} 가격이 최대치보다 큽니다.");
+        }
+
+        int firstSlotPrice = shopNpc.GetCardSlotPrice(0, player);
+        int goldBefore = player.playerStat.InGameCurrencyGold;
+        Assert.IsTrue(shopNpc.TryPurchaseCard(0, out string failMsg), failMsg);
+        Assert.AreEqual(goldBefore - firstSlotPrice, player.playerStat.InGameCurrencyGold);
+    }
+
+    [Test]
     public void ShopNPC_TryPurchaseCardAndRelic_DeductsGoldAndRejectsInsufficientGold()
     {
         Player player = CreateTestPlayer(10);

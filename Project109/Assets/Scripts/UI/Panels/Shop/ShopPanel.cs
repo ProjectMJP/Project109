@@ -322,7 +322,7 @@ public class ShopPanel : UIPanelBase
                 cardList[i].OnCardClick.AddListener(() => PurchaseCard(currentCardData, index));
 
                 int price = _boundShop != null
-                    ? _boundShop.GetCardPrice(currentCardData)
+                    ? _boundShop.GetCardSlotPrice(index)
                     : GetCardPrice(currentCardData, fallbackPlayer);
                 UpdateSlotPriceLabel(cardList[i], price, hasDiscount, isCardSlot: true);
             }
@@ -389,7 +389,7 @@ public class ShopPanel : UIPanelBase
                 if (data == null) continue;
 
                 int price = _boundShop != null
-                    ? _boundShop.GetCardPrice(data)
+                    ? _boundShop.GetCardSlotPrice(i)
                     : GetCardPrice(data, fallbackPlayer);
                 UpdateSlotPriceLabel(cardUI, price, hasDiscount, isCardSlot: true);
             }
