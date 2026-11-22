@@ -22,6 +22,34 @@ public class ShopRelicEntry : ShopItemEntryBase
     public RelicData relicData;
 }
 
+/// <summary>
+/// 상점 슬롯의 원가, 최종 할인가 및 할인 출처 정보를 담는 불변 가격 구조체입니다.
+/// </summary>
+public readonly struct ShopPriceInfo
+{
+    public readonly int OriginalPrice;
+    public readonly int FinalPrice;
+    public readonly bool IsItemOnSale;
+    public readonly float ItemDiscountRate;
+    public readonly bool IsRelicDiscountApplied;
+
+    public bool IsDiscounted => FinalPrice < OriginalPrice;
+
+    public ShopPriceInfo(
+        int originalPrice,
+        int finalPrice,
+        bool isItemOnSale,
+        float itemDiscountRate,
+        bool isRelicDiscountApplied)
+    {
+        OriginalPrice = originalPrice;
+        FinalPrice = finalPrice;
+        IsItemOnSale = isItemOnSale;
+        ItemDiscountRate = itemDiscountRate;
+        IsRelicDiscountApplied = isRelicDiscountApplied;
+    }
+}
+
 public class ShopNPC : InteractableObject
 {
     public const string DISCOUNT_RELIC_ID = "할인 카드";
@@ -78,6 +106,14 @@ public class ShopNPC : InteractableObject
         if (player != null) return player;
         if (_boundPlayer != null) return _boundPlayer;
         return GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+    }
+
+    public int GetPlayerGold(Player player = null)
+    {
+        Player targetPlayer = ResolvePlayer(player);
+        return (targetPlayer != null && targetPlayer.playerStat != null)
+            ? targetPlayer.playerStat.InGameCurrencyGold
+            : 0;
     }
 
     public bool IsCardSlotPurchased(int slotIndex)
@@ -197,12 +233,19 @@ public class ShopNPC : InteractableObject
         return CardData.DefaultCommonGoldValue;
     }
 
+    public ShopPriceInfo GetCardSlotPriceInfo(int slotIndex, Player player = null)
+    {
+        int originalPrice = GetCardSlotBasePrice(slotIndex);
+        bool hasRelicDiscount = HasDiscountRelic(ResolvePlayer(player));
+        int finalPrice = hasRelicDiscount
+            ? Mathf.Max(1, Mathf.RoundToInt(originalPrice * 0.7f))
+            : originalPrice;
+        return new ShopPriceInfo(originalPrice, finalPrice, false, 0f, hasRelicDiscount);
+    }
+
     public int GetCardSlotPrice(int slotIndex, Player player = null)
     {
-        int basePrice = GetCardSlotBasePrice(slotIndex);
-        return HasDiscountRelic(ResolvePlayer(player))
-            ? Mathf.RoundToInt(basePrice * 0.7f)
-            : basePrice;
+        return GetCardSlotPriceInfo(slotIndex, player).FinalPrice;
     }
 
     public int GetRelicPrice(RelicData relic, Player player = null)
@@ -228,12 +271,19 @@ public class ShopNPC : InteractableObject
         return 150;
     }
 
+    public ShopPriceInfo GetRelicSlotPriceInfo(int slotIndex, Player player = null)
+    {
+        int originalPrice = GetRelicSlotBasePrice(slotIndex);
+        bool hasRelicDiscount = HasDiscountRelic(ResolvePlayer(player));
+        int finalPrice = hasRelicDiscount
+            ? Mathf.Max(1, Mathf.RoundToInt(originalPrice * 0.7f))
+            : originalPrice;
+        return new ShopPriceInfo(originalPrice, finalPrice, false, 0f, hasRelicDiscount);
+    }
+
     public int GetRelicSlotPrice(int slotIndex, Player player = null)
     {
-        int basePrice = GetRelicSlotBasePrice(slotIndex);
-        return HasDiscountRelic(ResolvePlayer(player))
-            ? Mathf.RoundToInt(basePrice * 0.7f)
-            : basePrice;
+        return GetRelicSlotPriceInfo(slotIndex, player).FinalPrice;
     }
 
     public int GetCurrentRerollCost(Player player = null)

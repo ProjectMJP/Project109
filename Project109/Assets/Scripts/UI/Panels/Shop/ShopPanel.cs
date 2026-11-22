@@ -7,7 +7,12 @@ public class ShopPanel : UIPanelBase
 {
     private static readonly Color NormalPriceColor = Color.white;
     private static readonly Color DiscountPriceColor = new Color(0.35f, 1f, 0.45f, 1f);
+    private static readonly Color InsufficientGoldPriceColor = new Color(1f, 0.42f, 0.38f, 1f);
     private static readonly Color FeedbackErrorColor = new Color(1f, 0.45f, 0.40f, 1f);
+
+    private const string OriginalPriceStrikeHex = "#A0A8B8";
+    private const string DiscountPriceHex = "#59FF73";
+    private const string InsufficientGoldPriceHex = "#FF6B61";
 
     public GameObject cardCollection;
     public GameObject relicCollection;
@@ -27,6 +32,7 @@ public class ShopPanel : UIPanelBase
     private ShopNPC _boundShop;
     private readonly Dictionary<Component, TextMeshProUGUI> _slotPriceTexts = new Dictionary<Component, TextMeshProUGUI>();
     private readonly Dictionary<Component, GameObject> _slotPriceBadges = new Dictionary<Component, GameObject>();
+    private readonly Dictionary<Component, GameObject> _slotSaleBadges = new Dictionary<Component, GameObject>();
     private readonly Dictionary<Component, CanvasGroup> _slotCanvasGroups = new Dictionary<Component, CanvasGroup>();
     private readonly Dictionary<Component, GameObject> _slotSoldOverlays = new Dictionary<Component, GameObject>();
 
@@ -50,6 +56,7 @@ public class ShopPanel : UIPanelBase
         UnbindButtonListeners();
         _slotPriceTexts.Clear();
         _slotPriceBadges.Clear();
+        _slotSaleBadges.Clear();
         _slotCanvasGroups.Clear();
         _slotSoldOverlays.Clear();
     }
@@ -301,15 +308,37 @@ public class ShopPanel : UIPanelBase
         RefreshRerollUI();
     }
 
+    public static string FormatSlotPriceText(ShopPriceInfo priceInfo, bool canAfford)
+    {
+        if (!priceInfo.IsDiscounted)
+        {
+            return $"{priceInfo.FinalPrice}G";
+        }
+
+        string finalColorHex = canAfford ? DiscountPriceHex : InsufficientGoldPriceHex;
+        return $"<color={OriginalPriceStrikeHex}><s>{priceInfo.OriginalPrice}G</s></color> <color={finalColorHex}>{priceInfo.FinalPrice}G</color>";
+    }
+
+    private int ResolveCurrentGold(Player fallbackPlayer)
+    {
+        if (_boundShop != null)
+        {
+            return _boundShop.GetPlayerGold();
+        }
+
+        return (fallbackPlayer != null && fallbackPlayer.playerStat != null)
+            ? fallbackPlayer.playerStat.InGameCurrencyGold
+            : 0;
+    }
+
     public void UpdateCardEntries(List<ShopCardEntry> entries)
     {
         if (cardList == null) cardList = new List<CardUI>();
 
         int entryCount = entries != null ? entries.Count : 0;
         Player fallbackPlayer = ResolveFallbackPlayer();
-        bool hasDiscount = _boundShop != null
-            ? _boundShop.IsDiscountActive()
-            : ShopNPC.HasDiscountRelic(fallbackPlayer);
+        bool hasRelicDiscount = _boundShop == null && ShopNPC.HasDiscountRelic(fallbackPlayer);
+        int currentGold = ResolveCurrentGold(fallbackPlayer);
 
         for (int i = 0; i < cardList.Count; i++)
         {
@@ -336,10 +365,15 @@ public class ShopPanel : UIPanelBase
                     int index = i;
                     slot.OnCardClick.AddListener(() => PurchaseCard(currentCardData, index));
 
-                    int price = _boundShop != null
-                        ? _boundShop.GetCardSlotPrice(index)
-                        : GetCardPrice(currentCardData, fallbackPlayer);
-                    UpdateSlotPriceLabel(slot, price, hasDiscount, isCardSlot: true);
+                    ShopPriceInfo priceInfo = _boundShop != null
+                        ? _boundShop.GetCardSlotPriceInfo(index)
+                        : new ShopPriceInfo(
+                            currentCardData.BaseGoldValue,
+                            GetCardPrice(currentCardData, fallbackPlayer),
+                            false,
+                            0f,
+                            hasRelicDiscount);
+                    UpdateSlotPriceLabel(slot, priceInfo, currentGold >= priceInfo.FinalPrice, isCardSlot: true);
                 }
             }
             else
@@ -355,9 +389,8 @@ public class ShopPanel : UIPanelBase
 
         int entryCount = entries != null ? entries.Count : 0;
         Player fallbackPlayer = ResolveFallbackPlayer();
-        bool hasDiscount = _boundShop != null
-            ? _boundShop.IsDiscountActive()
-            : ShopNPC.HasDiscountRelic(fallbackPlayer);
+        bool hasRelicDiscount = _boundShop == null && ShopNPC.HasDiscountRelic(fallbackPlayer);
+        int currentGold = ResolveCurrentGold(fallbackPlayer);
 
         for (int i = 0; i < relicList.Count; i++)
         {
@@ -384,10 +417,15 @@ public class ShopPanel : UIPanelBase
                     int index = i;
                     slot.OnRelicClick.AddListener(() => PurchaseRelic(currentRelicData, index));
 
-                    int price = _boundShop != null
-                        ? _boundShop.GetRelicSlotPrice(index)
-                        : GetRelicPrice(currentRelicData, fallbackPlayer);
-                    UpdateSlotPriceLabel(slot, price, hasDiscount, isCardSlot: false);
+                    ShopPriceInfo priceInfo = _boundShop != null
+                        ? _boundShop.GetRelicSlotPriceInfo(index)
+                        : new ShopPriceInfo(
+                            currentRelicData.BaseGoldValue,
+                            GetRelicPrice(currentRelicData, fallbackPlayer),
+                            false,
+                            0f,
+                            hasRelicDiscount);
+                    UpdateSlotPriceLabel(slot, priceInfo, currentGold >= priceInfo.FinalPrice, isCardSlot: false);
                 }
             }
             else
@@ -400,9 +438,8 @@ public class ShopPanel : UIPanelBase
     private void RefreshActiveSlotPrices()
     {
         Player fallbackPlayer = ResolveFallbackPlayer();
-        bool hasDiscount = _boundShop != null
-            ? _boundShop.IsDiscountActive()
-            : ShopNPC.HasDiscountRelic(fallbackPlayer);
+        bool hasRelicDiscount = _boundShop == null && ShopNPC.HasDiscountRelic(fallbackPlayer);
+        int currentGold = ResolveCurrentGold(fallbackPlayer);
 
         if (cardList != null)
         {
@@ -415,10 +452,15 @@ public class ShopPanel : UIPanelBase
                 CardData data = cardUI.GetCardData();
                 if (data == null) continue;
 
-                int price = _boundShop != null
-                    ? _boundShop.GetCardSlotPrice(i)
-                    : GetCardPrice(data, fallbackPlayer);
-                UpdateSlotPriceLabel(cardUI, price, hasDiscount, isCardSlot: true);
+                ShopPriceInfo priceInfo = _boundShop != null
+                    ? _boundShop.GetCardSlotPriceInfo(i)
+                    : new ShopPriceInfo(
+                        data.BaseGoldValue,
+                        GetCardPrice(data, fallbackPlayer),
+                        false,
+                        0f,
+                        hasRelicDiscount);
+                UpdateSlotPriceLabel(cardUI, priceInfo, currentGold >= priceInfo.FinalPrice, isCardSlot: true);
             }
         }
 
@@ -433,10 +475,15 @@ public class ShopPanel : UIPanelBase
                 RelicData data = relicUI.relicData;
                 if (data == null) continue;
 
-                int price = _boundShop != null
-                    ? _boundShop.GetRelicSlotPrice(i)
-                    : GetRelicPrice(data, fallbackPlayer);
-                UpdateSlotPriceLabel(relicUI, price, hasDiscount, isCardSlot: false);
+                ShopPriceInfo priceInfo = _boundShop != null
+                    ? _boundShop.GetRelicSlotPriceInfo(i)
+                    : new ShopPriceInfo(
+                        data.BaseGoldValue,
+                        GetRelicPrice(data, fallbackPlayer),
+                        false,
+                        0f,
+                        hasRelicDiscount);
+                UpdateSlotPriceLabel(relicUI, priceInfo, currentGold >= priceInfo.FinalPrice, isCardSlot: false);
             }
         }
     }
@@ -446,20 +493,28 @@ public class ShopPanel : UIPanelBase
         EnsureRuntimeControls();
         if (rerollButtonText == null) return;
 
+        Player fallbackPlayer = ResolveFallbackPlayer();
+        int currentGold = ResolveCurrentGold(fallbackPlayer);
+
         if (_boundShop != null)
         {
             int rerollCost = _boundShop.GetCurrentRerollCost();
             bool hasDiscount = _boundShop.IsDiscountActive();
+            bool canAfford = currentGold >= rerollCost;
             rerollButtonText.text = $"리롤 ({rerollCost}G)";
-            rerollButtonText.color = hasDiscount ? DiscountPriceColor : Color.white;
+            rerollButtonText.color = !canAfford
+                ? InsufficientGoldPriceColor
+                : (hasDiscount ? DiscountPriceColor : Color.white);
         }
         else
         {
-            Player fallbackPlayer = ResolveFallbackPlayer();
             bool hasDiscount = ShopNPC.HasDiscountRelic(fallbackPlayer);
             int fallbackCost = hasDiscount ? Mathf.RoundToInt(50 * 0.7f) : 50;
+            bool canAfford = currentGold >= fallbackCost;
             rerollButtonText.text = $"리롤 ({fallbackCost}G)";
-            rerollButtonText.color = hasDiscount ? DiscountPriceColor : Color.white;
+            rerollButtonText.color = !canAfford
+                ? InsufficientGoldPriceColor
+                : (hasDiscount ? DiscountPriceColor : Color.white);
         }
     }
 
@@ -717,13 +772,30 @@ public class ShopPanel : UIPanelBase
         }
     }
 
-    private void UpdateSlotPriceLabel(Component slotComponent, int price, bool isDiscounted, bool isCardSlot)
+    private void UpdateSlotPriceLabel(Component slotComponent, ShopPriceInfo priceInfo, bool canAfford, bool isCardSlot)
     {
         TextMeshProUGUI priceTmp = GetOrCreatePriceText(slotComponent, isCardSlot);
         if (priceTmp != null)
         {
-            priceTmp.text = $"{price}G";
-            priceTmp.color = isDiscounted ? DiscountPriceColor : NormalPriceColor;
+            priceTmp.richText = true;
+            priceTmp.textWrappingMode = TextWrappingModes.NoWrap;
+            priceTmp.text = FormatSlotPriceText(priceInfo, canAfford);
+            priceTmp.color = !canAfford
+                ? InsufficientGoldPriceColor
+                : (priceInfo.IsDiscounted ? DiscountPriceColor : NormalPriceColor);
+        }
+
+        if (priceInfo.IsDiscounted)
+        {
+            GameObject saleBadge = GetOrCreateSaleBadge(slotComponent, isCardSlot);
+            if (saleBadge != null)
+            {
+                saleBadge.SetActive(true);
+            }
+        }
+        else if (_slotSaleBadges.TryGetValue(slotComponent, out GameObject existingSaleBadge) && existingSaleBadge != null)
+        {
+            existingSaleBadge.SetActive(false);
         }
     }
 
@@ -776,6 +848,8 @@ public class ShopPanel : UIPanelBase
             TextAlignmentOptions.Center,
             NormalPriceColor,
             TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText));
+        priceTmp.richText = true;
+        priceTmp.textWrappingMode = TextWrappingModes.NoWrap;
         priceTmp.enableAutoSizing = true;
         priceTmp.fontSizeMin = 11f;
         priceTmp.fontSizeMax = isCardSlot ? 22f : 18f;
@@ -825,6 +899,64 @@ public class ShopPanel : UIPanelBase
         {
             priceBadge.SetActive(!isSold);
         }
+
+        if (isSold && _slotSaleBadges.TryGetValue(slotComponent, out GameObject saleBadge) && saleBadge != null)
+        {
+            saleBadge.SetActive(false);
+        }
+    }
+
+    private GameObject GetOrCreateSaleBadge(Component slotComponent, bool isCardSlot)
+    {
+        if (slotComponent == null) return null;
+
+        if (_slotSaleBadges.TryGetValue(slotComponent, out GameObject cached) && cached != null)
+        {
+            return cached;
+        }
+
+        Transform existing = FindChildRecursive(slotComponent.transform, "SaleBadge");
+        if (existing != null)
+        {
+            _slotSaleBadges[slotComponent] = existing.gameObject;
+            return existing.gameObject;
+        }
+
+        GameObject badgeObj = CreateUIObject("SaleBadge", slotComponent.transform);
+        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+        badgeRect.anchorMin = new Vector2(1f, 1f);
+        badgeRect.anchorMax = new Vector2(1f, 1f);
+        badgeRect.pivot = new Vector2(1f, 1f);
+        badgeRect.anchoredPosition = new Vector2(-4f, -4f);
+        badgeRect.sizeDelta = isCardSlot ? new Vector2(56f, 22f) : new Vector2(44f, 18f);
+
+        Image badgeBg = badgeObj.AddComponent<Image>();
+        badgeBg.color = new Color(0.86f, 0.22f, 0.20f, 0.96f);
+        badgeBg.raycastTarget = false;
+
+        TextMeshProUGUI saleTmp = CreateTMPText(
+            "SaleBadgeText",
+            badgeObj.transform,
+            "SALE",
+            isCardSlot ? 13f : 11f,
+            FontStyles.Bold,
+            TextAlignmentOptions.Center,
+            Color.white,
+            TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText));
+        saleTmp.textWrappingMode = TextWrappingModes.NoWrap;
+        saleTmp.enableAutoSizing = true;
+        saleTmp.fontSizeMin = 8f;
+        saleTmp.fontSizeMax = isCardSlot ? 14f : 12f;
+
+        RectTransform textRect = saleTmp.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(2f, 1f);
+        textRect.offsetMax = new Vector2(-2f, -1f);
+
+        badgeObj.SetActive(false);
+        _slotSaleBadges[slotComponent] = badgeObj;
+        return badgeObj;
     }
 
     private CanvasGroup GetOrAddSlotCanvasGroup(Component slotComponent)

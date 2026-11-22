@@ -551,9 +551,17 @@ public class ShopSystemTests
         Assert.AreEqual(350, player.playerStat.InGameCurrencyGold);
         Assert.IsFalse(panel.feedbackText.gameObject.activeSelf);
 
-        // 할인 카드 구매로 인해 남은 카드 슬롯(0)과 유물 슬롯(0) 및 리롤 버튼이 30% 할인 가격으로 갱신되어야 함
-        Assert.AreEqual("35G", FindPriceTextOnSlot(panel.cardList[0]).text);
-        Assert.AreEqual("105G", FindPriceTextOnSlot(panel.relicList[0]).text);
+        // 할인 카드 구매로 인해 남은 카드 슬롯(0)과 유물 슬롯(0) 및 리롤 버튼이 30% 할인 가격(원가 취소선 + 할인가)으로 갱신되어야 함
+        Assert.AreEqual(
+            ShopPanel.FormatSlotPriceText(shopNpc.GetCardSlotPriceInfo(0, player), canAfford: true),
+            FindPriceTextOnSlot(panel.cardList[0]).text);
+        Assert.AreEqual(
+            ShopPanel.FormatSlotPriceText(shopNpc.GetRelicSlotPriceInfo(0, player), canAfford: true),
+            FindPriceTextOnSlot(panel.relicList[0]).text);
+        StringAssert.Contains("<s>50G</s>", FindPriceTextOnSlot(panel.cardList[0]).text);
+        StringAssert.Contains("35G", FindPriceTextOnSlot(panel.cardList[0]).text);
+        StringAssert.Contains("<s>150G</s>", FindPriceTextOnSlot(panel.relicList[0]).text);
+        StringAssert.Contains("105G", FindPriceTextOnSlot(panel.relicList[0]).text);
         Assert.AreEqual("리롤 (35G)", panel.rerollButtonText.text);
 
         // 카드 슬롯 0 구매 성공 (할인가 35G 차감)
@@ -1118,6 +1126,81 @@ public class ShopSystemTests
         Assert.IsTrue(panel.cardList[0].IsInteractable);
         Assert.IsFalse(card0SoldOverlay.gameObject.activeSelf);
         Assert.IsTrue(card0PriceBadge.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void ShopPanel_DiscountPriceDisplay_ShowsStrikethroughAndHandlesInsufficientGold()
+    {
+        Player player = CreateTestPlayer(200);
+        RelicData discountRelic = new RelicData
+        {
+            relicName = "할인 카드",
+            displayName = "할인 카드",
+            rarity = RelicRarity.Common,
+            obtainSource = ItemObtainSource.Standard,
+            classTypes = new List<string> { "All" }
+        };
+        ModLoader.Instance.RelicDatabase["할인 카드"] = discountRelic;
+
+        CardData commonCard = new CardData { cardName = "DiscountDisplayCard", rarity = CardRarity.Common, obtainSource = ItemObtainSource.Standard };
+        ModLoader.Instance.CardDatabase[commonCard.cardName] = commonCard;
+
+        SetupTestAssetCacheWithShopPrefabs();
+        ShopPanel panel = InstantiateShopPanelFromPrefab();
+
+        GameObject npcGo = Track(new GameObject("TestShopNPC_DiscountDisplay"));
+        ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
+        shopNpc.BindPlayer(player);
+        shopNpc.AddCardEntry(commonCard, 50);
+
+        panel.BindShop(shopNpc);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
+        panel.OnOpen();
+
+        TextMeshProUGUI cardPriceText = FindPriceTextOnSlot(panel.cardList[0]);
+        Assert.IsNotNull(cardPriceText);
+
+        // 1. 미할인 + 골드 충분
+        Assert.AreEqual("50G", cardPriceText.text);
+        StringAssert.DoesNotContain("<s>", cardPriceText.text);
+        Assert.AreEqual(Color.white, cardPriceText.color);
+        Assert.IsNull(FindTransformByName(panel.cardList[0].transform, "SaleBadge"));
+
+        // 2. 미할인 + 골드 부족 (붉은 부족 색상 적용, 취소선 없음)
+        player.playerStat.InGameCurrencyGold = 10;
+        panel.RefreshShopDisplay();
+        Assert.AreEqual("50G", cardPriceText.text);
+        StringAssert.DoesNotContain("<s>", cardPriceText.text);
+        Assert.Greater(cardPriceText.color.r, cardPriceText.color.b);
+
+        // 3. 할인 적용 + 골드 충분 ("할인 카드" 유물 보유 -> 50G -> 35G, 원가 취소선 + 초록 할인가 + SALE 배지)
+        player.AddRelic("할인 카드");
+        player.playerStat.InGameCurrencyGold = 100;
+        panel.RefreshShopDisplay();
+
+        Assert.AreEqual("<color=#A0A8B8><s>50G</s></color> <color=#59FF73>35G</color>", cardPriceText.text);
+        Transform saleBadge = FindTransformByName(panel.cardList[0].transform, "SaleBadge");
+        Assert.IsNotNull(saleBadge);
+        Assert.IsTrue(saleBadge.gameObject.activeSelf);
+
+        // 4. 할인 적용 + 골드 부족 (원가 취소선은 흐린 색, 할인가만 부족 빨간색 강조)
+        player.playerStat.InGameCurrencyGold = 10;
+        panel.RefreshShopDisplay();
+        Assert.AreEqual("<color=#A0A8B8><s>50G</s></color> <color=#FF6B61>35G</color>", cardPriceText.text);
+        Assert.IsTrue(saleBadge.gameObject.activeSelf);
+
+        // 5. 골드 충당 후 구매 시 SALE 배지와 PriceBadge 숨김 및 품절 오버레이 활성화
+        player.playerStat.InGameCurrencyGold = 100;
+        panel.RefreshShopDisplay();
+        panel.cardList[0].OnCardClick.Invoke();
+        Assert.IsTrue(shopNpc.IsCardSlotPurchased(0));
+        Assert.IsFalse(saleBadge.gameObject.activeSelf);
+        Transform priceBadge = FindTransformByName(panel.cardList[0].transform, "PriceBadge");
+        Assert.IsNotNull(priceBadge);
+        Assert.IsFalse(priceBadge.gameObject.activeSelf);
+        Transform soldOverlay = FindTransformByName(panel.cardList[0].transform, "SoldSlotOverlay");
+        Assert.IsNotNull(soldOverlay);
+        Assert.IsTrue(soldOverlay.gameObject.activeSelf);
     }
 
     private static void SetStaticField<TTarget>(string fieldName, object value)
