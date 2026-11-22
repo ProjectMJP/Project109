@@ -641,6 +641,70 @@ public class ExploreMapManager
     }
 
     /// <summary>
+    /// 현재 노드(currentNode)에서 앞으로 진행 가능한 모든 도달 가능 노드(현재 노드 포함)를 BFS로 수집합니다.
+    /// </summary>
+    public static void CollectReachableNodes(
+        ExploreMapData mapData,
+        ExploreNode currentNode,
+        HashSet<ExploreNode> outputReachable,
+        Queue<ExploreNode> scratchQueue = null)
+    {
+        if (outputReachable == null)
+        {
+            return;
+        }
+
+        outputReachable.Clear();
+        if (mapData == null || mapData.floors == null || currentNode == null)
+        {
+            return;
+        }
+
+        Queue<ExploreNode> queue = scratchQueue ?? new Queue<ExploreNode>();
+        queue.Clear();
+
+        outputReachable.Add(currentNode);
+        queue.Enqueue(currentNode);
+
+        while (queue.Count > 0)
+        {
+            ExploreNode node = queue.Dequeue();
+            if (node == null || node.nextNodeIndices == null)
+            {
+                continue;
+            }
+
+            int nextFloor = node.floor + 1;
+            if (nextFloor < 0 || nextFloor >= mapData.floors.Count)
+            {
+                continue;
+            }
+
+            ExploreFloorData nextFloorData = mapData.floors[nextFloor];
+            List<ExploreNode> nextFloorNodes = nextFloorData != null ? nextFloorData.nodes : null;
+            if (nextFloorNodes == null || nextFloorNodes.Count == 0)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < node.nextNodeIndices.Count; i++)
+            {
+                int nextIdx = node.nextNodeIndices[i];
+                if (nextIdx < 0 || nextIdx >= nextFloorNodes.Count)
+                {
+                    continue;
+                }
+
+                ExploreNode nextNode = nextFloorNodes[nextIdx];
+                if (nextNode != null && outputReachable.Add(nextNode))
+                {
+                    queue.Enqueue(nextNode);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// 세이브 파일이나 외부 데이터로부터 탐험 맵 데이터를 직접 복원 주입합니다.
     /// </summary>
     public void RestoreMapData(ExploreMapData data)

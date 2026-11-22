@@ -4,6 +4,16 @@ using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
+public enum ExploreNodeVisualState
+{
+    Current,
+    Visited,
+    NextAvailable,
+    NextBlocked,
+    FutureReachable,
+    Unreachable
+}
+
 [RequireComponent(typeof(Image))]
 public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
@@ -27,12 +37,23 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     [FormerlySerializedAs("IncountNodeExtraRewardObject")]
     public GameObject ExploreNodeUIExtraRewardObject;
 
-    private static readonly Color NormalNodeColor = Color.white;
+    private static readonly Color CurrentNodeColor = Color.white;
+    private static readonly Color VisitedNodeColor = new Color(0.78f, 0.78f, 0.78f, 0.92f);
+    private static readonly Color NextAvailableNodeColor = Color.white;
     private static readonly Color BlockedNodeColor = new Color(0.55f, 0.55f, 0.55f, 0.8f);
+    private static readonly Color FutureReachableNodeColor = new Color(0.92f, 0.92f, 0.92f, 0.95f);
+    private static readonly Color UnreachableNodeColor = new Color(0.32f, 0.32f, 0.35f, 0.42f);
+    private static readonly Color CurrentRingColor = new Color(1f, 0.90f, 0.35f, 1f);
+    private static readonly Color VisitedRingColor = new Color(0.75f, 0.75f, 0.75f, 0.75f);
 
     private Image _cachedImage;
+    private Image _coverImage;
+    private Image _extraRewardImage;
+    private Image _currentHighlightImage;
     private bool _isMoveBlocked;
     private bool _isShowingMoveBlockedTooltip;
+
+    public ExploreNodeVisualState CurrentVisualState { get; private set; } = ExploreNodeVisualState.FutureReachable;
 
     /// <summary>
     /// 현재 노드가 전투 또는 대화 제한으로 인해 이동 차단 상태인지 여부입니다.
@@ -212,11 +233,14 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     public void CloseNodeCoverTexture() => HideNode();
 
     /// <summary>
-    /// 전투 또는 대화 등으로 인해 다음 노드 이동이 차단된 상태의 시각 효과(반투명 어둡기 및 호버 강조 억제)를 적용합니다.
+    /// 현재 탐험 진행 기준의 노드 시각 상태(현재 위치, 방문 완료, 다음 이동 가능/차단, 향후 도달 가능, 도달 불가능 음영)를 적용합니다.
     /// </summary>
-    public void SetMoveBlockedVisual(bool isBlocked)
+    public void ApplyVisualState(ExploreNodeVisualState state)
     {
-        _isMoveBlocked = isBlocked;
+        CurrentVisualState = state;
+        _isMoveBlocked = (state == ExploreNodeVisualState.NextBlocked);
+
+        Color targetColor = ResolveNodeColor(state);
 
         if (_cachedImage == null)
         {
@@ -224,19 +248,83 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         }
         if (_cachedImage != null)
         {
-            _cachedImage.color = isBlocked ? BlockedNodeColor : NormalNodeColor;
+            _cachedImage.color = targetColor;
         }
 
-        if (isBlocked)
+        if (ExploreNodeUICoverObject != null)
+        {
+            if (_coverImage == null)
+            {
+                _coverImage = ExploreNodeUICoverObject.GetComponent<Image>();
+            }
+            if (_coverImage != null)
+            {
+                _coverImage.color = targetColor;
+            }
+        }
+
+        if (ExploreNodeUIExtraRewardObject != null)
+        {
+            if (_extraRewardImage == null)
+            {
+                _extraRewardImage = ExploreNodeUIExtraRewardObject.GetComponent<Image>();
+            }
+            if (_extraRewardImage != null)
+            {
+                _extraRewardImage.color = targetColor;
+            }
+        }
+
+        if (ExploreNodeUICurrentHighlightCircleObject != null)
+        {
+            bool showRing = state == ExploreNodeVisualState.Current || state == ExploreNodeVisualState.Visited;
+            ExploreNodeUICurrentHighlightCircleObject.SetActive(showRing);
+            if (showRing)
+            {
+                if (_currentHighlightImage == null)
+                {
+                    _currentHighlightImage = ExploreNodeUICurrentHighlightCircleObject.GetComponent<Image>();
+                }
+                if (_currentHighlightImage != null)
+                {
+                    _currentHighlightImage.color = state == ExploreNodeVisualState.Current ? CurrentRingColor : VisitedRingColor;
+                }
+            }
+        }
+
+        if (state == ExploreNodeVisualState.NextBlocked ||
+            state == ExploreNodeVisualState.Unreachable ||
+            state == ExploreNodeVisualState.Current ||
+            state == ExploreNodeVisualState.Visited)
         {
             if (ExploreNodeUIHighlightCircleObject != null)
             {
                 ExploreNodeUIHighlightCircleObject.SetActive(false);
             }
         }
-        else
+
+        if (!_isMoveBlocked)
         {
             HideMoveBlockedTooltip();
+        }
+    }
+
+    private static Color ResolveNodeColor(ExploreNodeVisualState state)
+    {
+        switch (state)
+        {
+            case ExploreNodeVisualState.Current:
+                return CurrentNodeColor;
+            case ExploreNodeVisualState.Visited:
+                return VisitedNodeColor;
+            case ExploreNodeVisualState.NextAvailable:
+                return NextAvailableNodeColor;
+            case ExploreNodeVisualState.NextBlocked:
+                return BlockedNodeColor;
+            case ExploreNodeVisualState.Unreachable:
+                return UnreachableNodeColor;
+            default:
+                return FutureReachableNodeColor;
         }
     }
 
@@ -298,7 +386,9 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (_isMoveBlocked)
+        bool allowHoverHighlight = CurrentVisualState == ExploreNodeVisualState.NextAvailable ||
+                                   CurrentVisualState == ExploreNodeVisualState.FutureReachable;
+        if (!allowHoverHighlight)
         {
             if (ExploreNodeUIHighlightCircleObject != null)
             {

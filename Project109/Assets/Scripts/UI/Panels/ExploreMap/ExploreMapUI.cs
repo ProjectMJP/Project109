@@ -18,8 +18,24 @@ public class ExploreMapUI : UIPanelBase
     [SerializeField] private GameObject ArrowLinePrefab;
     [SerializeField] private GameObject ExploreMapVerticalLayoutPrefab;
 
+    private struct ArrowEdgeVisual
+    {
+        public ExploreNode fromNode;
+        public ExploreNode toNode;
+        public Image lineImage;
+    }
+
+    private static readonly Color VisitedEdgeColor = new Color(0.95f, 0.88f, 0.60f, 0.90f);
+    private static readonly Color NextAvailableEdgeColor = Color.white;
+    private static readonly Color NextBlockedEdgeColor = new Color(0.60f, 0.60f, 0.60f, 0.70f);
+    private static readonly Color FutureReachableEdgeColor = new Color(0.85f, 0.85f, 0.85f, 0.85f);
+    private static readonly Color UnreachableEdgeColor = new Color(0.32f, 0.32f, 0.35f, 0.25f);
+
     private readonly List<List<ExploreNodeUI>> _exploreMap = new();
     private readonly List<VerticalLayoutGroup> _exploreVerticalObjects = new();
+    private readonly HashSet<ExploreNode> _reachableNodes = new HashSet<ExploreNode>();
+    private readonly Queue<ExploreNode> _reachabilityQueue = new Queue<ExploreNode>();
+    private readonly List<ArrowEdgeVisual> _arrowEdges = new List<ArrowEdgeVisual>();
     private bool _needsArrowRebuild = false;
 
     public IReadOnlyList<List<ExploreNodeUI>> MapNodes => _exploreMap;
@@ -110,10 +126,7 @@ public class ExploreMapUI : UIPanelBase
             RunManager.instance.currentExploreNode.isVisited = true;
         }
 
-        // 현재 노드 하이라이트 및 시각 요소 갱신
-        RefreshMapVisuals();
-
-        // 게임오브젝트가 활성화 상태이면 즉시 레이아웃을 갱신하고 화살표 생성,
+        // 게임오브젝트가 활성화 상태이면 즉시 레이아웃을 갱신하고 화살표를 생성한 뒤 시각 상태를 동기화,
         // 비활성화(Inactive) 상태이면 OnOpen 시점에 화살표를 생성하도록 지연 처리
         if (gameObject.activeInHierarchy)
         {
@@ -123,6 +136,9 @@ public class ExploreMapUI : UIPanelBase
         {
             _needsArrowRebuild = true;
         }
+
+        // 현재 노드 하이라이트 및 도달 가능/불가능 시각 요소 갱신
+        RefreshMapVisuals();
     }
 
     public override void OnOpen()
@@ -148,6 +164,10 @@ public class ExploreMapUI : UIPanelBase
 
         ExploreNode currentNode = RunManager.instance.currentExploreNode;
         bool canMove = RunManager.instance.CanMoveToNextNode(out string blockReason);
+        ExploreMapData mapData = RunManager.instance.exploreMapManager != null
+            ? RunManager.instance.exploreMapManager.MapData
+            : null;
+        ExploreMapManager.CollectReachableNodes(mapData, currentNode, _reachableNodes, _reachabilityQueue);
 
         if (moveBlockedNoticeText != null)
         {
@@ -155,7 +175,7 @@ public class ExploreMapUI : UIPanelBase
             moveBlockedNoticeText.text = canMove ? string.Empty : blockReason;
         }
 
-        // 1. 모든 노드 시각 상태(가림막 공개/비공개, 호버 링 초기화, 방문/현재 위치 하이라이트, 이동 차단 시각화) 동기화
+        // 1. 모든 노드 시각 상태(가림막 공개/비공개, 호버 링 초기화, 현재/방문/이동 가능·차단/도달 가능·불가능 음영) 동기화
         for (int f = 0; f < _exploreMap.Count; f++)
         {
             for (int i = 0; i < _exploreMap[f].Count; i++)
@@ -170,21 +190,83 @@ public class ExploreMapUI : UIPanelBase
                     nodeUI.ExploreNodeUIHighlightCircleObject.SetActive(false);
                 }
 
-                bool isVisitedOrCurrent = (nodeUI.NodeData != null && nodeUI.NodeData.isVisited)
-                    || (currentNode != null && nodeUI.NodeData == currentNode);
-                if (nodeUI.ExploreNodeUICurrentHighlightCircleObject != null)
-                {
-                    nodeUI.ExploreNodeUICurrentHighlightCircleObject.SetActive(isVisitedOrCurrent);
-                }
-
-                bool isNextConnectedNode = currentNode != null
-                    && nodeUI.NodeData != null
-                    && nodeUI.NodeData.floor == currentNode.floor + 1
-                    && currentNode.nextNodeIndices != null
-                    && currentNode.nextNodeIndices.Contains(nodeUI.NodeData.index);
-                nodeUI.SetMoveBlockedVisual(isNextConnectedNode && !canMove);
+                ExploreNode nodeData = nodeUI.NodeData;
+                ExploreNodeVisualState visualState = ResolveNodeVisualState(nodeData, currentNode, canMove);
+                nodeUI.ApplyVisualState(visualState);
             }
         }
+
+        // 2. 노드 간 경로 라인(화살표) 색상 동기화
+        for (int i = 0; i < _arrowEdges.Count; i++)
+        {
+            ArrowEdgeVisual edge = _arrowEdges[i];
+            if (edge.lineImage == null) continue;
+
+            edge.lineImage.color = ResolveEdgeColor(edge.fromNode, edge.toNode, currentNode, canMove);
+        }
+    }
+
+    private ExploreNodeVisualState ResolveNodeVisualState(ExploreNode nodeData, ExploreNode currentNode, bool canMove)
+    {
+        if (nodeData == null)
+        {
+            return ExploreNodeVisualState.Unreachable;
+        }
+
+        if (currentNode == null)
+        {
+            return nodeData.isVisited ? ExploreNodeVisualState.Visited : ExploreNodeVisualState.FutureReachable;
+        }
+
+        if (nodeData == currentNode)
+        {
+            return ExploreNodeVisualState.Current;
+        }
+
+        if (nodeData.isVisited)
+        {
+            return ExploreNodeVisualState.Visited;
+        }
+
+        bool isNextConnectedNode = nodeData.floor == currentNode.floor + 1
+            && currentNode.nextNodeIndices != null
+            && currentNode.nextNodeIndices.Contains(nodeData.index);
+        if (isNextConnectedNode)
+        {
+            return canMove ? ExploreNodeVisualState.NextAvailable : ExploreNodeVisualState.NextBlocked;
+        }
+
+        if (_reachableNodes.Contains(nodeData))
+        {
+            return ExploreNodeVisualState.FutureReachable;
+        }
+
+        return ExploreNodeVisualState.Unreachable;
+    }
+
+    private Color ResolveEdgeColor(ExploreNode fromNode, ExploreNode toNode, ExploreNode currentNode, bool canMove)
+    {
+        if (fromNode == null || toNode == null)
+        {
+            return UnreachableEdgeColor;
+        }
+
+        if (fromNode.isVisited && toNode.isVisited)
+        {
+            return VisitedEdgeColor;
+        }
+
+        if (currentNode != null && fromNode == currentNode && _reachableNodes.Contains(toNode))
+        {
+            return canMove ? NextAvailableEdgeColor : NextBlockedEdgeColor;
+        }
+
+        if (_reachableNodes.Contains(fromNode) && _reachableNodes.Contains(toNode))
+        {
+            return FutureReachableEdgeColor;
+        }
+
+        return UnreachableEdgeColor;
     }
 
     /// <summary>
@@ -218,14 +300,14 @@ public class ExploreMapUI : UIPanelBase
                 {
                     if (nextNode != null && nextNode.TryGetComponent<ExploreNodeUI>(out var nextNodeUI))
                     {
-                        MakeArrowUI(fromNode.arrowRelativePos, nextNodeUI.arrowRelativePos);
+                        MakeArrowUI(fromNode.NodeData, nextNodeUI.NodeData, fromNode.arrowRelativePos, nextNodeUI.arrowRelativePos);
                     }
                 }
             }
         }
     }
 
-    private void MakeArrowUI(Vector2 startPos, Vector2 endPos)
+    private void MakeArrowUI(ExploreNode fromNode, ExploreNode toNode, Vector2 startPos, Vector2 endPos)
     {
         if (ArrowLinePrefab == null || ArrowObjects == null) return;
 
@@ -239,6 +321,19 @@ public class ExploreMapUI : UIPanelBase
             arrowLine.anchoredPosition = ((startPos + endPos) / 2f);
             arrowLine.sizeDelta = new Vector2(dist, 5); // 선 두께 5
             arrowLine.rotation = Quaternion.Euler(0, 0, angle);
+
+            Image lineImage = arrowLine.GetComponent<Image>();
+            if (lineImage != null)
+            {
+                lineImage.raycastTarget = false;
+            }
+
+            _arrowEdges.Add(new ArrowEdgeVisual
+            {
+                fromNode = fromNode,
+                toNode = toNode,
+                lineImage = lineImage
+            });
         }
     }
 
@@ -302,6 +397,7 @@ public class ExploreMapUI : UIPanelBase
     /// </summary>
     private void ClearArrowUI()
     {
+        _arrowEdges.Clear();
         if (ArrowObjects == null) return;
 
         for (int i = ArrowObjects.transform.childCount - 1; i >= 0; i--)

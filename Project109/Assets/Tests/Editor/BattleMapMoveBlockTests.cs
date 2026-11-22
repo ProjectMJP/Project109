@@ -908,12 +908,17 @@ public class BattleMapMoveBlockTests
         Assert.AreEqual("전투를 완료해야 다음 노드로 이동할 수 있습니다.", noticeText.text);
 
         Assert.IsTrue(connectedNextUI.IsMoveBlocked);
+        Assert.AreEqual(ExploreNodeVisualState.NextBlocked, connectedNextUI.CurrentVisualState);
         Assert.AreEqual(new Color(0.55f, 0.55f, 0.55f, 0.8f), connectedNextUI.GetComponent<Image>().color);
         Assert.IsFalse(unconnectedNextUI.IsMoveBlocked);
-        Assert.AreEqual(Color.white, unconnectedNextUI.GetComponent<Image>().color);
+        Assert.AreEqual(ExploreNodeVisualState.Unreachable, unconnectedNextUI.CurrentVisualState);
+        Assert.AreEqual(new Color(0.32f, 0.32f, 0.35f, 0.42f), unconnectedNextUI.GetComponent<Image>().color);
         Assert.IsFalse(currentNodeUI.IsMoveBlocked);
+        Assert.AreEqual(ExploreNodeVisualState.Current, currentNodeUI.CurrentVisualState);
 
-        // 차단 상태에서 호버 시 강조 링 비활성 유지
+        // 도달 불가능 노드 및 차단 노드에서 호버 시 강조 링 비활성 유지
+        unconnectedNextUI.OnPointerEnter(null);
+        Assert.IsFalse(unconnectedNextUI.ExploreNodeUIHighlightCircleObject.activeSelf);
         connectedNextUI.OnPointerEnter(null);
         Assert.IsFalse(connectedNextUI.ExploreNodeUIHighlightCircleObject.activeSelf);
 
@@ -1030,6 +1035,127 @@ public class BattleMapMoveBlockTests
         Assert.IsFalse(exploreMapUI.gameObject.activeInHierarchy);
         Assert.IsFalse(uiManager.IsWorldInputBlocked);
         Assert.IsFalse(inputCtrl.IsWorldInputBlocked);
+    }
+
+    [Test]
+    public void ExploreMapManager_And_ExploreMapUI_DimsUnreachableNodesAndEdges_AcrossMultiFloorGraph()
+    {
+        Player player = CreateTestPlayer();
+        CreateTestGameSceneManager(player);
+        var (runManager, battleManager, stageManager) = CreateTestRunContext(player);
+
+        // 4층 분기 그래프 구성:
+        // Floor 0: [0](Visited) -> Floor 1: [0](Current), [1](Unvisited, Unreachable)
+        // Floor 1 [0](Current) -> Floor 2 [0](NextAvailable) -> Floor 3 [0](FutureReachable)
+        // Floor 1 [1](Unreachable) -> Floor 2 [1](Unreachable) -> Floor 3 [1](Unreachable, Fogged)
+        ExploreMapData mapData = new ExploreMapData();
+
+        ExploreFloorData f0 = new ExploreFloorData();
+        ExploreNode n00 = new ExploreNode(0, 0) { isRevealed = true, isVisited = true };
+        n00.nextNodeIndices.Add(0);
+        n00.nextNodeIndices.Add(1);
+        f0.nodes.Add(n00);
+
+        ExploreFloorData f1 = new ExploreFloorData();
+        ExploreNode n10 = new ExploreNode(1, 0) { isRevealed = true, isVisited = true };
+        n10.nextNodeIndices.Add(0);
+        ExploreNode n11 = new ExploreNode(1, 1) { isRevealed = true, isVisited = false };
+        n11.nextNodeIndices.Add(1);
+        f1.nodes.Add(n10);
+        f1.nodes.Add(n11);
+
+        ExploreFloorData f2 = new ExploreFloorData();
+        ExploreNode n20 = new ExploreNode(2, 0) { isRevealed = true, isVisited = false };
+        n20.nextNodeIndices.Add(0);
+        ExploreNode n21 = new ExploreNode(2, 1) { isRevealed = true, isVisited = false };
+        n21.nextNodeIndices.Add(1);
+        f2.nodes.Add(n20);
+        f2.nodes.Add(n21);
+
+        ExploreFloorData f3 = new ExploreFloorData();
+        ExploreNode n30 = new ExploreNode(3, 0) { isRevealed = true, isVisited = false };
+        ExploreNode n31 = new ExploreNode(3, 1) { isRevealed = false, isVisited = false };
+        f3.nodes.Add(n30);
+        f3.nodes.Add(n31);
+
+        mapData.floors.Add(f0);
+        mapData.floors.Add(f1);
+        mapData.floors.Add(f2);
+        mapData.floors.Add(f3);
+
+        // 1. BFS 도달 가능 집합 검증
+        var reachable = new HashSet<ExploreNode>();
+        ExploreMapManager.CollectReachableNodes(mapData, n10, reachable);
+        Assert.AreEqual(3, reachable.Count);
+        Assert.IsTrue(reachable.Contains(n10));
+        Assert.IsTrue(reachable.Contains(n20));
+        Assert.IsTrue(reachable.Contains(n30));
+        Assert.IsFalse(reachable.Contains(n00));
+        Assert.IsFalse(reachable.Contains(n11));
+        Assert.IsFalse(reachable.Contains(n21));
+        Assert.IsFalse(reachable.Contains(n31));
+
+        // 2. ArrowObjects 포함 UI 구성 및 상태별 노드/간선 시각 상태 검증
+        GameObject canvasGo = Track(new GameObject("MultiFloorMapCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler)));
+        canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+        Canvas canvas = canvasGo.GetComponent<Canvas>();
+
+        var (mapUI, _) = CreateTestExploreMapUI(canvas, mapData);
+        GameObject arrowObjectsGo = Track(new GameObject("ArrowObjects", typeof(RectTransform)));
+        arrowObjectsGo.transform.SetParent(mapUI.transform, false);
+        GameObject arrowLinePrefab = Track(new GameObject("TestArrowLinePrefab", typeof(RectTransform), typeof(Image)));
+
+        SetPrivateField(mapUI, "ArrowObjects", arrowObjectsGo);
+        SetPrivateField(mapUI, "ArrowLinePrefab", arrowLinePrefab);
+
+        // 현재 노드를 Floor 1 [0]으로 이동 설정 후 맵 재생성
+        runManager.currentExploreNode = n10;
+        runManager.currentExploreMapFloor = 1;
+        stageManager.currentMapState = MapState.None;
+        SetBattleState(battleManager, BattleState.None);
+
+        mapUI.CreateExploreMap(mapData.floors.Count);
+
+        ExploreNodeUI ui00 = mapUI.MapNodes[0][0];
+        ExploreNodeUI ui10 = mapUI.MapNodes[1][0];
+        ExploreNodeUI ui11 = mapUI.MapNodes[1][1];
+        ExploreNodeUI ui20 = mapUI.MapNodes[2][0];
+        ExploreNodeUI ui21 = mapUI.MapNodes[2][1];
+        ExploreNodeUI ui30 = mapUI.MapNodes[3][0];
+        ExploreNodeUI ui31 = mapUI.MapNodes[3][1];
+
+        Assert.AreEqual(ExploreNodeVisualState.Visited, ui00.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.Current, ui10.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.Unreachable, ui11.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.NextAvailable, ui20.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.Unreachable, ui21.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.FutureReachable, ui30.CurrentVisualState);
+        Assert.AreEqual(ExploreNodeVisualState.Unreachable, ui31.CurrentVisualState);
+
+        // 도달 불가능 노드는 본체와 안개 커버 모두 음영 컬러가 적용되고, 호버 링이 비활성화되어야 함
+        Color expectedDimColor = new Color(0.32f, 0.32f, 0.35f, 0.42f);
+        Assert.AreEqual(expectedDimColor, ui11.GetComponent<Image>().color);
+        Assert.AreEqual(expectedDimColor, ui21.GetComponent<Image>().color);
+        Assert.AreEqual(expectedDimColor, ui31.GetComponent<Image>().color);
+        Assert.IsTrue(ui31.ExploreNodeUICoverObject.activeSelf);
+        Assert.AreEqual(expectedDimColor, ui31.ExploreNodeUICoverObject.GetComponent<Image>().color);
+
+        ui11.OnPointerEnter(null);
+        Assert.IsFalse(ui11.ExploreNodeUIHighlightCircleObject.activeSelf);
+        ui20.OnPointerEnter(null);
+        Assert.IsTrue(ui20.ExploreNodeUIHighlightCircleObject.activeSelf);
+        ui30.OnPointerEnter(null);
+        Assert.IsTrue(ui30.ExploreNodeUIHighlightCircleObject.activeSelf);
+
+        // 간선 색상 검증: 방문 경로(0,0->1,0), 현재->다음(1,0->2,0), 미래(2,0->3,0), 도달 불가(0,0->1,1 / 1,1->2,1 / 2,1->3,1)
+        Image[] edgeImages = arrowObjectsGo.GetComponentsInChildren<Image>(true);
+        Assert.AreEqual(6, edgeImages.Length);
+        Assert.AreEqual(new Color(0.95f, 0.88f, 0.60f, 0.90f), edgeImages[0].color); // n00 -> n10 (Visited)
+        Assert.AreEqual(new Color(0.32f, 0.32f, 0.35f, 0.25f), edgeImages[1].color); // n00 -> n11 (Unreachable)
+        Assert.AreEqual(Color.white, edgeImages[2].color);                           // n10 -> n20 (NextAvailable)
+        Assert.AreEqual(new Color(0.32f, 0.32f, 0.35f, 0.25f), edgeImages[3].color); // n11 -> n21 (Unreachable)
+        Assert.AreEqual(new Color(0.85f, 0.85f, 0.85f, 0.85f), edgeImages[4].color); // n20 -> n30 (FutureReachable)
+        Assert.AreEqual(new Color(0.32f, 0.32f, 0.35f, 0.25f), edgeImages[5].color); // n21 -> n31 (Unreachable)
     }
 
     [Test]
