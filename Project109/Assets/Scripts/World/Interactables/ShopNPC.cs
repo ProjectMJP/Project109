@@ -8,6 +8,8 @@ public abstract class ShopItemEntryBase
 {
     public int basePrice;
     public bool isSold;
+    public bool isOnSale;
+    public float discountRate;
 }
 
 [Serializable]
@@ -69,6 +71,12 @@ public class ShopNPC : InteractableObject
     [Range(0f, 0.5f)]
     public float cardPriceVarianceRatio = CardData.DefaultShopPriceVarianceRatio;
 
+    [Header("Random Sale Settings")]
+    public int randomCardSaleCount = 1;
+    public int randomRelicSaleCount = 0;
+    [Range(0f, 0.9f)]
+    public float randomSaleDiscountRate = 0.5f;
+
     public List<ShopCardEntry> cardEntries = new List<ShopCardEntry>();
     public List<ShopRelicEntry> relicEntries = new List<ShopRelicEntry>();
 
@@ -126,33 +134,51 @@ public class ShopNPC : InteractableObject
         return slotIndex >= 0 && slotIndex < relicEntries.Count && relicEntries[slotIndex] != null && relicEntries[slotIndex].isSold;
     }
 
-    public ShopCardEntry AddCardEntry(CardData card, int? basePriceOverride = null)
+    public bool IsCardSlotOnSale(int slotIndex)
+    {
+        return slotIndex >= 0 && slotIndex < cardEntries.Count && cardEntries[slotIndex] != null &&
+               cardEntries[slotIndex].isOnSale && cardEntries[slotIndex].discountRate > 0f;
+    }
+
+    public bool IsRelicSlotOnSale(int slotIndex)
+    {
+        return slotIndex >= 0 && slotIndex < relicEntries.Count && relicEntries[slotIndex] != null &&
+               relicEntries[slotIndex].isOnSale && relicEntries[slotIndex].discountRate > 0f;
+    }
+
+    public ShopCardEntry AddCardEntry(CardData card, int? basePriceOverride = null, bool isOnSale = false, float discountRate = 0f)
     {
         int resolvedBasePrice = basePriceOverride.HasValue && basePriceOverride.Value > 0
             ? basePriceOverride.Value
             : (card != null ? card.BaseGoldValue : CardData.DefaultCommonGoldValue);
 
+        float clampedRate = isOnSale ? Mathf.Clamp(discountRate, 0f, 0.9f) : 0f;
         ShopCardEntry entry = new ShopCardEntry
         {
             cardData = card,
             basePrice = resolvedBasePrice,
-            isSold = false
+            isSold = false,
+            isOnSale = isOnSale && clampedRate > 0f,
+            discountRate = clampedRate
         };
         cardEntries.Add(entry);
         return entry;
     }
 
-    public ShopRelicEntry AddRelicEntry(RelicData relic, int? basePriceOverride = null)
+    public ShopRelicEntry AddRelicEntry(RelicData relic, int? basePriceOverride = null, bool isOnSale = false, float discountRate = 0f)
     {
         int resolvedBasePrice = basePriceOverride.HasValue && basePriceOverride.Value > 0
             ? basePriceOverride.Value
             : (relic != null ? relic.BaseGoldValue : 150);
 
+        float clampedRate = isOnSale ? Mathf.Clamp(discountRate, 0f, 0.9f) : 0f;
         ShopRelicEntry entry = new ShopRelicEntry
         {
             relicData = relic,
             basePrice = resolvedBasePrice,
-            isSold = false
+            isSold = false,
+            isOnSale = isOnSale && clampedRate > 0f,
+            discountRate = clampedRate
         };
         relicEntries.Add(entry);
         return entry;
@@ -233,14 +259,25 @@ public class ShopNPC : InteractableObject
         return CardData.DefaultCommonGoldValue;
     }
 
+    /// <summary>
+    /// 개별 품목 세일(discountRate)과 할인 카드 유물(30%)을 곱연산으로 결합해 슬롯 가격 정보를 산출합니다.
+    /// </summary>
+    public static ShopPriceInfo CalculateEntryPriceInfo(ShopItemEntryBase entry, int fallbackBasePrice, bool hasDiscountRelic)
+    {
+        int originalPrice = (entry != null && entry.basePrice > 0) ? entry.basePrice : fallbackBasePrice;
+        bool isItemOnSale = entry != null && entry.isOnSale && entry.discountRate > 0f;
+        float clampedRate = isItemOnSale ? Mathf.Clamp(entry.discountRate, 0f, 0.9f) : 0f;
+        float multiplier = (1f - clampedRate) * (hasDiscountRelic ? 0.7f : 1f);
+        int finalPrice = originalPrice > 0 ? Mathf.Max(1, Mathf.RoundToInt(originalPrice * multiplier)) : 0;
+        return new ShopPriceInfo(originalPrice, finalPrice, isItemOnSale, clampedRate, hasDiscountRelic);
+    }
+
     public ShopPriceInfo GetCardSlotPriceInfo(int slotIndex, Player player = null)
     {
-        int originalPrice = GetCardSlotBasePrice(slotIndex);
+        ShopCardEntry entry = (slotIndex >= 0 && slotIndex < cardEntries.Count) ? cardEntries[slotIndex] : null;
+        int fallbackBasePrice = GetCardSlotBasePrice(slotIndex);
         bool hasRelicDiscount = HasDiscountRelic(ResolvePlayer(player));
-        int finalPrice = hasRelicDiscount
-            ? Mathf.Max(1, Mathf.RoundToInt(originalPrice * 0.7f))
-            : originalPrice;
-        return new ShopPriceInfo(originalPrice, finalPrice, false, 0f, hasRelicDiscount);
+        return CalculateEntryPriceInfo(entry, fallbackBasePrice, hasRelicDiscount);
     }
 
     public int GetCardSlotPrice(int slotIndex, Player player = null)
@@ -273,12 +310,10 @@ public class ShopNPC : InteractableObject
 
     public ShopPriceInfo GetRelicSlotPriceInfo(int slotIndex, Player player = null)
     {
-        int originalPrice = GetRelicSlotBasePrice(slotIndex);
+        ShopRelicEntry entry = (slotIndex >= 0 && slotIndex < relicEntries.Count) ? relicEntries[slotIndex] : null;
+        int fallbackBasePrice = GetRelicSlotBasePrice(slotIndex);
         bool hasRelicDiscount = HasDiscountRelic(ResolvePlayer(player));
-        int finalPrice = hasRelicDiscount
-            ? Mathf.Max(1, Mathf.RoundToInt(originalPrice * 0.7f))
-            : originalPrice;
-        return new ShopPriceInfo(originalPrice, finalPrice, false, 0f, hasRelicDiscount);
+        return CalculateEntryPriceInfo(entry, fallbackBasePrice, hasRelicDiscount);
     }
 
     public int GetRelicSlotPrice(int slotIndex, Player player = null)
@@ -485,6 +520,49 @@ public class ShopNPC : InteractableObject
                 {
                     AddRelicEntry(extra);
                 }
+            }
+        }
+
+        // 3. 랜덤 품목 할인 추첨 및 적용 (카드/유물 공통 엔트리 구조 사용)
+        ApplyRandomSalesToEntries(cardEntries, randomCardSaleCount, randomSaleDiscountRate);
+        ApplyRandomSalesToEntries(relicEntries, randomRelicSaleCount, randomSaleDiscountRate);
+    }
+
+    private static void ApplyRandomSalesToEntries<T>(List<T> entries, int saleCount, float discountRate) where T : ShopItemEntryBase
+    {
+        if (entries == null || entries.Count == 0) return;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i] != null)
+            {
+                entries[i].isOnSale = false;
+                entries[i].discountRate = 0f;
+            }
+        }
+
+        float clampedRate = Mathf.Clamp(discountRate, 0f, 0.9f);
+        if (saleCount <= 0 || clampedRate <= 0f) return;
+
+        int targetCount = Mathf.Min(saleCount, entries.Count);
+        int[] indices = new int[entries.Count];
+        for (int i = 0; i < indices.Length; i++)
+        {
+            indices[i] = i;
+        }
+
+        for (int i = 0; i < targetCount; i++)
+        {
+            int swapIndex = UnityEngine.Random.Range(i, indices.Length);
+            int pickedIndex = indices[swapIndex];
+            indices[swapIndex] = indices[i];
+            indices[i] = pickedIndex;
+
+            T targetEntry = entries[pickedIndex];
+            if (targetEntry != null)
+            {
+                targetEntry.isOnSale = true;
+                targetEntry.discountRate = clampedRate;
             }
         }
     }

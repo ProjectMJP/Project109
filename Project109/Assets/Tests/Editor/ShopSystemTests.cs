@@ -479,9 +479,9 @@ public class ShopSystemTests
         {
             CardData slotCard = shopNpc.cardEntries[i].cardData;
             CardData.GetGoldPriceRange(slotCard.rarity, shopNpc.cardPriceVarianceRatio, out int minExpected, out int maxExpected);
-            int slotPrice = shopNpc.GetCardSlotPrice(i, player);
-            Assert.GreaterOrEqual(slotPrice, minExpected, $"{slotCard.rarity} 카드 슬롯 {i} 가격이 최소치보다 작습니다.");
-            Assert.LessOrEqual(slotPrice, maxExpected, $"{slotCard.rarity} 카드 슬롯 {i} 가격이 최대치보다 큽니다.");
+            int slotBasePrice = shopNpc.GetCardSlotBasePrice(i);
+            Assert.GreaterOrEqual(slotBasePrice, minExpected, $"{slotCard.rarity} 카드 슬롯 {i} 원가가 최소치보다 작습니다.");
+            Assert.LessOrEqual(slotBasePrice, maxExpected, $"{slotCard.rarity} 카드 슬롯 {i} 원가가 최대치보다 큽니다.");
         }
 
         int firstSlotPrice = shopNpc.GetCardSlotPrice(0, player);
@@ -1201,6 +1201,132 @@ public class ShopSystemTests
         Transform soldOverlay = FindTransformByName(panel.cardList[0].transform, "SoldSlotOverlay");
         Assert.IsNotNull(soldOverlay);
         Assert.IsTrue(soldOverlay.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void ShopNPC_RandomItemSale_AppliesToCardAndRelicStacksWithRelicAndPersistsOnReopen()
+    {
+        Player player = CreateTestPlayer(2000);
+        CreateTestGameSceneManager(player, isInDungeon: true);
+        SeedShopDatabasesAndRewardManager(cardCount: 14, relicCount: 8);
+        SetupTestAssetCacheWithShopPrefabs();
+
+        RelicData discountRelic = new RelicData
+        {
+            relicName = "할인 카드",
+            displayName = "할인 카드",
+            rarity = RelicRarity.Common,
+            obtainSource = ItemObtainSource.Standard,
+            classTypes = new List<string> { "All" }
+        };
+        ModLoader.Instance.RelicDatabase["할인 카드"] = discountRelic;
+
+        GameObject npcGo = Track(new GameObject("TestShopNPC_RandomSale"));
+        ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
+        shopNpc.BindPlayer(player);
+
+        // 1. 기본 정책 검증: 카드 1장 50% 세일, 유물 0개 세일
+        Assert.AreEqual(1, shopNpc.randomCardSaleCount);
+        Assert.AreEqual(0, shopNpc.randomRelicSaleCount);
+        Assert.AreEqual(0.5f, shopNpc.randomSaleDiscountRate, 0.0001f);
+
+        shopNpc.AddRandomItems();
+
+        int saleCardIndex = -1;
+        int cardSaleCount = 0;
+        for (int i = 0; i < shopNpc.cardEntries.Count; i++)
+        {
+            if (shopNpc.IsCardSlotOnSale(i))
+            {
+                cardSaleCount++;
+                saleCardIndex = i;
+            }
+        }
+        Assert.AreEqual(1, cardSaleCount, "기본 설정에서는 카드 1장만 랜덤 할인이 적용되어야 합니다.");
+        Assert.GreaterOrEqual(saleCardIndex, 0);
+
+        int relicSaleCount = 0;
+        for (int i = 0; i < shopNpc.relicEntries.Count; i++)
+        {
+            if (shopNpc.IsRelicSlotOnSale(i))
+            {
+                relicSaleCount++;
+            }
+        }
+        Assert.AreEqual(0, relicSaleCount, "기본 설정에서는 유물 랜덤 할인이 0개여야 합니다.");
+
+        ShopPriceInfo cardSaleInfo = shopNpc.GetCardSlotPriceInfo(saleCardIndex, player);
+        Assert.IsTrue(cardSaleInfo.IsItemOnSale);
+        Assert.IsTrue(cardSaleInfo.IsDiscounted);
+        Assert.AreEqual(Mathf.Max(1, Mathf.RoundToInt(cardSaleInfo.OriginalPrice * 0.5f)), cardSaleInfo.FinalPrice);
+
+        // 2. ShopPanel UI 연동 및 창 닫기 -> 재오픈 후 세일 슬롯 일관성 검증
+        ShopPanel panel = InstantiateShopPanelFromPrefab();
+        panel.BindShop(shopNpc);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
+        panel.OnOpen();
+
+        int nonSaleCardIndex = saleCardIndex == 0 ? 1 : 0;
+        TextMeshProUGUI saleCardPriceText = FindPriceTextOnSlot(panel.cardList[saleCardIndex]);
+        TextMeshProUGUI normalCardPriceText = FindPriceTextOnSlot(panel.cardList[nonSaleCardIndex]);
+        StringAssert.Contains($"<s>{cardSaleInfo.OriginalPrice}G</s>", saleCardPriceText.text);
+        StringAssert.Contains($"{cardSaleInfo.FinalPrice}G", saleCardPriceText.text);
+        StringAssert.DoesNotContain("<s>", normalCardPriceText.text);
+
+        Transform saleBadgeOnSaleCard = FindTransformByName(panel.cardList[saleCardIndex].transform, "SaleBadge");
+        Assert.IsNotNull(saleBadgeOnSaleCard);
+        Assert.IsTrue(saleBadgeOnSaleCard.gameObject.activeSelf);
+        Assert.IsNull(FindTransformByName(panel.cardList[nonSaleCardIndex].transform, "SaleBadge"));
+
+        panel.Close();
+        panel.OnOpen();
+        ShopPriceInfo reopenedSaleInfo = shopNpc.GetCardSlotPriceInfo(saleCardIndex, player);
+        Assert.AreEqual(cardSaleInfo.OriginalPrice, reopenedSaleInfo.OriginalPrice);
+        Assert.AreEqual(cardSaleInfo.FinalPrice, reopenedSaleInfo.FinalPrice);
+        Assert.IsTrue(shopNpc.IsCardSlotOnSale(saleCardIndex));
+
+        // 3. 유물 랜덤 세일(1개) + "할인 카드" 유물(30%) 곱연산 중첩 및 실제 결제 차감 검증
+        shopNpc.randomRelicSaleCount = 1;
+        Assert.IsTrue(shopNpc.TryReroll(out string rerollFail), rerollFail);
+
+        int rerolledSaleCardIndex = -1;
+        int rerolledCardSaleCount = 0;
+        for (int i = 0; i < shopNpc.cardEntries.Count; i++)
+        {
+            if (shopNpc.IsCardSlotOnSale(i))
+            {
+                rerolledCardSaleCount++;
+                rerolledSaleCardIndex = i;
+            }
+        }
+        Assert.AreEqual(1, rerolledCardSaleCount);
+
+        int saleRelicIndex = -1;
+        int rerolledRelicSaleCount = 0;
+        for (int i = 0; i < shopNpc.relicEntries.Count; i++)
+        {
+            if (shopNpc.IsRelicSlotOnSale(i))
+            {
+                rerolledRelicSaleCount++;
+                saleRelicIndex = i;
+            }
+        }
+        Assert.AreEqual(1, rerolledRelicSaleCount, "유물 세일 수량을 1로 지정하면 유물 1개에도 랜덤 할인이 적용되어야 합니다.");
+
+        player.AddRelic("할인 카드");
+        ShopPriceInfo stackedCardInfo = shopNpc.GetCardSlotPriceInfo(rerolledSaleCardIndex, player);
+        ShopPriceInfo stackedRelicInfo = shopNpc.GetRelicSlotPriceInfo(saleRelicIndex, player);
+
+        Assert.AreEqual(Mathf.Max(1, Mathf.RoundToInt(stackedCardInfo.OriginalPrice * 0.5f * 0.7f)), stackedCardInfo.FinalPrice);
+        Assert.AreEqual(Mathf.Max(1, Mathf.RoundToInt(stackedRelicInfo.OriginalPrice * 0.5f * 0.7f)), stackedRelicInfo.FinalPrice);
+
+        int goldBeforeCardBuy = player.playerStat.InGameCurrencyGold;
+        Assert.IsTrue(shopNpc.TryPurchaseCard(rerolledSaleCardIndex, out string buyCardFail), buyCardFail);
+        Assert.AreEqual(goldBeforeCardBuy - stackedCardInfo.FinalPrice, player.playerStat.InGameCurrencyGold);
+
+        int goldBeforeRelicBuy = player.playerStat.InGameCurrencyGold;
+        Assert.IsTrue(shopNpc.TryPurchaseRelic(saleRelicIndex, out string buyRelicFail), buyRelicFail);
+        Assert.AreEqual(goldBeforeRelicBuy - stackedRelicInfo.FinalPrice, player.playerStat.InGameCurrencyGold);
     }
 
     private static void SetStaticField<TTarget>(string fieldName, object value)
