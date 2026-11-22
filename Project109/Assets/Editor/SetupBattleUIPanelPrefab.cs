@@ -370,6 +370,122 @@ public static class SetupBattleUIPanelPrefab
         etTmp.alignment = TextAlignmentOptions.Center;
         etTmp.color = Color.white;
 
+        // 4-1. 루트 BattleUIPanel 직하위에 TargetingPreviewContainer (타깃팅 선택 카드 프리뷰 및 사용 취소 버튼) 구성
+        GameObject targetingContainerObj = GetOrCreateChild(root.transform, "TargetingPreviewContainer");
+        RectTransform tcRect = GetOrAddComponent<RectTransform>(targetingContainerObj);
+        tcRect.anchorMin = new Vector2(1f, 0f);
+        tcRect.anchorMax = new Vector2(1f, 0f);
+        tcRect.pivot = new Vector2(1f, 0f);
+        tcRect.anchoredPosition = new Vector2(-16f, 192f);
+        tcRect.sizeDelta = new Vector2(180f, 330f);
+
+        Image tcBg = GetOrAddComponent<Image>(targetingContainerObj);
+        tcBg.color = new Color(0.08f, 0.10f, 0.14f, 0.84f);
+        tcBg.raycastTarget = false;
+
+        // 상단 안내 라벨
+        GameObject headerObj = GetOrCreateChild(targetingContainerObj.transform, "HeaderLabel");
+        RectTransform headerRect = GetOrAddComponent<RectTransform>(headerObj);
+        headerRect.anchorMin = new Vector2(0f, 1f);
+        headerRect.anchorMax = new Vector2(1f, 1f);
+        headerRect.pivot = new Vector2(0.5f, 1f);
+        headerRect.anchoredPosition = new Vector2(0f, -6f);
+        headerRect.sizeDelta = new Vector2(-12f, 24f);
+
+        TextMeshProUGUI headerTmp = GetOrAddComponent<TextMeshProUGUI>(headerObj);
+        if (baseFont != null) headerTmp.font = baseFont;
+        headerTmp.text = "대상 선택 중";
+        headerTmp.fontSize = 16f;
+        headerTmp.fontStyle = FontStyles.Bold;
+        headerTmp.alignment = TextAlignmentOptions.Center;
+        headerTmp.color = new Color(1f, 0.85f, 0.4f, 1f);
+        headerTmp.raycastTarget = false;
+
+        // 선택 카드 프리뷰 슬롯 (비대화형)
+        GameObject cardSlotObj = GetOrCreateChild(targetingContainerObj.transform, "TargetingCardSlot");
+        RectTransform cardSlotRect = GetOrAddComponent<RectTransform>(cardSlotObj);
+        cardSlotRect.anchorMin = new Vector2(0.5f, 0f);
+        cardSlotRect.anchorMax = new Vector2(0.5f, 0f);
+        cardSlotRect.pivot = new Vector2(0.5f, 0.5f);
+        cardSlotRect.anchoredPosition = new Vector2(0f, 178f);
+        cardSlotRect.sizeDelta = new Vector2(148f, 252f);
+
+        CanvasGroup cardSlotGroup = GetOrAddComponent<CanvasGroup>(cardSlotObj);
+        cardSlotGroup.interactable = false;
+        cardSlotGroup.blocksRaycasts = false;
+
+        Transform previewCardTrans = cardSlotObj.transform.Find("TargetingPreviewCard");
+        GameObject previewCardObj = previewCardTrans != null ? previewCardTrans.gameObject : null;
+        if (previewCardObj == null)
+        {
+            GameObject actionCardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/ActionCard.prefab");
+            if (actionCardPrefab != null)
+            {
+                previewCardObj = PrefabUtility.InstantiatePrefab(actionCardPrefab, cardSlotObj.transform) as GameObject;
+                if (previewCardObj != null)
+                {
+                    previewCardObj.name = "TargetingPreviewCard";
+                }
+            }
+            else
+            {
+                Debug.LogError("[SetupBattleUIPanel] ActionCard.prefab을 찾을 수 없어 TargetingPreviewCard를 생성하지 못했습니다.");
+            }
+        }
+
+        CardUI previewCardUI = null;
+        if (previewCardObj != null)
+        {
+            RectTransform previewCardRect = GetOrAddComponent<RectTransform>(previewCardObj);
+            previewCardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            previewCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            previewCardRect.pivot = new Vector2(0.5f, 0.5f);
+            previewCardRect.anchoredPosition = Vector2.zero;
+            previewCardRect.localScale = new Vector3(0.76f, 0.76f, 1f);
+
+            previewCardUI = previewCardObj.GetComponent<CardUI>();
+            if (previewCardUI != null)
+            {
+                SerializedObject serializedPreviewCard = new SerializedObject(previewCardUI);
+                serializedPreviewCard.FindProperty("enableZoom").boolValue = false;
+                serializedPreviewCard.FindProperty("usePlayGesture").boolValue = false;
+                serializedPreviewCard.FindProperty("bIsCardHighlight").boolValue = false;
+                serializedPreviewCard.FindProperty("bShowEffectAreaUI").boolValue = false;
+                serializedPreviewCard.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        // 하단 사용 취소 버튼
+        GameObject cancelBtnObj = GetOrCreateChild(targetingContainerObj.transform, "CancelTargetingButton");
+        RectTransform cancelBtnRect = GetOrAddComponent<RectTransform>(cancelBtnObj);
+        cancelBtnRect.anchorMin = new Vector2(0.5f, 0f);
+        cancelBtnRect.anchorMax = new Vector2(0.5f, 0f);
+        cancelBtnRect.pivot = new Vector2(0.5f, 0f);
+        cancelBtnRect.anchoredPosition = new Vector2(0f, 8f);
+        cancelBtnRect.sizeDelta = new Vector2(160f, 40f);
+
+        Image cancelBtnImg = GetOrAddComponent<Image>(cancelBtnObj);
+        cancelBtnImg.color = new Color(0.76f, 0.22f, 0.22f, 0.96f);
+
+        Button cancelBtn = GetOrAddComponent<Button>(cancelBtnObj);
+
+        GameObject cancelBtnTextObj = GetOrCreateChild(cancelBtnObj.transform, "Text (TMP)");
+        RectTransform cancelBtnTextRect = GetOrAddComponent<RectTransform>(cancelBtnTextObj);
+        cancelBtnTextRect.anchorMin = Vector2.zero;
+        cancelBtnTextRect.anchorMax = Vector2.one;
+        cancelBtnTextRect.offsetMin = Vector2.zero;
+        cancelBtnTextRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI cancelBtnTmp = GetOrAddComponent<TextMeshProUGUI>(cancelBtnTextObj);
+        if (baseFont != null) cancelBtnTmp.font = baseFont;
+        cancelBtnTmp.text = "사용 취소";
+        cancelBtnTmp.fontSize = 18f;
+        cancelBtnTmp.fontStyle = FontStyles.Bold;
+        cancelBtnTmp.alignment = TextAlignmentOptions.Center;
+        cancelBtnTmp.color = Color.white;
+
+        targetingContainerObj.SetActive(false);
+
         // 5. 루트 BattleUIPanel 직렬화 바인딩 및 상시 Top 레이어 속성 동기화
         battleUIPanel.uiLayerType = UILayerType.Top;
         battleUIPanel.blockWorldInput = false;
@@ -380,6 +496,9 @@ public static class SetupBattleUIPanelPrefab
         serializedRoot.FindProperty("battleHandPanel").objectReferenceValue = handPanel;
         serializedRoot.FindProperty("battleMovePanel").objectReferenceValue = movePanel;
         serializedRoot.FindProperty("endTurnButton").objectReferenceValue = etButton;
+        serializedRoot.FindProperty("targetingPreviewContainer").objectReferenceValue = targetingContainerObj;
+        serializedRoot.FindProperty("targetingPreviewCardUI").objectReferenceValue = previewCardUI;
+        serializedRoot.FindProperty("cancelTargetingButton").objectReferenceValue = cancelBtn;
         serializedRoot.ApplyModifiedPropertiesWithoutUndo();
 
         // 루트에 남아있던 구버전 BattleHandPanel 컴포넌트 제거 (자식으로 이전 완료)
@@ -399,5 +518,28 @@ public static class SetupBattleUIPanelPrefab
         AssetDatabase.Refresh();
 
         Debug.Log("<color=green>[BattleUIPanel] 계층 구조(BattleHandPanel + BattleMovePanel 토글) 및 필드 바인딩 완벽 구성 완료!</color>");
+    }
+
+    private static GameObject GetOrCreateChild(Transform parent, string childName)
+    {
+        Transform existing = parent.Find(childName);
+        if (existing != null)
+        {
+            return existing.gameObject;
+        }
+
+        GameObject child = new GameObject(childName);
+        child.transform.SetParent(parent, false);
+        return child;
+    }
+
+    private static T GetOrAddComponent<T>(GameObject target) where T : Component
+    {
+        T component = target.GetComponent<T>();
+        if (component == null)
+        {
+            component = target.AddComponent<T>();
+        }
+        return component;
     }
 }

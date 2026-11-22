@@ -38,6 +38,11 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private Button switchToMoveModeButton;
     [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
 
+    [Header("Targeting Layout Settings")]
+    [SerializeField] private float targetingSlideDownOffset = 270f;
+    [SerializeField] private float targetingSelectedCardExtraOffset = 90f;
+    [SerializeField] private float targetingSlideDuration = 0.18f;
+
     [Header("Unplayable Feedback UI")]
     [SerializeField] private TextMeshProUGUI unplayableFeedbackText;
     [SerializeField] private CanvasGroup unplayableFeedbackCanvasGroup;
@@ -80,10 +85,14 @@ public class BattleHandPanel : UIPanelBase
 
     private BattleDeck _boundDeck;
     private PlayerBattleController _boundController;
+    private Card _targetingCard;
     private MotionHandle _feedbackMoveHandle;
     private MotionHandle _feedbackFadeHandle;
     private Action _onFeedbackFadeComplete;
     private bool _isMoveMode = false;
+
+    public bool IsTargetingMode => _targetingCard != null;
+    public Card TargetingCard => _targetingCard;
 
     private void Awake()
     {
@@ -137,6 +146,7 @@ public class BattleHandPanel : UIPanelBase
 
         UnbindBattleController();
         UnbindBattleDeck();
+        _targetingCard = null;
         ClearHandUI();
     }
 
@@ -206,6 +216,49 @@ public class BattleHandPanel : UIPanelBase
         {
             switchToMoveModeButton.interactable = interactable;
         }
+    }
+
+    /// <summary>
+    /// 카드 타깃팅 모드 진입·해제에 맞춰 손패 카드를 하단으로 내려 시야를 확보하거나 원래 위치로 복귀시킵니다.
+    /// </summary>
+    public void SetTargetingState(Card targetingCard)
+    {
+        if (ReferenceEquals(_targetingCard, targetingCard))
+        {
+            return;
+        }
+
+        _targetingCard = targetingCard;
+        bool isTargeting = _targetingCard != null;
+
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null || entry.isDiscarding || entry.cardUI == null)
+            {
+                continue;
+            }
+
+            entry.cardUI.CancelHoverMotions();
+            entry.cardUI.SetInteractable(!isTargeting);
+        }
+
+        ApplyCardLayout(null);
+    }
+
+    private float GetTargetCardY(HandCardEntry entry)
+    {
+        if (_targetingCard == null)
+        {
+            return 0f;
+        }
+
+        if (entry != null && ReferenceEquals(entry.card, _targetingCard))
+        {
+            return -(targetingSlideDownOffset + targetingSelectedCardExtraOffset);
+        }
+
+        return -targetingSlideDownOffset;
     }
 
     /// <summary>
@@ -679,7 +732,7 @@ public class BattleHandPanel : UIPanelBase
             HandCardEntry entry = activeCardUIs[i];
             if (entry == null || entry.cardObj == null || entry.isDiscarding) continue;
 
-            Vector2 targetPos = new Vector2(startX + (i * spacing), 0f);
+            Vector2 targetPos = new Vector2(startX + (i * spacing), GetTargetCardY(entry));
             RectTransform rect = entry.rectTransform;
 
             if (entry.cardUI != null)
@@ -787,7 +840,7 @@ public class BattleHandPanel : UIPanelBase
                     continue;
                 }
 
-                float moveDuration = isEntering ? drawDuration : layoutDuration;
+                float moveDuration = isEntering ? drawDuration : (IsTargetingMode ? targetingSlideDuration : layoutDuration);
                 if (!Application.isPlaying || !isPanelActive || moveDuration <= 0f)
                 {
                     rect.anchoredPosition = targetPos;
@@ -863,7 +916,7 @@ public class BattleHandPanel : UIPanelBase
             entry.cardUI.ResetForPool();
             entry.cardUI.UpdateCardInstance(card);
             ConfigureHandCardVisuals(entry.cardUI);
-            entry.cardUI.SetInteractable(true);
+            entry.cardUI.SetInteractable(!IsTargetingMode);
             entry.cardUI.SetEntering(true);
             entry.cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
             entry.cardUI.OnHoverZoomStarted += HandleCardHoverZoomStarted;
@@ -1084,6 +1137,8 @@ public class BattleHandPanel : UIPanelBase
 
     private void ClearHandUI()
     {
+        _targetingCard = null;
+
         // OnComplete를 통한 중복 풀 반환을 방지하기 위해 먼저 모든 핸들을 취소한 뒤 풀에 반환
         for (int i = 0; i < activeCardUIs.Count; i++)
         {
@@ -1203,6 +1258,7 @@ public class BattleHandPanel : UIPanelBase
         CancelFeedbackMotions();
         UnbindBattleController();
         UnbindBattleDeck();
+        _targetingCard = null;
         ClearHandUI();
     }
 }

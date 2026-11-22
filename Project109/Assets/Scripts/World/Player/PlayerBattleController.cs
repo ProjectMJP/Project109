@@ -29,10 +29,34 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public event System.Action<Card, CardPlayFailReason, string> OnCardPlayRejected;
 
+    /// <summary>
+    /// 카드 타깃팅 모드 진입 또는 해제 시 현재 타깃팅 중인 카드를 발행하는 이벤트입니다. (해제 시 null)
+    /// </summary>
+    public event System.Action<Card> OnTargetingStateChanged;
+
+    private Card _lastNotifiedTargetingCard;
+
+    /// <summary>
+    /// 현재 타깃팅 선택 중인 카드 인스턴스를 반환합니다. 타깃팅 중이 아니면 null입니다.
+    /// </summary>
+    public Card ActiveTargetingCard => controlState == PlayerControlState.TargetSelection ? activeCardForTargeting : null;
+
     public void Dispose()
     {
         OnBattleEnd();
         OnCardPlayRejected = null;
+        OnTargetingStateChanged = null;
+    }
+
+    private void NotifyTargetingStateChanged(Card targetingCard)
+    {
+        if (ReferenceEquals(_lastNotifiedTargetingCard, targetingCard))
+        {
+            return;
+        }
+
+        _lastNotifiedTargetingCard = targetingCard;
+        OnTargetingStateChanged?.Invoke(targetingCard);
     }
 
     /// <summary>
@@ -171,6 +195,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;
+        NotifyTargetingStateChanged(null);
 
         UnsubscribeInputEvents();
 
@@ -252,6 +277,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
+        NotifyTargetingStateChanged(null);
         if (_battleUI != null)
         {
             _battleUI.SetTurnActive(true);
@@ -295,6 +321,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         bonusDrawThisTurn = 0;
 
         ClearTargetingHighlights();
+        NotifyTargetingStateChanged(null);
 
         if (_battleUI != null)
         {
@@ -429,6 +456,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             }
 
             ApplyTargetingHighlights(_targetingPreviewBuffer, activeCardForTargeting);
+            NotifyTargetingStateChanged(activeCardForTargeting);
 
             Debug.Log($"[TargetSelection] {card.cardData?.cardName} 카드의 대상을 지정해 주세요. (TargetType: {parsedTargetType})");
         }
@@ -617,6 +645,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         _moveRequestToken++;
         if (controlState == PlayerControlState.Normal)
         {
+            NotifyTargetingStateChanged(null);
             return;
         }
         _lastBattleCancelFrame = Time.frameCount;
@@ -647,6 +676,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         controlState = PlayerControlState.Normal;
+        NotifyTargetingStateChanged(null);
         if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Hand)
         {
             _battleUI.SwitchToHandMode();
@@ -658,6 +688,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void EnablePlayerMove()
     {
+        if (controlState == PlayerControlState.TargetSelection)
+        {
+            CancelCurrentState();
+        }
+
         _moveRequestToken++;
         if (playerMove != null)
         {
@@ -1415,6 +1450,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                     }
                                     controlState = PlayerControlState.Normal;
                                     ClearTargetingHighlights();
+                                    NotifyTargetingStateChanged(null);
                                 }
                                 else if (targetType == TargetType.MultiEnemy && _multiSelectedTargets.Count > 0)
                                 {

@@ -21,9 +21,18 @@ public class BattleUIPanel : UIPanelBase
     [Header("Turn End")]
     [SerializeField] private UnityEngine.UI.Button endTurnButton;
 
+    [Header("Targeting Preview")]
+    [SerializeField] private GameObject targetingPreviewContainer;
+    [SerializeField] private CardUI targetingPreviewCardUI;
+    [SerializeField] private UnityEngine.UI.Button cancelTargetingButton;
+
     public BattleHandPanel HandPanel => battleHandPanel;
     public BattleMovePanel MovePanel => battleMovePanel;
     public UnityEngine.UI.Button EndTurnButton => endTurnButton;
+    public GameObject TargetingPreviewContainer => targetingPreviewContainer;
+    public CardUI TargetingPreviewCardUI => targetingPreviewCardUI;
+    public UnityEngine.UI.Button CancelTargetingButton => cancelTargetingButton;
+    public bool IsTargetingActive => _isTargetingActive;
 
     public BattleUIMode currentMode { get; private set; } = BattleUIMode.Hand;
 
@@ -34,6 +43,8 @@ public class BattleUIPanel : UIPanelBase
     private PlayerBattleController _controller;
     private Character _boundCharacter;
     private BattlePointerHoverForwarder _endTurnHoverForwarder;
+    private bool _isTurnActive = true;
+    private bool _isTargetingActive = false;
 
     /// <summary>
     /// 턴 종료 버튼의 포인터 진입/이탈을 감지하여 타임라인 패널에 호버 미리보기를 전달하는 경량 포워더입니다.
@@ -92,6 +103,25 @@ public class BattleUIPanel : UIPanelBase
         {
             Debug.LogError("[BattleUIPanel] endTurnButton이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
         }
+
+        if (targetingPreviewContainer != null)
+        {
+            targetingPreviewContainer.SetActive(false);
+
+            if (targetingPreviewCardUI == null)
+            {
+                Debug.LogError("[BattleUIPanel] targetingPreviewCardUI가 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
+            }
+
+            if (cancelTargetingButton == null)
+            {
+                Debug.LogError("[BattleUIPanel] cancelTargetingButton이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[BattleUIPanel] targetingPreviewContainer가 바인딩되지 않았습니다.", this);
+        }
     }
 
     protected override void OnEnable()
@@ -133,8 +163,21 @@ public class BattleUIPanel : UIPanelBase
             _endTurnHoverForwarder.Bind(endTurnButton);
         }
 
+        if (cancelTargetingButton != null)
+        {
+            cancelTargetingButton.onClick.RemoveAllListeners();
+            cancelTargetingButton.onClick.AddListener(HandleCancelTargetingClicked);
+        }
+
+        if (_controller != null)
+        {
+            _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
+            _controller.OnTargetingStateChanged += HandleTargetingStateChanged;
+        }
+
         // 패널 활성화 시 기본 손패 모드로 시작
         SwitchToHandMode();
+        HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
     }
 
     protected override void OnDisable()
@@ -157,9 +200,29 @@ public class BattleUIPanel : UIPanelBase
             endTurnButton.onClick.RemoveAllListeners();
         }
 
+        if (cancelTargetingButton != null)
+        {
+            cancelTargetingButton.onClick.RemoveListener(HandleCancelTargetingClicked);
+        }
+
+        if (_controller != null)
+        {
+            _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
+        }
+
+        HandleTargetingStateChanged(null);
+
         if (BattleTimelinePanel.Instance != null)
         {
             BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (_controller != null)
+        {
+            _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
         }
     }
 
@@ -185,12 +248,14 @@ public class BattleUIPanel : UIPanelBase
     /// </summary>
     public void SetTurnActive(bool isActive)
     {
-        SetEndTurnInteractable(isActive);
+        _isTurnActive = isActive;
 
-        if (battleHandPanel != null)
+        if (!isActive && _isTargetingActive)
         {
-            battleHandPanel.SetSwitchModeInteractable(isActive);
+            HandleTargetingStateChanged(null);
         }
+
+        RefreshInteractiveButtons();
 
         if (!isActive)
         {
@@ -210,14 +275,79 @@ public class BattleUIPanel : UIPanelBase
         }
     }
 
+    private void HandleCancelTargetingClicked()
+    {
+        if (_controller != null)
+        {
+            _controller.CancelCurrentState();
+        }
+    }
+
+    private void HandleTargetingStateChanged(Card targetingCard)
+    {
+        _isTargetingActive = targetingCard != null;
+
+        if (targetingPreviewContainer != null)
+        {
+            targetingPreviewContainer.SetActive(_isTargetingActive);
+
+            if (_isTargetingActive && targetingPreviewCardUI != null)
+            {
+                targetingPreviewCardUI.UpdateCardInstance(targetingCard);
+                ConfigureTargetingPreviewCard(targetingPreviewCardUI);
+            }
+        }
+
+        if (battleHandPanel != null)
+        {
+            battleHandPanel.SetTargetingState(targetingCard);
+        }
+
+        RefreshInteractiveButtons();
+    }
+
+    private static void ConfigureTargetingPreviewCard(CardUI previewCardUI)
+    {
+        if (previewCardUI == null) return;
+
+        previewCardUI.enableZoom = false;
+        previewCardUI.usePlayGesture = false;
+        previewCardUI.bIsCardHighlight = false;
+        previewCardUI.bShowEffectAreaUI = false;
+        previewCardUI.OffSelectHighlight();
+        previewCardUI.SetInteractable(false);
+    }
+
+    private void RefreshInteractiveButtons()
+    {
+        bool canUseTurnButtons = _isTurnActive && !_isTargetingActive;
+        SetEndTurnInteractable(canUseTurnButtons);
+
+        if (battleHandPanel != null)
+        {
+            battleHandPanel.SetSwitchModeInteractable(canUseTurnButtons);
+        }
+    }
+
     /// <summary>
     /// 플레이어 인스턴스와 전투 컨트롤러를 바인딩합니다.
     /// </summary>
     public void BindPlayer(Player player, PlayerBattleController controller)
     {
+        if (_controller != null)
+        {
+            _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
+        }
+
         _boundPlayer = player;
         _controller = controller;
         _boundCharacter = player != null ? player.character : null;
+
+        if (_controller != null)
+        {
+            _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
+            _controller.OnTargetingStateChanged += HandleTargetingStateChanged;
+        }
 
         if (battleHandPanel != null)
         {
@@ -229,6 +359,8 @@ public class BattleUIPanel : UIPanelBase
         {
             battleMovePanel.RefreshMoveInfo(_boundCharacter);
         }
+
+        HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
     }
 
     /// <summary>
