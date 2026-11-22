@@ -451,10 +451,10 @@ public class CardPlayGestureTests
         Assert.AreEqual(200f, card1UI.CachedRectTransform.anchoredPosition.y, 0.01f);
         Assert.AreEqual(contentRect.childCount - 1, card1UI.transform.GetSiblingIndex());
 
-        // 4. 갱신된 기준 슬롯 좌표(0, 0)로 CancelDrag 복귀 확인
+        // 4. 갱신된 기준 슬롯 좌표(0, RestingCardYOffset)로 CancelDrag 복귀 확인
         card1UI.CancelDrag();
         Assert.IsFalse(card1UI.IsDragging);
         Assert.AreEqual(0f, card1UI.CachedRectTransform.anchoredPosition.x, 0.01f);
-        Assert.AreEqual(0f, card1UI.CachedRectTransform.anchoredPosition.y, 0.01f);
+        Assert.AreEqual(handPanel.RestingCardYOffset, card1UI.CachedRectTransform.anchoredPosition.y, 0.01f);
     }
 }

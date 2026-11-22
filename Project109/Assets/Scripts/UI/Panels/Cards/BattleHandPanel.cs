@@ -38,8 +38,14 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private Button switchToMoveModeButton;
     [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
 
+    [Header("Bottom Peek & Hover Reveal Settings")]
+    [SerializeField] private float restingCardYOffset = -105f;
+    [SerializeField] private float hoverRevealScale = 1.1f;
+    [SerializeField] private float hoverRevealYOffset = 140f;
+    [SerializeField] private float handPlayDragThresholdY = 250f;
+
     [Header("Targeting Layout Settings")]
-    [SerializeField] private float targetingSlideDownOffset = 270f;
+    [SerializeField] private float targetingSlideDownOffset = 175f;
     [SerializeField] private float targetingSelectedCardExtraOffset = 90f;
     [SerializeField] private float targetingSlideDuration = 0.18f;
 
@@ -47,6 +53,9 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private TextMeshProUGUI unplayableFeedbackText;
     [SerializeField] private CanvasGroup unplayableFeedbackCanvasGroup;
     [SerializeField] private RectTransform unplayableFeedbackRect;
+
+    public float RestingCardYOffset => restingCardYOffset;
+    public float HoverRevealYOffset => hoverRevealYOffset;
 
     public event Action OnMoveModeRequested;
     public event Action OnCardModeRequested;
@@ -239,6 +248,7 @@ public class BattleHandPanel : UIPanelBase
                 continue;
             }
 
+            entry.cardUI.ForceExitHoverZoom(immediate: true);
             entry.cardUI.CancelHoverMotions();
             entry.cardUI.SetInteractable(!isTargeting);
         }
@@ -250,15 +260,15 @@ public class BattleHandPanel : UIPanelBase
     {
         if (_targetingCard == null)
         {
-            return 0f;
+            return restingCardYOffset;
         }
 
         if (entry != null && ReferenceEquals(entry.card, _targetingCard))
         {
-            return -(targetingSlideDownOffset + targetingSelectedCardExtraOffset);
+            return restingCardYOffset - (targetingSlideDownOffset + targetingSelectedCardExtraOffset);
         }
 
-        return -targetingSlideDownOffset;
+        return restingCardYOffset - targetingSlideDownOffset;
     }
 
     /// <summary>
@@ -920,6 +930,8 @@ public class BattleHandPanel : UIPanelBase
             entry.cardUI.SetEntering(true);
             entry.cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
             entry.cardUI.OnHoverZoomStarted += HandleCardHoverZoomStarted;
+            entry.cardUI.OnHoverZoomEnded -= HandleCardHoverZoomEnded;
+            entry.cardUI.OnHoverZoomEnded += HandleCardHoverZoomEnded;
 
             // 카드 클릭 시 플레이어 컨트롤러의 카드 시전 시도 연동
             entry.cardUI.OnCardClick.RemoveAllListeners();
@@ -957,8 +969,9 @@ public class BattleHandPanel : UIPanelBase
     private void ConfigureHandCardVisuals(CardUI cardUI)
     {
         cardUI.enableZoom = true;
-        cardUI.zoomScale = 1.1f;
-        cardUI.zoomYOffset = 90f;
+        cardUI.zoomScale = hoverRevealScale;
+        cardUI.zoomYOffset = hoverRevealYOffset;
+        cardUI.playDragThresholdY = handPlayDragThresholdY;
         cardUI.bIsCardHighlight = true;
         cardUI.bShowEffectAreaUI = true;
         cardUI.usePlayGesture = true;
@@ -982,6 +995,7 @@ public class BattleHandPanel : UIPanelBase
         if (entry.cardUI != null)
         {
             entry.cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
+            entry.cardUI.OnHoverZoomEnded -= HandleCardHoverZoomEnded;
             entry.cardUI.OnCardClick.RemoveAllListeners();
             entry.cardUI.OffSelectHighlight();
             entry.cardUI.bIsCardHighlight = false;
@@ -1063,15 +1077,56 @@ public class BattleHandPanel : UIPanelBase
         for (int i = 0; i < activeCardUIs.Count; i++)
         {
             HandCardEntry entry = activeCardUIs[i];
-            if (entry != null && entry.cardUI == cardUI)
+            if (entry == null || entry.isDiscarding || entry.cardUI == null)
+            {
+                continue;
+            }
+
+            if (entry.cardUI == cardUI)
             {
                 CancelEntryHandles(entry);
                 if (entry.rectTransform != null)
                 {
                     entry.rectTransform.localRotation = Quaternion.identity;
                 }
-                break;
             }
+            else if (entry.cardUI.IsZoomed)
+            {
+                entry.cardUI.ForceExitHoverZoom(immediate: false);
+            }
+        }
+
+        NormalizeSiblingOrder(cardUI);
+    }
+
+    private void HandleCardHoverZoomEnded(CardUI cardUI)
+    {
+        NormalizeSiblingOrder(null);
+    }
+
+    private void NormalizeSiblingOrder(CardUI priorityTopCard)
+    {
+        CardUI topCard = priorityTopCard;
+
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null || entry.cardObj == null || entry.isDiscarding)
+            {
+                continue;
+            }
+
+            entry.cardObj.transform.SetSiblingIndex(i);
+
+            if (topCard == null && entry.cardUI != null && (entry.cardUI.IsZoomed || entry.cardUI.IsDragging))
+            {
+                topCard = entry.cardUI;
+            }
+        }
+
+        if (topCard != null)
+        {
+            topCard.transform.SetAsLastSibling();
         }
     }
 
@@ -1183,6 +1238,7 @@ public class BattleHandPanel : UIPanelBase
         if (cardUI != null)
         {
             cardUI.OnHoverZoomStarted -= HandleCardHoverZoomStarted;
+            cardUI.OnHoverZoomEnded -= HandleCardHoverZoomEnded;
             cardUI.OnCardClick.RemoveAllListeners();
             cardUI.OffSelectHighlight();
             cardUI.enableZoom = false;

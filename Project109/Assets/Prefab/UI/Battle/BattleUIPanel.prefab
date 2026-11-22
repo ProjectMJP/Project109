@@ -1180,7 +1180,11 @@ MonoBehaviour:
   usedCountText: {fileID: 4850860266578932558}
   switchToMoveModeButton: {fileID: 2170007661428149395}
   modeSwitchButtonText: {fileID: 6380580919683742152}
-  targetingSlideDownOffset: 270
+  restingCardYOffset: -105
+  hoverRevealScale: 1.1
+  hoverRevealYOffset: 140
+  handPlayDragThresholdY: 250
+  targetingSlideDownOffset: 175
   targetingSelectedCardExtraOffset: 90
   targetingSlideDuration: 0.18
   unplayableFeedbackText: {fileID: 0}

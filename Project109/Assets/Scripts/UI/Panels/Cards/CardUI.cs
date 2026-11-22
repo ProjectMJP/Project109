@@ -72,6 +72,14 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private bool _dragCanceled = false;
     private float _lastClickUnscaledTime = -10f;
     private Canvas _cachedRootCanvas;
+    private Graphic _hoverRaycastGraphic;
+    private Vector4 _originalHoverRaycastPadding;
+    private bool _hasHoverRaycastPaddingApplied = false;
+
+    private const float HoverRaycastBottomMargin = 12f;
+    private const float DefaultZoomScale = 1.1f;
+    private const float DefaultZoomYOffset = 90f;
+    private const float DefaultPlayDragThresholdY = 140f;
 
     private static readonly Vector2 DefaultCardSize = new Vector2(185f, 325f);
     private static readonly Vector2 CenterAnchorPivot = new Vector2(0.5f, 0.5f);
@@ -94,6 +102,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     /// 카드 호버 줌이 시작될 때 외부 레이아웃 트윈과의 충돌을 막기 위해 호출되는 이벤트입니다.
     /// </summary>
     public event Action<CardUI> OnHoverZoomStarted;
+
+    /// <summary>
+    /// 카드 호버 줌이 종료될 때 손패 렌더링 순서 정규화를 위해 호출되는 이벤트입니다.
+    /// </summary>
+    public event Action<CardUI> OnHoverZoomEnded;
 
     public bool IsInteractable => _isInteractable;
     public bool IsZoomed => isZoomed;
@@ -206,6 +219,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         ClearTimelineCardPreview();
         bool hadActiveHoverMotion = _hoverPosHandle.IsActive() || _hoverScaleHandle.IsActive();
         CancelHoverMotions();
+        ApplyHoverRaycastBridge(false);
 
         if (bIsCardHighlight)
         {
@@ -246,6 +260,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     {
         SetDraggingState(false);
         CancelHoverMotions();
+        ApplyHoverRaycastBridge(false);
     }
 
     private void EnsureCachedComponents()
@@ -267,6 +282,90 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 }
             }
         }
+
+        ResolveHoverRaycastGraphic();
+    }
+
+    private void ResolveHoverRaycastGraphic()
+    {
+        if (_hoverRaycastGraphic != null)
+        {
+            return;
+        }
+
+        Graphic rootGraphic = GetComponent<Graphic>();
+        if (rootGraphic != null && rootGraphic.raycastTarget)
+        {
+            _hoverRaycastGraphic = rootGraphic;
+            _originalHoverRaycastPadding = rootGraphic.raycastPadding;
+            return;
+        }
+
+        Graphic[] childGraphics = GetComponentsInChildren<Graphic>(true);
+        Graphic fallbackBest = null;
+        float bestArea = -1f;
+
+        for (int i = 0; i < childGraphics.Length; i++)
+        {
+            Graphic g = childGraphics[i];
+            if (g == null || !g.raycastTarget)
+            {
+                continue;
+            }
+
+            if (g is Image && string.Equals(g.gameObject.name, "Background", StringComparison.Ordinal))
+            {
+                _hoverRaycastGraphic = g;
+                _originalHoverRaycastPadding = g.raycastPadding;
+                return;
+            }
+
+            RectTransform rt = g.rectTransform;
+            float area = rt != null ? Mathf.Abs(rt.rect.width * rt.rect.height) : 0f;
+            if (fallbackBest == null || area > bestArea)
+            {
+                fallbackBest = g;
+                bestArea = area;
+            }
+        }
+
+        if (fallbackBest != null)
+        {
+            _hoverRaycastGraphic = fallbackBest;
+            _originalHoverRaycastPadding = fallbackBest.raycastPadding;
+        }
+    }
+
+    private void ApplyHoverRaycastBridge(bool enable)
+    {
+        if (enable && zoomYOffset > 0f)
+        {
+            EnsureCachedComponents();
+            if (_hoverRaycastGraphic == null)
+            {
+                return;
+            }
+
+            if (!_hasHoverRaycastPaddingApplied)
+            {
+                _originalHoverRaycastPadding = _hoverRaycastGraphic.raycastPadding;
+            }
+
+            float downwardExtension = (zoomYOffset / Mathf.Max(0.1f, zoomScale)) + HoverRaycastBottomMargin;
+            _hoverRaycastGraphic.raycastPadding = new Vector4(
+                _originalHoverRaycastPadding.x,
+                _originalHoverRaycastPadding.y - downwardExtension,
+                _originalHoverRaycastPadding.z,
+                _originalHoverRaycastPadding.w);
+            _hasHoverRaycastPaddingApplied = true;
+            return;
+        }
+
+        if (_hasHoverRaycastPaddingApplied && _hoverRaycastGraphic != null)
+        {
+            _hoverRaycastGraphic.raycastPadding = _originalHoverRaycastPadding;
+        }
+        _hasHoverRaycastPaddingApplied = false;
     }
 
     private void ApplyRaycastInteractable(bool interactable)
@@ -308,6 +407,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             HideCardKeywordTooltips();
             ClearTimelineCardPreview();
             CancelHoverMotions();
+            ApplyHoverRaycastBridge(false);
 
             if (bIsCardHighlight)
             {
@@ -322,7 +422,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 }
 
                 isZoomed = false;
-                if (wasDragging && !_isDiscarding)
+                if (!_isDiscarding)
                 {
                     RestoreRestingTransformImmediate();
                 }
@@ -339,6 +439,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         if (entering)
         {
             CancelHoverMotions();
+            ApplyHoverRaycastBridge(false);
             isZoomed = false;
             SetDraggingState(false);
             _dragCanceled = false;
@@ -358,6 +459,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             SetDraggingState(false);
             _dragCanceled = false;
             _lastClickUnscaledTime = -10f;
+            ApplyHoverRaycastBridge(false);
             SetInteractable(false);
         }
     }
@@ -391,10 +493,17 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         HideCardKeywordTooltips();
         ClearTimelineCardPreview();
         CancelHoverMotions();
+        ApplyHoverRaycastBridge(false);
 
         cardInstance = null;
         cardData = null;
 
+        enableZoom = false;
+        zoomScale = DefaultZoomScale;
+        zoomYOffset = DefaultZoomYOffset;
+        playDragThresholdY = DefaultPlayDragThresholdY;
+        bIsCardHighlight = false;
+        bShowEffectAreaUI = false;
         usePlayGesture = false;
         isZoomed = false;
         _isEntering = false;
@@ -429,6 +538,40 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         transform.localScale = Vector3.one;
         transform.localRotation = Quaternion.identity;
+    }
+
+    /// <summary>
+    /// 외부 레이아웃 전환(타깃팅, 다른 카드 호버 전환 등) 시 호버 확대 상태와 Raycast 브리지를 즉시 또는 트윈으로 해제합니다.
+    /// </summary>
+    public void ForceExitHoverZoom(bool immediate = false)
+    {
+        if (!isZoomed && !_hasHoverRaycastPaddingApplied)
+        {
+            return;
+        }
+
+        isZoomed = false;
+        ApplyHoverRaycastBridge(false);
+        HideCardKeywordTooltips();
+        ClearTimelineCardPreview();
+
+        if (bIsCardHighlight)
+        {
+            OffSelectHighlight();
+        }
+
+        if (immediate)
+        {
+            CancelHoverMotions();
+            RestoreRestingTransformImmediate();
+        }
+        else
+        {
+            RestoreSiblingIndexSafely(_hasHandSlot ? _baseSiblingIndex : originalSiblingIndex);
+            PlayHoverZoomMotion(false);
+        }
+
+        OnHoverZoomEnded?.Invoke(this);
     }
 
     /// <summary>
@@ -844,6 +987,8 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
 
         OnHoverZoomStarted?.Invoke(this);
+        isZoomed = false;
+        ApplyHoverRaycastBridge(false);
         CancelHoverMotions();
         HideCardKeywordTooltips();
 
@@ -1033,6 +1178,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 }
             }
 
+            ApplyHoverRaycastBridge(true);
             transform.SetAsLastSibling();
             PlayHoverZoomMotion(true);
         }
@@ -1051,6 +1197,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         HideCardKeywordTooltips();
         ClearTimelineCardPreview();
+        ApplyHoverRaycastBridge(false);
 
         if (bIsCardHighlight)
             OffSelectHighlight();       //카드 하이라이트off
@@ -1074,6 +1221,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             isZoomed = false;
             RestoreSiblingIndexSafely(_hasHandSlot ? _baseSiblingIndex : originalSiblingIndex);
             PlayHoverZoomMotion(false);
+            OnHoverZoomEnded?.Invoke(this);
         }
     }
 }

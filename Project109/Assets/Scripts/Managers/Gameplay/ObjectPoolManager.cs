@@ -177,6 +177,10 @@ public class ObjectPoolManager : MonoBehaviour
     {
         if (ui != null)
         {
+            if (ui.TryGetComponent<CardUI>(out CardUI cardUI))
+            {
+                cardUI.ResetForPool();
+            }
             ui.SetActive(false);
             ui.transform.SetParent(this.transform);
         }

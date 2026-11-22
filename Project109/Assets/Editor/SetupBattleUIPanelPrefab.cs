@@ -167,6 +167,11 @@ public static class SetupBattleUIPanelPrefab
         serializedHand.FindProperty("usedCountText").objectReferenceValue = usedTmp;
         serializedHand.FindProperty("switchToMoveModeButton").objectReferenceValue = mbButton;
         serializedHand.FindProperty("modeSwitchButtonText").objectReferenceValue = mbTmp;
+        serializedHand.FindProperty("restingCardYOffset").floatValue = -105f;
+        serializedHand.FindProperty("hoverRevealScale").floatValue = 1.1f;
+        serializedHand.FindProperty("hoverRevealYOffset").floatValue = 140f;
+        serializedHand.FindProperty("handPlayDragThresholdY").floatValue = 250f;
+        serializedHand.FindProperty("targetingSlideDownOffset").floatValue = 175f;
         serializedHand.ApplyModifiedPropertiesWithoutUndo();
 
         // 3. BattleMovePanel 자식 오브젝트 구성
