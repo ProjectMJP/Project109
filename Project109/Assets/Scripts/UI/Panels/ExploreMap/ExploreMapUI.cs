@@ -24,6 +24,12 @@ public class ExploreMapUI : UIPanelBase
 
     public IReadOnlyList<List<ExploreNodeUI>> MapNodes => _exploreMap;
 
+    private void Awake()
+    {
+        uiLayerType = UILayerType.Popup;
+        blockWorldInput = true;
+    }
+
     public void CreateExploreMap(int mapLength)
     {
         // 기존 맵이 있다면 삭제
@@ -121,6 +127,7 @@ public class ExploreMapUI : UIPanelBase
 
     public override void OnOpen()
     {
+        uiLayerType = UILayerType.Popup;
         base.OnOpen();
 
         // 비활성화 상태에서 생성되어 화살표가 아직 그려지지 않았거나 재구축이 필요한 경우 생성

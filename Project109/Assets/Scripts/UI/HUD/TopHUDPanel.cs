@@ -214,10 +214,10 @@ public class TopHUDPanel : UIPanelBase
             return;
         }
 
-        // RunManager가 존재하지 않는 예외 상황에서의 안전 폴백 (프리팹 기본 레이어 유지)
+        // RunManager가 존재하지 않는 예외 상황에서의 안전 폴백 (Popup 레이어로 전투 UI 상위에 표시)
         if (exploreMapUI == null)
         {
-            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Popup, false);
         }
 
         if (exploreMapUI != null)

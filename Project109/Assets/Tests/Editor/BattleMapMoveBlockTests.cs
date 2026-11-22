@@ -949,6 +949,90 @@ public class BattleMapMoveBlockTests
     }
 
     [Test]
+    public void ExploreMapUI_OpenedDuringBattle_RendersOnPopupLayerAboveBattleHUD_BlocksInputAndKeepsTooltipOnTop()
+    {
+        Player player = CreateTestPlayer();
+        CreateTestGameSceneManager(player, isInDungeon: true);
+        PlayerInputController inputCtrl = CreateMockInputController();
+        var (runManager, battleManager, stageManager) = CreateTestRunContext(player);
+
+        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+
+        GameObject uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/UIManager.prefab");
+        GameObject exploreMapPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/Map/ExploreMap.prefab");
+        GameObject battleUIPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/BattleUIPanel.prefab");
+        GameObject timelinePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/BattleTimelinePanel.prefab");
+        GameObject sideHudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/BattleSideUnitHUDPanel.prefab");
+        GameObject topHudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/TopHUDPanel.prefab");
+
+        Assert.IsNotNull(uiManagerPrefab);
+        Assert.IsNotNull(exploreMapPrefab);
+        Assert.IsNotNull(battleUIPrefab);
+        Assert.IsNotNull(timelinePrefab);
+        Assert.IsNotNull(sideHudPrefab);
+        Assert.IsNotNull(topHudPrefab);
+
+        SetPrivateField(cache, "uiDict", new Dictionary<string, GameObject>
+        {
+            { UIConstants.PANEL_EXPLORE_MAP, exploreMapPrefab },
+            { UIConstants.PANEL_BATTLE_UI, battleUIPrefab },
+            { UIConstants.PANEL_BATTLE_TIMELINE, timelinePrefab },
+            { UIConstants.PANEL_BATTLE_SIDE_UNIT_HUD, sideHudPrefab },
+            { UIConstants.PANEL_TOP_HUD, topHudPrefab }
+        });
+
+        GameObject uiManagerGo = Track(UnityEngine.Object.Instantiate(uiManagerPrefab));
+        UIManager uiManager = uiManagerGo.GetComponent<UIManager>();
+        InvokePrivateMethod(uiManager, "Awake");
+
+        // 전투 중 HUD 패널들을 TopUILayer(sortingOrder 300)에 활성화
+        BattleUIPanel battleUI = uiManager.OpenUI<BattleUIPanel>(UIConstants.PANEL_BATTLE_UI, UILayerType.Top, true);
+        BattleTimelinePanel timelineUI = uiManager.OpenUI<BattleTimelinePanel>(UIConstants.PANEL_BATTLE_TIMELINE, UILayerType.Top, true);
+        BattleSideUnitHUDPanel sideHud = uiManager.OpenUI<BattleSideUnitHUDPanel>(UIConstants.PANEL_BATTLE_SIDE_UNIT_HUD, UILayerType.Top, true);
+        TopHUDPanel topHud = uiManager.OpenUI<TopHUDPanel>(UIConstants.PANEL_TOP_HUD, UILayerType.Top, true);
+
+        Assert.AreSame(uiManager.topUILayer.transform, battleUI.transform.parent);
+        Assert.AreSame(uiManager.topUILayer.transform, timelineUI.transform.parent);
+        Assert.AreSame(uiManager.topUILayer.transform, sideHud.transform.parent);
+        Assert.AreSame(uiManager.topUILayer.transform, topHud.transform.parent);
+
+        ExploreMapData mapData = CreateTwoFloorMapData();
+        runManager.exploreMapManager.RestoreMapData(mapData);
+        runManager.currentExploreNode = mapData.floors[0].nodes[0];
+        runManager.currentExploreMapFloor = 0;
+
+        stageManager.currentMapState = MapState.Battle;
+        SetBattleState(battleManager, BattleState.TurnInProgress);
+
+        // 전투 중 탐험 지도 오픈 -> PopupUILayer(sortingOrder 400)에 배치되고 월드 입력 차단
+        ExploreMapUI exploreMapUI = runManager.OpenOrShowExploreMap(mapData.floors.Count);
+        Assert.IsNotNull(exploreMapUI);
+        Assert.IsTrue(exploreMapUI.gameObject.activeInHierarchy);
+        Assert.AreEqual(UILayerType.Popup, exploreMapUI.uiLayerType);
+        Assert.AreSame(uiManager.popupUILayer.transform, exploreMapUI.transform.parent);
+        Assert.Greater(uiManager.popupUILayer.sortingOrder, uiManager.topUILayer.sortingOrder,
+            "ExploreMapUI(PopupUILayer)는 전투 HUD/TopHUD(TopUILayer)보다 상위 SortingOrder여야 합니다.");
+        Assert.IsTrue(exploreMapUI.blockWorldInput);
+        Assert.IsTrue(uiManager.IsWorldInputBlocked);
+        Assert.IsTrue(inputCtrl.IsWorldInputBlocked);
+
+        // 이동 불가 툴팁 호출 시 TooltipContainer가 같은 PopupUILayer 내에서 ExploreMapUI보다 뒤에(상위에) 위치해야 함
+        TooltipManager tooltipManager = uiManager.popupUILayer.GetComponentInChildren<TooltipManager>(true);
+        Assert.IsNotNull(tooltipManager);
+        exploreMapUI.MapNodes[1][0].LoadMapDataFromExploreNodeUI();
+        Assert.IsTrue(tooltipManager.gameObject.activeSelf);
+        Assert.Greater(tooltipManager.transform.GetSiblingIndex(), exploreMapUI.transform.GetSiblingIndex());
+
+        // ESC 닫기 시 ExploreMapUI가 닫히고 월드 입력 차단이 해제되어야 함
+        uiManager.CloseTopPopup();
+        Assert.IsFalse(exploreMapUI.gameObject.activeInHierarchy);
+        Assert.IsFalse(uiManager.IsWorldInputBlocked);
+        Assert.IsFalse(inputCtrl.IsWorldInputBlocked);
+    }
+
+    [Test]
     public void RelicAndStarterKitAndDropTables_YamlValidation()
     {
         IDeserializer deserializer = new DeserializerBuilder()

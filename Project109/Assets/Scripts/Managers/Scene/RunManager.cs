@@ -204,7 +204,7 @@ public class RunManager : MonoBehaviour
         if (exploreMapUI == null)
         {
             // 비활성 상태로 먼저 생성하여 CreateExploreMap 이후 PushActiveUIPanel 시 OnOpen(화살표/시각 동기화)이 한 번에 실행되도록 함
-            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Normal, false);
+            exploreMapUI = UIManager.instance.OpenUI<ExploreMapUI>(UIConstants.PANEL_EXPLORE_MAP, UILayerType.Popup, false);
         }
 
         if (exploreMapUI == null) return null;
