@@ -214,7 +214,7 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
 
         EnsureCompendiumCardsBuilt();
 
-        CardDeckViewPanel deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, false);
+        CardDeckViewPanel deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, false);
         if (deckPanel == null)
         {
             Debug.LogWarning("[Hideout] CardDeckViewPanel을 열 수 없습니다.");
@@ -223,7 +223,7 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
 
         if (!deckPanel.gameObject.activeSelf)
         {
-            deckPanel.uiLayerType = UILayerType.Normal;
+            deckPanel.uiLayerType = UILayerType.Popup;
             UIManager.instance.PushActiveUIPanel(deckPanel);
         }
 

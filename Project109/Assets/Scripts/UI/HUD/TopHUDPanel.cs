@@ -171,7 +171,7 @@ public class TopHUDPanel : UIPanelBase
 
         if (_deckViewPanel == null)
         {
-            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, false);
+            GameObject obj = UIManager.instance.OpenUI(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, false);
             if (obj != null)
             {
                 _deckViewPanel = obj.GetComponent<CardDeckViewPanel>();
@@ -186,7 +186,7 @@ public class TopHUDPanel : UIPanelBase
             }
             else
             {
-                _deckViewPanel.uiLayerType = UILayerType.Normal;
+                _deckViewPanel.uiLayerType = UILayerType.Popup;
                 UIManager.instance.PushActiveUIPanel(_deckViewPanel);
                 _deckViewPanel.OpenMasterDeck();
             }

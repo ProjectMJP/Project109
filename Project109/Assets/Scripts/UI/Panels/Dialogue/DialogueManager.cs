@@ -455,7 +455,7 @@ public class DialogueManager : MonoBehaviour
 
         if (UIManager.instance != null)
         {
-            var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+            var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
             if (deckPanel != null)
             {
                 var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;

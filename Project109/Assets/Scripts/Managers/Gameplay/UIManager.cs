@@ -295,6 +295,11 @@ public class UIManager : MonoBehaviour
         // 1. 캐시 풀에서 기존 인스턴스 확인 (무할당 재사용)
         if (_cachedPanels.TryGetValue(uiName, out UIPanelBase cachedPanel) && cachedPanel != null)
         {
+            if (layerType != UILayerType.Normal)
+            {
+                cachedPanel.uiLayerType = layerType;
+            }
+
             if (startActive)
             {
                 PushActiveUIPanel(cachedPanel);
@@ -317,7 +322,7 @@ public class UIManager : MonoBehaviour
 
         // 프리팹 단계에서 UIPanelBase의 레이어 타입을 먼저 체크합니다.
         UILayerType targetLayerType = layerType;
-        if (prefab.TryGetComponent<UIPanelBase>(out var panelPrefab))
+        if (layerType == UILayerType.Normal && prefab.TryGetComponent<UIPanelBase>(out var panelPrefab))
         {
             targetLayerType = panelPrefab.uiLayerType;
         }
@@ -330,7 +335,17 @@ public class UIManager : MonoBehaviour
 
         if (uiInstance.TryGetComponent<UIPanelBase>(out var panel))
         {
-            panel.uiLayerType = targetLayerType;
+            // 호출자가 명시적으로 Non-Normal 레이어를 요청한 경우 이를 우선 적용하고,
+            // 그렇지 않으면 Awake()에서 설정한 레이어(프리팹 기본값보다 우선)를 존중합니다.
+            UILayerType resolvedLayerType = layerType != UILayerType.Normal ? layerType : panel.uiLayerType;
+            panel.uiLayerType = resolvedLayerType;
+
+            RectTransform resolvedLayerRect = GetLayerTransform(resolvedLayerType);
+            if (resolvedLayerRect != null && panel.transform.parent != resolvedLayerRect)
+            {
+                panel.transform.SetParent(resolvedLayerRect, false);
+            }
+
             _cachedPanels[uiName] = panel;
 
             if (startActive)

@@ -107,6 +107,9 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
 
     private void Awake()
     {
+        uiLayerType = UILayerType.Popup;
+        blockWorldInput = true;
+
         // 인스펙터 미할당 시 자식 오브젝트 자동 탐색 (Graceful Fallback)
         ResolveComponentReferences();
         EnsureFilterSortBar();

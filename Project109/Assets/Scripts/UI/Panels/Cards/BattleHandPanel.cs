@@ -566,7 +566,7 @@ public class BattleHandPanel : UIPanelBase
         if (_isMoveMode) return;
 
         if (_boundDeck == null || UIManager.instance == null) return;
-        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
         if (deckPanel != null)
         {
             deckPanel.OpenDrawPile(_boundDeck);
@@ -576,7 +576,7 @@ public class BattleHandPanel : UIPanelBase
     private void OnUsedPileClicked()
     {
         if (_boundDeck == null || UIManager.instance == null) return;
-        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Normal, true);
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
         if (deckPanel != null)
         {
             deckPanel.OpenDiscardPile(_boundDeck);

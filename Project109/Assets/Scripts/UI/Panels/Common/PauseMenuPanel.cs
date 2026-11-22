@@ -626,7 +626,6 @@ public class PauseMenuPanel : UIPanelBase
     {
         if (_openedDeckPanel != null)
         {
-            _openedDeckPanel.uiLayerType = UILayerType.Normal;
             _openedDeckPanel = null;
         }
     }

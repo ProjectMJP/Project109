@@ -87,10 +87,10 @@ public class StarterKitShowcasePanel : UIPanelBase
             }
         }
 
-        // Start Cards 보기용으로 Popup 레이어에 올렸던 CardDeckViewPanel이 닫힌 상태라면 Normal 레이어로 복원합니다.
+        // Start Cards 보기용으로 열어두었던 CardDeckViewPanel 참조를 정리합니다.
         if (_openedDeckPanel != null && !_openedDeckPanel.gameObject.activeSelf)
         {
-            _openedDeckPanel.uiLayerType = UILayerType.Normal;
+            _openedDeckPanel = null;
         }
     }
 

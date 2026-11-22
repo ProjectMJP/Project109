@@ -283,7 +283,7 @@ public class PauseMenuTimeFreezeTests
         // 2. ESC로 도감만 먼저 닫으면 일시정지 메뉴와 Time.timeScale == 0f는 유지되어야 함
         uiManager.CloseTopPopup();
         Assert.IsFalse(deckPanel.gameObject.activeInHierarchy);
-        Assert.AreEqual(UILayerType.Normal, deckPanel.uiLayerType);
+        Assert.AreEqual(UILayerType.Popup, deckPanel.uiLayerType);
         Assert.IsTrue(pausePanel.gameObject.activeInHierarchy);
         Assert.AreEqual(0f, Time.timeScale, 0.0001f);
 
@@ -296,8 +296,55 @@ public class PauseMenuTimeFreezeTests
         pausePanel.Close();
         Assert.IsFalse(pausePanel.gameObject.activeInHierarchy);
         Assert.IsFalse(deckPanel.gameObject.activeInHierarchy);
-        Assert.AreEqual(UILayerType.Normal, deckPanel.uiLayerType);
+        Assert.AreEqual(UILayerType.Popup, deckPanel.uiLayerType);
         Assert.AreEqual(1f, Time.timeScale, 0.0001f);
+    }
+
+    [Test]
+    public void TopHUDPanel_ToggleDeckView_OpensCardDeckViewPanelOnPopupLayerAboveTopHUDRelicIcons()
+    {
+        UIManager uiManager = CreateTestUIManager();
+
+        GameObject inputGo = Track(new GameObject("[TestPlayerInputController]"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        SetStaticField<PlayerInputController>("_instance", inputCtrl);
+        SetStaticField<PlayerInputController>("_isShuttingDown", false);
+
+        GameObject cacheGo = Track(new GameObject("[TestAssetCacheManager]"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        SetStaticAutoProperty<AssetCacheManager>("instance", cache);
+
+        GameObject deckPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/CardDeckCanvas.prefab");
+        GameObject topHudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/TopHUDPanel.prefab");
+        Assert.IsNotNull(deckPrefab, "CardDeckCanvas.prefab을 찾을 수 없습니다.");
+        Assert.IsNotNull(topHudPrefab, "TopHUDPanel.prefab을 찾을 수 없습니다.");
+
+        SetPrivateField(cache, "uiDict", new Dictionary<string, GameObject>
+        {
+            { UIConstants.PANEL_CARD_DECK, deckPrefab },
+            { UIConstants.PANEL_TOP_HUD, topHudPrefab }
+        });
+
+        TopHUDPanel topHud = uiManager.OpenUI<TopHUDPanel>(UIConstants.PANEL_TOP_HUD, UILayerType.Top, true);
+        Assert.IsNotNull(topHud);
+        Assert.AreSame(uiManager.topUILayer.transform, topHud.transform.parent);
+        Assert.IsNotNull(topHud.PlayerRelicUI);
+
+        topHud.ToggleDeckView();
+
+        CardDeckViewPanel deckPanel = uiManager.GetUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK);
+        Assert.IsNotNull(deckPanel);
+        Assert.IsTrue(deckPanel.gameObject.activeInHierarchy);
+        Assert.AreEqual(UILayerType.Popup, deckPanel.uiLayerType);
+        Assert.AreSame(uiManager.popupUILayer.transform, deckPanel.transform.parent);
+        Assert.Greater(uiManager.popupUILayer.sortingOrder, uiManager.topUILayer.sortingOrder,
+            "CardDeckViewPanel이 배치된 PopupUILayer는 TopHUD/유물 아이콘(TopUILayer)보다 상위 SortingOrder여야 합니다.");
+        Assert.IsTrue(uiManager.IsWorldInputBlocked);
+
+        // ESC 닫기 및 재토글 정상 동작 확인
+        uiManager.CloseTopPopup();
+        Assert.IsFalse(deckPanel.gameObject.activeInHierarchy);
+        Assert.IsFalse(uiManager.IsWorldInputBlocked);
     }
 
     [Test]
