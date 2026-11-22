@@ -51,6 +51,17 @@ public class BattleMovePanel : UIPanelBase
     }
 
     /// <summary>
+    /// 카드 모드로 복귀 버튼의 상호작용 가능 여부를 설정합니다.
+    /// </summary>
+    public void SetSwitchToCardInteractable(bool interactable)
+    {
+        if (switchToCardModeButton != null)
+        {
+            switchToCardModeButton.interactable = interactable;
+        }
+    }
+
+    /// <summary>
     /// 캐릭터의 현재 남은 이동 가능 칸수 및 최대 이동 거리를 받아 텍스트를 갱신합니다.
     /// </summary>
     public void RefreshMoveInfo(Character character)

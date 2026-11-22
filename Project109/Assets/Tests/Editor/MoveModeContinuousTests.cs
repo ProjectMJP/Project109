@@ -657,6 +657,9 @@ public class MoveModeContinuousTests
         Character isolatedChar = CreateTestCharacter("IsolatedDeadPlayer", CharacterFaction.Player, gameMap.GetTile(0, 4), moveRange: 3);
         var (isolatedPlayer, isolatedCtrl) = CreateTestPlayerController(isolatedChar);
         var (isolatedUI, _, _, _, _) = CreateAndBindBattleUI(isolatedPlayer, isolatedCtrl);
+        typeof(BattleManager).GetProperty("battleState", BindingFlags.Instance | BindingFlags.Public).SetValue(battleManager, BattleState.TurnInProgress);
+        typeof(BattleManager).GetProperty("currentTurnController", BindingFlags.Instance | BindingFlags.Public).SetValue(battleManager, isolatedCtrl);
+        isolatedUI.SetTurnActive(true);
         isolatedUI.SwitchToMoveMode();
         int currentToken = GetPrivateField<int>(isolatedCtrl, "_moveRequestToken");
         isolatedChar.isDead = true;

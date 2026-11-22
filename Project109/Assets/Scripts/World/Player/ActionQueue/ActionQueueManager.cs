@@ -7,11 +7,17 @@ public class ActionQueueManager : MonoBehaviour
     private static ActionQueueManager _instance;
     private static bool _isShuttingDown = false;
 
+    /// <summary>
+    /// 전역 액션 큐의 Busy 상태가 바뀔 때 발행되는 이벤트입니다.
+    /// </summary>
+    public static event System.Action<bool> OnGlobalBusyStateChanged;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStaticState()
     {
         _instance = null;
         _isShuttingDown = false;
+        OnGlobalBusyStateChanged = null;
     }
 
     /// <summary>
@@ -41,9 +47,22 @@ public class ActionQueueManager : MonoBehaviour
     private Queue<BattleAction> _actionQueue = new Queue<BattleAction>();
     private BattleAction _currentAction;
     private bool _isProcessing = false;
+    private bool _lastNotifiedBusy = false;
 
     // 선입력 최대 저장 수 제한 (너무 많은 큐가 쌓여 오조작되는 현상 예방)
     [SerializeField] private int _maxQueueSize = 4;
+
+    private void NotifyBusyStateIfChanged()
+    {
+        bool currentBusy = IsBusy;
+        if (_lastNotifiedBusy == currentBusy)
+        {
+            return;
+        }
+
+        _lastNotifiedBusy = currentBusy;
+        OnGlobalBusyStateChanged?.Invoke(currentBusy);
+    }
 
     private void Awake()
     {
@@ -100,12 +119,14 @@ public class ActionQueueManager : MonoBehaviour
             StartCoroutine(ProcessQueueRoutine());
         }
 
+        NotifyBusyStateIfChanged();
         return true;
     }
 
     private IEnumerator ProcessQueueRoutine()
     {
         _isProcessing = true;
+        NotifyBusyStateIfChanged();
         try
         {
             while (_actionQueue.Count > 0)
@@ -123,6 +144,7 @@ public class ActionQueueManager : MonoBehaviour
             // 어떤 예외나 중단이 발생해도 _isProcessing 잠금 해제 보장
             _currentAction = null;
             _isProcessing = false;
+            NotifyBusyStateIfChanged();
         }
     }
 
@@ -191,6 +213,7 @@ public class ActionQueueManager : MonoBehaviour
             }
         }
         _isProcessing = false;
+        NotifyBusyStateIfChanged();
     }
 
 }

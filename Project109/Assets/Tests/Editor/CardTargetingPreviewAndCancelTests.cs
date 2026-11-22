@@ -429,6 +429,7 @@ public class CardTargetingPreviewAndCancelTests
         InvokePrivateMethod(battleUI.HandPanel, "OnEnable");
         InvokePrivateMethod(battleUI.MovePanel, "OnEnable");
 
+        controller.OnBattleStart();
         SetPrivateField(controller, "_battleUI", battleUI);
         battleUI.BindPlayer(player, controller);
         battleUI.SetTurnActive(true);
@@ -468,7 +469,7 @@ public class CardTargetingPreviewAndCancelTests
         Assert.IsTrue(battleUI.EndTurnButton.interactable);
         Assert.IsTrue(switchToMoveBtn.interactable);
 
-        // 3. 다시 타깃팅 진입 후 적 타일 클릭으로 시전 확정 -> 프리뷰 숨김 및 버튼 복구
+        // 3. 다시 타깃팅 진입 후 적 타일 클릭으로 시전 확정 -> 프리뷰 숨김, 액션 큐 실행 중 턴 버튼 비활성화, 완료 후 복구
         controller.TryUseCard(targetCard);
         Assert.IsTrue(battleUI.TargetingPreviewContainer.activeSelf);
 
@@ -478,12 +479,15 @@ public class CardTargetingPreviewAndCancelTests
         Assert.AreEqual(PlayerControlState.Normal, controller.controlState);
         Assert.IsNull(controller.ActiveTargetingCard);
         Assert.IsFalse(battleUI.TargetingPreviewContainer.activeSelf);
+        Assert.IsFalse(battleUI.EndTurnButton.interactable, "카드 액션 큐 실행 중에는 턴 종료 버튼이 비활성화되어야 합니다.");
+        Assert.IsFalse(switchToMoveBtn.interactable, "카드 액션 큐 실행 중에는 이동모드 버튼이 비활성화되어야 합니다.");
+
+        // 4. 액션 큐 정리 후 버튼 복구 확인 및 타깃팅 도중 OnTurnEnd() 호출 시 프리뷰·타깃팅 상태 안전 정리
+        ActionQueueManager.Instance.ClearQueue();
+        playerChar.currentState = CharacterState.Idle;
         Assert.IsTrue(battleUI.EndTurnButton.interactable);
         Assert.IsTrue(switchToMoveBtn.interactable);
 
-        // 4. 타깃팅 도중 OnTurnEnd() 호출 시 프리뷰 및 타깃팅 상태 안전 정리
-        ActionQueueManager.Instance.ClearQueue();
-        playerChar.currentState = CharacterState.Idle;
         controller.TryUseCard(targetCard);
         Assert.IsTrue(battleUI.TargetingPreviewContainer.activeSelf);
 

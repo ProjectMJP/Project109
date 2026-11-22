@@ -129,6 +129,7 @@ public static class SetupBattleUIPanelPrefab
 
         Button mbButton = moveBtnObj.GetComponent<Button>();
         if (mbButton == null) mbButton = moveBtnObj.AddComponent<Button>();
+        mbButton.interactable = false;
 
         Transform mbTextTrans = moveBtnObj.transform.Find("Text (TMP)");
         GameObject mbTextObj;
@@ -341,6 +342,7 @@ public static class SetupBattleUIPanelPrefab
 
         Button etButton = endTurnObj.GetComponent<Button>();
         if (etButton == null) etButton = endTurnObj.AddComponent<Button>();
+        etButton.interactable = false;
 
         Transform etTextTrans = endTurnObj.transform.Find("Text (TMP)");
         GameObject etTextObj;

@@ -43,7 +43,7 @@ public class BattleUIPanel : UIPanelBase
     private PlayerBattleController _controller;
     private Character _boundCharacter;
     private BattlePointerHoverForwarder _endTurnHoverForwarder;
-    private bool _isTurnActive = true;
+    private bool _isTurnActive = false;
     private bool _isTargetingActive = false;
 
     /// <summary>
@@ -175,9 +175,11 @@ public class BattleUIPanel : UIPanelBase
             _controller.OnTargetingStateChanged += HandleTargetingStateChanged;
         }
 
-        // 패널 활성화 시 기본 손패 모드로 시작
+        // 패널 활성화 시 기본 손패 모드로 시작 및 현재 턴·행동 가능 여부에 따라 버튼 상태 동기화
+        _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
         SwitchToHandMode();
         HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
+        RefreshActionInteractableState();
     }
 
     protected override void OnDisable()
@@ -255,7 +257,7 @@ public class BattleUIPanel : UIPanelBase
             HandleTargetingStateChanged(null);
         }
 
-        RefreshInteractiveButtons();
+        RefreshActionInteractableState();
 
         if (!isActive)
         {
@@ -269,9 +271,12 @@ public class BattleUIPanel : UIPanelBase
         {
             _controller.RequestEndTurn();
         }
-        else if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        else if (RunManager.instance != null &&
+                 RunManager.instance.battleManager != null &&
+                 RunManager.instance.battleManager.battleState == BattleState.TurnInProgress &&
+                 RunManager.instance.battleManager.currentTurnController is PlayerBattleController activePlayerController)
         {
-            RunManager.instance.battleManager.EndTurn();
+            activePlayerController.RequestEndTurn();
         }
     }
 
@@ -303,7 +308,7 @@ public class BattleUIPanel : UIPanelBase
             battleHandPanel.SetTargetingState(targetingCard);
         }
 
-        RefreshInteractiveButtons();
+        RefreshActionInteractableState();
     }
 
     private static void ConfigureTargetingPreviewCard(CardUI previewCardUI)
@@ -318,14 +323,27 @@ public class BattleUIPanel : UIPanelBase
         previewCardUI.SetInteractable(false);
     }
 
-    private void RefreshInteractiveButtons()
+    /// <summary>
+    /// 현재 턴 소유, 타깃팅 여부, 캐릭터 대기 상태 및 액션 큐 실행 상태에 맞춰 전투 액션 버튼 활성화 여부를 동기화합니다.
+    /// </summary>
+    public void RefreshActionInteractableState()
     {
-        bool canUseTurnButtons = _isTurnActive && !_isTargetingActive;
-        SetEndTurnInteractable(canUseTurnButtons);
+        bool canAct = _isTurnActive && !_isTargetingActive;
+        if (_controller != null)
+        {
+            canAct = canAct && _controller.CanPerformPlayerTurnAction();
+        }
+
+        SetEndTurnInteractable(canAct);
 
         if (battleHandPanel != null)
         {
-            battleHandPanel.SetSwitchModeInteractable(canUseTurnButtons);
+            battleHandPanel.SetSwitchModeInteractable(canAct);
+        }
+
+        if (battleMovePanel != null)
+        {
+            battleMovePanel.SetSwitchToCardInteractable(canAct);
         }
     }
 
@@ -342,6 +360,7 @@ public class BattleUIPanel : UIPanelBase
         _boundPlayer = player;
         _controller = controller;
         _boundCharacter = player != null ? player.character : null;
+        _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
 
         if (_controller != null)
         {
@@ -361,6 +380,7 @@ public class BattleUIPanel : UIPanelBase
         }
 
         HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
+        RefreshActionInteractableState();
     }
 
     /// <summary>
@@ -393,6 +413,13 @@ public class BattleUIPanel : UIPanelBase
     /// </summary>
     public void SwitchToMoveMode()
     {
+        if (_controller != null && !_controller.CanPerformPlayerTurnAction())
+        {
+            SwitchToHandMode();
+            RefreshActionInteractableState();
+            return;
+        }
+
         currentMode = BattleUIMode.Move;
 
         int remainingTiles = _boundCharacter != null ? _boundCharacter.curMoveRange : 0;
@@ -411,7 +438,12 @@ public class BattleUIPanel : UIPanelBase
         // 플레이어 전투 컨트롤러에 이동 모드 활성화 지시
         if (_controller != null && _controller.controlState != PlayerControlState.Move)
         {
-            _controller.EnablePlayerMove();
+            if (!_controller.EnablePlayerMove())
+            {
+                SwitchToHandMode();
+                RefreshActionInteractableState();
+                return;
+            }
         }
     }
 

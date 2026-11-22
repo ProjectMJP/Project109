@@ -160,6 +160,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             {
                 _battleUI.BindPlayer(player, this);
                 _battleUI.SwitchToHandMode();
+                _battleUI.SetTurnActive(false);
             }
 
             _timelineUI = UIManager.instance.GetOrSpawnBattleTimelineUI();
@@ -180,7 +181,12 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (_controlledCharacter != null)
         {
             _controlledCharacter.eventBus.Add<IOnBattleEnd>(this);
+            _controlledCharacter.OnCharacterStateChanged -= HandleControlledCharacterStateChanged;
+            _controlledCharacter.OnCharacterStateChanged += HandleControlledCharacterStateChanged;
         }
+
+        ActionQueueManager.OnGlobalBusyStateChanged -= HandleActionQueueBusyChanged;
+        ActionQueueManager.OnGlobalBusyStateChanged += HandleActionQueueBusyChanged;
     }
 
     public void OnBattleEnd()
@@ -198,14 +204,17 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         NotifyTargetingStateChanged(null);
 
         UnsubscribeInputEvents();
+        ActionQueueManager.OnGlobalBusyStateChanged -= HandleActionQueueBusyChanged;
 
         if (_controlledCharacter != null)
         {
             _controlledCharacter.eventBus.Remove<IOnBattleEnd>(this);
+            _controlledCharacter.OnCharacterStateChanged -= HandleControlledCharacterStateChanged;
         }
 
         if (_battleUI != null)
         {
+            _battleUI.SetTurnActive(false);
             _battleUI.Close();
             _battleUI = null;
         }
@@ -259,6 +268,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (RunManager.instance != null && RunManager.instance.battleManager != null
             && !ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
         {
+            if (_battleUI != null)
+            {
+                _battleUI.SetTurnActive(false);
+            }
             return;
         }
 
@@ -275,13 +288,72 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             PlayerInputController.instance.OnPointerHoverEvent += HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent += HandleCancelInput;
         }
+        if (playerMove != null)
+        {
+            playerMove.ClearCanMoveTiles();
+        }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         NotifyTargetingStateChanged(null);
         if (_battleUI != null)
         {
+            _battleUI.SwitchToHandMode();
             _battleUI.SetTurnActive(true);
             _battleUI.RefreshMoveStats();
+        }
+    }
+
+    /// <summary>
+    /// 현재 전투 상태 및 턴 소유자가 이 플레이어 컨트롤러인지 반환합니다.
+    /// </summary>
+    public bool IsPlayerTurnActive()
+    {
+        if (RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return false;
+        }
+
+        BattleManager battleManager = RunManager.instance.battleManager;
+        return battleManager.battleState == BattleState.TurnInProgress &&
+               ReferenceEquals(battleManager.currentTurnController, this);
+    }
+
+    /// <summary>
+    /// 현재 플레이어가 이동모드 전환 또는 턴 종료 등 턴 내 조작을 수행할 수 있는 상태인지 반환합니다.
+    /// </summary>
+    public bool CanPerformPlayerTurnAction()
+    {
+        if (controlledCharacter == null || controlledCharacter.isDead)
+        {
+            return false;
+        }
+
+        if (controlledCharacter.currentState != CharacterState.Idle)
+        {
+            return false;
+        }
+
+        if (ActionQueueManager.HasInstance && ActionQueueManager.Instance.IsBusy)
+        {
+            return false;
+        }
+
+        return IsPlayerTurnActive();
+    }
+
+    private void HandleControlledCharacterStateChanged(Character character, CharacterState state)
+    {
+        if (_battleUI != null)
+        {
+            _battleUI.RefreshActionInteractableState();
+        }
+    }
+
+    private void HandleActionQueueBusyChanged(bool isBusy)
+    {
+        if (_battleUI != null)
+        {
+            _battleUI.RefreshActionInteractableState();
         }
     }
 
@@ -334,18 +406,37 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void RequestEndTurn()
     {
-        if (controlledCharacter == null || controlledCharacter.currentState != CharacterState.Idle)
+        if (!CanPerformPlayerTurnAction())
         {
+            Debug.LogWarning("[PlayerBattleController] 현재 플레이어가 턴을 종료할 수 있는 상태가 아닙니다.");
             return;
         }
 
         _moveRequestToken++;
 
-        // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 클리어 및 UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
+        if (controlState == PlayerControlState.TargetSelection)
+        {
+            _multiSelectedTargets.Clear();
+            activeCardForTargeting = null;
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
+            else if (GameMap.current != null)
+            {
+                GameMap.current.ClearCardRange();
+            }
+            ClearTargetingHighlights();
+            NotifyTargetingStateChanged(null);
+        }
+
+        // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 및 상태 정리, UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
         if (playerMove != null)
         {
             playerMove.ClearCanMoveTiles();
         }
+        controlState = PlayerControlState.Normal;
+
         if (_battleUI != null)
         {
             _battleUI.SetTurnActive(false);
@@ -353,10 +444,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
 
         if (RunManager.instance != null && RunManager.instance.battleManager != null)
         {
-            if (ReferenceEquals(RunManager.instance.battleManager.currentTurnController, this))
-            {
-                RunManager.instance.battleManager.EndTurn();
-            }
+            RunManager.instance.battleManager.EndTurn(this);
         }
     }
 
@@ -684,26 +772,43 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 이동/타겟팅 모드를 활성화하기 위한 상태 전이 메서드
+    /// 이동 모드를 활성화하기 위한 상태 전이 메서드. 플레이어 턴이 아니거나 행동 불가 시 false를 반환하고 차단합니다.
     /// </summary>
-    public void EnablePlayerMove()
+    public bool EnablePlayerMove()
     {
+        if (!CanPerformPlayerTurnAction())
+        {
+            Debug.LogWarning("[PlayerBattleController] 현재 플레이어가 행동 가능한 턴 상태가 아니므로 이동 모드로 전환할 수 없습니다.");
+            if (_battleUI != null)
+            {
+                if (_battleUI.currentMode != BattleUIMode.Hand)
+                {
+                    _battleUI.SwitchToHandMode();
+                }
+                _battleUI.RefreshActionInteractableState();
+            }
+            return false;
+        }
+
+        if (playerMove == null)
+        {
+            return false;
+        }
+
         if (controlState == PlayerControlState.TargetSelection)
         {
             CancelCurrentState();
         }
 
         _moveRequestToken++;
-        if (playerMove != null)
-        {
-            playerMove.CheckCanMoveTiles();
-            controlState = PlayerControlState.Move;
+        playerMove.CheckCanMoveTiles();
+        controlState = PlayerControlState.Move;
 
-            if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Move)
-            {
-                _battleUI.SwitchToMoveMode();
-            }
+        if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Move)
+        {
+            _battleUI.SwitchToMoveMode();
         }
+        return true;
     }
 
     /// <summary>
