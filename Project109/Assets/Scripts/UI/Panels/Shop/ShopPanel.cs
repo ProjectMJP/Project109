@@ -26,6 +26,9 @@ public class ShopPanel : UIPanelBase
 
     private ShopNPC _boundShop;
     private readonly Dictionary<Component, TextMeshProUGUI> _slotPriceTexts = new Dictionary<Component, TextMeshProUGUI>();
+    private readonly Dictionary<Component, GameObject> _slotPriceBadges = new Dictionary<Component, GameObject>();
+    private readonly Dictionary<Component, CanvasGroup> _slotCanvasGroups = new Dictionary<Component, CanvasGroup>();
+    private readonly Dictionary<Component, GameObject> _slotSoldOverlays = new Dictionary<Component, GameObject>();
 
     public ShopNPC BoundShop => _boundShop;
     public bool IsPanelOpen { get; private set; }
@@ -46,6 +49,9 @@ public class ShopPanel : UIPanelBase
     {
         UnbindButtonListeners();
         _slotPriceTexts.Clear();
+        _slotPriceBadges.Clear();
+        _slotCanvasGroups.Clear();
+        _slotSoldOverlays.Clear();
     }
 
     public override void OnOpen()
@@ -284,8 +290,8 @@ public class ShopPanel : UIPanelBase
 
         if (_boundShop != null)
         {
-            UpdateCardList(_boundShop.actionCards);
-            UpdateRelicList(_boundShop.relics);
+            UpdateCardEntries(_boundShop.cardEntries);
+            UpdateRelicEntries(_boundShop.relicEntries);
         }
         else
         {
@@ -295,11 +301,11 @@ public class ShopPanel : UIPanelBase
         RefreshRerollUI();
     }
 
-    public void UpdateCardList(List<CardData> cardData)
+    public void UpdateCardEntries(List<ShopCardEntry> entries)
     {
         if (cardList == null) cardList = new List<CardUI>();
 
-        int cardCount = cardData != null ? cardData.Count : 0;
+        int entryCount = entries != null ? entries.Count : 0;
         Player fallbackPlayer = ResolveFallbackPlayer();
         bool hasDiscount = _boundShop != null
             ? _boundShop.IsDiscountActive()
@@ -307,37 +313,47 @@ public class ShopPanel : UIPanelBase
 
         for (int i = 0; i < cardList.Count; i++)
         {
-            if (cardList[i] == null) continue;
+            CardUI slot = cardList[i];
+            if (slot == null) continue;
 
-            cardList[i].OnCardClick.RemoveAllListeners();
-            bool isPurchased = _boundShop != null && _boundShop.IsCardSlotPurchased(i);
+            slot.OnCardClick.RemoveAllListeners();
 
-            if (i < cardCount && cardData[i] != null && !isPurchased)
+            if (i < entryCount && entries[i] != null && entries[i].cardData != null)
             {
-                CardData currentCardData = cardData[i];
-                cardList[i].gameObject.SetActive(true);
-                cardList[i].UpdateCardData(currentCardData);
+                ShopCardEntry entry = entries[i];
+                CardData currentCardData = entry.cardData;
+                slot.gameObject.SetActive(true);
 
-                int index = i;
-                cardList[i].OnCardClick.AddListener(() => PurchaseCard(currentCardData, index));
+                if (entry.isSold)
+                {
+                    ApplySlotSoldState(slot, isSold: true, isCardSlot: true);
+                }
+                else
+                {
+                    slot.UpdateCardData(currentCardData);
+                    ApplySlotSoldState(slot, isSold: false, isCardSlot: true);
 
-                int price = _boundShop != null
-                    ? _boundShop.GetCardSlotPrice(index)
-                    : GetCardPrice(currentCardData, fallbackPlayer);
-                UpdateSlotPriceLabel(cardList[i], price, hasDiscount, isCardSlot: true);
+                    int index = i;
+                    slot.OnCardClick.AddListener(() => PurchaseCard(currentCardData, index));
+
+                    int price = _boundShop != null
+                        ? _boundShop.GetCardSlotPrice(index)
+                        : GetCardPrice(currentCardData, fallbackPlayer);
+                    UpdateSlotPriceLabel(slot, price, hasDiscount, isCardSlot: true);
+                }
             }
             else
             {
-                cardList[i].gameObject.SetActive(false);
+                slot.gameObject.SetActive(false);
             }
         }
     }
 
-    public void UpdateRelicList(List<RelicData> relicData)
+    public void UpdateRelicEntries(List<ShopRelicEntry> entries)
     {
         if (relicList == null) relicList = new List<RelicUI>();
 
-        int relicCount = relicData != null ? relicData.Count : 0;
+        int entryCount = entries != null ? entries.Count : 0;
         Player fallbackPlayer = ResolveFallbackPlayer();
         bool hasDiscount = _boundShop != null
             ? _boundShop.IsDiscountActive()
@@ -345,28 +361,38 @@ public class ShopPanel : UIPanelBase
 
         for (int i = 0; i < relicList.Count; i++)
         {
-            if (relicList[i] == null) continue;
+            RelicUI slot = relicList[i];
+            if (slot == null) continue;
 
-            relicList[i].OnRelicClick.RemoveAllListeners();
-            bool isPurchased = _boundShop != null && _boundShop.IsRelicSlotPurchased(i);
+            slot.OnRelicClick.RemoveAllListeners();
 
-            if (i < relicCount && relicData[i] != null && !isPurchased)
+            if (i < entryCount && entries[i] != null && entries[i].relicData != null)
             {
-                RelicData currentRelicData = relicData[i];
-                relicList[i].gameObject.SetActive(true);
-                relicList[i].UpdateRelicData(currentRelicData);
+                ShopRelicEntry entry = entries[i];
+                RelicData currentRelicData = entry.relicData;
+                slot.gameObject.SetActive(true);
 
-                int index = i;
-                relicList[i].OnRelicClick.AddListener(() => PurchaseRelic(currentRelicData, index));
+                if (entry.isSold)
+                {
+                    ApplySlotSoldState(slot, isSold: true, isCardSlot: false);
+                }
+                else
+                {
+                    slot.UpdateRelicData(currentRelicData);
+                    ApplySlotSoldState(slot, isSold: false, isCardSlot: false);
 
-                int price = _boundShop != null
-                    ? _boundShop.GetRelicPrice(currentRelicData)
-                    : GetRelicPrice(currentRelicData, fallbackPlayer);
-                UpdateSlotPriceLabel(relicList[i], price, hasDiscount, isCardSlot: false);
+                    int index = i;
+                    slot.OnRelicClick.AddListener(() => PurchaseRelic(currentRelicData, index));
+
+                    int price = _boundShop != null
+                        ? _boundShop.GetRelicSlotPrice(index)
+                        : GetRelicPrice(currentRelicData, fallbackPlayer);
+                    UpdateSlotPriceLabel(slot, price, hasDiscount, isCardSlot: false);
+                }
             }
             else
             {
-                relicList[i].gameObject.SetActive(false);
+                slot.gameObject.SetActive(false);
             }
         }
     }
@@ -384,6 +410,7 @@ public class ShopPanel : UIPanelBase
             {
                 CardUI cardUI = cardList[i];
                 if (cardUI == null || !cardUI.gameObject.activeSelf) continue;
+                if (_boundShop != null && _boundShop.IsCardSlotPurchased(i)) continue;
 
                 CardData data = cardUI.GetCardData();
                 if (data == null) continue;
@@ -401,12 +428,13 @@ public class ShopPanel : UIPanelBase
             {
                 RelicUI relicUI = relicList[i];
                 if (relicUI == null || !relicUI.gameObject.activeSelf) continue;
+                if (_boundShop != null && _boundShop.IsRelicSlotPurchased(i)) continue;
 
                 RelicData data = relicUI.relicData;
                 if (data == null) continue;
 
                 int price = _boundShop != null
-                    ? _boundShop.GetRelicPrice(data)
+                    ? _boundShop.GetRelicSlotPrice(i)
                     : GetRelicPrice(data, fallbackPlayer);
                 UpdateSlotPriceLabel(relicUI, price, hasDiscount, isCardSlot: false);
             }
@@ -445,7 +473,7 @@ public class ShopPanel : UIPanelBase
                 if (cardList != null && slotIndex >= 0 && slotIndex < cardList.Count && cardList[slotIndex] != null)
                 {
                     cardList[slotIndex].OnCardClick.RemoveAllListeners();
-                    cardList[slotIndex].gameObject.SetActive(false);
+                    ApplySlotSoldState(cardList[slotIndex], isSold: true, isCardSlot: true);
                 }
 
                 RefreshActiveSlotPrices();
@@ -485,7 +513,7 @@ public class ShopPanel : UIPanelBase
         if (cardList != null && slotIndex >= 0 && slotIndex < cardList.Count && cardList[slotIndex] != null)
         {
             cardList[slotIndex].OnCardClick.RemoveAllListeners();
-            cardList[slotIndex].gameObject.SetActive(false);
+            ApplySlotSoldState(cardList[slotIndex], isSold: true, isCardSlot: true);
         }
 
         RefreshActiveSlotPrices();
@@ -502,7 +530,7 @@ public class ShopPanel : UIPanelBase
                 if (relicList != null && slotIndex >= 0 && slotIndex < relicList.Count && relicList[slotIndex] != null)
                 {
                     relicList[slotIndex].OnRelicClick.RemoveAllListeners();
-                    relicList[slotIndex].gameObject.SetActive(false);
+                    ApplySlotSoldState(relicList[slotIndex], isSold: true, isCardSlot: false);
                 }
 
                 RefreshActiveSlotPrices();
@@ -542,7 +570,7 @@ public class ShopPanel : UIPanelBase
         if (relicList != null && slotIndex >= 0 && slotIndex < relicList.Count && relicList[slotIndex] != null)
         {
             relicList[slotIndex].OnRelicClick.RemoveAllListeners();
-            relicList[slotIndex].gameObject.SetActive(false);
+            ApplySlotSoldState(relicList[slotIndex], isSold: true, isCardSlot: false);
         }
 
         RefreshActiveSlotPrices();
@@ -563,7 +591,7 @@ public class ShopPanel : UIPanelBase
             if (_boundShop.GetShopUI() != this)
             {
                 int potionCount = potionList != null ? potionList.Count : 0;
-                CreateStoreItemCollections(_boundShop.actionCards.Count, _boundShop.relics.Count, potionCount);
+                CreateStoreItemCollections(_boundShop.cardEntries.Count, _boundShop.relicEntries.Count, potionCount);
                 RefreshShopDisplay();
             }
         }
@@ -715,6 +743,14 @@ public class ShopPanel : UIPanelBase
             if (existingTmp != null)
             {
                 _slotPriceTexts[slotComponent] = existingTmp;
+                if (existing.parent != null && existing.parent != slotComponent.transform)
+                {
+                    _slotPriceBadges[slotComponent] = existing.parent.gameObject;
+                }
+                else
+                {
+                    _slotPriceBadges[slotComponent] = existing.gameObject;
+                }
                 return existingTmp;
             }
         }
@@ -751,7 +787,122 @@ public class ShopPanel : UIPanelBase
         textRect.offsetMax = new Vector2(-4f, -1f);
 
         _slotPriceTexts[slotComponent] = priceTmp;
+        _slotPriceBadges[slotComponent] = badgeObj;
         return priceTmp;
+    }
+
+    private void ApplySlotSoldState(Component slotComponent, bool isSold, bool isCardSlot)
+    {
+        if (slotComponent == null) return;
+
+        // 그리드 레이아웃 자리를 유지하기 위해 슬롯 오브젝트는 활성 상태를 유지
+        slotComponent.gameObject.SetActive(true);
+
+        CanvasGroup slotGroup = GetOrAddSlotCanvasGroup(slotComponent);
+        if (slotGroup != null)
+        {
+            slotGroup.alpha = isSold ? 0f : 1f;
+            slotGroup.interactable = !isSold;
+            slotGroup.blocksRaycasts = !isSold;
+        }
+
+        if (slotComponent is CardUI cardUI)
+        {
+            cardUI.SetInteractable(!isSold);
+        }
+        else if (slotComponent is RelicUI relicUI)
+        {
+            relicUI.SetInteractable(!isSold);
+        }
+
+        GameObject soldOverlay = GetOrCreateSoldOverlay(slotComponent, isCardSlot);
+        if (soldOverlay != null)
+        {
+            soldOverlay.SetActive(isSold);
+        }
+
+        if (_slotPriceBadges.TryGetValue(slotComponent, out GameObject priceBadge) && priceBadge != null)
+        {
+            priceBadge.SetActive(!isSold);
+        }
+    }
+
+    private CanvasGroup GetOrAddSlotCanvasGroup(Component slotComponent)
+    {
+        if (slotComponent == null) return null;
+
+        if (_slotCanvasGroups.TryGetValue(slotComponent, out CanvasGroup cached) && cached != null)
+        {
+            return cached;
+        }
+
+        CanvasGroup group = slotComponent.GetComponent<CanvasGroup>();
+        if (group == null)
+        {
+            group = slotComponent.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        _slotCanvasGroups[slotComponent] = group;
+        return group;
+    }
+
+    private GameObject GetOrCreateSoldOverlay(Component slotComponent, bool isCardSlot)
+    {
+        if (slotComponent == null) return null;
+
+        if (_slotSoldOverlays.TryGetValue(slotComponent, out GameObject cached) && cached != null)
+        {
+            return cached;
+        }
+
+        Transform existing = FindChildRecursive(slotComponent.transform, "SoldSlotOverlay");
+        if (existing != null)
+        {
+            _slotSoldOverlays[slotComponent] = existing.gameObject;
+            return existing.gameObject;
+        }
+
+        GameObject overlayObj = CreateUIObject("SoldSlotOverlay", slotComponent.transform);
+        RectTransform overlayRect = overlayObj.GetComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        // 슬롯 루트 CanvasGroup(alpha = 0)과 무관하게 품절 빈 칸 프레임이 보이도록 독립 그룹 사용
+        CanvasGroup overlayGroup = overlayObj.AddComponent<CanvasGroup>();
+        overlayGroup.ignoreParentGroups = true;
+        overlayGroup.alpha = 1f;
+        overlayGroup.interactable = false;
+        overlayGroup.blocksRaycasts = false;
+
+        Image overlayBg = overlayObj.AddComponent<Image>();
+        overlayBg.color = new Color(0.08f, 0.10f, 0.15f, 0.35f);
+        overlayBg.raycastTarget = false;
+
+        TextMeshProUGUI soldTmp = CreateTMPText(
+            "SoldSlotText",
+            overlayObj.transform,
+            "품절",
+            isCardSlot ? 24f : 18f,
+            FontStyles.Bold,
+            TextAlignmentOptions.Center,
+            new Color(0.75f, 0.78f, 0.85f, 0.78f),
+            TMPFontUtility.ResolveDefaultFont(rerollButtonText, feedbackText));
+        soldTmp.textWrappingMode = TextWrappingModes.NoWrap;
+        soldTmp.enableAutoSizing = true;
+        soldTmp.fontSizeMin = 12f;
+        soldTmp.fontSizeMax = isCardSlot ? 26f : 20f;
+
+        RectTransform textRect = soldTmp.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(4f, 4f);
+        textRect.offsetMax = new Vector2(-4f, -4f);
+
+        overlayObj.SetActive(false);
+        _slotSoldOverlays[slotComponent] = overlayObj;
+        return overlayObj;
     }
 
     private static Player ResolveFallbackPlayer()

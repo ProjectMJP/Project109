@@ -1,6 +1,26 @@
 using GameItem.Types;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+
+[Serializable]
+public abstract class ShopItemEntryBase
+{
+    public int basePrice;
+    public bool isSold;
+}
+
+[Serializable]
+public class ShopCardEntry : ShopItemEntryBase
+{
+    public CardData cardData;
+}
+
+[Serializable]
+public class ShopRelicEntry : ShopItemEntryBase
+{
+    public RelicData relicData;
+}
 
 public class ShopNPC : InteractableObject
 {
@@ -21,14 +41,11 @@ public class ShopNPC : InteractableObject
     [Range(0f, 0.5f)]
     public float cardPriceVarianceRatio = CardData.DefaultShopPriceVarianceRatio;
 
-    public List<CardData> actionCards = new List<CardData>();
-    public List<RelicData> relics = new List<RelicData>();
+    public List<ShopCardEntry> cardEntries = new List<ShopCardEntry>();
+    public List<ShopRelicEntry> relicEntries = new List<ShopRelicEntry>();
 
     private bool isInitialized = false;
     private int currentRerollCount = 0;
-    private readonly List<int> cardSlotBasePrices = new List<int>();
-    private readonly HashSet<int> purchasedCardSlots = new HashSet<int>();
-    private readonly HashSet<int> purchasedRelicSlots = new HashSet<int>();
     private Player _boundPlayer;
 
     public int CurrentRerollCount => currentRerollCount;
@@ -65,12 +82,44 @@ public class ShopNPC : InteractableObject
 
     public bool IsCardSlotPurchased(int slotIndex)
     {
-        return purchasedCardSlots.Contains(slotIndex);
+        return slotIndex >= 0 && slotIndex < cardEntries.Count && cardEntries[slotIndex] != null && cardEntries[slotIndex].isSold;
     }
 
     public bool IsRelicSlotPurchased(int slotIndex)
     {
-        return purchasedRelicSlots.Contains(slotIndex);
+        return slotIndex >= 0 && slotIndex < relicEntries.Count && relicEntries[slotIndex] != null && relicEntries[slotIndex].isSold;
+    }
+
+    public ShopCardEntry AddCardEntry(CardData card, int? basePriceOverride = null)
+    {
+        int resolvedBasePrice = basePriceOverride.HasValue && basePriceOverride.Value > 0
+            ? basePriceOverride.Value
+            : (card != null ? card.BaseGoldValue : CardData.DefaultCommonGoldValue);
+
+        ShopCardEntry entry = new ShopCardEntry
+        {
+            cardData = card,
+            basePrice = resolvedBasePrice,
+            isSold = false
+        };
+        cardEntries.Add(entry);
+        return entry;
+    }
+
+    public ShopRelicEntry AddRelicEntry(RelicData relic, int? basePriceOverride = null)
+    {
+        int resolvedBasePrice = basePriceOverride.HasValue && basePriceOverride.Value > 0
+            ? basePriceOverride.Value
+            : (relic != null ? relic.BaseGoldValue : 150);
+
+        ShopRelicEntry entry = new ShopRelicEntry
+        {
+            relicData = relic,
+            basePrice = resolvedBasePrice,
+            isSold = false
+        };
+        relicEntries.Add(entry);
+        return entry;
     }
 
     public int GetEffectiveCardCount(Player player = null)
@@ -132,14 +181,17 @@ public class ShopNPC : InteractableObject
 
     public int GetCardSlotBasePrice(int slotIndex)
     {
-        if (slotIndex >= 0 && slotIndex < cardSlotBasePrices.Count && cardSlotBasePrices[slotIndex] > 0)
+        if (slotIndex >= 0 && slotIndex < cardEntries.Count && cardEntries[slotIndex] != null)
         {
-            return cardSlotBasePrices[slotIndex];
-        }
-
-        if (slotIndex >= 0 && slotIndex < actionCards.Count && actionCards[slotIndex] != null)
-        {
-            return actionCards[slotIndex].BaseGoldValue;
+            ShopCardEntry entry = cardEntries[slotIndex];
+            if (entry.basePrice > 0)
+            {
+                return entry.basePrice;
+            }
+            if (entry.cardData != null)
+            {
+                return entry.cardData.BaseGoldValue;
+            }
         }
 
         return CardData.DefaultCommonGoldValue;
@@ -158,6 +210,32 @@ public class ShopNPC : InteractableObject
         return CalculateRelicPrice(relic, ResolvePlayer(player));
     }
 
+    public int GetRelicSlotBasePrice(int slotIndex)
+    {
+        if (slotIndex >= 0 && slotIndex < relicEntries.Count && relicEntries[slotIndex] != null)
+        {
+            ShopRelicEntry entry = relicEntries[slotIndex];
+            if (entry.basePrice > 0)
+            {
+                return entry.basePrice;
+            }
+            if (entry.relicData != null)
+            {
+                return entry.relicData.BaseGoldValue;
+            }
+        }
+
+        return 150;
+    }
+
+    public int GetRelicSlotPrice(int slotIndex, Player player = null)
+    {
+        int basePrice = GetRelicSlotBasePrice(slotIndex);
+        return HasDiscountRelic(ResolvePlayer(player))
+            ? Mathf.RoundToInt(basePrice * 0.7f)
+            : basePrice;
+    }
+
     public int GetCurrentRerollCost(Player player = null)
     {
         Player targetPlayer = ResolvePlayer(player);
@@ -173,13 +251,14 @@ public class ShopNPC : InteractableObject
 
     public bool TryPurchaseCard(int slotIndex, out string failMessage)
     {
-        if (slotIndex < 0 || slotIndex >= actionCards.Count || actionCards[slotIndex] == null)
+        if (slotIndex < 0 || slotIndex >= cardEntries.Count || cardEntries[slotIndex] == null || cardEntries[slotIndex].cardData == null)
         {
             failMessage = "유효하지 않은 카드 슬롯입니다.";
             return false;
         }
 
-        if (purchasedCardSlots.Contains(slotIndex))
+        ShopCardEntry entry = cardEntries[slotIndex];
+        if (entry.isSold)
         {
             failMessage = "이미 구매한 상품입니다.";
             return false;
@@ -192,7 +271,7 @@ public class ShopNPC : InteractableObject
             return false;
         }
 
-        CardData cardData = actionCards[slotIndex];
+        CardData cardData = entry.cardData;
         int price = GetCardSlotPrice(slotIndex, targetPlayer);
         int gold = targetPlayer.playerStat.InGameCurrencyGold;
         if (gold < price)
@@ -203,7 +282,7 @@ public class ShopNPC : InteractableObject
 
         targetPlayer.playerStat.InGameCurrencyGold -= price;
         targetPlayer.deck.AddCard(cardData);
-        purchasedCardSlots.Add(slotIndex);
+        entry.isSold = true;
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {cardData.cardName} 카드를 {price}골드에 구매했습니다.");
@@ -212,13 +291,14 @@ public class ShopNPC : InteractableObject
 
     public bool TryPurchaseRelic(int slotIndex, out string failMessage)
     {
-        if (slotIndex < 0 || slotIndex >= relics.Count || relics[slotIndex] == null)
+        if (slotIndex < 0 || slotIndex >= relicEntries.Count || relicEntries[slotIndex] == null || relicEntries[slotIndex].relicData == null)
         {
             failMessage = "유효하지 않은 유물 슬롯입니다.";
             return false;
         }
 
-        if (purchasedRelicSlots.Contains(slotIndex))
+        ShopRelicEntry entry = relicEntries[slotIndex];
+        if (entry.isSold)
         {
             failMessage = "이미 구매한 상품입니다.";
             return false;
@@ -231,8 +311,8 @@ public class ShopNPC : InteractableObject
             return false;
         }
 
-        RelicData relicData = relics[slotIndex];
-        int price = GetRelicPrice(relicData, targetPlayer);
+        RelicData relicData = entry.relicData;
+        int price = GetRelicSlotPrice(slotIndex, targetPlayer);
         int gold = targetPlayer.playerStat.InGameCurrencyGold;
         if (gold < price)
         {
@@ -242,7 +322,7 @@ public class ShopNPC : InteractableObject
 
         targetPlayer.playerStat.InGameCurrencyGold -= price;
         targetPlayer.AddRelic(relicData.relicName);
-        purchasedRelicSlots.Add(slotIndex);
+        entry.isSold = true;
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {relicData.relicName} 유물을 {price}골드에 구매했습니다.");
@@ -275,7 +355,7 @@ public class ShopNPC : InteractableObject
         if (shopUI != null)
         {
             shopUI.BindShop(this);
-            shopUI.CreateStoreItemCollections(actionCards.Count, relics.Count, 0);
+            shopUI.CreateStoreItemCollections(cardEntries.Count, relicEntries.Count, 0);
             shopUI.RefreshShopDisplay();
         }
 
@@ -296,11 +376,8 @@ public class ShopNPC : InteractableObject
 
     public void AddRandomItems()
     {
-        actionCards.Clear();
-        relics.Clear();
-        cardSlotBasePrices.Clear();
-        purchasedCardSlots.Clear();
-        purchasedRelicSlots.Clear();
+        cardEntries.Clear();
+        relicEntries.Clear();
 
         if (GameItemRewardManager.instance == null) return;
 
@@ -309,14 +386,13 @@ public class ShopNPC : InteractableObject
         int targetRelicCount = GetEffectiveRelicCount(targetPlayer);
 
         // 1. 카드 추첨 (중복 방지) 및 등급별 변동 원가 확정
-        actionCards.AddRange(GameItemRewardManager.instance.GetUniqueRandomCards("Shop_Card_Table", targetCardCount));
-        for (int i = 0; i < actionCards.Count; i++)
+        List<CardData> pickedCards = GameItemRewardManager.instance.GetUniqueRandomCards("Shop_Card_Table", targetCardCount);
+        for (int i = 0; i < pickedCards.Count; i++)
         {
-            CardData drawnCard = actionCards[i];
-            int slotPrice = drawnCard != null
-                ? CardData.RollShopBasePrice(drawnCard.rarity, cardPriceVarianceRatio)
-                : CardData.DefaultCommonGoldValue;
-            cardSlotBasePrices.Add(slotPrice);
+            CardData drawnCard = pickedCards[i];
+            if (drawnCard == null) continue;
+            int slotPrice = CardData.RollShopBasePrice(drawnCard.rarity, cardPriceVarianceRatio);
+            AddCardEntry(drawnCard, slotPrice);
         }
 
         // 2. 유물 추첨 (중복 및 보유 유물 제외)
@@ -337,14 +413,14 @@ public class ShopNPC : InteractableObject
 
                 if (addedRelicNames.Add(candidate.relicName))
                 {
-                    relics.Add(candidate);
+                    AddRelicEntry(candidate);
                 }
             }
 
             // _boundPlayer 테스트 환경 등에서 초기 추첨에 보유 유물이 섞여 부족한 경우 보충 추첨
             int extraAttempts = 0;
             int maxExtraAttempts = targetRelicCount * 10;
-            while (relics.Count < targetRelicCount && extraAttempts < maxExtraAttempts)
+            while (relicEntries.Count < targetRelicCount && extraAttempts < maxExtraAttempts)
             {
                 extraAttempts++;
                 RelicData extra = GameItemRewardManager.instance.GetRandomRelicDataByDropTable("Shop_Relic_Table");
@@ -357,7 +433,7 @@ public class ShopNPC : InteractableObject
 
                 if (addedRelicNames.Add(extra.relicName))
                 {
-                    relics.Add(extra);
+                    AddRelicEntry(extra);
                 }
             }
         }
@@ -386,7 +462,7 @@ public class ShopNPC : InteractableObject
         if (shopUI != null)
         {
             shopUI.BindShop(this);
-            shopUI.CreateStoreItemCollections(actionCards.Count, relics.Count, 0);
+            shopUI.CreateStoreItemCollections(cardEntries.Count, relicEntries.Count, 0);
             shopUI.RefreshShopDisplay();
 
             if (!isInitialized && wasUnbound)
@@ -417,7 +493,7 @@ public class ShopNPC : InteractableObject
                 RunManager.instance.SetActiveNodeShop(this);
             }
             shopUI.BindShop(this);
-            shopUI.CreateStoreItemCollections(actionCards.Count, relics.Count, 0);
+            shopUI.CreateStoreItemCollections(cardEntries.Count, relicEntries.Count, 0);
             shopUI.RefreshShopDisplay();
             shopUI.Open();
         }

@@ -295,8 +295,8 @@ public class ShopSystemTests
         Assert.AreEqual(3, shopNpc.GetEffectiveRelicCount(player));
 
         shopNpc.AddRandomItems();
-        Assert.AreEqual(8, shopNpc.actionCards.Count);
-        Assert.AreEqual(3, shopNpc.relics.Count);
+        Assert.AreEqual(8, shopNpc.cardEntries.Count);
+        Assert.AreEqual(3, shopNpc.relicEntries.Count);
 
         // 2. BonusShopCardCount / BonusShopRelicCount 보정 반영 확인
         player.playerStat.BonusShopCardCount = 2;
@@ -305,8 +305,8 @@ public class ShopSystemTests
         Assert.AreEqual(4, shopNpc.GetEffectiveRelicCount(player));
 
         shopNpc.AddRandomItems();
-        Assert.AreEqual(10, shopNpc.actionCards.Count);
-        Assert.AreEqual(4, shopNpc.relics.Count);
+        Assert.AreEqual(10, shopNpc.cardEntries.Count);
+        Assert.AreEqual(4, shopNpc.relicEntries.Count);
 
         // 음수 보정 시 하한 클램프 (카드 최소 1, 유물 최소 0)
         player.playerStat.BonusShopCardCount = -20;
@@ -474,10 +474,10 @@ public class ShopSystemTests
         shopNpc.BindPlayer(player);
         shopNpc.AddRandomItems();
 
-        Assert.AreEqual(8, shopNpc.actionCards.Count);
-        for (int i = 0; i < shopNpc.actionCards.Count; i++)
+        Assert.AreEqual(8, shopNpc.cardEntries.Count);
+        for (int i = 0; i < shopNpc.cardEntries.Count; i++)
         {
-            CardData slotCard = shopNpc.actionCards[i];
+            CardData slotCard = shopNpc.cardEntries[i].cardData;
             CardData.GetGoldPriceRange(slotCard.rarity, shopNpc.cardPriceVarianceRatio, out int minExpected, out int maxExpected);
             int slotPrice = shopNpc.GetCardSlotPrice(i, player);
             Assert.GreaterOrEqual(slotPrice, minExpected, $"{slotCard.rarity} 카드 슬롯 {i} 가격이 최소치보다 작습니다.");
@@ -506,9 +506,9 @@ public class ShopSystemTests
         GameObject npcGo = Track(new GameObject("TestShopNPC"));
         ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
         shopNpc.BindPlayer(player);
-        shopNpc.actionCards.Add(cardCommon);
-        shopNpc.relics.Add(relicCommon);
-        shopNpc.relics.Add(discountRelic);
+        shopNpc.AddCardEntry(cardCommon);
+        shopNpc.AddRelicEntry(relicCommon);
+        shopNpc.AddRelicEntry(discountRelic);
 
         // 1. 골드 부족 시 카드 구매 실패
         bool cardBuyFail = shopNpc.TryPurchaseCard(0, out string failMessage);
@@ -529,7 +529,7 @@ public class ShopSystemTests
         SetupTestAssetCacheWithShopPrefabs();
         ShopPanel panel = InstantiateShopPanelFromPrefab();
         panel.BindShop(shopNpc);
-        panel.CreateStoreItemCollections(shopNpc.actionCards.Count, shopNpc.relics.Count, 0);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
         panel.OnOpen();
 
         TextMeshProUGUI cardPriceBefore = FindPriceTextOnSlot(panel.cardList[0]);
@@ -545,7 +545,8 @@ public class ShopSystemTests
         player.playerStat.InGameCurrencyGold = 500;
         panel.relicList[1].OnRelicClick.Invoke();
         Assert.IsTrue(shopNpc.IsRelicSlotPurchased(1));
-        Assert.IsFalse(panel.relicList[1].gameObject.activeSelf);
+        Assert.IsTrue(panel.relicList[1].gameObject.activeSelf, "구매 완료 유물 슬롯은 레이아웃 유지를 위해 활성 상태로 빈 칸을 유지해야 합니다.");
+        Assert.IsFalse(panel.relicList[1].IsInteractable, "구매 완료 유물 슬롯은 재클릭이 차단되어야 합니다.");
         Assert.IsNotNull(player.GetSpecificRelic("할인 카드"));
         Assert.AreEqual(350, player.playerStat.InGameCurrencyGold);
         Assert.IsFalse(panel.feedbackText.gameObject.activeSelf);
@@ -586,8 +587,8 @@ public class ShopSystemTests
         shopNpc.BindPlayer(player);
         shopNpc.AddRandomItems();
 
-        Assert.AreEqual(8, shopNpc.actionCards.Count);
-        Assert.AreEqual(3, shopNpc.relics.Count);
+        Assert.AreEqual(8, shopNpc.cardEntries.Count);
+        Assert.AreEqual(3, shopNpc.relicEntries.Count);
         Assert.IsFalse(shopNpc.resetRerollCostPerShopVisit, "기본 리롤 정책은 런 누적(방문별 미초기화)이어야 합니다.");
         Assert.AreEqual(50, shopNpc.GetCurrentRerollCost(player));
 
@@ -603,8 +604,8 @@ public class ShopSystemTests
         Assert.AreEqual(1, shopNpc.CurrentRerollCount);
         Assert.AreEqual(1, player.playerStat.ShopRerollCount);
         Assert.IsFalse(shopNpc.IsCardSlotPurchased(0));
-        Assert.AreEqual(8, shopNpc.actionCards.Count);
-        Assert.AreEqual(3, shopNpc.relics.Count);
+        Assert.AreEqual(8, shopNpc.cardEntries.Count);
+        Assert.AreEqual(3, shopNpc.relicEntries.Count);
         Assert.AreEqual(75, shopNpc.GetCurrentRerollCost(player));
 
         // 서로 다른 상점(상점 B) 방문 시에도 기본값(resetRerollCostPerShopVisit = false)으로 누적 리롤 비용 75G 승계 및 2차 리롤 시 100G 상승
@@ -715,7 +716,7 @@ public class ShopSystemTests
 
         ShopPanel panel = InstantiateShopPanelFromPrefab();
         panel.BindShop(shopNpc);
-        panel.CreateStoreItemCollections(shopNpc.actionCards.Count, shopNpc.relics.Count, 0);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
         panel.OnOpen();
 
         Assert.AreEqual("리롤 (50G)", panel.rerollButtonText.text);
@@ -853,7 +854,7 @@ public class ShopSystemTests
         shopNpc.AddRandomItems();
 
         panel.BindShop(shopNpc);
-        panel.CreateStoreItemCollections(shopNpc.actionCards.Count, shopNpc.relics.Count, 0);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
         panel.OnOpen();
 
         Assert.AreEqual(8, panel.cardList.Count);
@@ -971,7 +972,9 @@ public class ShopSystemTests
 
         // 리롤 1회 후 첫 카드명 기록
         Assert.IsTrue(shopNpc.TryReroll(out string failMsg), failMsg);
-        string rerolledFirstCard = shopNpc.actionCards[0] != null ? shopNpc.actionCards[0].cardName : null;
+        string rerolledFirstCard = shopNpc.cardEntries[0] != null && shopNpc.cardEntries[0].cardData != null
+            ? shopNpc.cardEntries[0].cardData.cardName
+            : null;
         int rerollCostAfterReroll = shopNpc.GetCurrentRerollCost(player);
 
         // 1. 나가기 클릭 시 창 닫히고 우하단 재입장 버튼 활성화
@@ -986,7 +989,11 @@ public class ShopSystemTests
         Assert.IsTrue(shopPanel.IsPanelOpen);
         Assert.IsTrue(shopPanel.gameObject.activeSelf);
         Assert.IsFalse(reopenButton.gameObject.activeSelf);
-        Assert.AreEqual(rerolledFirstCard, shopNpc.actionCards[0] != null ? shopNpc.actionCards[0].cardName : null);
+        Assert.AreEqual(
+            rerolledFirstCard,
+            shopNpc.cardEntries[0] != null && shopNpc.cardEntries[0].cardData != null
+                ? shopNpc.cardEntries[0].cardData.cardName
+                : null);
         Assert.AreEqual(rerollCostAfterReroll, shopNpc.GetCurrentRerollCost(player));
 
         // 3. 닫은 뒤 다음 노드로 이동하면 상점 재입장 상태와 버튼이 모두 정리됨
@@ -1011,6 +1018,106 @@ public class ShopSystemTests
         Assert.IsNull(runManager.ActiveNodeShopNPC);
         Assert.IsFalse(runManager.CanReopenCurrentNodeShop);
         Assert.IsFalse(reopenButton.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void ShopPanel_PurchasedSlot_RemainsEmptyInPlaceAndPersistsOnReopen()
+    {
+        Player player = CreateTestPlayer(2000);
+        CreateTestGameSceneManager(player, isInDungeon: true);
+        SeedShopDatabasesAndRewardManager(cardCount: 14, relicCount: 8);
+        SetupTestAssetCacheWithShopPrefabs();
+
+        GameObject canvasGo = Track(new GameObject("TestShopSoldCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler)));
+        RectTransform canvasRect = canvasGo.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(1920f, 1080f);
+        Canvas canvas = canvasGo.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+        GameObject shopPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/ShopUI/ShopNPCUI.prefab");
+        GameObject instanceGo = Track(UnityEngine.Object.Instantiate(shopPrefab, canvasGo.transform, false));
+        ShopPanel panel = instanceGo.GetComponent<ShopPanel>();
+        Assert.IsNotNull(panel);
+
+        GameObject npcGo = Track(new GameObject("TestShopNPC_SoldSlot"));
+        ShopNPC shopNpc = npcGo.AddComponent<ShopNPC>();
+        shopNpc.BindPlayer(player);
+        shopNpc.AddRandomItems();
+
+        panel.BindShop(shopNpc);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
+        panel.OnOpen();
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.cardCollection.GetComponent<RectTransform>());
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.relicCollection.GetComponent<RectTransform>());
+
+        Vector2 card0PosBefore = panel.cardList[0].CachedRectTransform.anchoredPosition;
+        Vector2 card1PosBefore = panel.cardList[1].CachedRectTransform.anchoredPosition;
+        Vector2 relic0PosBefore = ((RectTransform)panel.relicList[0].transform).anchoredPosition;
+        Vector2 relic1PosBefore = ((RectTransform)panel.relicList[1].transform).anchoredPosition;
+
+        // 0번 카드, 0번 유물 구매
+        panel.cardList[0].OnCardClick.Invoke();
+        panel.relicList[0].OnRelicClick.Invoke();
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.cardCollection.GetComponent<RectTransform>());
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.relicCollection.GetComponent<RectTransform>());
+
+        Assert.IsTrue(shopNpc.IsCardSlotPurchased(0));
+        Assert.IsTrue(shopNpc.IsRelicSlotPurchased(0));
+        Assert.IsTrue(panel.cardList[0].gameObject.activeSelf);
+        Assert.IsFalse(panel.cardList[0].IsInteractable);
+        Assert.IsTrue(panel.relicList[0].gameObject.activeSelf);
+        Assert.IsFalse(panel.relicList[0].IsInteractable);
+
+        Transform card0SoldOverlay = FindTransformByName(panel.cardList[0].transform, "SoldSlotOverlay");
+        Transform card0PriceBadge = FindTransformByName(panel.cardList[0].transform, "PriceBadge");
+        Assert.IsNotNull(card0SoldOverlay);
+        Assert.IsTrue(card0SoldOverlay.gameObject.activeSelf);
+        Assert.IsNotNull(card0PriceBadge);
+        Assert.IsFalse(card0PriceBadge.gameObject.activeSelf);
+
+        Transform relic0SoldOverlay = FindTransformByName(panel.relicList[0].transform, "SoldSlotOverlay");
+        Transform relic0PriceBadge = FindTransformByName(panel.relicList[0].transform, "PriceBadge");
+        Assert.IsNotNull(relic0SoldOverlay);
+        Assert.IsTrue(relic0SoldOverlay.gameObject.activeSelf);
+        Assert.IsNotNull(relic0PriceBadge);
+        Assert.IsFalse(relic0PriceBadge.gameObject.activeSelf);
+
+        // 인접 슬롯 위치 불변(밀림 없음) 확인
+        Assert.AreEqual(card0PosBefore.x, panel.cardList[0].CachedRectTransform.anchoredPosition.x, 0.5f);
+        Assert.AreEqual(card0PosBefore.y, panel.cardList[0].CachedRectTransform.anchoredPosition.y, 0.5f);
+        Assert.AreEqual(card1PosBefore.x, panel.cardList[1].CachedRectTransform.anchoredPosition.x, 0.5f);
+        Assert.AreEqual(card1PosBefore.y, panel.cardList[1].CachedRectTransform.anchoredPosition.y, 0.5f);
+        Assert.AreEqual(relic0PosBefore.x, ((RectTransform)panel.relicList[0].transform).anchoredPosition.x, 0.5f);
+        Assert.AreEqual(relic0PosBefore.y, ((RectTransform)panel.relicList[0].transform).anchoredPosition.y, 0.5f);
+        Assert.AreEqual(relic1PosBefore.x, ((RectTransform)panel.relicList[1].transform).anchoredPosition.x, 0.5f);
+        Assert.AreEqual(relic1PosBefore.y, ((RectTransform)panel.relicList[1].transform).anchoredPosition.y, 0.5f);
+
+        // 창 닫기 후 재오픈 시 품절 슬롯 자리 및 비활성 유지 확인
+        panel.Close();
+        panel.OnOpen();
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.cardCollection.GetComponent<RectTransform>());
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panel.relicCollection.GetComponent<RectTransform>());
+
+        Assert.IsTrue(panel.cardList[0].gameObject.activeSelf);
+        Assert.IsFalse(panel.cardList[0].IsInteractable);
+        Assert.IsTrue(card0SoldOverlay.gameObject.activeSelf);
+        Assert.AreEqual(card1PosBefore.x, panel.cardList[1].CachedRectTransform.anchoredPosition.x, 0.5f);
+        Assert.AreEqual(card1PosBefore.y, panel.cardList[1].CachedRectTransform.anchoredPosition.y, 0.5f);
+
+        // 리롤 시 슬롯 0 복구 확인
+        Assert.IsTrue(shopNpc.TryReroll(out string rerollFail), rerollFail);
+        panel.CreateStoreItemCollections(shopNpc.cardEntries.Count, shopNpc.relicEntries.Count, 0);
+        panel.RefreshShopDisplay();
+
+        Assert.IsFalse(shopNpc.IsCardSlotPurchased(0));
+        Assert.IsTrue(panel.cardList[0].IsInteractable);
+        Assert.IsFalse(card0SoldOverlay.gameObject.activeSelf);
+        Assert.IsTrue(card0PriceBadge.gameObject.activeSelf);
     }
 
     private static void SetStaticField<TTarget>(string fieldName, object value)

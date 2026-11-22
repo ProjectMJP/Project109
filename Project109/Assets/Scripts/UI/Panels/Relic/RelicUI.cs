@@ -14,6 +14,28 @@ public class RelicUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     public UnityEvent OnRelicClick; //클릭 시 호출될 이벤트
 
+    private bool _isInteractable = true;
+
+    public bool IsInteractable => _isInteractable;
+
+    /// <summary>
+    /// 유물 슬롯의 포인터 클릭 및 호버 툴팁 상호작용 가능 여부를 설정합니다.
+    /// </summary>
+    public void SetInteractable(bool interactable)
+    {
+        _isInteractable = interactable;
+
+        if (relicImage != null)
+        {
+            relicImage.raycastTarget = interactable;
+        }
+
+        if (!interactable && TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip();
+        }
+    }
+
     public void UpdateRelicData(RelicData newRelicData)
     {
         relicData = newRelicData;
@@ -41,12 +63,13 @@ public class RelicUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (!_isInteractable) return;
         OnRelicClick?.Invoke();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (relicData == null) return;
+        if (!_isInteractable || relicData == null) return;
 
         string descriptionText = relicData.description;
         if (relicInstance != null)
