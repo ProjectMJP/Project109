@@ -128,6 +128,7 @@ public class BattleDeck
             }
 
             hand.Add(card);
+            AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_CARD_DRAW, 0.06f);
         }
 
         OnHandChanged?.Invoke();

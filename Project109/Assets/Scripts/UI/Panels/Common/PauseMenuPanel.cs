@@ -48,6 +48,7 @@ public class PauseMenuPanel : UIPanelBase
     [Header("Window Layout")]
     [SerializeField] private RectTransform windowFrameRect;
     [SerializeField] private Vector2 defaultWindowSize = new Vector2(460f, 520f);
+    [SerializeField] private Vector2 settingsWindowSize = new Vector2(460f, 640f);
     [SerializeField] private Vector2 relicCompendiumWindowSize = new Vector2(1420f, 840f);
 
     [Header("Sub-View Containers")]
@@ -69,6 +70,10 @@ public class PauseMenuPanel : UIPanelBase
     [Header("Settings Controls")]
     [SerializeField] private Slider masterVolumeSlider;
     [SerializeField] private TextMeshProUGUI masterVolumeValueText;
+    [SerializeField] private Slider bgmVolumeSlider;
+    [SerializeField] private TextMeshProUGUI bgmVolumeValueText;
+    [SerializeField] private Slider sfxVolumeSlider;
+    [SerializeField] private TextMeshProUGUI sfxVolumeValueText;
     [SerializeField] private Toggle fullScreenToggle;
     [SerializeField] private TextMeshProUGUI fullScreenStatusText;
     [SerializeField] private Toggle tooltipToggle;
@@ -127,7 +132,7 @@ public class PauseMenuPanel : UIPanelBase
     {
         if (PlayerPrefs.HasKey(PREF_MASTER_VOLUME))
         {
-            AudioListener.volume = Mathf.Clamp01(PlayerPrefs.GetFloat(PREF_MASTER_VOLUME, 1f));
+            AudioManager.SetMasterVolume(PlayerPrefs.GetFloat(PREF_MASTER_VOLUME, 1f), savePrefs: false);
         }
 
         if (PlayerPrefs.HasKey(PREF_FULLSCREEN))
@@ -146,6 +151,7 @@ public class PauseMenuPanel : UIPanelBase
         blockWorldInput = true;
 
         ResolveComponentReferences();
+        EnsureAudioVolumeSettingRows();
         EnsureTooltipSettingRow();
         EnsureRelicFilterSortBar();
         BindListeners();
@@ -218,6 +224,7 @@ public class PauseMenuPanel : UIPanelBase
         PauseGameTime();
 
         ResolveComponentReferences();
+        EnsureAudioVolumeSettingRows();
         EnsureTooltipSettingRow();
         EnsureRelicFilterSortBar();
         BindListeners();
@@ -264,6 +271,16 @@ public class PauseMenuPanel : UIPanelBase
         if (relicBackButton != null) relicBackButton.onClick.AddListener(OnBackToMainClicked);
 
         if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
+        if (bgmVolumeSlider != null)
+        {
+            bgmVolumeSlider.onValueChanged.RemoveListener(OnBgmVolumeChanged);
+            bgmVolumeSlider.onValueChanged.AddListener(OnBgmVolumeChanged);
+        }
+        if (sfxVolumeSlider != null)
+        {
+            sfxVolumeSlider.onValueChanged.RemoveListener(OnSfxVolumeChanged);
+            sfxVolumeSlider.onValueChanged.AddListener(OnSfxVolumeChanged);
+        }
         if (fullScreenToggle != null) fullScreenToggle.onValueChanged.AddListener(OnFullScreenToggleChanged);
         if (tooltipToggle != null)
         {
@@ -290,6 +307,8 @@ public class PauseMenuPanel : UIPanelBase
         if (relicBackButton != null) relicBackButton.onClick.RemoveListener(OnBackToMainClicked);
 
         if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.RemoveListener(OnMasterVolumeChanged);
+        if (bgmVolumeSlider != null) bgmVolumeSlider.onValueChanged.RemoveListener(OnBgmVolumeChanged);
+        if (sfxVolumeSlider != null) sfxVolumeSlider.onValueChanged.RemoveListener(OnSfxVolumeChanged);
         if (fullScreenToggle != null) fullScreenToggle.onValueChanged.RemoveListener(OnFullScreenToggleChanged);
         if (tooltipToggle != null) tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
 
@@ -304,9 +323,18 @@ public class PauseMenuPanel : UIPanelBase
 
         if (windowFrameRect != null)
         {
-            windowFrameRect.sizeDelta = mode == ViewMode.RelicCompendium
-                ? relicCompendiumWindowSize
-                : defaultWindowSize;
+            switch (mode)
+            {
+                case ViewMode.Settings:
+                    windowFrameRect.sizeDelta = settingsWindowSize;
+                    break;
+                case ViewMode.RelicCompendium:
+                    windowFrameRect.sizeDelta = relicCompendiumWindowSize;
+                    break;
+                default:
+                    windowFrameRect.sizeDelta = defaultWindowSize;
+                    break;
+            }
         }
 
         if (mode == ViewMode.RelicCompendium)
@@ -333,11 +361,13 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnResumeClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Close();
     }
 
     private void OnCompendiumClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         ClearStatusMessage();
 
         if (UIManager.instance == null)
@@ -383,6 +413,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnRelicCompendiumClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         ClearStatusMessage();
         ResetRelicFilterAndSortState();
         EnsureRelicCompendiumLayout();
@@ -395,6 +426,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnSettingsClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         ClearStatusMessage();
         RefreshSettingsUI();
         SwitchViewMode(ViewMode.Settings);
@@ -402,6 +434,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnBackToMainClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         ClearStatusMessage();
         if (TooltipManager.HasInstance)
         {
@@ -412,6 +445,7 @@ public class PauseMenuPanel : UIPanelBase
 
     private void OnReturnToTitleClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         if (_isTransitioning)
         {
             return;
@@ -458,20 +492,37 @@ public class PauseMenuPanel : UIPanelBase
     {
         _isSyncingSettingsUI = true;
 
-        float savedVolume = PlayerPrefs.HasKey(PREF_MASTER_VOLUME)
+        float savedMaster = PlayerPrefs.HasKey(PREF_MASTER_VOLUME)
             ? Mathf.Clamp01(PlayerPrefs.GetFloat(PREF_MASTER_VOLUME, 1f))
-            : Mathf.Clamp01(AudioListener.volume);
+            : AudioManager.SavedMasterVolume;
 
-        AudioListener.volume = savedVolume;
+        AudioManager.SetMasterVolume(savedMaster, savePrefs: false);
 
         if (masterVolumeSlider != null)
         {
             masterVolumeSlider.minValue = 0f;
             masterVolumeSlider.maxValue = 1f;
-            masterVolumeSlider.SetValueWithoutNotify(savedVolume);
+            masterVolumeSlider.SetValueWithoutNotify(savedMaster);
         }
+        UpdateMasterVolumeText(savedMaster);
 
-        UpdateMasterVolumeText(savedVolume);
+        float savedBgm = AudioManager.SavedBgmVolume;
+        if (bgmVolumeSlider != null)
+        {
+            bgmVolumeSlider.minValue = 0f;
+            bgmVolumeSlider.maxValue = 1f;
+            bgmVolumeSlider.SetValueWithoutNotify(savedBgm);
+        }
+        UpdateBgmVolumeText(savedBgm);
+
+        float savedSfx = AudioManager.SavedSfxVolume;
+        if (sfxVolumeSlider != null)
+        {
+            sfxVolumeSlider.minValue = 0f;
+            sfxVolumeSlider.maxValue = 1f;
+            sfxVolumeSlider.SetValueWithoutNotify(savedSfx);
+        }
+        UpdateSfxVolumeText(savedSfx);
 
         bool isFullScreen = PlayerPrefs.HasKey(PREF_FULLSCREEN)
             ? PlayerPrefs.GetInt(PREF_FULLSCREEN, Screen.fullScreen ? 1 : 0) == 1
@@ -502,11 +553,32 @@ public class PauseMenuPanel : UIPanelBase
         }
 
         float clamped = Mathf.Clamp01(value);
-        AudioListener.volume = clamped;
-        PlayerPrefs.SetFloat(PREF_MASTER_VOLUME, clamped);
-        PlayerPrefs.Save();
-
+        AudioManager.SetMasterVolume(clamped, savePrefs: true);
         UpdateMasterVolumeText(clamped);
+    }
+
+    private void OnBgmVolumeChanged(float value)
+    {
+        if (_isSyncingSettingsUI)
+        {
+            return;
+        }
+
+        float clamped = Mathf.Clamp01(value);
+        AudioManager.SetBgmVolume(clamped, savePrefs: true);
+        UpdateBgmVolumeText(clamped);
+    }
+
+    private void OnSfxVolumeChanged(float value)
+    {
+        if (_isSyncingSettingsUI)
+        {
+            return;
+        }
+
+        float clamped = Mathf.Clamp01(value);
+        AudioManager.SetSfxVolume(clamped, savePrefs: true);
+        UpdateSfxVolumeText(clamped);
     }
 
     private void OnFullScreenToggleChanged(bool isFullScreen)
@@ -563,6 +635,24 @@ public class PauseMenuPanel : UIPanelBase
         {
             int percent = Mathf.RoundToInt(Mathf.Clamp01(volume) * 100f);
             masterVolumeValueText.text = $"{percent}%";
+        }
+    }
+
+    private void UpdateBgmVolumeText(float volume)
+    {
+        if (bgmVolumeValueText != null)
+        {
+            int percent = Mathf.RoundToInt(Mathf.Clamp01(volume) * 100f);
+            bgmVolumeValueText.text = $"{percent}%";
+        }
+    }
+
+    private void UpdateSfxVolumeText(float volume)
+    {
+        if (sfxVolumeValueText != null)
+        {
+            int percent = Mathf.RoundToInt(Mathf.Clamp01(volume) * 100f);
+            sfxVolumeValueText.text = $"{percent}%";
         }
     }
 
@@ -1388,6 +1478,10 @@ public class PauseMenuPanel : UIPanelBase
         {
             if (masterVolumeSlider == null) masterVolumeSlider = FindChildComponent<Slider>(settingsTr, "MasterVolumeRow/MasterVolumeSlider");
             if (masterVolumeValueText == null) masterVolumeValueText = FindChildComponent<TextMeshProUGUI>(settingsTr, "MasterVolumeRow/MasterVolumeValueText");
+            if (bgmVolumeSlider == null) bgmVolumeSlider = FindChildComponent<Slider>(settingsTr, "BgmVolumeRow/BgmVolumeSlider");
+            if (bgmVolumeValueText == null) bgmVolumeValueText = FindChildComponent<TextMeshProUGUI>(settingsTr, "BgmVolumeRow/BgmVolumeValueText");
+            if (sfxVolumeSlider == null) sfxVolumeSlider = FindChildComponent<Slider>(settingsTr, "SfxVolumeRow/SfxVolumeSlider");
+            if (sfxVolumeValueText == null) sfxVolumeValueText = FindChildComponent<TextMeshProUGUI>(settingsTr, "SfxVolumeRow/SfxVolumeValueText");
             if (fullScreenToggle == null) fullScreenToggle = FindChildComponent<Toggle>(settingsTr, "FullScreenRow/FullScreenToggle");
             if (fullScreenStatusText == null) fullScreenStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "FullScreenRow/FullScreenStatusText");
             if (tooltipToggle == null) tooltipToggle = FindChildComponent<Toggle>(settingsTr, "TooltipRow/TooltipToggle");
@@ -1403,6 +1497,130 @@ public class PauseMenuPanel : UIPanelBase
             if (relicListContent == null) relicListContent = relicTr.Find("RelicScrollView/Viewport/Content");
             if (relicBackButton == null) relicBackButton = FindChildComponent<Button>(relicTr, "RelicBackButton");
         }
+    }
+
+    private void EnsureAudioVolumeSettingRows()
+    {
+        if (settingsGroup == null)
+        {
+            return;
+        }
+
+        VerticalLayoutGroup settingsLayout = settingsGroup.GetComponent<VerticalLayoutGroup>();
+        if (settingsLayout != null && settingsLayout.spacing > 14f)
+        {
+            settingsLayout.spacing = 12f;
+        }
+
+        TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(masterVolumeValueText, fullScreenStatusText);
+
+        Transform bgmRow = settingsGroup.transform.Find("BgmVolumeRow");
+        if (bgmRow == null)
+        {
+            bgmRow = CreateVolumeSliderRow(
+                settingsGroup.transform,
+                "BgmVolumeRow",
+                "배경음 (BGM)",
+                "BgmVolumeSlider",
+                "BgmVolumeValueText",
+                AudioManager.SavedBgmVolume,
+                fontAsset,
+                out bgmVolumeSlider,
+                out bgmVolumeValueText);
+        }
+        else
+        {
+            if (bgmVolumeSlider == null) bgmVolumeSlider = FindChildComponent<Slider>(bgmRow, "BgmVolumeSlider");
+            if (bgmVolumeValueText == null) bgmVolumeValueText = FindChildComponent<TextMeshProUGUI>(bgmRow, "BgmVolumeValueText");
+        }
+
+        Transform sfxRow = settingsGroup.transform.Find("SfxVolumeRow");
+        if (sfxRow == null)
+        {
+            sfxRow = CreateVolumeSliderRow(
+                settingsGroup.transform,
+                "SfxVolumeRow",
+                "효과음 (SFX)",
+                "SfxVolumeSlider",
+                "SfxVolumeValueText",
+                AudioManager.SavedSfxVolume,
+                fontAsset,
+                out sfxVolumeSlider,
+                out sfxVolumeValueText);
+        }
+        else
+        {
+            if (sfxVolumeSlider == null) sfxVolumeSlider = FindChildComponent<Slider>(sfxRow, "SfxVolumeSlider");
+            if (sfxVolumeValueText == null) sfxVolumeValueText = FindChildComponent<TextMeshProUGUI>(sfxRow, "SfxVolumeValueText");
+        }
+
+        // MasterVolumeRow 바로 뒤, FullScreenRow/TooltipRow/SettingsBackButton 앞에 순서 정렬
+        Transform masterRow = settingsGroup.transform.Find("MasterVolumeRow");
+        int targetIndex = masterRow != null ? masterRow.GetSiblingIndex() + 1 : 0;
+        if (bgmRow != null && bgmRow.parent == settingsGroup.transform)
+        {
+            bgmRow.SetSiblingIndex(targetIndex);
+            targetIndex = bgmRow.GetSiblingIndex() + 1;
+        }
+        if (sfxRow != null && sfxRow.parent == settingsGroup.transform)
+        {
+            sfxRow.SetSiblingIndex(targetIndex);
+        }
+
+        if (_listenersBound)
+        {
+            if (bgmVolumeSlider != null)
+            {
+                bgmVolumeSlider.onValueChanged.RemoveListener(OnBgmVolumeChanged);
+                bgmVolumeSlider.onValueChanged.AddListener(OnBgmVolumeChanged);
+            }
+            if (sfxVolumeSlider != null)
+            {
+                sfxVolumeSlider.onValueChanged.RemoveListener(OnSfxVolumeChanged);
+                sfxVolumeSlider.onValueChanged.AddListener(OnSfxVolumeChanged);
+            }
+        }
+    }
+
+    private static Transform CreateVolumeSliderRow(
+        Transform parent,
+        string rowName,
+        string labelText,
+        string sliderName,
+        string valueTextName,
+        float initialVolume,
+        TMP_FontAsset fontAsset,
+        out Slider slider,
+        out TextMeshProUGUI valueText)
+    {
+        GameObject volumeRow = CreateUIObject(rowName, parent);
+        LayoutElement volumeLayout = volumeRow.AddComponent<LayoutElement>();
+        volumeLayout.minHeight = 62f;
+        volumeLayout.preferredHeight = 62f;
+
+        TextMeshProUGUI volLabel = CreateTMPText("Label", volumeRow.transform, labelText, 19, FontStyles.Bold, TextAlignmentOptions.Left, fontAsset);
+        RectTransform volLabelRect = volLabel.GetComponent<RectTransform>();
+        volLabelRect.anchorMin = new Vector2(0f, 1f);
+        volLabelRect.anchorMax = new Vector2(0.75f, 1f);
+        volLabelRect.pivot = new Vector2(0f, 1f);
+        volLabelRect.anchoredPosition = Vector2.zero;
+        volLabelRect.sizeDelta = new Vector2(0f, 28f);
+
+        int percent = Mathf.RoundToInt(Mathf.Clamp01(initialVolume) * 100f);
+        valueText = CreateTMPText(valueTextName, volumeRow.transform, $"{percent}%", 19, FontStyles.Normal, TextAlignmentOptions.Right, fontAsset);
+        RectTransform volValRect = valueText.GetComponent<RectTransform>();
+        volValRect.anchorMin = new Vector2(0.75f, 1f);
+        volValRect.anchorMax = new Vector2(1f, 1f);
+        volValRect.pivot = new Vector2(1f, 1f);
+        volValRect.anchoredPosition = Vector2.zero;
+        volValRect.sizeDelta = new Vector2(0f, 28f);
+
+        slider = CreateSlider(sliderName, volumeRow.transform);
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.SetValueWithoutNotify(Mathf.Clamp01(initialVolume));
+
+        return volumeRow.transform;
     }
 
     private void EnsureTooltipSettingRow()
@@ -1556,7 +1774,7 @@ public class PauseMenuPanel : UIPanelBase
         settingsRect.offsetMax = new Vector2(-36f, -84f);
 
         VerticalLayoutGroup settingsLayout = settingsGroup.AddComponent<VerticalLayoutGroup>();
-        settingsLayout.spacing = 20f;
+        settingsLayout.spacing = 12f;
         settingsLayout.childAlignment = TextAnchor.UpperCenter;
         settingsLayout.childControlWidth = true;
         settingsLayout.childControlHeight = true;
@@ -1619,6 +1837,29 @@ public class PauseMenuPanel : UIPanelBase
         volValRect.sizeDelta = new Vector2(0f, 30f);
 
         masterVolumeSlider = CreateSlider("MasterVolumeSlider", volumeRow.transform);
+
+        // 1-2. 배경음 / 효과음 볼륨 슬라이더 행
+        CreateVolumeSliderRow(
+            parent,
+            "BgmVolumeRow",
+            "배경음 (BGM)",
+            "BgmVolumeSlider",
+            "BgmVolumeValueText",
+            AudioManager.SavedBgmVolume,
+            fontAsset,
+            out bgmVolumeSlider,
+            out bgmVolumeValueText);
+
+        CreateVolumeSliderRow(
+            parent,
+            "SfxVolumeRow",
+            "효과음 (SFX)",
+            "SfxVolumeSlider",
+            "SfxVolumeValueText",
+            AudioManager.SavedSfxVolume,
+            fontAsset,
+            out sfxVolumeSlider,
+            out sfxVolumeValueText);
 
         // 2. 화면 모드 토글 행
         GameObject screenRow = CreateUIObject("FullScreenRow", parent);

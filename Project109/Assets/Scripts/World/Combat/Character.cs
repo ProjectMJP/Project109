@@ -396,9 +396,11 @@ public class Character : MonoBehaviour, IDamageable
 
     public event Action<Character, CharacterState> OnCharacterStateChanged;
 
-    // UI 계층과의 결합도를 낮추기 위한 정적 플로팅 인디케이터 이벤트
+    // UI 및 오디오 계층과의 결합도를 낮추기 위한 정적 이벤트
     public static event Action<Character, float, DamageFlag> OnCharacterDamagedIndicator;
     public static event Action<Character, float> OnCharacterHealedIndicator;
+    public static event Action<Character, float> OnCharacterShieldGained;
+    public static event Action<Character> OnCharacterAnyDied;
 
     #endregion
 
@@ -744,6 +746,7 @@ public class Character : MonoBehaviour, IDamageable
             {
                 CombatEventDispatcher.DispatchDeath(this.eventBus, info);
                 OnCharacterDied?.Invoke(this);
+                OnCharacterAnyDied?.Invoke(this);
             }
         }
         finally
@@ -841,6 +844,10 @@ public class Character : MonoBehaviour, IDamageable
         }
 
         OnCharacterShieldChanged?.Invoke(this);
+        if (shieldAmount > 0f)
+        {
+            OnCharacterShieldGained?.Invoke(this, shieldAmount);
+        }
 
         if (info.caster != null)
             CombatEventDispatcher.DispatchAfterGiveShield(info.caster.eventBus, info);

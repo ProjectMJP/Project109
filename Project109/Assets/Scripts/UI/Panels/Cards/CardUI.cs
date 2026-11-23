@@ -1499,6 +1499,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (enableZoom)
         {
+            AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_CARD_HOVER, 0.06f);
             EnsureCachedComponents();
             OnHoverZoomStarted?.Invoke(this);
 

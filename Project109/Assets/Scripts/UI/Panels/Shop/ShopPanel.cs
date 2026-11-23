@@ -563,6 +563,7 @@ public class ShopPanel : UIPanelBase
         HideFeedback();
         player.playerStat.InGameCurrencyGold -= price;
         player.deck.AddCard(cardData);
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
         Debug.Log($"[ShopPanel] {cardData.cardName} 카드를 {price}골드에 구매했습니다.");
 
         if (cardList != null && slotIndex >= 0 && slotIndex < cardList.Count && cardList[slotIndex] != null)
@@ -620,6 +621,7 @@ public class ShopPanel : UIPanelBase
         HideFeedback();
         player.playerStat.InGameCurrencyGold -= price;
         player.AddRelic(relicData.relicName);
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
         Debug.Log($"[ShopPanel] {relicData.relicName} 유물을 {price}골드에 구매했습니다.");
 
         if (relicList != null && slotIndex >= 0 && slotIndex < relicList.Count && relicList[slotIndex] != null)
@@ -634,6 +636,7 @@ public class ShopPanel : UIPanelBase
 
     public void OnRerollClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         if (_boundShop == null)
         {
             ShowFeedback("리롤할 상점 정보가 연결되지 않았습니다.");
@@ -678,6 +681,7 @@ public class ShopPanel : UIPanelBase
 
     public void CloseUI()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Close();
     }
 

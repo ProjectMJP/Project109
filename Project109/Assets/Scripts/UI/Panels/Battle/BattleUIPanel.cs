@@ -277,6 +277,7 @@ public class BattleUIPanel : UIPanelBase
 
     private void HandleEndTurnClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         if (_controller != null)
         {
             _controller.RequestEndTurn();
@@ -292,6 +293,7 @@ public class BattleUIPanel : UIPanelBase
 
     private void HandleCancelTargetingClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         if (_controller != null)
         {
             _controller.CancelCurrentState();

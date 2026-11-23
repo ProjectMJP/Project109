@@ -368,6 +368,7 @@ public class ShopNPC : InteractableObject
         targetPlayer.playerStat.InGameCurrencyGold -= price;
         targetPlayer.deck.AddCard(cardData);
         entry.isSold = true;
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {cardData.cardName} 카드를 {price}골드에 구매했습니다.");
@@ -408,6 +409,7 @@ public class ShopNPC : InteractableObject
         targetPlayer.playerStat.InGameCurrencyGold -= price;
         targetPlayer.AddRelic(relicData.relicName);
         entry.isSold = true;
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {relicData.relicName} 유물을 {price}골드에 구매했습니다.");

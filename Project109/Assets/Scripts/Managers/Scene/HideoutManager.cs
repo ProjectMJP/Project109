@@ -37,6 +37,10 @@ public class HideoutManager : MonoBehaviour
     private void Start()
     {
         InitializeHideoutStage();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayBGM(AudioCueKeys.BGM_HIDEOUT);
+        }
     }
 
     private void OnDestroy()

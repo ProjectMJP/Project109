@@ -172,6 +172,7 @@ public class BattleHandPanel : UIPanelBase
 
     private void HandleSwitchMode()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         if (_isMoveMode)
         {
             OnCardModeRequested?.Invoke();
@@ -570,6 +571,7 @@ public class BattleHandPanel : UIPanelBase
     /// </summary>
     public void ShowUnplayableFeedback(Card card, CardPlayFailReason reason, string message)
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_CARD_UNPLAYABLE, 0.03f);
         string resolvedMessage = !string.IsNullOrEmpty(message) ? message : GetDefaultFeedbackMessage(reason);
         if (string.IsNullOrEmpty(resolvedMessage))
         {
@@ -788,6 +790,7 @@ public class BattleHandPanel : UIPanelBase
         if (_isMoveMode) return;
 
         if (_boundDeck == null || UIManager.instance == null) return;
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
         if (deckPanel != null)
         {
@@ -798,6 +801,7 @@ public class BattleHandPanel : UIPanelBase
     private void OnUsedPileClicked()
     {
         if (_boundDeck == null || UIManager.instance == null) return;
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
         if (deckPanel != null)
         {

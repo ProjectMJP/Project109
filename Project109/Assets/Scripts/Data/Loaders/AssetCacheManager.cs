@@ -45,6 +45,7 @@ public class AssetCacheManager : MonoBehaviour
     public string modelKey = "Model";
     public string textureKey = "Texture";
     public string uiKey = "UI";
+    public string audioKey = "Audio";
 
     public IList<MapDataSO> mapList;
     private Dictionary<string, MapDataSO> mapDict = new Dictionary<string, MapDataSO>();
@@ -59,12 +60,16 @@ public class AssetCacheManager : MonoBehaviour
     public IList<GameObject> uiList;
     private Dictionary<string, GameObject> uiDict = new Dictionary<string, GameObject>();
 
+    public IList<AudioClip> audioList;
+    private Dictionary<string, AudioClip> audioDict = new Dictionary<string, AudioClip>();
+
     private IEnumerator Start()
     {
         bool isMapLoaded = false;
         bool isModelLoaded = false;
         bool isTextureLoaded = false;
         bool isUiLoaded = false;
+        bool isAudioLoaded = false;
 
         // 1. 맵 데이터 할당 시작
         StartCoroutine(LoadAndCacheFromAddressableData<MapDataSO>(mapKey, (list, dict) =>
@@ -148,12 +153,21 @@ public class AssetCacheManager : MonoBehaviour
             isUiLoaded = true;
         }));
 
+        // 13. 오디오 클립 데이터 선택적 할당 시작 (라벨이 없는 환경에서도 에러 없이 통과)
+        StartCoroutine(LoadAndCacheAudioClipsOptional(audioKey, (list, dict) =>
+        {
+            audioList = list;
+            audioDict = dict ?? new Dictionary<string, AudioClip>();
+            isAudioLoaded = true;
+        }));
+
         // 모든 비동기 작업이 병렬 완료될 때까지 대기
         float waitTimer = 0f;
         while (!(isMapLoaded &&
                  isModelLoaded &&
                  isTextureLoaded &&
-                 isUiLoaded))
+                 isUiLoaded &&
+                 isAudioLoaded))
         {
             waitTimer += Time.deltaTime;
             if (waitTimer >= 2f)
@@ -355,6 +369,52 @@ public class AssetCacheManager : MonoBehaviour
     public bool TryGetModel(string name, out GameObject model) => modelDict.TryGetValue(name, out model);
     public bool TryGetTexture(string name, out Sprite texture) => textureDict.TryGetValue(name, out texture);
     public bool TryGetUI(string name, out GameObject uiPrefab) => uiDict.TryGetValue(name, out uiPrefab);
+
+    public bool TryGetAudio(string name, out AudioClip clip)
+    {
+        clip = null;
+        return !string.IsNullOrEmpty(name) && audioDict != null && audioDict.TryGetValue(name, out clip) && clip != null;
+    }
+
+    private IEnumerator LoadAndCacheAudioClipsOptional(string key, Action<IList<AudioClip>, Dictionary<string, AudioClip>> onLoaded)
+    {
+        var locHandle = Addressables.LoadResourceLocationsAsync(key, typeof(AudioClip));
+        yield return locHandle;
+
+        bool hasLocations = locHandle.Status == AsyncOperationStatus.Succeeded &&
+                            locHandle.Result != null &&
+                            locHandle.Result.Count > 0;
+        Addressables.Release(locHandle);
+
+        if (!hasLocations)
+        {
+            onLoaded?.Invoke(null, new Dictionary<string, AudioClip>());
+            yield break;
+        }
+
+        AsyncOperationHandle<IList<AudioClip>> handle = Addressables.LoadAssetsAsync<AudioClip>(key, null);
+        yield return handle;
+
+        if (handle.Status == AsyncOperationStatus.Succeeded && handle.Result != null)
+        {
+            IList<AudioClip> list = handle.Result;
+            Dictionary<string, AudioClip> dict = new Dictionary<string, AudioClip>();
+            for (int i = 0; i < list.Count; i++)
+            {
+                AudioClip item = list[i];
+                if (item != null && !dict.ContainsKey(item.name))
+                {
+                    dict[item.name] = item;
+                }
+            }
+            Debug.Log($"{key}, {dict.Count} audio clip Load Complete");
+            onLoaded?.Invoke(list, dict);
+        }
+        else
+        {
+            onLoaded?.Invoke(null, new Dictionary<string, AudioClip>());
+        }
+    }
 
     public System.Collections.IEnumerator GetUIAsyncCoroutine(string addressableKey, Action<GameObject> onLoaded)
     {

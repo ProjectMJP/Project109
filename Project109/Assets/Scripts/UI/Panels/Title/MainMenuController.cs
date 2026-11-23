@@ -53,6 +53,11 @@ public class MainMenuController : MonoBehaviour
 
         // 3. 에셋 로드 완료 감지를 위한 폴링 코루틴 혹은 상태 감지
         StartCoroutine(WaitForAssetLoadComplete());
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayBGM(AudioCueKeys.BGM_TITLE);
+        }
     }
 
     private IEnumerator WaitForAssetLoadComplete()
@@ -92,6 +97,7 @@ public class MainMenuController : MonoBehaviour
     // [시작/새로하기] 버튼 클릭 시 -> 슬롯 선택 창 활성화
     private void OnStartButtonClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Debug.Log("[MainMenuController] 시작 버튼 클릭됨. 슬롯 선택 패널을 표시합니다.");
         if (slotSelectionPanel != null)
         {
@@ -138,6 +144,7 @@ public class MainMenuController : MonoBehaviour
     // 특정 슬롯을 클릭했을 때의 제어 로직 (사용자 설계 구현)
     private void OnSlotClicked(int slotIndex)
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         bool hasSave = SaveSystem.HasSaveData(slotIndex);
         Debug.Log($"[MainMenuController] 슬롯 {slotIndex} 클릭됨. 세이브 데이터 존재 여부: {hasSave}");
 
@@ -168,6 +175,7 @@ public class MainMenuController : MonoBehaviour
 
     private void OnCloseButtonClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Debug.Log("[MainMenuController] 닫기 버튼 클릭됨. 슬롯 선택 패널을 비활성화합니다.");
         if (slotSelectionPanel != null)
         {
@@ -177,6 +185,7 @@ public class MainMenuController : MonoBehaviour
 
     private void OnSettingsButtonClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Debug.Log("[MainMenuController] 설정 창 오픈 시도.");
         // TODO: 설정 패널 활성화
     }
@@ -184,12 +193,14 @@ public class MainMenuController : MonoBehaviour
 
     private void OnQuitButtonClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Debug.Log("[MainMenuController] 게임 종료.");
         Application.Quit();
     }
 
     private void OnCreditsButtonClicked()
     {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Debug.Log("[MainMenuController] 크레딧 창 오픈 시도.");
         // TODO: 크레딧 패널 활성화
     }

@@ -289,6 +289,14 @@ public class RunManager : MonoBehaviour
                     enemyCtrl.EvaluateNextIntent();
                 }
             }
+
+            if (AudioManager.Instance != null)
+            {
+                bool isBossBattle =
+                    (currentExploreNode != null && currentExploreNode.encounterData != null && currentExploreNode.encounterData.encountType == EncountType.Boss) ||
+                    (currentStage != null && currentStage.currentMapData != null && currentStage.currentMapData.EncountType == EncountType.Boss);
+                AudioManager.Instance.PlayBGM(isBossBattle ? AudioCueKeys.BGM_BATTLE_BOSS : AudioCueKeys.BGM_BATTLE_NORMAL);
+            }
         }
         else
         {
@@ -296,6 +304,11 @@ public class RunManager : MonoBehaviour
             if (playerExploreController != null)
             {
                 playerExploreController.Activate();
+            }
+
+            if (AudioManager.HasInstance)
+            {
+                AudioManager.Instance.StopBGM(1.0f);
             }
 
             if (UIManager.instance != null)
@@ -631,6 +644,7 @@ public class RunManager : MonoBehaviour
         }
 
         pendingRewardSession.RemoveEntry(entryId);
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_REWARD_CLAIM, 0.04f);
 
         if (GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon)
         {
@@ -696,6 +710,7 @@ public class RunManager : MonoBehaviour
     private void HandleBattleWon()
     {
         Debug.Log("[RunManager] 전투 승리 이벤트 수신: 맵 상태 복귀 및 보상 처리 시작");
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_BATTLE_VICTORY, 0f);
 
         if (currentStage != null)
         {
@@ -724,6 +739,7 @@ public class RunManager : MonoBehaviour
     private void HandleBattleLost()
     {
         Debug.Log("[RunManager] 전투 패배 이벤트 수신: 게임 오버 결과 패널을 엽니다.");
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_BATTLE_DEFEAT, 0f);
         if (UIManager.instance != null)
         {
             GameOverPanel panel = UIManager.instance.OpenUI<GameOverPanel>(UIConstants.PANEL_GAME_OVER, UILayerType.Popup, true);

@@ -82,6 +82,7 @@ public class CardPlayAction : BattleAction
                 yield break;
             }
 
+            AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_CARD_PLAY, 0.05f);
             card.Execute(info);
             DamageDestructiblesInRange(info);
         }
