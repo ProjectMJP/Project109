@@ -43,6 +43,9 @@ public class PlayerInputController : MonoBehaviour
     public event Action<Vector2> OnTouchClickEvent;
     public event Action<Vector2> OnPointerHoverEvent; // 마우스/포인터 실시간 이동(호버) 이벤트
     public event Action OnCancelEvent; // 우클릭 및 ESC 취소 이벤트
+    public event Action<int> OnCardHotkeyEvent; // 숫자 단축키(0-based 손패 인덱스)
+    public event Action OnEndTurnHotkeyEvent; // 턴 종료 단축키(E / Space)
+    public event Action OnToggleMoveModeHotkeyEvent; // 이동 모드 토글 단축키(Tab / Q / M)
 
     /// <summary>
     /// UI 팝업 등으로 인해 월드 상호작용 입력(터치/드래그/클릭)이 차단되어야 하는지 여부입니다.
@@ -113,7 +116,112 @@ public class PlayerInputController : MonoBehaviour
                 lastHoverPos = currentPointerPos;
                 OnPointerHoverEvent?.Invoke(currentPointerPos);
             }
+
+            // 전투 단축키 입력 감지 (텍스트 입력 필드 포커스 및 드래그 가드 중 차단)
+            PollBattleHotkeys();
         }
+    }
+
+    private bool IsBattleHotkeyInputBlocked()
+    {
+        if (IsWorldInputBlocked || UIDragInputGuard.IsAnyUIDragging)
+        {
+            return true;
+        }
+
+        if (EventSystem.current != null)
+        {
+            GameObject selected = EventSystem.current.currentSelectedGameObject;
+            if (selected != null &&
+                (selected.GetComponent<TMPro.TMP_InputField>() != null ||
+                 selected.GetComponent<UnityEngine.UI.InputField>() != null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void PollBattleHotkeys()
+    {
+        if (Keyboard.current == null || IsBattleHotkeyInputBlocked())
+        {
+            return;
+        }
+
+        Keyboard kb = Keyboard.current;
+        int pressedCardIndex = GetPressedCardHotkeyIndex(kb);
+        if (pressedCardIndex >= 0)
+        {
+            ProcessCardHotkey(pressedCardIndex);
+        }
+
+        if (kb.eKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
+        {
+            ProcessEndTurnHotkey();
+        }
+
+        if (kb.tabKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame || kb.mKey.wasPressedThisFrame)
+        {
+            ProcessToggleMoveModeHotkey();
+        }
+    }
+
+    private static int GetPressedCardHotkeyIndex(Keyboard kb)
+    {
+        if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) return 0;
+        if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) return 1;
+        if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) return 2;
+        if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) return 3;
+        if (kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame) return 4;
+        if (kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame) return 5;
+        if (kb.digit7Key.wasPressedThisFrame || kb.numpad7Key.wasPressedThisFrame) return 6;
+        if (kb.digit8Key.wasPressedThisFrame || kb.numpad8Key.wasPressedThisFrame) return 7;
+        if (kb.digit9Key.wasPressedThisFrame || kb.numpad9Key.wasPressedThisFrame) return 8;
+        return -1;
+    }
+
+    /// <summary>
+    /// 손패 카드 단축키(1~9, 0-based 인덱스 0~8) 입력을 검증 후 이벤트로 발행합니다.
+    /// </summary>
+    public bool ProcessCardHotkey(int cardIndex)
+    {
+        if (cardIndex < 0 || cardIndex > 8 || IsBattleHotkeyInputBlocked())
+        {
+            return false;
+        }
+
+        OnCardHotkeyEvent?.Invoke(cardIndex);
+        return true;
+    }
+
+    /// <summary>
+    /// 턴 종료 단축키(E / Space) 입력을 검증 후 이벤트로 발행합니다.
+    /// </summary>
+    public bool ProcessEndTurnHotkey()
+    {
+        if (IsBattleHotkeyInputBlocked())
+        {
+            return false;
+        }
+
+        OnEndTurnHotkeyEvent?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// 이동 모드 토글 단축키(Tab / Q / M) 입력을 검증 후 이벤트로 발행합니다.
+    /// </summary>
+    public bool ProcessToggleMoveModeHotkey()
+    {
+        if (IsBattleHotkeyInputBlocked())
+        {
+            return false;
+        }
+
+        OnToggleMoveModeHotkeyEvent?.Invoke();
+        return true;
     }
 
     private void Awake()

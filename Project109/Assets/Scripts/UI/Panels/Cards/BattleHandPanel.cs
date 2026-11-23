@@ -54,6 +54,11 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private CanvasGroup unplayableFeedbackCanvasGroup;
     [SerializeField] private RectTransform unplayableFeedbackRect;
 
+    [Header("Hotkey Hint Settings")]
+    [SerializeField] private bool showHotkeyHints = true;
+
+    public bool ShowHotkeyHints => showHotkeyHints;
+
     public float RestingCardYOffset => restingCardYOffset;
     public float HoverRevealYOffset => hoverRevealYOffset;
 
@@ -94,11 +99,15 @@ public class BattleHandPanel : UIPanelBase
 
     private BattleDeck _boundDeck;
     private PlayerBattleController _boundController;
+    private Character _boundCharacter;
+    private BattleManager _boundBattleManager;
     private Card _targetingCard;
     private MotionHandle _feedbackMoveHandle;
     private MotionHandle _feedbackFadeHandle;
     private Action _onFeedbackFadeComplete;
     private bool _isMoveMode = false;
+    private int _lastEvaluatedStaminaInt = int.MinValue;
+    private bool _lastEvaluatedTurnActive = false;
 
     public bool IsTargetingMode => _targetingCard != null;
     public Card TargetingCard => _targetingCard;
@@ -136,6 +145,8 @@ public class BattleHandPanel : UIPanelBase
         {
             BindBattleDeck(GameSceneManager.instance.player.battleDeck);
         }
+
+        RefreshAllCardPlayability();
     }
 
     protected override void OnDisable()
@@ -187,7 +198,14 @@ public class BattleHandPanel : UIPanelBase
         // 2. 모드 전환 버튼 텍스트 변경
         if (modeSwitchButtonText != null)
         {
-            modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
+            if (showHotkeyHints)
+            {
+                modeSwitchButtonText.text = isMoveMode ? "전투 모드 [Q]" : "이동 모드 [Q]";
+            }
+            else
+            {
+                modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
+            }
         }
 
         // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 가능 칸수, 카드 모드: 드로우 덱 수)
@@ -201,7 +219,39 @@ public class BattleHandPanel : UIPanelBase
         else
         {
             RefreshDrawPileCount();
+            RefreshAllCardPlayability();
         }
+    }
+
+    /// <summary>
+    /// 손패 및 모드 전환 버튼의 단축키 힌트 표시 여부를 설정하고 즉시 반영합니다.
+    /// </summary>
+    public void SetShowHotkeyHints(bool show)
+    {
+        showHotkeyHints = show;
+        SetMoveMode(_isMoveMode, (_boundCharacter != null) ? _boundCharacter.curMoveRange : 0);
+
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry != null && !entry.isDiscarding && entry.cardUI != null)
+            {
+                entry.cardUI.SetHotkeyHint(showHotkeyHints && i < 9 ? (i + 1).ToString() : null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 지정한 손패 슬롯 인덱스의 CardUI 컴포넌트를 반환합니다.
+    /// </summary>
+    public CardUI GetHandCardUI(int index)
+    {
+        if (index < 0 || index >= activeCardUIs.Count)
+        {
+            return null;
+        }
+        HandCardEntry entry = activeCardUIs[index];
+        return entry != null ? entry.cardUI : null;
     }
 
     /// <summary>
@@ -316,11 +366,16 @@ public class BattleHandPanel : UIPanelBase
     }
 
     /// <summary>
-    /// 전투 컨트롤러를 바인딩하여 카드 시전 실패(OnCardPlayRejected) 피드백 이벤트를 수신합니다.
+    /// 전투 컨트롤러를 바인딩하여 카드 시전 실패, 단축키 선택, 스태미나·전장 상태 변화에 따른 사용 가능 여부를 실시간 구독합니다.
     /// </summary>
     public void BindBattleController(PlayerBattleController controller)
     {
-        if (_boundController == controller) return;
+        if (_boundController == controller)
+        {
+            RefreshBattleControllerDynamicSubscriptions();
+            RefreshAllCardPlayability();
+            return;
+        }
 
         UnbindBattleController();
         _boundController = controller;
@@ -328,18 +383,185 @@ public class BattleHandPanel : UIPanelBase
         if (_boundController != null)
         {
             _boundController.OnCardPlayRejected += ShowUnplayableFeedback;
+            _boundController.OnKeyboardSelectedCardChanged += HandleKeyboardSelectedCardChanged;
+            RefreshBattleControllerDynamicSubscriptions();
+        }
+
+        RefreshAllCardPlayability();
+    }
+
+    private void RefreshBattleControllerDynamicSubscriptions()
+    {
+        Character targetChar = _boundController != null ? _boundController.controlledCharacter : null;
+        if (!ReferenceEquals(_boundCharacter, targetChar))
+        {
+            if (_boundCharacter != null)
+            {
+                _boundCharacter.OnCharacterStaminaChanged -= HandleCharacterStaminaChanged;
+                if (_boundCharacter.characterMove != null)
+                {
+                    _boundCharacter.characterMove.OnTileChanged -= HandleCharacterTileChanged;
+                }
+            }
+
+            _boundCharacter = targetChar;
+            if (_boundCharacter != null)
+            {
+                _boundCharacter.OnCharacterStaminaChanged -= HandleCharacterStaminaChanged;
+                _boundCharacter.OnCharacterStaminaChanged += HandleCharacterStaminaChanged;
+                if (_boundCharacter.characterMove != null)
+                {
+                    _boundCharacter.characterMove.OnTileChanged -= HandleCharacterTileChanged;
+                    _boundCharacter.characterMove.OnTileChanged += HandleCharacterTileChanged;
+                }
+            }
+        }
+
+        BattleManager targetBm = RunManager.instance != null ? RunManager.instance.battleManager : null;
+        if (!ReferenceEquals(_boundBattleManager, targetBm))
+        {
+            if (_boundBattleManager != null)
+            {
+                _boundBattleManager.OnBattlefieldStateChanged -= HandleBattlefieldStateChanged;
+            }
+
+            _boundBattleManager = targetBm;
+            if (_boundBattleManager != null)
+            {
+                _boundBattleManager.OnBattlefieldStateChanged -= HandleBattlefieldStateChanged;
+                _boundBattleManager.OnBattlefieldStateChanged += HandleBattlefieldStateChanged;
+            }
         }
     }
 
     /// <summary>
-    /// 등록된 전투 컨트롤러 이벤트 구독을 해제합니다.
+    /// 등록된 전투 컨트롤러 및 상태 변화 이벤트 구독을 해제합니다.
     /// </summary>
     public void UnbindBattleController()
     {
+        if (_boundBattleManager != null)
+        {
+            _boundBattleManager.OnBattlefieldStateChanged -= HandleBattlefieldStateChanged;
+            _boundBattleManager = null;
+        }
+
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandleCharacterStaminaChanged;
+            if (_boundCharacter.characterMove != null)
+            {
+                _boundCharacter.characterMove.OnTileChanged -= HandleCharacterTileChanged;
+            }
+            _boundCharacter = null;
+        }
+
         if (_boundController != null)
         {
             _boundController.OnCardPlayRejected -= ShowUnplayableFeedback;
+            _boundController.OnKeyboardSelectedCardChanged -= HandleKeyboardSelectedCardChanged;
             _boundController = null;
+        }
+
+        _lastEvaluatedStaminaInt = int.MinValue;
+        _lastEvaluatedTurnActive = false;
+    }
+
+    private void HandleCharacterStaminaChanged(Character character)
+    {
+        if (activeCardUIs.Count == 0)
+        {
+            return;
+        }
+
+        bool isTurnActive = _boundController != null && _boundController.IsPlayerTurnActive();
+        int staminaInt = character != null ? Mathf.FloorToInt(character.curStamina) : 0;
+
+        // ATB 충전 중 턴 비활성 상태에서 정수 스태미나가 변하지 않았다면 불필요한 재평가 생략
+        if (!isTurnActive && !_lastEvaluatedTurnActive && staminaInt == _lastEvaluatedStaminaInt)
+        {
+            return;
+        }
+
+        RefreshAllCardPlayability();
+    }
+
+    private void HandleCharacterTileChanged(Character character, Tile previousTile, Tile newTile)
+    {
+        RefreshAllCardPlayability();
+    }
+
+    private void HandleBattlefieldStateChanged()
+    {
+        RefreshAllCardPlayability();
+    }
+
+    private void HandleKeyboardSelectedCardChanged(Card selectedCard)
+    {
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null || entry.isDiscarding || entry.cardUI == null)
+            {
+                continue;
+            }
+
+            entry.cardUI.SetKeyboardSelected(selectedCard != null && ReferenceEquals(entry.card, selectedCard));
+        }
+
+        if (selectedCard != null)
+        {
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.UpdateEffectAreaUI(selectedCard);
+            }
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetCardHoverPreview(selectedCard);
+            }
+        }
+        else if (!IsTargetingMode)
+        {
+            if (UIManager.instance != null)
+            {
+                UIManager.instance.ClearEffectAreaTiles();
+            }
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.ClearCardHoverPreview();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 현재 손패의 모든 카드에 대해 스태미나·사거리·조건 기반 사용 가능 시각 상태(글로우/딤/코스트 색상)를 일괄 갱신합니다.
+    /// </summary>
+    public void RefreshAllCardPlayability()
+    {
+        if (_boundController != null)
+        {
+            RefreshBattleControllerDynamicSubscriptions();
+        }
+
+        _lastEvaluatedTurnActive = _boundController != null && _boundController.IsPlayerTurnActive();
+        _lastEvaluatedStaminaInt = _boundCharacter != null ? Mathf.FloorToInt(_boundCharacter.curStamina) : int.MinValue;
+
+        for (int i = 0; i < activeCardUIs.Count; i++)
+        {
+            HandCardEntry entry = activeCardUIs[i];
+            if (entry == null || entry.isDiscarding || entry.cardUI == null || entry.card == null)
+            {
+                continue;
+            }
+
+            if (_boundController != null)
+            {
+                CardPlayabilityVisualState state = _boundController.EvaluateCardPlayabilityVisual(entry.card, out bool isCostInsufficient);
+                entry.cardUI.SetPlayabilityVisualState(state, isCostInsufficient);
+            }
+            else
+            {
+                entry.cardUI.SetPlayabilityVisualState(CardPlayabilityVisualState.Default);
+            }
         }
     }
 
@@ -705,6 +927,7 @@ public class BattleHandPanel : UIPanelBase
 
         ApplyCardLayout(_scratchNewlyDrawnSet);
         _scratchNewlyDrawnSet.Clear();
+        RefreshAllCardPlayability();
     }
 
     /// <summary>
@@ -748,6 +971,7 @@ public class BattleHandPanel : UIPanelBase
             if (entry.cardUI != null)
             {
                 entry.cardUI.SetHandSlot(targetPos, Vector3.one, i);
+                entry.cardUI.SetHotkeyHint(showHotkeyHints && i < 9 ? (i + 1).ToString() : null);
             }
 
             bool isDragging = entry.cardUI != null && entry.cardUI.IsDragging;

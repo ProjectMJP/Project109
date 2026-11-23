@@ -77,6 +77,14 @@ namespace CardTypes
         Unknown
     }
 
+    public enum CardPlayabilityVisualState
+    {
+        Default = 0,
+        Playable = 1,
+        InsufficientStamina = 2,
+        UnplayableCondition = 3
+    }
+
     public enum TargetType  //공격 대상 및 타깃팅 방식 타입
     {
         Self,          // 시전자 자신 대상 즉시 발동

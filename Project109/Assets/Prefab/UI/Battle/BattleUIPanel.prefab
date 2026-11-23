@@ -1190,6 +1190,7 @@ MonoBehaviour:
   unplayableFeedbackText: {fileID: 0}
   unplayableFeedbackCanvasGroup: {fileID: 0}
   unplayableFeedbackRect: {fileID: 0}
+  showHotkeyHints: 1
 --- !u!1 &5406632024516269840
 GameObject:
   m_ObjectHideFlags: 0
@@ -2101,6 +2102,7 @@ MonoBehaviour:
   battleHandPanel: {fileID: 6679983572842491755}
   battleMovePanel: {fileID: 5079537147591078920}
   endTurnButton: {fileID: 7710902680627439301}
+  showHotkeyHints: 1
   targetingPreviewContainer: {fileID: 1686328036961881712}
   targetingPreviewCardUI: {fileID: 4368274481386964654}
   cancelTargetingButton: {fileID: 3517145978372594384}

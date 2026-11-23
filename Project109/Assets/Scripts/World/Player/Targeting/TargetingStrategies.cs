@@ -89,7 +89,7 @@ public class AllEnemiesTargetingStrategy : ITargetingStrategy
 
     public bool HasValidTargets(PlayerBattleController controller, Card card)
     {
-        return controller.GetAllLivingEnemies().Count > 0;
+        return controller.HasAnyLivingEnemy();
     }
 
     public List<Character> CollectImmediateTargets(PlayerBattleController controller, Card card, Vector2Int casterPos)
@@ -194,7 +194,7 @@ public class RandomEnemyTargetingStrategy : ITargetingStrategy
     public bool HasValidTargets(PlayerBattleController controller, Card card)
     {
         if (card == null || card.cardData == null) return false;
-        return controller.GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0;
+        return controller.HasEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
     }
 
     public List<Character> CollectImmediateTargets(PlayerBattleController controller, Card card, Vector2Int casterPos)
@@ -225,7 +225,7 @@ public class SingleEnemyTargetingStrategy : ITargetingStrategy
     public bool HasValidTargets(PlayerBattleController controller, Card card)
     {
         if (card == null || card.cardData == null) return false;
-        return controller.GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0
+        return controller.HasEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance)
             || controller.HasDestructiblesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
     }
 
@@ -313,7 +313,7 @@ public class MultiEnemyTargetingStrategy : ITargetingStrategy
     public bool HasValidTargets(PlayerBattleController controller, Card card)
     {
         if (card == null || card.cardData == null) return false;
-        return controller.GetEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance).Count > 0
+        return controller.HasEnemiesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance)
             || controller.HasDestructiblesInRange(card.cardData.targetMinDistance, card.cardData.targetMaxDistance);
     }
 

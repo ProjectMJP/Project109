@@ -34,18 +34,41 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public event System.Action<Card> OnTargetingStateChanged;
 
+    /// <summary>
+    /// 키보드 단축키(1~9)로 손패 카드가 선택되거나 선택 해제되었을 때 발행되는 이벤트입니다.
+    /// </summary>
+    public event System.Action<Card> OnKeyboardSelectedCardChanged;
+
     private Card _lastNotifiedTargetingCard;
+    private Card _keyboardSelectedCard;
 
     /// <summary>
     /// 현재 타깃팅 선택 중인 카드 인스턴스를 반환합니다. 타깃팅 중이 아니면 null입니다.
     /// </summary>
     public Card ActiveTargetingCard => controlState == PlayerControlState.TargetSelection ? activeCardForTargeting : null;
 
+    /// <summary>
+    /// 현재 키보드 단축키로 1차 선택된 손패 카드를 반환합니다.
+    /// </summary>
+    public Card KeyboardSelectedCard => _keyboardSelectedCard;
+
     public void Dispose()
     {
         OnBattleEnd();
         OnCardPlayRejected = null;
         OnTargetingStateChanged = null;
+        OnKeyboardSelectedCardChanged = null;
+    }
+
+    private void SetKeyboardSelectedCard(Card card)
+    {
+        if (ReferenceEquals(_keyboardSelectedCard, card))
+        {
+            return;
+        }
+
+        _keyboardSelectedCard = card;
+        OnKeyboardSelectedCardChanged?.Invoke(_keyboardSelectedCard);
     }
 
     private void NotifyTargetingStateChanged(Card targetingCard)
@@ -69,6 +92,9 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
+            PlayerInputController.instance.OnCardHotkeyEvent -= HandleCardHotkey;
+            PlayerInputController.instance.OnEndTurnHotkeyEvent -= HandleEndTurnHotkey;
+            PlayerInputController.instance.OnToggleMoveModeHotkeyEvent -= HandleToggleMoveModeHotkey;
         }
     }
 
@@ -201,6 +227,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
         bonusDrawThisTurn = 0;
+        SetKeyboardSelectedCard(null);
         NotifyTargetingStateChanged(null);
 
         UnsubscribeInputEvents();
@@ -281,12 +308,21 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         // 3. 이번 턴 보정치 리셋 (다음 턴에는 기본값으로 자동 원복)
         bonusDrawThisTurn = 0;
 
-        // 4. 전역 클릭 및 취소 이벤트 구독
+        // 4. 전역 클릭, 취소 및 전투 단축키 이벤트 구독
         if (PlayerInputController.instance != null)
         {
+            PlayerInputController.instance.OnTouchClickEvent -= HandleGlobalClick;
             PlayerInputController.instance.OnTouchClickEvent += HandleGlobalClick;
+            PlayerInputController.instance.OnPointerHoverEvent -= HandlePointerHover;
             PlayerInputController.instance.OnPointerHoverEvent += HandlePointerHover;
+            PlayerInputController.instance.OnCancelEvent -= HandleCancelInput;
             PlayerInputController.instance.OnCancelEvent += HandleCancelInput;
+            PlayerInputController.instance.OnCardHotkeyEvent -= HandleCardHotkey;
+            PlayerInputController.instance.OnCardHotkeyEvent += HandleCardHotkey;
+            PlayerInputController.instance.OnEndTurnHotkeyEvent -= HandleEndTurnHotkey;
+            PlayerInputController.instance.OnEndTurnHotkeyEvent += HandleEndTurnHotkey;
+            PlayerInputController.instance.OnToggleMoveModeHotkeyEvent -= HandleToggleMoveModeHotkey;
+            PlayerInputController.instance.OnToggleMoveModeHotkeyEvent += HandleToggleMoveModeHotkey;
         }
         if (playerMove != null)
         {
@@ -294,6 +330,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
         controlState = PlayerControlState.Normal;
         _lastHoveredCoord = new Vector2Int(-999, -999);
+        SetKeyboardSelectedCard(null);
         NotifyTargetingStateChanged(null);
         if (_battleUI != null)
         {
@@ -393,6 +430,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         bonusDrawThisTurn = 0;
 
         ClearTargetingHighlights();
+        SetKeyboardSelectedCard(null);
         NotifyTargetingStateChanged(null);
 
         if (_battleUI != null)
@@ -431,6 +469,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         // 턴 종료 요청 즉시 이동 가능 타일 인디케이터 및 상태 정리, UI 버튼 비활성화 (반응성 및 중복 클릭 방지)
+        SetKeyboardSelectedCard(null);
         if (playerMove != null)
         {
             playerMove.ClearCanMoveTiles();
@@ -455,6 +494,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void UseCard(Card card, List<Character> targets, Vector2Int targetPosition)
     {
+        SetKeyboardSelectedCard(null);
         // 즉시 실행하지 않고 액션 큐에 위임
         CardPlayAction playAction = new CardPlayAction(controlledCharacter, card, targets, targetPosition);
         ActionQueueManager.Instance.EnqueueAction(playAction);
@@ -572,6 +612,109 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     {
         if (card == null || card.cardData == null) return false;
         return GetTargetingStrategy(targetType).HasValidTargets(this, card);
+    }
+
+    /// <summary>
+    /// 플레이어 기준 맨해튼 사거리 내에 살아있는 적 캐릭터가 1명 이상 존재하는지 GC 할당 없이 검사합니다.
+    /// </summary>
+    public bool HasEnemiesInRange(int minDistance, int maxDistance)
+    {
+        Tile playerTile = (controlledCharacter != null && controlledCharacter.characterMove != null)
+            ? controlledCharacter.characterMove.GetCurrentTile()
+            : null;
+
+        if (playerTile == null || RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return false;
+        }
+
+        IReadOnlyList<ICharacterController> combatants = RunManager.instance.battleManager.GetAllCombatants();
+        for (int i = 0; i < combatants.Count; i++)
+        {
+            ICharacterController combatant = combatants[i];
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+            if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+            if (combatant.controlledCharacter.isDead) continue;
+            if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
+
+            CharacterMove enemyMove = combatant.controlledCharacter.characterMove;
+            if (enemyMove != null && enemyMove.GetCurrentTile() != null)
+            {
+                int dist = Tile.GetDistance(playerTile, enemyMove.GetCurrentTile());
+                if (dist >= minDistance && dist <= maxDistance)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 전장에 살아있는 적 캐릭터가 1명 이상 존재하는지 GC 할당 없이 검사합니다.
+    /// </summary>
+    public bool HasAnyLivingEnemy()
+    {
+        if (RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return false;
+        }
+
+        IReadOnlyList<ICharacterController> combatants = RunManager.instance.battleManager.GetAllCombatants();
+        for (int i = 0; i < combatants.Count; i++)
+        {
+            ICharacterController combatant = combatants[i];
+            if (combatant == null || combatant.controlledCharacter == null) continue;
+            if (ReferenceEquals(combatant.controlledCharacter, controlledCharacter)) continue;
+            if (combatant.controlledCharacter.isDead) continue;
+            if (controlledCharacter != null && !controlledCharacter.IsHostileTo(combatant.controlledCharacter)) continue;
+
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 손패 UI의 실시간 시각 피드백(글로우/딤/코스트 색상)을 위해 카드의 현재 시전 가능 상태를 평가합니다.
+    /// </summary>
+    public CardPlayabilityVisualState EvaluateCardPlayabilityVisual(Card card, out bool isCostInsufficient)
+    {
+        isCostInsufficient = false;
+        if (card == null || card.IsDisposed || controlledCharacter == null)
+        {
+            return CardPlayabilityVisualState.UnplayableCondition;
+        }
+
+        isCostInsufficient = controlledCharacter.curStamina < card.currentCost;
+
+        bool hasBattleManager = RunManager.instance != null && RunManager.instance.battleManager != null;
+        if ((hasBattleManager && !IsPlayerTurnActive()) ||
+            controlledCharacter.isDead ||
+            controlledCharacter.currentState != CharacterState.Idle ||
+            (ActionQueueManager.HasInstance && ActionQueueManager.Instance.IsBusy))
+        {
+            return isCostInsufficient
+                ? CardPlayabilityVisualState.InsufficientStamina
+                : CardPlayabilityVisualState.UnplayableCondition;
+        }
+
+        if (!card.TryCheckPlayable(controlledCharacter, out CardPlayFailReason failReason, out _))
+        {
+            if (failReason == CardPlayFailReason.InsufficientStamina)
+            {
+                isCostInsufficient = true;
+                return CardPlayabilityVisualState.InsufficientStamina;
+            }
+            return CardPlayabilityVisualState.UnplayableCondition;
+        }
+
+        TargetType targetType = card.cardData != null ? card.cardData.parsedTargetType : TargetType.SingleEnemy;
+        if (!HasValidTargetsInRange(card, targetType))
+        {
+            return CardPlayabilityVisualState.UnplayableCondition;
+        }
+
+        return CardPlayabilityVisualState.Playable;
     }
 
     /// <summary>
@@ -695,14 +838,139 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private int _lastBattleCancelFrame = -1;
 
     /// <summary>
-    /// 현재 배틀 컨트롤러가 이동 또는 타깃팅 선택 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
+    /// 현재 배틀 컨트롤러가 이동, 타깃팅 또는 키보드 카드 선택 등 ESC/우클릭으로 취소 가능한 하위 조작 상태인지 반환합니다.
     /// </summary>
-    public bool HasActiveBattleCancelTarget => controlState != PlayerControlState.Normal;
+    public bool HasActiveBattleCancelTarget => controlState != PlayerControlState.Normal || _keyboardSelectedCard != null;
 
     /// <summary>
     /// 현재 프레임에 배틀 타깃팅/이동 취소가 이미 소비되었는지 반환합니다.
     /// </summary>
     public bool IsBattleCancelConsumedThisFrame => _lastBattleCancelFrame == Time.frameCount;
+
+    /// <summary>
+    /// 모달 팝업·대화·드래그 가드 등으로 전투 단축키 입력이 차단되어야 하는지 검사합니다.
+    /// </summary>
+    private bool IsBattleHotkeyBlocked()
+    {
+        if (PlayerInputController.HasInstance && PlayerInputController.instance.IsWorldInputBlocked)
+        {
+            return true;
+        }
+
+        if (UIManager.instance != null &&
+            (UIManager.instance.IsWorldInputBlocked || UIManager.instance.HasActivePopup))
+        {
+            return true;
+        }
+
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        {
+            return true;
+        }
+
+        if (UIDragInputGuard.IsAnyUIDragging)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 숫자 단축키(1~9, 0-based 인덱스) 입력 처리:
+    /// 수동 지정형 카드는 즉시 타깃팅 진입, 즉시 시전형 카드는 1차 입력 시 선택·하이라이트 후 재입력 시 시전합니다.
+    /// </summary>
+    public void HandleCardHotkey(int handIndex)
+    {
+        if (IsBattleHotkeyBlocked() || battleDeck == null || battleDeck.hand == null)
+        {
+            return;
+        }
+
+        if (handIndex < 0 || handIndex >= battleDeck.hand.Count)
+        {
+            return;
+        }
+
+        if (controlState == PlayerControlState.Move)
+        {
+            CancelCurrentState();
+        }
+
+        Card card = battleDeck.hand[handIndex];
+        if (card == null)
+        {
+            return;
+        }
+
+        TargetType targetType = card.cardData != null ? card.cardData.parsedTargetType : TargetType.SingleEnemy;
+        ITargetingStrategy strategy = GetTargetingStrategy(targetType);
+
+        if (strategy.IsManualSelectionRequired)
+        {
+            SetKeyboardSelectedCard(null);
+            TryUseCard(card);
+            return;
+        }
+
+        if (ReferenceEquals(_keyboardSelectedCard, card))
+        {
+            SetKeyboardSelectedCard(null);
+            TryUseCard(card);
+        }
+        else
+        {
+            if (controlState == PlayerControlState.TargetSelection)
+            {
+                CancelCurrentState();
+            }
+            SetKeyboardSelectedCard(card);
+        }
+    }
+
+    /// <summary>
+    /// 턴 종료 단축키(E / Space) 입력 처리입니다.
+    /// </summary>
+    public void HandleEndTurnHotkey()
+    {
+        if (IsBattleHotkeyBlocked() || controlState == PlayerControlState.TargetSelection)
+        {
+            return;
+        }
+
+        RequestEndTurn();
+    }
+
+    /// <summary>
+    /// 카드 모드 ↔ 이동 모드 토글 단축키(Tab / Q / M) 입력 처리입니다.
+    /// </summary>
+    public void HandleToggleMoveModeHotkey()
+    {
+        if (IsBattleHotkeyBlocked() || controlState == PlayerControlState.TargetSelection)
+        {
+            return;
+        }
+
+        if (!CanPerformPlayerTurnAction())
+        {
+            return;
+        }
+
+        SetKeyboardSelectedCard(null);
+
+        if (_battleUI != null)
+        {
+            _battleUI.ToggleMode();
+        }
+        else if (controlState == PlayerControlState.Move)
+        {
+            CancelCurrentState();
+        }
+        else
+        {
+            EnablePlayerMove();
+        }
+    }
 
     /// <summary>
     /// 입력 컨트롤러의 취소(ESC/우클릭) 이벤트 수신 시 호출됩니다.
@@ -726,17 +994,23 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 현재 조작 상태(이동 모드, 타겟 모드) 취소
+    /// 현재 조작 상태(이동 모드, 타겟 모드, 키보드 선택 상태) 취소
     /// </summary>
     public void CancelCurrentState()
     {
         _moveRequestToken++;
         if (controlState == PlayerControlState.Normal)
         {
+            if (_keyboardSelectedCard != null)
+            {
+                _lastBattleCancelFrame = Time.frameCount;
+                SetKeyboardSelectedCard(null);
+            }
             NotifyTargetingStateChanged(null);
             return;
         }
         _lastBattleCancelFrame = Time.frameCount;
+        SetKeyboardSelectedCard(null);
 
         Debug.Log($"[PlayerBattleController] 조작 취소. 이전 상태: {controlState}");
 
@@ -768,6 +1042,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Hand)
         {
             _battleUI.SwitchToHandMode();
+        }
+        if (_battleUI != null)
+        {
+            _battleUI.RefreshCardPlayability();
         }
     }
 
@@ -801,6 +1079,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         _moveRequestToken++;
+        SetKeyboardSelectedCard(null);
         playerMove.CheckCanMoveTiles();
         controlState = PlayerControlState.Move;
 
@@ -865,6 +1144,10 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (_battleUI != null && _battleUI.currentMode != BattleUIMode.Hand)
         {
             _battleUI.SwitchToHandMode();
+        }
+        if (_battleUI != null)
+        {
+            _battleUI.RefreshCardPlayability();
         }
     }
 

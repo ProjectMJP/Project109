@@ -1,3 +1,4 @@
+using CardTypes;
 using GameItem.Types;
 using LitMotion;
 using LitMotion.Extensions;
@@ -44,6 +45,16 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     public float playDragThresholdY = 140f;
     public float doubleClickInterval = 0.32f;
 
+    [Header("Playability & Hotkey Visuals")]
+    [SerializeField] private GameObject playableGlowObject;
+    [SerializeField] private Image dimOverlayImage;
+    [SerializeField] private GameObject hotkeyHintBadgeObject;
+    [SerializeField] private TextMeshProUGUI hotkeyHintText;
+    [SerializeField] private Color playableGlowColor = new Color(0.30f, 0.88f, 1f, 0.78f);
+    [SerializeField] private Color insufficientStaminaColor = new Color(1f, 0.34f, 0.32f, 1f);
+    [SerializeField] private Color unplayableDimColor = new Color(0.05f, 0.06f, 0.09f, 0.48f);
+    [SerializeField] private Color insufficientStaminaDimColor = new Color(0.05f, 0.06f, 0.09f, 0.32f);
+
     private Vector3 originalScale = Vector3.one;
     private Vector3 originalPosition;
     private int originalSiblingIndex;
@@ -75,6 +86,17 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private Graphic _hoverRaycastGraphic;
     private Vector4 _originalHoverRaycastPadding;
     private bool _hasHoverRaycastPaddingApplied = false;
+
+    private CardPlayabilityVisualState _playabilityVisualState = CardPlayabilityVisualState.Default;
+    private Color _defaultStaminaTextColor = Color.white;
+    private bool _hasDefaultStaminaTextColor = false;
+    private bool _isKeyboardSelected = false;
+
+    public CardPlayabilityVisualState CurrentPlayabilityVisualState => _playabilityVisualState;
+    public bool IsPlayableGlowActive => playableGlowObject != null && playableGlowObject.activeSelf;
+    public bool IsDimOverlayActive => dimOverlayImage != null && dimOverlayImage.gameObject.activeSelf;
+    public string CurrentHotkeyHintText => (hotkeyHintBadgeObject != null && hotkeyHintBadgeObject.activeSelf && hotkeyHintText != null) ? hotkeyHintText.text : string.Empty;
+    public bool IsKeyboardSelected => _isKeyboardSelected;
 
     private const float HoverRaycastBottomMargin = 12f;
     private const float DefaultZoomScale = 1.1f;
@@ -196,6 +218,19 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             masteryUpgradeAvailableUI.SetActive(false);
         }
+
+        if (playableGlowObject != null)
+        {
+            playableGlowObject.SetActive(false);
+        }
+        if (dimOverlayImage != null)
+        {
+            dimOverlayImage.gameObject.SetActive(false);
+        }
+        if (hotkeyHintBadgeObject != null)
+        {
+            hotkeyHintBadgeObject.SetActive(false);
+        }
     }
 
     private void OnEnable()
@@ -211,6 +246,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private void OnDisable()
     {
         bool wasDragging = _isDragging;
+        _isKeyboardSelected = false;
         SetDraggingState(false);
         _dragCanceled = false;
         _lastClickUnscaledTime = -10f;
@@ -265,6 +301,12 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private void EnsureCachedComponents()
     {
+        if (!_hasDefaultStaminaTextColor && useStamina != null)
+        {
+            _defaultStaminaTextColor = useStamina.color;
+            _hasDefaultStaminaTextColor = true;
+        }
+
         if (_componentsCached) return;
         _componentsCached = true;
 
@@ -399,6 +441,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
         if (!interactable)
         {
+            _isKeyboardSelected = false;
             bool wasDragging = _isDragging;
             SetDraggingState(false);
             _dragCanceled = false;
@@ -455,6 +498,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         _isDiscarding = discarding;
         if (discarding)
         {
+            _isKeyboardSelected = false;
             _isEntering = false;
             SetDraggingState(false);
             _dragCanceled = false;
@@ -523,6 +567,9 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         originalSiblingIndex = 0;
 
         OffSelectHighlight();
+        _isKeyboardSelected = false;
+        SetPlayabilityVisualState(CardPlayabilityVisualState.Default);
+        SetHotkeyHint(null);
         SetInteractable(true);
 
         EnsureCachedComponents();
@@ -710,6 +757,19 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             masteryUpgradeAvailableUI.SetActive(false);
         }
+
+        if (playableGlowObject != null)
+        {
+            playableGlowObject.SetActive(false);
+        }
+        if (dimOverlayImage != null)
+        {
+            dimOverlayImage.gameObject.SetActive(false);
+        }
+        if (hotkeyHintBadgeObject != null)
+        {
+            hotkeyHintBadgeObject.SetActive(false);
+        }
     }
 
     public void UpdateCardInstance(Card newCardInstance)
@@ -837,6 +897,287 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         {
             selectHighlightObject.SetActive(false);
         }
+    }
+
+    /// <summary>
+    /// 손패 카드의 실시간 시전 가능 상태(글로우, 딤, 코스트 색상)를 시각적으로 반영합니다.
+    /// </summary>
+    public void SetPlayabilityVisualState(CardPlayabilityVisualState state, bool isCostInsufficient = false)
+    {
+        EnsureCachedComponents();
+        _playabilityVisualState = state;
+
+        switch (state)
+        {
+            case CardPlayabilityVisualState.Playable:
+                EnsurePlayableGlowObject();
+                if (playableGlowObject != null) playableGlowObject.SetActive(true);
+                if (dimOverlayImage != null) dimOverlayImage.gameObject.SetActive(false);
+                if (useStamina != null) useStamina.color = _defaultStaminaTextColor;
+                break;
+
+            case CardPlayabilityVisualState.InsufficientStamina:
+                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                EnsureDimOverlayImage();
+                if (dimOverlayImage != null)
+                {
+                    dimOverlayImage.color = insufficientStaminaDimColor;
+                    dimOverlayImage.gameObject.SetActive(true);
+                }
+                if (useStamina != null) useStamina.color = insufficientStaminaColor;
+                break;
+
+            case CardPlayabilityVisualState.UnplayableCondition:
+                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                EnsureDimOverlayImage();
+                if (dimOverlayImage != null)
+                {
+                    dimOverlayImage.color = unplayableDimColor;
+                    dimOverlayImage.gameObject.SetActive(true);
+                }
+                if (useStamina != null)
+                {
+                    useStamina.color = isCostInsufficient ? insufficientStaminaColor : _defaultStaminaTextColor;
+                }
+                break;
+
+            default:
+                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                if (dimOverlayImage != null) dimOverlayImage.gameObject.SetActive(false);
+                if (useStamina != null) useStamina.color = _defaultStaminaTextColor;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 손패 카드 좌상단 단축키 힌트 배지(예: "1"~"9")를 표시하거나 숨깁니다.
+    /// </summary>
+    public void SetHotkeyHint(string hintText)
+    {
+        if (string.IsNullOrEmpty(hintText))
+        {
+            if (hotkeyHintBadgeObject != null)
+            {
+                hotkeyHintBadgeObject.SetActive(false);
+            }
+            return;
+        }
+
+        EnsureHotkeyHintUI();
+        if (hotkeyHintText != null)
+        {
+            hotkeyHintText.text = hintText;
+        }
+        if (hotkeyHintBadgeObject != null)
+        {
+            hotkeyHintBadgeObject.SetActive(true);
+            hotkeyHintBadgeObject.transform.SetAsLastSibling();
+        }
+    }
+
+    /// <summary>
+    /// 키보드 단축키(1~9) 선택 상태에 따라 카드 하이라이트 및 확대 프리뷰를 동기화합니다.
+    /// </summary>
+    public void SetKeyboardSelected(bool selected)
+    {
+        if (_isKeyboardSelected == selected)
+        {
+            return;
+        }
+
+        _isKeyboardSelected = selected;
+
+        if (selected)
+        {
+            OnSelectHighlight();
+            if (enableZoom && _isInteractable && !_isEntering && !_isDiscarding && !_isDragging)
+            {
+                EnsureCachedComponents();
+                OnHoverZoomStarted?.Invoke(this);
+                if (!isZoomed)
+                {
+                    isZoomed = true;
+                    if (_hasHandSlot)
+                    {
+                        originalScale = _baseScale;
+                        originalPosition = _baseAnchoredPosition;
+                        originalSiblingIndex = _baseSiblingIndex;
+                    }
+                    else
+                    {
+                        originalScale = transform.localScale;
+                        originalPosition = _rectTransform != null ? (Vector3)_rectTransform.anchoredPosition : transform.localPosition;
+                        originalSiblingIndex = transform.GetSiblingIndex();
+                    }
+                }
+                transform.SetAsLastSibling();
+                PlayHoverZoomMotion(true);
+            }
+            return;
+        }
+
+        OffSelectHighlight();
+        if (enableZoom && isZoomed)
+        {
+            isZoomed = false;
+            RestoreSiblingIndexSafely(_hasHandSlot ? _baseSiblingIndex : originalSiblingIndex);
+            PlayHoverZoomMotion(false);
+            OnHoverZoomEnded?.Invoke(this);
+        }
+    }
+
+    private void EnsurePlayableGlowObject()
+    {
+        if (playableGlowObject != null)
+        {
+            return;
+        }
+
+        Transform existing = transform.Find("PlayableGlow");
+        if (existing != null)
+        {
+            playableGlowObject = existing.gameObject;
+            return;
+        }
+
+        GameObject glowObj = new GameObject("PlayableGlow", typeof(RectTransform), typeof(Image));
+        glowObj.layer = gameObject.layer != 0 ? gameObject.layer : 5;
+        glowObj.transform.SetParent(transform, false);
+        glowObj.transform.SetSiblingIndex(0);
+
+        RectTransform rect = glowObj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(-6f, -6f);
+        rect.offsetMax = new Vector2(6f, 6f);
+
+        Image glowImage = glowObj.GetComponent<Image>();
+        glowImage.color = playableGlowColor;
+        glowImage.raycastTarget = false;
+
+        playableGlowObject = glowObj;
+        playableGlowObject.SetActive(false);
+    }
+
+    private void EnsureDimOverlayImage()
+    {
+        if (dimOverlayImage != null)
+        {
+            return;
+        }
+
+        Transform existing = transform.Find("DimOverlay");
+        if (existing != null)
+        {
+            dimOverlayImage = existing.GetComponent<Image>();
+            if (dimOverlayImage == null)
+            {
+                dimOverlayImage = existing.gameObject.AddComponent<Image>();
+            }
+            dimOverlayImage.raycastTarget = false;
+            return;
+        }
+
+        GameObject dimObj = new GameObject("DimOverlay", typeof(RectTransform), typeof(Image));
+        dimObj.layer = gameObject.layer != 0 ? gameObject.layer : 5;
+        dimObj.transform.SetParent(transform, false);
+
+        RectTransform rect = dimObj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        dimOverlayImage = dimObj.GetComponent<Image>();
+        dimOverlayImage.color = unplayableDimColor;
+        dimOverlayImage.raycastTarget = false;
+
+        // 스태미나 코스트 텍스트가 딤 위로 선명하게 읽히도록 StaminaBackground/UseStamina 직전에 배치
+        Transform staminaRef = transform.Find("StaminaBackground");
+        if (staminaRef == null && useStamina != null)
+        {
+            staminaRef = useStamina.transform;
+        }
+
+        if (staminaRef != null && staminaRef.parent == transform)
+        {
+            dimObj.transform.SetSiblingIndex(staminaRef.GetSiblingIndex());
+        }
+        else
+        {
+            dimObj.transform.SetAsLastSibling();
+        }
+
+        dimObj.SetActive(false);
+    }
+
+    private void EnsureHotkeyHintUI()
+    {
+        if (hotkeyHintBadgeObject != null && hotkeyHintText != null)
+        {
+            return;
+        }
+
+        if (hotkeyHintBadgeObject == null)
+        {
+            Transform existing = transform.Find("HotkeyHintBadge");
+            if (existing != null)
+            {
+                hotkeyHintBadgeObject = existing.gameObject;
+            }
+        }
+
+        if (hotkeyHintBadgeObject == null)
+        {
+            GameObject badgeObj = new GameObject("HotkeyHintBadge", typeof(RectTransform), typeof(Image));
+            badgeObj.layer = gameObject.layer != 0 ? gameObject.layer : 5;
+            badgeObj.transform.SetParent(transform, false);
+
+            RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(0f, 1f);
+            badgeRect.anchorMax = new Vector2(0f, 1f);
+            badgeRect.pivot = new Vector2(0f, 1f);
+            badgeRect.anchoredPosition = new Vector2(6f, -6f);
+            badgeRect.sizeDelta = new Vector2(26f, 22f);
+
+            Image badgeBg = badgeObj.GetComponent<Image>();
+            badgeBg.color = new Color(0.08f, 0.10f, 0.15f, 0.88f);
+            badgeBg.raycastTarget = false;
+
+            hotkeyHintBadgeObject = badgeObj;
+        }
+
+        if (hotkeyHintText == null)
+        {
+            hotkeyHintText = hotkeyHintBadgeObject.GetComponentInChildren<TextMeshProUGUI>(true);
+        }
+
+        if (hotkeyHintText == null)
+        {
+            GameObject textObj = new GameObject("HotkeyHintText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.layer = hotkeyHintBadgeObject.layer;
+            textObj.transform.SetParent(hotkeyHintBadgeObject.transform, false);
+
+            RectTransform textRect = textObj.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            hotkeyHintText = textObj.GetComponent<TextMeshProUGUI>();
+            TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(useStamina, cardName);
+            if (fontAsset != null)
+            {
+                hotkeyHintText.font = fontAsset;
+            }
+            hotkeyHintText.fontSize = 14f;
+            hotkeyHintText.fontStyle = FontStyles.Bold;
+            hotkeyHintText.alignment = TextAlignmentOptions.Center;
+            hotkeyHintText.color = Color.white;
+            hotkeyHintText.raycastTarget = false;
+        }
+
+        hotkeyHintBadgeObject.SetActive(false);
     }
 
     private void ShowCardKeywordTooltips()
@@ -1199,7 +1540,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         ClearTimelineCardPreview();
         ApplyHoverRaycastBridge(false);
 
-        if (bIsCardHighlight)
+        if (bIsCardHighlight && !_isKeyboardSelected)
             OffSelectHighlight();       //카드 하이라이트off
 
         if (!_isInteractable || _isDiscarding)

@@ -104,6 +104,7 @@ public class BattleManager : IInitializable, IDisposable
         OnBattleLost = null;
         OnBattleEnded = null;
         OnTimelineDirty = null;
+        OnBattlefieldStateChanged = null;
 
         if (LuaManager.IsShuttingDown || LuaManager.IsDisposing)
         {
@@ -139,6 +140,9 @@ public class BattleManager : IInitializable, IDisposable
 
     /// <summary>턴 시작/종료·전투원 합류/사망 등으로 타임라인 순서 재계산이 필요할 때 발행됩니다.</summary>
     public event Action OnTimelineDirty;
+
+    /// <summary>전투 개시, 턴 전환, 유닛 이동/이펙트/사망 등으로 전장 상태가 변해 카드 사용 가능성 재평가가 필요할 때 발행됩니다.</summary>
+    public event Action OnBattlefieldStateChanged;
 
     #endregion
 
@@ -273,6 +277,7 @@ public class BattleManager : IInitializable, IDisposable
         battleState = BattleState.Combat;
         RefreshAllEnemyIntents();
         OnTimelineDirty?.Invoke();
+        OnBattlefieldStateChanged?.Invoke();
         Debug.Log("[BattleManager] Battle start intro finished. Combat began.");
     }
 
@@ -299,6 +304,7 @@ public class BattleManager : IInitializable, IDisposable
         }
         RefreshAllEnemyIntents();
         OnTimelineDirty?.Invoke();
+        OnBattlefieldStateChanged?.Invoke();
     }
 
     private void InitCombatant(ICharacterController combatant)
@@ -410,6 +416,7 @@ public class BattleManager : IInitializable, IDisposable
 
         controller.OnTurnStart();
         OnTimelineDirty?.Invoke();
+        OnBattlefieldStateChanged?.Invoke();
     }
 
     /// <summary>
@@ -440,6 +447,7 @@ public class BattleManager : IInitializable, IDisposable
         {
             currentTurnController = null;
             OnTimelineDirty?.Invoke();
+            OnBattlefieldStateChanged?.Invoke();
             return;
         }
 
@@ -454,6 +462,7 @@ public class BattleManager : IInitializable, IDisposable
         battleState = BattleState.Combat;
         RefreshAllEnemyIntents();
         OnTimelineDirty?.Invoke();
+        OnBattlefieldStateChanged?.Invoke();
     }
 
     #region Enemy Intent Synchronization
@@ -501,11 +510,13 @@ public class BattleManager : IInitializable, IDisposable
     private void HandleCombatantTileChanged(Character character, Tile previousTile, Tile newTile)
     {
         RefreshAllEnemyIntents();
+        OnBattlefieldStateChanged?.Invoke();
     }
 
     private void HandleCombatantEffectChanged(Effect effect)
     {
         RefreshAllEnemyIntents();
+        OnBattlefieldStateChanged?.Invoke();
     }
 
     /// <summary>
@@ -632,6 +643,7 @@ public class BattleManager : IInitializable, IDisposable
         {
             RefreshAllEnemyIntents();
             OnTimelineDirty?.Invoke();
+            OnBattlefieldStateChanged?.Invoke();
         }
     }
 

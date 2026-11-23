@@ -21,6 +21,9 @@ public class BattleUIPanel : UIPanelBase
     [Header("Turn End")]
     [SerializeField] private UnityEngine.UI.Button endTurnButton;
 
+    [Header("Hotkey Hint Settings")]
+    [SerializeField] private bool showHotkeyHints = true;
+
     [Header("Targeting Preview")]
     [SerializeField] private GameObject targetingPreviewContainer;
     [SerializeField] private CardUI targetingPreviewCardUI;
@@ -43,6 +46,8 @@ public class BattleUIPanel : UIPanelBase
     private PlayerBattleController _controller;
     private Character _boundCharacter;
     private BattlePointerHoverForwarder _endTurnHoverForwarder;
+    private TMPro.TextMeshProUGUI _endTurnButtonText;
+    private string _baseEndTurnButtonLabel;
     private bool _isTurnActive = false;
     private bool _isTargetingActive = false;
 
@@ -102,6 +107,10 @@ public class BattleUIPanel : UIPanelBase
         if (endTurnButton == null)
         {
             Debug.LogError("[BattleUIPanel] endTurnButton이 바인딩되지 않았습니다! BattleUIPanel 프리팹 설정을 확인하세요.", this);
+        }
+        else
+        {
+            RefreshEndTurnHotkeyHint();
         }
 
         if (targetingPreviewContainer != null)
@@ -179,6 +188,7 @@ public class BattleUIPanel : UIPanelBase
         _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
         SwitchToHandMode();
         HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
+        RefreshEndTurnHotkeyHint();
         RefreshActionInteractableState();
     }
 
@@ -344,6 +354,52 @@ public class BattleUIPanel : UIPanelBase
         if (battleMovePanel != null)
         {
             battleMovePanel.SetSwitchToCardInteractable(canAct);
+        }
+
+        RefreshCardPlayability();
+    }
+
+    /// <summary>
+    /// 턴 종료 버튼의 단축키 힌트([E]) 표시를 갱신합니다.
+    /// </summary>
+    public void RefreshEndTurnHotkeyHint()
+    {
+        if (endTurnButton == null)
+        {
+            return;
+        }
+
+        if (_endTurnButtonText == null)
+        {
+            _endTurnButtonText = endTurnButton.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+        }
+
+        if (_endTurnButtonText == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_baseEndTurnButtonLabel))
+        {
+            string raw = _endTurnButtonText.text != null ? _endTurnButtonText.text.Trim() : string.Empty;
+            if (raw.EndsWith(" [E]"))
+            {
+                raw = raw.Substring(0, raw.Length - 4);
+            }
+            _baseEndTurnButtonLabel = string.IsNullOrEmpty(raw) ? "턴 종료" : raw;
+        }
+
+        _endTurnButtonText.text = showHotkeyHints ? $"{_baseEndTurnButtonLabel} [E]" : _baseEndTurnButtonLabel;
+    }
+
+    /// <summary>
+    /// 손패 패널의 카드별 사용 가능 시각 피드백을 즉시 재평가합니다.
+    /// </summary>
+    public void RefreshCardPlayability()
+    {
+        if (battleHandPanel != null)
+        {
+            battleHandPanel.RefreshAllCardPlayability();
         }
     }
 
