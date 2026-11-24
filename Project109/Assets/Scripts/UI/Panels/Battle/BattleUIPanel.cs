@@ -21,6 +21,13 @@ public class BattleUIPanel : UIPanelBase
     [Header("Turn End")]
     [SerializeField] private UnityEngine.UI.Button endTurnButton;
 
+    [Header("Player Stamina Display")]
+    [SerializeField] private GameObject staminaBadgeContainer;
+    [SerializeField] private UnityEngine.UI.Image staminaBadgeImage;
+    [SerializeField] private TMPro.TextMeshProUGUI staminaValueText;
+    [SerializeField] private Color staminaNormalColor = Color.white;
+    [SerializeField] private Color staminaPreviewColor = new Color(0.55f, 0.96f, 1f, 1f);
+
     [Header("Hotkey Hint Settings")]
     [SerializeField] private bool showHotkeyHints = true;
 
@@ -32,6 +39,8 @@ public class BattleUIPanel : UIPanelBase
     public BattleHandPanel HandPanel => battleHandPanel;
     public BattleMovePanel MovePanel => battleMovePanel;
     public UnityEngine.UI.Button EndTurnButton => endTurnButton;
+    public GameObject StaminaBadgeContainer => staminaBadgeContainer;
+    public TMPro.TextMeshProUGUI StaminaValueText => staminaValueText;
     public GameObject TargetingPreviewContainer => targetingPreviewContainer;
     public CardUI TargetingPreviewCardUI => targetingPreviewCardUI;
     public UnityEngine.UI.Button CancelTargetingButton => cancelTargetingButton;
@@ -50,24 +59,34 @@ public class BattleUIPanel : UIPanelBase
     private string _baseEndTurnButtonLabel;
     private bool _isTurnActive = false;
     private bool _isTargetingActive = false;
+    private bool _isEndTurnHovered = false;
+    private int _lastDisplayedStamina = int.MinValue;
+    private int _lastDisplayedPreviewStamina = int.MinValue;
+    private bool _lastDisplayedHoverState = false;
 
     /// <summary>
-    /// 턴 종료 버튼의 포인터 진입/이탈을 감지하여 타임라인 패널에 호버 미리보기를 전달하는 경량 포워더입니다.
+    /// 턴 종료 버튼의 포인터 진입/이탈을 감지하여 타임라인 패널 및 스태미나 미리보기에 호버 상태를 전달하는 경량 포워더입니다.
     /// </summary>
     private sealed class BattlePointerHoverForwarder : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         private UnityEngine.UI.Button _button;
+        private System.Action<bool> _onHoverChanged;
 
-        public void Bind(UnityEngine.UI.Button button)
+        public void Bind(UnityEngine.UI.Button button, System.Action<bool> onHoverChanged)
         {
             _button = button;
+            _onHoverChanged = onHoverChanged;
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
-            if (_button != null && _button.interactable && BattleTimelinePanel.Instance != null)
+            if (_button != null && _button.interactable)
             {
-                BattleTimelinePanel.Instance.SetEndTurnHoverPreview(true);
+                if (BattleTimelinePanel.Instance != null)
+                {
+                    BattleTimelinePanel.Instance.SetEndTurnHoverPreview(true);
+                }
+                _onHoverChanged?.Invoke(true);
             }
         }
 
@@ -77,6 +96,7 @@ public class BattleUIPanel : UIPanelBase
             {
                 BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
             }
+            _onHoverChanged?.Invoke(false);
         }
 
         private void OnDisable()
@@ -85,6 +105,7 @@ public class BattleUIPanel : UIPanelBase
             {
                 BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
             }
+            _onHoverChanged?.Invoke(false);
         }
     }
 
@@ -169,7 +190,7 @@ public class BattleUIPanel : UIPanelBase
                     _endTurnHoverForwarder = endTurnButton.gameObject.AddComponent<BattlePointerHoverForwarder>();
                 }
             }
-            _endTurnHoverForwarder.Bind(endTurnButton);
+            _endTurnHoverForwarder.Bind(endTurnButton, HandleEndTurnHoverChanged);
         }
 
         if (cancelTargetingButton != null)
@@ -184,12 +205,20 @@ public class BattleUIPanel : UIPanelBase
             _controller.OnTargetingStateChanged += HandleTargetingStateChanged;
         }
 
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandlePlayerStaminaChanged;
+            _boundCharacter.OnCharacterStaminaChanged += HandlePlayerStaminaChanged;
+        }
+
         // 패널 활성화 시 기본 손패 모드로 시작 및 현재 턴·행동 가능 여부에 따라 버튼 상태 동기화
         _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
+        _isEndTurnHovered = false;
         SwitchToHandMode();
         HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
         RefreshEndTurnHotkeyHint();
         RefreshActionInteractableState();
+        RefreshPlayerStaminaDisplay(force: true);
     }
 
     protected override void OnDisable()
@@ -222,6 +251,12 @@ public class BattleUIPanel : UIPanelBase
             _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
         }
 
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandlePlayerStaminaChanged;
+        }
+
+        _isEndTurnHovered = false;
         HandleTargetingStateChanged(null);
 
         if (BattleTimelinePanel.Instance != null)
@@ -236,6 +271,11 @@ public class BattleUIPanel : UIPanelBase
         {
             _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
         }
+
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandlePlayerStaminaChanged;
+        }
     }
 
     /// <summary>
@@ -248,9 +288,18 @@ public class BattleUIPanel : UIPanelBase
             endTurnButton.interactable = interactable;
         }
 
-        if (!interactable && BattleTimelinePanel.Instance != null)
+        if (!interactable)
         {
-            BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.SetEndTurnHoverPreview(false);
+            }
+
+            if (_isEndTurnHovered)
+            {
+                _isEndTurnHovered = false;
+                RefreshPlayerStaminaDisplay(force: true);
+            }
         }
     }
 
@@ -262,17 +311,100 @@ public class BattleUIPanel : UIPanelBase
     {
         _isTurnActive = isActive;
 
+        if (!isActive)
+        {
+            _isEndTurnHovered = false;
+        }
+
         if (!isActive && _isTargetingActive)
         {
             HandleTargetingStateChanged(null);
         }
 
         RefreshActionInteractableState();
+        RefreshPlayerStaminaDisplay(force: true);
 
         if (!isActive)
         {
             SwitchToHandMode();
         }
+    }
+
+    private void HandleEndTurnHoverChanged(bool isHovered)
+    {
+        bool effectiveHover = isHovered && _isTurnActive && endTurnButton != null && endTurnButton.interactable;
+        if (_isEndTurnHovered == effectiveHover)
+        {
+            return;
+        }
+
+        _isEndTurnHovered = effectiveHover;
+        RefreshPlayerStaminaDisplay(force: true);
+    }
+
+    private void HandlePlayerStaminaChanged(Character character)
+    {
+        RefreshPlayerStaminaDisplay(force: false);
+    }
+
+    /// <summary>
+    /// 턴 종료 버튼 상단의 플레이어 현재 스태미나(및 턴 종료 버튼 호버 시 예상 이월 스태미나) 표시를 갱신합니다.
+    /// </summary>
+    public void RefreshPlayerStaminaDisplay(bool force = false)
+    {
+        if (staminaValueText == null)
+        {
+            return;
+        }
+
+        if (_boundCharacter == null)
+        {
+            if (force || _lastDisplayedStamina != int.MinValue)
+            {
+                staminaValueText.text = string.Empty;
+                staminaValueText.color = staminaNormalColor;
+                _lastDisplayedStamina = int.MinValue;
+                _lastDisplayedPreviewStamina = int.MinValue;
+                _lastDisplayedHoverState = false;
+            }
+            return;
+        }
+
+        int currentStaminaInt = Mathf.FloorToInt(Mathf.Max(0f, _boundCharacter.curStamina));
+        bool showPreview = _isEndTurnHovered && _isTurnActive && endTurnButton != null && endTurnButton.interactable;
+
+        if (showPreview)
+        {
+            EventStructs.TurnEndStaminaInfo turnEndInfo = _boundCharacter.CalculateTurnEndStamina();
+            float carriedStamina = Character.ComputeCarriedStamina(_boundCharacter.curStamina, _boundCharacter.overflowStamina, in turnEndInfo);
+            int previewStaminaInt = Mathf.FloorToInt(Mathf.Max(0f, carriedStamina));
+
+            if (!force &&
+                _lastDisplayedHoverState &&
+                _lastDisplayedStamina == currentStaminaInt &&
+                _lastDisplayedPreviewStamina == previewStaminaInt)
+            {
+                return;
+            }
+
+            staminaValueText.text = $"{currentStaminaInt} → {previewStaminaInt}";
+            staminaValueText.color = staminaPreviewColor;
+            _lastDisplayedStamina = currentStaminaInt;
+            _lastDisplayedPreviewStamina = previewStaminaInt;
+            _lastDisplayedHoverState = true;
+            return;
+        }
+
+        if (!force && !_lastDisplayedHoverState && _lastDisplayedStamina == currentStaminaInt)
+        {
+            return;
+        }
+
+        staminaValueText.text = currentStaminaInt.ToString();
+        staminaValueText.color = staminaNormalColor;
+        _lastDisplayedStamina = currentStaminaInt;
+        _lastDisplayedPreviewStamina = int.MinValue;
+        _lastDisplayedHoverState = false;
     }
 
     private void HandleEndTurnClicked()
@@ -415,15 +547,27 @@ public class BattleUIPanel : UIPanelBase
             _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
         }
 
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandlePlayerStaminaChanged;
+        }
+
         _boundPlayer = player;
         _controller = controller;
         _boundCharacter = player != null ? player.character : null;
         _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
+        _isEndTurnHovered = false;
 
         if (_controller != null)
         {
             _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
             _controller.OnTargetingStateChanged += HandleTargetingStateChanged;
+        }
+
+        if (_boundCharacter != null)
+        {
+            _boundCharacter.OnCharacterStaminaChanged -= HandlePlayerStaminaChanged;
+            _boundCharacter.OnCharacterStaminaChanged += HandlePlayerStaminaChanged;
         }
 
         if (battleHandPanel != null)
@@ -439,6 +583,7 @@ public class BattleUIPanel : UIPanelBase
 
         HandleTargetingStateChanged(_controller != null ? _controller.ActiveTargetingCard : null);
         RefreshActionInteractableState();
+        RefreshPlayerStaminaDisplay(force: true);
     }
 
     /// <summary>
