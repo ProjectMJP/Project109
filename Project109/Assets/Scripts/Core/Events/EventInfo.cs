@@ -169,8 +169,6 @@ namespace EventStructs
         public Vector2Int targetPosition;
 
         public Card card;
-        [System.Obsolete("cardData 대신 card를 사용하세요")]
-        public object cardData => card;
 
         public CardFlag cardFlags;
 

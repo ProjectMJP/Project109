@@ -228,10 +228,6 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         }
     }
 
-    // 하위 호환성 메서드 (기존 명칭 유지)
-    public void OpenNodeCoverTexture() => RevealNode();
-    public void CloseNodeCoverTexture() => HideNode();
-
     /// <summary>
     /// 현재 탐험 진행 기준의 노드 시각 상태(현재 위치, 방문 완료, 다음 이동 가능/차단, 향후 도달 가능, 도달 불가능 음영)를 적용합니다.
     /// </summary>

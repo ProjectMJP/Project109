@@ -6,8 +6,12 @@ function relic:OnInit(relicBase, owner)
 end
 
 function relic:OnBattleStart()
-    local incountType = RunManager.instance.currentIncountNode.incountType:ToString()
-    if incountType == "Elite" or incountType == "Boss" then
+    if RunManager == nil or RunManager.instance == nil then return end
+    local node = RunManager.instance.currentExploreNode
+    if node == nil or node.encounterData == nil then return end
+
+    local encountType = tostring(node.encounterData.encountType)
+    if encountType == "Elite" or encountType == "Boss" then
         local all = RunManager.instance.battleManager:GetAllCombatants()
         if all == nil then return end
         local character = self.owner.character

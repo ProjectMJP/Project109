@@ -12,15 +12,6 @@ public enum AreaIndicatorChannel
     AdditionalEffectTile // G 채널: 추가 효과(AoE) 영역
 }
 
-// 하위 호환성을 위한 별칭
-[System.Obsolete("타일 종류(Tile.cs의 TileState)와의 혼동을 방지하기 위해 AreaIndicatorChannel을 사용하십시오.")]
-public enum TileType
-{
-    Empty = AreaIndicatorChannel.Empty,
-    TargetTile = AreaIndicatorChannel.TargetTile,
-    AdditionalEffectTile = AreaIndicatorChannel.AdditionalEffectTile
-}
-
 public class EffectAreaTile : MonoBehaviour
 {
     public Renderer tileRenderer;

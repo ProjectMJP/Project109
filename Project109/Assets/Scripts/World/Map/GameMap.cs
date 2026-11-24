@@ -223,14 +223,6 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 특정 좌표에서 지정된 방향으로 밀려날 때, 최종 도달할 타일 좌표와 벽/장외/유닛 충돌 여부를 계산합니다. (하위 호환 오버로드)
-    /// </summary>
-    public bool CalculateKnockbackPosition(Vector2Int startCoord, Vector2Int direction, int distance, out Vector2Int finalCoord)
-    {
-        return CalculateKnockbackPosition(startCoord, direction, distance, out finalCoord, out _);
-    }
-
-    /// <summary>
     /// 현재 맵에 생성된 모든 타일과 이동 인디케이터를 파괴하고 데이터를 초기화합니다.
     /// 스테이지 전환 시 GameMap 인스턴스를 재사용하기 위해 호출됩니다.
     /// </summary>

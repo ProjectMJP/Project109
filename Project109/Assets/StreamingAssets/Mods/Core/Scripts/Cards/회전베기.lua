@@ -7,7 +7,7 @@ function card:OnTurnStart()
     self.spinningSlashCount = 0
 end
 function card:OnAfterUseCard(cardInfo)
-    if cardInfo.caster == self.base.owner and cardInfo.cardData.cardName == "회전베기" then
+    if cardInfo.caster == self.base.owner and cardInfo.card ~= nil and cardInfo.card.cardData ~= nil and cardInfo.card.cardData.cardName == "회전베기" then
         self.spinningSlashCount = (self.spinningSlashCount or 0) + 1
     end
 end

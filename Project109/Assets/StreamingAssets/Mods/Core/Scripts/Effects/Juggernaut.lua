@@ -16,21 +16,21 @@ function effect:OnAfterUseCard(cardInfo)
     local target = self.base.target
     if target == nil or target.isDead then return end
 
-    if cardInfo.caster == target and cardInfo.cardData ~= nil and cardInfo.cardData.cardType == "Attack" then
+    if cardInfo.caster == target and cardInfo.card ~= nil and cardInfo.card.cardData ~= nil and cardInfo.card.cardData.cardType == "Attack" then
         -- 캐릭터의 시선 방향 계산
-        local dir = Vector2Int(0, 1)
+        local dir = UnityEngine.Vector2Int(0, 1)
         if target.characterMove ~= nil then
             local look = target.characterMove.facingDirection
             -- LookDirection: Up(0), Down(1), Left(2), Right(3)
             local lookStr = tostring(look)
             if lookStr:find("Down") then
-                dir = Vector2Int(0, -1)
+                dir = UnityEngine.Vector2Int(0, -1)
             elseif lookStr:find("Left") then
-                dir = Vector2Int(-1, 0)
+                dir = UnityEngine.Vector2Int(-1, 0)
             elseif lookStr:find("Right") then
-                dir = Vector2Int(1, 0)
+                dir = UnityEngine.Vector2Int(1, 0)
             else
-                dir = Vector2Int(0, 1)
+                dir = UnityEngine.Vector2Int(0, 1)
             end
         end
 
