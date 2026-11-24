@@ -50,7 +50,8 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     [SerializeField] private Image dimOverlayImage;
     [SerializeField] private GameObject hotkeyHintBadgeObject;
     [SerializeField] private TextMeshProUGUI hotkeyHintText;
-    [SerializeField] private Color playableGlowColor = new Color(0.30f, 0.88f, 1f, 0.78f);
+    [SerializeField] private Color playableGlowColor = new Color(0.35f, 0.88f, 1f, 0.65f);
+    [SerializeField] private float playableGlowThickness = 5.5f;
     [SerializeField] private Color insufficientStaminaColor = new Color(1f, 0.34f, 0.32f, 1f);
     [SerializeField] private Color unplayableDimColor = new Color(0.05f, 0.06f, 0.09f, 0.48f);
     [SerializeField] private Color insufficientStaminaDimColor = new Color(0.05f, 0.06f, 0.09f, 0.32f);
@@ -93,7 +94,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private bool _isKeyboardSelected = false;
 
     public CardPlayabilityVisualState CurrentPlayabilityVisualState => _playabilityVisualState;
-    public bool IsPlayableGlowActive => playableGlowObject != null && playableGlowObject.activeSelf;
+    public bool IsPlayableGlowActive => selectHighlightObject != null && selectHighlightObject.activeSelf;
     public bool IsDimOverlayActive => dimOverlayImage != null && dimOverlayImage.gameObject.activeSelf;
     public string CurrentHotkeyHintText => (hotkeyHintBadgeObject != null && hotkeyHintBadgeObject.activeSelf && hotkeyHintText != null) ? hotkeyHintText.text : string.Empty;
     public bool IsKeyboardSelected => _isKeyboardSelected;
@@ -885,22 +886,23 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     public void OnSelectHighlight()
     {
-        if (selectHighlightObject != null)
+        EnsurePlayableGlowObject();
+        if (playableGlowObject != null)
         {
-            selectHighlightObject.SetActive(true);
+            playableGlowObject.SetActive(true);
         }
     }
 
     public void OffSelectHighlight()
     {
-        if (selectHighlightObject != null)
+        if (playableGlowObject != null)
         {
-            selectHighlightObject.SetActive(false);
+            playableGlowObject.SetActive(false);
         }
     }
 
     /// <summary>
-    /// 손패 카드의 실시간 시전 가능 상태(글로우, 딤, 코스트 색상)를 시각적으로 반영합니다.
+    /// 손패 카드의 실시간 시전 가능 상태(테두리 하이라이트, 딤, 코스트 색상)를 시각적으로 반영합니다.
     /// </summary>
     public void SetPlayabilityVisualState(CardPlayabilityVisualState state, bool isCostInsufficient = false)
     {
@@ -910,14 +912,13 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         switch (state)
         {
             case CardPlayabilityVisualState.Playable:
-                EnsurePlayableGlowObject();
-                if (playableGlowObject != null) playableGlowObject.SetActive(true);
+                if (selectHighlightObject != null) selectHighlightObject.SetActive(true);
                 if (dimOverlayImage != null) dimOverlayImage.gameObject.SetActive(false);
                 if (useStamina != null) useStamina.color = _defaultStaminaTextColor;
                 break;
 
             case CardPlayabilityVisualState.InsufficientStamina:
-                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                if (selectHighlightObject != null) selectHighlightObject.SetActive(false);
                 EnsureDimOverlayImage();
                 if (dimOverlayImage != null)
                 {
@@ -928,7 +929,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 break;
 
             case CardPlayabilityVisualState.UnplayableCondition:
-                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                if (selectHighlightObject != null) selectHighlightObject.SetActive(false);
                 EnsureDimOverlayImage();
                 if (dimOverlayImage != null)
                 {
@@ -942,7 +943,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
                 break;
 
             default:
-                if (playableGlowObject != null) playableGlowObject.SetActive(false);
+                if (selectHighlightObject != null) selectHighlightObject.SetActive(false);
                 if (dimOverlayImage != null) dimOverlayImage.gameObject.SetActive(false);
                 if (useStamina != null) useStamina.color = _defaultStaminaTextColor;
                 break;
@@ -1046,10 +1047,11 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         glowObj.transform.SetSiblingIndex(0);
 
         RectTransform rect = glowObj.GetComponent<RectTransform>();
+        float thickness = Mathf.Max(1f, playableGlowThickness);
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(-6f, -6f);
-        rect.offsetMax = new Vector2(6f, 6f);
+        rect.offsetMin = new Vector2(-thickness, -thickness);
+        rect.offsetMax = new Vector2(thickness, thickness);
 
         Image glowImage = glowObj.GetComponent<Image>();
         glowImage.color = playableGlowColor;
@@ -1136,8 +1138,8 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
             badgeRect.anchorMin = new Vector2(0f, 1f);
             badgeRect.anchorMax = new Vector2(0f, 1f);
-            badgeRect.pivot = new Vector2(0f, 1f);
-            badgeRect.anchoredPosition = new Vector2(6f, -6f);
+            badgeRect.pivot = new Vector2(1f, 1f);
+            badgeRect.anchoredPosition = new Vector2(-12f, 10f);
             badgeRect.sizeDelta = new Vector2(26f, 22f);
 
             Image badgeBg = badgeObj.GetComponent<Image>();

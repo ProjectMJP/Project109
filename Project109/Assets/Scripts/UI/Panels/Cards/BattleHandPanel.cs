@@ -986,7 +986,7 @@ public class BattleHandPanel : UIPanelBase
                 continue;
             }
 
-            // SiblingIndex를 순서대로 맞춰 겹침 렌더링 순서 보장
+            // SiblingIndex를 순서대로 맞춰 겹침 렌더링 순서 보장 (좌상단 코스트·단축키 가시성 확보)
             entry.cardObj.transform.SetSiblingIndex(i);
 
             bool isZoomed = entry.cardUI != null && entry.cardUI.IsZoomed;
