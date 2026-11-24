@@ -37,6 +37,8 @@ public class BattleHandPanel : UIPanelBase
     [Header("Mode Switch Button")]
     [SerializeField] private Button switchToMoveModeButton;
     [SerializeField] private TextMeshProUGUI modeSwitchButtonText;
+    [SerializeField] private GameObject modeSwitchHotkeyBadgeObject;
+    [SerializeField] private TextMeshProUGUI modeSwitchHotkeyBadgeText;
 
     [Header("Bottom Peek & Hover Reveal Settings")]
     [SerializeField] private float restingCardYOffset = -105f;
@@ -54,10 +56,8 @@ public class BattleHandPanel : UIPanelBase
     [SerializeField] private CanvasGroup unplayableFeedbackCanvasGroup;
     [SerializeField] private RectTransform unplayableFeedbackRect;
 
-    [Header("Hotkey Hint Settings")]
-    [SerializeField] private bool showHotkeyHints = true;
-
-    public bool ShowHotkeyHints => showHotkeyHints;
+    public bool ShowHotkeyHints => HotkeyHintSettings.ShowHotkeyHints;
+    public string CurrentModeSwitchHotkeyHintText => (modeSwitchHotkeyBadgeObject != null && modeSwitchHotkeyBadgeObject.activeSelf && modeSwitchHotkeyBadgeText != null) ? modeSwitchHotkeyBadgeText.text : string.Empty;
 
     public float RestingCardYOffset => restingCardYOffset;
     public float HoverRevealYOffset => hoverRevealYOffset;
@@ -146,12 +146,18 @@ public class BattleHandPanel : UIPanelBase
             BindBattleDeck(GameSceneManager.instance.player.battleDeck);
         }
 
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged += HandleShowHotkeyHintsChanged;
+
+        RefreshHotkeyHints();
         RefreshAllCardPlayability();
     }
 
     protected override void OnDisable()
     {
         base.OnDisable();
+
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
 
         if (switchToMoveModeButton != null)
         {
@@ -199,15 +205,9 @@ public class BattleHandPanel : UIPanelBase
         // 2. 모드 전환 버튼 텍스트 변경
         if (modeSwitchButtonText != null)
         {
-            if (showHotkeyHints)
-            {
-                modeSwitchButtonText.text = isMoveMode ? "전투 모드 [Q]" : "이동 모드 [Q]";
-            }
-            else
-            {
-                modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
-            }
+            modeSwitchButtonText.text = isMoveMode ? "전투 모드" : "이동 모드";
         }
+        RefreshModeSwitchHotkeyBadge();
 
         // 3. 덱 버튼 수치 전환 (이동 모드: 남은 이동 가능 칸수, 카드 모드: 드로우 덱 수)
         if (isMoveMode)
@@ -224,22 +224,77 @@ public class BattleHandPanel : UIPanelBase
         }
     }
 
-    /// <summary>
-    /// 손패 및 모드 전환 버튼의 단축키 힌트 표시 여부를 설정하고 즉시 반영합니다.
-    /// </summary>
-    public void SetShowHotkeyHints(bool show)
+    private void HandleShowHotkeyHintsChanged(bool show)
     {
-        showHotkeyHints = show;
-        SetMoveMode(_isMoveMode, (_boundCharacter != null) ? _boundCharacter.curMoveRange : 0);
+        RefreshHotkeyHints();
+    }
 
+    private void RefreshModeSwitchHotkeyBadge()
+    {
+        bool showHints = HotkeyHintSettings.ShowHotkeyHints;
+        if (switchToMoveModeButton == null)
+        {
+            if (modeSwitchHotkeyBadgeObject != null)
+            {
+                if (showHints && modeSwitchHotkeyBadgeText != null)
+                {
+                    modeSwitchHotkeyBadgeText.text = "Q";
+                }
+                modeSwitchHotkeyBadgeObject.SetActive(showHints);
+            }
+            return;
+        }
+
+        if (showHints)
+        {
+            HotkeyHintSettings.EnsureButtonHotkeyBadge(
+                switchToMoveModeButton.transform,
+                ref modeSwitchHotkeyBadgeObject,
+                ref modeSwitchHotkeyBadgeText,
+                modeSwitchButtonText,
+                drawCountText);
+
+            if (modeSwitchHotkeyBadgeText != null)
+            {
+                modeSwitchHotkeyBadgeText.text = "Q";
+            }
+            if (modeSwitchHotkeyBadgeObject != null)
+            {
+                modeSwitchHotkeyBadgeObject.SetActive(true);
+                modeSwitchHotkeyBadgeObject.transform.SetAsLastSibling();
+            }
+        }
+        else if (modeSwitchHotkeyBadgeObject != null)
+        {
+            modeSwitchHotkeyBadgeObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 전역 단축키 표시 설정에 맞춰 모드 전환 버튼 배지(Q)와 손패 카드 배지(1~9)를 일괄 동기화합니다.
+    /// </summary>
+    public void RefreshHotkeyHints()
+    {
+        RefreshModeSwitchHotkeyBadge();
+
+        bool showHints = HotkeyHintSettings.ShowHotkeyHints;
         for (int i = 0; i < activeCardUIs.Count; i++)
         {
             HandCardEntry entry = activeCardUIs[i];
             if (entry != null && !entry.isDiscarding && entry.cardUI != null)
             {
-                entry.cardUI.SetHotkeyHint(showHotkeyHints && i < 9 ? (i + 1).ToString() : null);
+                entry.cardUI.SetHotkeyHint(showHints && i < 9 ? (i + 1).ToString() : null);
             }
         }
+    }
+
+    /// <summary>
+    /// 손패 및 모드 전환 버튼의 단축키 힌트 표시 여부를 설정하고 즉시 반영합니다.
+    /// </summary>
+    public void SetShowHotkeyHints(bool show)
+    {
+        HotkeyHintSettings.SetShowHotkeyHints(show, savePrefs: false);
+        RefreshHotkeyHints();
     }
 
     /// <summary>
@@ -975,7 +1030,7 @@ public class BattleHandPanel : UIPanelBase
             if (entry.cardUI != null)
             {
                 entry.cardUI.SetHandSlot(targetPos, Vector3.one, i);
-                entry.cardUI.SetHotkeyHint(showHotkeyHints && i < 9 ? (i + 1).ToString() : null);
+                entry.cardUI.SetHotkeyHint(HotkeyHintSettings.ShowHotkeyHints && i < 9 ? (i + 1).ToString() : null);
             }
 
             bool isDragging = entry.cardUI != null && entry.cardUI.IsDragging;
@@ -1539,6 +1594,7 @@ public class BattleHandPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
         CancelFeedbackMotions();
         UnbindBattleController();
         UnbindBattleDeck();

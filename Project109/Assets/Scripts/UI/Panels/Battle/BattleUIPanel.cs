@@ -20,6 +20,8 @@ public class BattleUIPanel : UIPanelBase
 
     [Header("Turn End")]
     [SerializeField] private UnityEngine.UI.Button endTurnButton;
+    [SerializeField] private GameObject endTurnHotkeyBadgeObject;
+    [SerializeField] private TMPro.TextMeshProUGUI endTurnHotkeyBadgeText;
 
     [Header("Player Stamina Display")]
     [SerializeField] private GameObject staminaBadgeContainer;
@@ -27,9 +29,6 @@ public class BattleUIPanel : UIPanelBase
     [SerializeField] private TMPro.TextMeshProUGUI staminaValueText;
     [SerializeField] private Color staminaNormalColor = Color.white;
     [SerializeField] private Color staminaPreviewColor = new Color(0.55f, 0.96f, 1f, 1f);
-
-    [Header("Hotkey Hint Settings")]
-    [SerializeField] private bool showHotkeyHints = true;
 
     [Header("Targeting Preview")]
     [SerializeField] private GameObject targetingPreviewContainer;
@@ -45,6 +44,8 @@ public class BattleUIPanel : UIPanelBase
     public CardUI TargetingPreviewCardUI => targetingPreviewCardUI;
     public UnityEngine.UI.Button CancelTargetingButton => cancelTargetingButton;
     public bool IsTargetingActive => _isTargetingActive;
+    public bool ShowHotkeyHints => HotkeyHintSettings.ShowHotkeyHints;
+    public string CurrentEndTurnHotkeyHintText => (endTurnHotkeyBadgeObject != null && endTurnHotkeyBadgeObject.activeSelf && endTurnHotkeyBadgeText != null) ? endTurnHotkeyBadgeText.text : string.Empty;
 
     public BattleUIMode currentMode { get; private set; } = BattleUIMode.Hand;
 
@@ -211,6 +212,9 @@ public class BattleUIPanel : UIPanelBase
             _boundCharacter.OnCharacterStaminaChanged += HandlePlayerStaminaChanged;
         }
 
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged += HandleShowHotkeyHintsChanged;
+
         // 패널 활성화 시 기본 손패 모드로 시작 및 현재 턴·행동 가능 여부에 따라 버튼 상태 동기화
         _isTurnActive = _controller != null && _controller.IsPlayerTurnActive();
         _isEndTurnHovered = false;
@@ -224,6 +228,8 @@ public class BattleUIPanel : UIPanelBase
     protected override void OnDisable()
     {
         base.OnDisable();
+
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
 
         if (battleHandPanel != null)
         {
@@ -267,6 +273,8 @@ public class BattleUIPanel : UIPanelBase
 
     private void OnDestroy()
     {
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleShowHotkeyHintsChanged;
+
         if (_controller != null)
         {
             _controller.OnTargetingStateChanged -= HandleTargetingStateChanged;
@@ -493,8 +501,17 @@ public class BattleUIPanel : UIPanelBase
         RefreshCardPlayability();
     }
 
+    private void HandleShowHotkeyHintsChanged(bool show)
+    {
+        RefreshEndTurnHotkeyHint();
+        if (battleHandPanel != null)
+        {
+            battleHandPanel.RefreshHotkeyHints();
+        }
+    }
+
     /// <summary>
-    /// 턴 종료 버튼의 단축키 힌트([E]) 표시를 갱신합니다.
+    /// 턴 종료 버튼의 라벨 텍스트와 좌상단 단축키 배지(E) 표시를 갱신합니다.
     /// </summary>
     public void RefreshEndTurnHotkeyHint()
     {
@@ -505,25 +522,56 @@ public class BattleUIPanel : UIPanelBase
 
         if (_endTurnButtonText == null)
         {
-            _endTurnButtonText = endTurnButton.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-        }
-
-        if (_endTurnButtonText == null)
-        {
-            return;
-        }
-
-        if (string.IsNullOrEmpty(_baseEndTurnButtonLabel))
-        {
-            string raw = _endTurnButtonText.text != null ? _endTurnButtonText.text.Trim() : string.Empty;
-            if (raw.EndsWith(" [E]"))
+            TMPro.TextMeshProUGUI[] candidateTexts = endTurnButton.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true);
+            for (int i = 0; i < candidateTexts.Length; i++)
             {
-                raw = raw.Substring(0, raw.Length - 4);
+                TMPro.TextMeshProUGUI candidate = candidateTexts[i];
+                if (candidate != null && candidate != endTurnHotkeyBadgeText && candidate.gameObject.name != "HotkeyHintText")
+                {
+                    _endTurnButtonText = candidate;
+                    break;
+                }
             }
-            _baseEndTurnButtonLabel = string.IsNullOrEmpty(raw) ? "턴 종료" : raw;
         }
 
-        _endTurnButtonText.text = showHotkeyHints ? $"{_baseEndTurnButtonLabel} [E]" : _baseEndTurnButtonLabel;
+        if (_endTurnButtonText != null)
+        {
+            if (string.IsNullOrEmpty(_baseEndTurnButtonLabel))
+            {
+                string raw = _endTurnButtonText.text != null ? _endTurnButtonText.text.Trim() : string.Empty;
+                if (raw.EndsWith(" [E]"))
+                {
+                    raw = raw.Substring(0, raw.Length - 4);
+                }
+                _baseEndTurnButtonLabel = string.IsNullOrEmpty(raw) ? "턴 종료" : raw;
+            }
+
+            _endTurnButtonText.text = _baseEndTurnButtonLabel;
+        }
+
+        if (HotkeyHintSettings.ShowHotkeyHints)
+        {
+            HotkeyHintSettings.EnsureButtonHotkeyBadge(
+                endTurnButton.transform,
+                ref endTurnHotkeyBadgeObject,
+                ref endTurnHotkeyBadgeText,
+                _endTurnButtonText,
+                staminaValueText);
+
+            if (endTurnHotkeyBadgeText != null)
+            {
+                endTurnHotkeyBadgeText.text = "E";
+            }
+            if (endTurnHotkeyBadgeObject != null)
+            {
+                endTurnHotkeyBadgeObject.SetActive(true);
+                endTurnHotkeyBadgeObject.transform.SetAsLastSibling();
+            }
+        }
+        else if (endTurnHotkeyBadgeObject != null)
+        {
+            endTurnHotkeyBadgeObject.SetActive(false);
+        }
     }
 
     /// <summary>

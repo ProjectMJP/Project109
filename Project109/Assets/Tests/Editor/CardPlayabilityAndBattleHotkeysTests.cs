@@ -5,6 +5,7 @@ using System.Reflection;
 using CardTypes;
 using NUnit.Framework;
 using TMPro;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -12,6 +13,9 @@ using UnityEngine.UI;
 [TestFixture]
 public class CardPlayabilityAndBattleHotkeysTests
 {
+    private bool _hadHotkeyPrefBackup;
+    private int _hotkeyPrefBackupValue;
+    private float _backupTimeScale;
     private sealed class StubEnemyController : ICharacterController
     {
         public Character controlledCharacter { get; }
@@ -37,9 +41,31 @@ public class CardPlayabilityAndBattleHotkeysTests
     private readonly List<Player> _createdPlayers = new List<Player>();
     private readonly List<BattleManager> _createdBattleManagers = new List<BattleManager>();
 
+    [SetUp]
+    public void SetUp()
+    {
+        _backupTimeScale = Time.timeScale;
+        Time.timeScale = 1f;
+        _hadHotkeyPrefBackup = PlayerPrefs.HasKey(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS);
+        _hotkeyPrefBackupValue = PlayerPrefs.GetInt(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS, 1);
+        HotkeyHintSettings.SetShowHotkeyHints(true, savePrefs: false);
+    }
+
     [TearDown]
     public void TearDown()
     {
+        Time.timeScale = _backupTimeScale > 0f ? _backupTimeScale : 1f;
+
+        if (_hadHotkeyPrefBackup)
+        {
+            PlayerPrefs.SetInt(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS, _hotkeyPrefBackupValue);
+        }
+        else
+        {
+            PlayerPrefs.DeleteKey(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS);
+        }
+        PlayerPrefs.Save();
+        HotkeyHintSettings.SetShowHotkeyHints(true, savePrefs: false);
         for (int i = _createdBattleManagers.Count - 1; i >= 0; i--)
         {
             _createdBattleManagers[i]?.Dispose();
@@ -426,7 +452,8 @@ public class CardPlayabilityAndBattleHotkeysTests
         InvokePrivateMethod(battleUI, "OnEnable");
         InvokePrivateMethod(handPanel, "OnEnable");
 
-        Assert.AreEqual("턴 종료 [E]", endTurnTextGo.GetComponent<TextMeshProUGUI>().text);
+        Assert.AreEqual("턴 종료", endTurnTextGo.GetComponent<TextMeshProUGUI>().text);
+        Assert.AreEqual("E", battleUI.CurrentEndTurnHotkeyHintText);
 
         Character playerChar = CreateCharacter("HotkeyPlayer", CharacterFaction.Player, maxStamina: 10f, curStamina: 5f);
         Character enemyChar = CreateCharacter("HotkeyEnemy", CharacterFaction.Enemy, maxStamina: 10f, curStamina: 0f);
@@ -562,5 +589,139 @@ public class CardPlayabilityAndBattleHotkeysTests
         Assert.IsNull(controller.KeyboardSelectedCard);
         Assert.AreEqual(PlayerControlState.Normal, controller.controlState);
         Assert.IsNotNull(RunManager.instance.battleManager.currentTurnController);
+    }
+
+    [Test]
+    public void HotkeyHintSettings_UnifiedBadgesAndPauseMenuToggle_SyncsRealtimeAndPersistsToPlayerPrefs()
+    {
+        var (canvas, contentRect) = CreateTestCanvas("UnifiedHotkeyBadgeCanvas");
+
+        GameObject battleUIGo = Track(new GameObject("BattleUIPanel", typeof(RectTransform)));
+        battleUIGo.transform.SetParent(canvas.transform, false);
+        BattleUIPanel battleUI = battleUIGo.AddComponent<BattleUIPanel>();
+
+        GameObject handGo = Track(new GameObject("BattleHandPanel", typeof(RectTransform)));
+        handGo.transform.SetParent(battleUIGo.transform, false);
+        BattleHandPanel handPanel = handGo.AddComponent<BattleHandPanel>();
+        handPanel.contentTransform = contentRect;
+
+        GameObject modeSwitchBtnGo = Track(new GameObject("SwitchToMoveButton", typeof(RectTransform), typeof(Image), typeof(Button)));
+        modeSwitchBtnGo.transform.SetParent(handGo.transform, false);
+        GameObject modeSwitchTextGo = Track(new GameObject("Text (TMP)", typeof(RectTransform), typeof(TextMeshProUGUI)));
+        modeSwitchTextGo.transform.SetParent(modeSwitchBtnGo.transform, false);
+        TextMeshProUGUI modeSwitchText = modeSwitchTextGo.GetComponent<TextMeshProUGUI>();
+        modeSwitchText.text = "이동 모드";
+
+        SetPrivateField(handPanel, "switchToMoveModeButton", modeSwitchBtnGo.GetComponent<Button>());
+        SetPrivateField(handPanel, "modeSwitchButtonText", modeSwitchText);
+
+        GameObject moveGo = Track(new GameObject("BattleMovePanel", typeof(RectTransform)));
+        moveGo.transform.SetParent(battleUIGo.transform, false);
+        BattleMovePanel movePanel = moveGo.AddComponent<BattleMovePanel>();
+
+        GameObject endTurnGo = Track(new GameObject("EndTurnButton", typeof(RectTransform), typeof(Image), typeof(Button)));
+        endTurnGo.transform.SetParent(battleUIGo.transform, false);
+        GameObject endTurnTextGo = Track(new GameObject("Text (TMP)", typeof(RectTransform), typeof(TextMeshProUGUI)));
+        endTurnTextGo.transform.SetParent(endTurnGo.transform, false);
+        TextMeshProUGUI endTurnText = endTurnTextGo.GetComponent<TextMeshProUGUI>();
+        endTurnText.text = "턴 종료";
+
+        SetPrivateField(battleUI, "battleHandPanel", handPanel);
+        SetPrivateField(battleUI, "battleMovePanel", movePanel);
+        SetPrivateField(battleUI, "endTurnButton", endTurnGo.GetComponent<Button>());
+
+        InvokePrivateMethod(handPanel, "Awake");
+        InvokePrivateMethod(movePanel, "Awake");
+        InvokePrivateMethod(battleUI, "Awake");
+        InvokePrivateMethod(battleUI, "OnEnable");
+        InvokePrivateMethod(handPanel, "OnEnable");
+
+        Character playerChar = CreateCharacter("BadgePlayer", CharacterFaction.Player, maxStamina: 10f, curStamina: 5f);
+        Character enemyChar = CreateCharacter("BadgeEnemy", CharacterFaction.Enemy, maxStamina: 10f, curStamina: 0f);
+        Player player = new Player(playerChar);
+        player.InitBattleDeck();
+        _createdPlayers.Add(player);
+
+        PlayerBattleController controller = new PlayerBattleController(player);
+        _createdControllers.Add(controller);
+        SetPrivateField(controller, "_battleUI", battleUI);
+        CreateRunWithBattle(controller, enemyChar);
+        battleUI.BindPlayer(player, controller);
+
+        Card card1 = CreateCard("카드1", staminaCost: 1, targetType: "Self", owner: playerChar);
+        Card card2 = CreateCard("카드2", staminaCost: 1, targetType: "Self", owner: playerChar);
+        CardUI cardUI1 = CreateTestCardUI(contentRect, "BadgeCardUI1");
+        CardUI cardUI2 = CreateTestCardUI(contentRect, "BadgeCardUI2");
+        RegisterHandCardsInPanel(handPanel, contentRect, new List<(Card, CardUI)>
+        {
+            (card1, cardUI1),
+            (card2, cardUI2)
+        });
+
+        // 1. 초기 상태: 텍스트에 [Q]/[E] 병기 없이 좌상단 배지로 통일 표시
+        Assert.IsTrue(HotkeyHintSettings.ShowHotkeyHints);
+        Assert.AreEqual("턴 종료", endTurnText.text);
+        Assert.AreEqual("E", battleUI.CurrentEndTurnHotkeyHintText);
+        Assert.AreEqual("이동 모드", modeSwitchText.text);
+        Assert.AreEqual("Q", handPanel.CurrentModeSwitchHotkeyHintText);
+        Assert.AreEqual("1", cardUI1.CurrentHotkeyHintText);
+        Assert.AreEqual("2", cardUI2.CurrentHotkeyHintText);
+
+        battleUI.SwitchToMoveMode();
+        Assert.AreEqual("전투 모드", modeSwitchText.text);
+        Assert.AreEqual("Q", handPanel.CurrentModeSwitchHotkeyHintText);
+        battleUI.SwitchToHandMode();
+        Assert.AreEqual("이동 모드", modeSwitchText.text);
+
+        GameObject endTurnBadge = GetPrivateField<GameObject>(battleUI, "endTurnHotkeyBadgeObject");
+        GameObject modeSwitchBadge = GetPrivateField<GameObject>(handPanel, "modeSwitchHotkeyBadgeObject");
+        Assert.IsNotNull(endTurnBadge);
+        Assert.IsNotNull(modeSwitchBadge);
+        Assert.AreEqual(new Vector2(0f, 1f), endTurnBadge.GetComponent<RectTransform>().anchorMin);
+        Assert.AreEqual(new Vector2(0f, 1f), endTurnBadge.GetComponent<RectTransform>().anchorMax);
+        Assert.AreEqual(new Vector2(0f, 1f), modeSwitchBadge.GetComponent<RectTransform>().anchorMin);
+        Assert.AreEqual(new Vector2(0f, 1f), modeSwitchBadge.GetComponent<RectTransform>().anchorMax);
+
+        // 2. PauseMenuPanel 설정창 토글 연동 및 PlayerPrefs 저장/복원 검증
+        GameObject pausePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/PauseMenuPanel.prefab");
+        Assert.IsNotNull(pausePrefab, "PauseMenuPanel.prefab을 찾을 수 없습니다.");
+        GameObject pauseGo = Track(UnityEngine.Object.Instantiate(pausePrefab, canvas.transform, false));
+        PauseMenuPanel pausePanel = pauseGo.GetComponent<PauseMenuPanel>();
+        Assert.IsNotNull(pausePanel);
+        InvokePrivateMethod(pausePanel, "Awake");
+        pausePanel.OnOpen();
+
+        Toggle hotkeyHintToggle = GetPrivateField<Toggle>(pausePanel, "hotkeyHintToggle");
+        TextMeshProUGUI hotkeyHintStatusText = GetPrivateField<TextMeshProUGUI>(pausePanel, "hotkeyHintStatusText");
+        Assert.IsNotNull(hotkeyHintToggle);
+        Assert.IsNotNull(hotkeyHintStatusText);
+        Assert.IsTrue(hotkeyHintToggle.isOn);
+        Assert.AreEqual("ON", hotkeyHintStatusText.text);
+
+        // OFF 전환 -> 즉시 전투 UI/카드 배지 일괄 숨김 및 PlayerPrefs 저장
+        hotkeyHintToggle.isOn = false;
+        Assert.IsFalse(HotkeyHintSettings.ShowHotkeyHints);
+        Assert.AreEqual(0, PlayerPrefs.GetInt(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS, 1));
+        Assert.AreEqual("OFF", hotkeyHintStatusText.text);
+        Assert.AreEqual(string.Empty, battleUI.CurrentEndTurnHotkeyHintText);
+        Assert.AreEqual(string.Empty, handPanel.CurrentModeSwitchHotkeyHintText);
+        Assert.AreEqual(string.Empty, cardUI1.CurrentHotkeyHintText);
+        Assert.AreEqual(string.Empty, cardUI2.CurrentHotkeyHintText);
+
+        // PlayerPrefs 재로드 시에도 OFF 유지 확인
+        HotkeyHintSettings.ReloadFromPrefs();
+        Assert.IsFalse(HotkeyHintSettings.ShowHotkeyHints);
+
+        // ON 복원 -> 즉시 전투 UI/카드 배지 일괄 복원
+        hotkeyHintToggle.isOn = true;
+        Assert.IsTrue(HotkeyHintSettings.ShowHotkeyHints);
+        Assert.AreEqual(1, PlayerPrefs.GetInt(HotkeyHintSettings.PREF_SHOW_HOTKEY_HINTS, 0));
+        Assert.AreEqual("ON", hotkeyHintStatusText.text);
+        Assert.AreEqual("E", battleUI.CurrentEndTurnHotkeyHintText);
+        Assert.AreEqual("Q", handPanel.CurrentModeSwitchHotkeyHintText);
+        Assert.AreEqual("1", cardUI1.CurrentHotkeyHintText);
+        Assert.AreEqual("2", cardUI2.CurrentHotkeyHintText);
+
+        pausePanel.OnClose();
     }
 }

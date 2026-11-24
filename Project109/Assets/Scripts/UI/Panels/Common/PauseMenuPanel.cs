@@ -48,7 +48,7 @@ public class PauseMenuPanel : UIPanelBase
     [Header("Window Layout")]
     [SerializeField] private RectTransform windowFrameRect;
     [SerializeField] private Vector2 defaultWindowSize = new Vector2(460f, 520f);
-    [SerializeField] private Vector2 settingsWindowSize = new Vector2(460f, 640f);
+    [SerializeField] private Vector2 settingsWindowSize = new Vector2(460f, 700f);
     [SerializeField] private Vector2 relicCompendiumWindowSize = new Vector2(1420f, 840f);
 
     [Header("Sub-View Containers")]
@@ -78,6 +78,8 @@ public class PauseMenuPanel : UIPanelBase
     [SerializeField] private TextMeshProUGUI fullScreenStatusText;
     [SerializeField] private Toggle tooltipToggle;
     [SerializeField] private TextMeshProUGUI tooltipStatusText;
+    [SerializeField] private Toggle hotkeyHintToggle;
+    [SerializeField] private TextMeshProUGUI hotkeyHintStatusText;
     [SerializeField] private Button settingsBackButton;
 
     [Header("Relic Compendium Controls")]
@@ -143,6 +145,8 @@ public class PauseMenuPanel : UIPanelBase
                 Screen.fullScreen = fullScreen;
             }
         }
+
+        HotkeyHintSettings.ReloadFromPrefs();
     }
 
     private void Awake()
@@ -153,6 +157,7 @@ public class PauseMenuPanel : UIPanelBase
         ResolveComponentReferences();
         EnsureAudioVolumeSettingRows();
         EnsureTooltipSettingRow();
+        EnsureHotkeyHintSettingRow();
         EnsureRelicFilterSortBar();
         BindListeners();
         BindRelicFilterSortListeners();
@@ -165,13 +170,17 @@ public class PauseMenuPanel : UIPanelBase
         base.OnEnable();
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
         TooltipManager.OnTooltipEnabledChanged += HandleTooltipEnabledChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleHotkeyHintSettingChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged += HandleHotkeyHintSettingChanged;
         SyncTooltipSettingUI(TooltipManager.IsTooltipEnabled);
+        SyncHotkeyHintSettingUI(HotkeyHintSettings.ShowHotkeyHints);
     }
 
     protected override void OnDisable()
     {
         base.OnDisable();
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleHotkeyHintSettingChanged;
         // 비정상 비활성화·씬 언로드 시에도 게임 시간이 0에 고착되지 않도록 복원합니다.
         RestoreGameTime(forceFallbackIfZero: false);
     }
@@ -181,6 +190,7 @@ public class PauseMenuPanel : UIPanelBase
         RestoreGameTime(forceFallbackIfZero: false);
         LuaManager.OnBeforeLuaEnvDispose -= DisposeCompendiumCards;
         TooltipManager.OnTooltipEnabledChanged -= HandleTooltipEnabledChanged;
+        HotkeyHintSettings.OnShowHotkeyHintsChanged -= HandleHotkeyHintSettingChanged;
         UnbindListeners();
         UnbindRelicFilterSortListeners();
         DisposeCompendiumCards();
@@ -226,6 +236,7 @@ public class PauseMenuPanel : UIPanelBase
         ResolveComponentReferences();
         EnsureAudioVolumeSettingRows();
         EnsureTooltipSettingRow();
+        EnsureHotkeyHintSettingRow();
         EnsureRelicFilterSortBar();
         BindListeners();
         BindRelicFilterSortListeners();
@@ -287,6 +298,11 @@ public class PauseMenuPanel : UIPanelBase
             tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
             tooltipToggle.onValueChanged.AddListener(OnTooltipToggleChanged);
         }
+        if (hotkeyHintToggle != null)
+        {
+            hotkeyHintToggle.onValueChanged.RemoveListener(OnHotkeyHintToggleChanged);
+            hotkeyHintToggle.onValueChanged.AddListener(OnHotkeyHintToggleChanged);
+        }
 
         _listenersBound = true;
     }
@@ -311,6 +327,7 @@ public class PauseMenuPanel : UIPanelBase
         if (sfxVolumeSlider != null) sfxVolumeSlider.onValueChanged.RemoveListener(OnSfxVolumeChanged);
         if (fullScreenToggle != null) fullScreenToggle.onValueChanged.RemoveListener(OnFullScreenToggleChanged);
         if (tooltipToggle != null) tooltipToggle.onValueChanged.RemoveListener(OnTooltipToggleChanged);
+        if (hotkeyHintToggle != null) hotkeyHintToggle.onValueChanged.RemoveListener(OnHotkeyHintToggleChanged);
 
         _listenersBound = false;
     }
@@ -542,6 +559,14 @@ public class PauseMenuPanel : UIPanelBase
         }
 
         UpdateTooltipStatusText(isTooltipEnabled);
+
+        bool showHotkeyHints = HotkeyHintSettings.ShowHotkeyHints;
+        if (hotkeyHintToggle != null)
+        {
+            hotkeyHintToggle.SetIsOnWithoutNotify(showHotkeyHints);
+        }
+
+        UpdateHotkeyHintStatusText(showHotkeyHints);
         _isSyncingSettingsUI = false;
     }
 
@@ -629,6 +654,40 @@ public class PauseMenuPanel : UIPanelBase
         }
     }
 
+    private void OnHotkeyHintToggleChanged(bool isEnabled)
+    {
+        if (_isSyncingSettingsUI)
+        {
+            return;
+        }
+
+        HotkeyHintSettings.SetShowHotkeyHints(isEnabled, savePrefs: true);
+        UpdateHotkeyHintStatusText(isEnabled);
+    }
+
+    private void HandleHotkeyHintSettingChanged(bool isEnabled)
+    {
+        SyncHotkeyHintSettingUI(isEnabled);
+    }
+
+    private void SyncHotkeyHintSettingUI(bool isEnabled)
+    {
+        bool prevSync = _isSyncingSettingsUI;
+        _isSyncingSettingsUI = true;
+        try
+        {
+            if (hotkeyHintToggle != null)
+            {
+                hotkeyHintToggle.SetIsOnWithoutNotify(isEnabled);
+            }
+            UpdateHotkeyHintStatusText(isEnabled);
+        }
+        finally
+        {
+            _isSyncingSettingsUI = prevSync;
+        }
+    }
+
     private void UpdateMasterVolumeText(float volume)
     {
         if (masterVolumeValueText != null)
@@ -669,6 +728,14 @@ public class PauseMenuPanel : UIPanelBase
         if (tooltipStatusText != null)
         {
             tooltipStatusText.text = isEnabled ? "ON" : "OFF";
+        }
+    }
+
+    private void UpdateHotkeyHintStatusText(bool isEnabled)
+    {
+        if (hotkeyHintStatusText != null)
+        {
+            hotkeyHintStatusText.text = isEnabled ? "ON" : "OFF";
         }
     }
 
@@ -1433,6 +1500,7 @@ public class PauseMenuPanel : UIPanelBase
             masterVolumeSlider != null &&
             fullScreenToggle != null &&
             tooltipToggle != null &&
+            hotkeyHintToggle != null &&
             settingsBackButton != null)
         {
             return;
@@ -1482,6 +1550,8 @@ public class PauseMenuPanel : UIPanelBase
             if (fullScreenStatusText == null) fullScreenStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "FullScreenRow/FullScreenStatusText");
             if (tooltipToggle == null) tooltipToggle = FindChildComponent<Toggle>(settingsTr, "TooltipRow/TooltipToggle");
             if (tooltipStatusText == null) tooltipStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "TooltipRow/TooltipStatusText");
+            if (hotkeyHintToggle == null) hotkeyHintToggle = FindChildComponent<Toggle>(settingsTr, "HotkeyHintRow/HotkeyHintToggle");
+            if (hotkeyHintStatusText == null) hotkeyHintStatusText = FindChildComponent<TextMeshProUGUI>(settingsTr, "HotkeyHintRow/HotkeyHintStatusText");
             if (settingsBackButton == null) settingsBackButton = FindChildComponent<Button>(settingsTr, "SettingsBackButton");
         }
 
@@ -1683,6 +1753,71 @@ public class PauseMenuPanel : UIPanelBase
         return tooltipRow.transform;
     }
 
+    private void EnsureHotkeyHintSettingRow()
+    {
+        if (settingsGroup == null)
+        {
+            return;
+        }
+
+        Transform rowTr = settingsGroup.transform.Find("HotkeyHintRow");
+        if (rowTr == null)
+        {
+            TMP_FontAsset fontAsset = TMPFontUtility.ResolveDefaultFont(fullScreenStatusText, tooltipStatusText);
+            rowTr = CreateHotkeyHintSettingRow(settingsGroup.transform, fontAsset);
+        }
+        else
+        {
+            if (hotkeyHintToggle == null) hotkeyHintToggle = FindChildComponent<Toggle>(rowTr, "HotkeyHintToggle");
+            if (hotkeyHintStatusText == null) hotkeyHintStatusText = FindChildComponent<TextMeshProUGUI>(rowTr, "HotkeyHintStatusText");
+        }
+
+        if (rowTr != null && settingsBackButton != null && settingsBackButton.transform.parent == settingsGroup.transform)
+        {
+            int backIndex = settingsBackButton.transform.GetSiblingIndex();
+            if (rowTr.GetSiblingIndex() > backIndex)
+            {
+                rowTr.SetSiblingIndex(backIndex);
+            }
+        }
+
+        if (_listenersBound && hotkeyHintToggle != null)
+        {
+            hotkeyHintToggle.onValueChanged.RemoveListener(OnHotkeyHintToggleChanged);
+            hotkeyHintToggle.onValueChanged.AddListener(OnHotkeyHintToggleChanged);
+        }
+    }
+
+    private Transform CreateHotkeyHintSettingRow(Transform parent, TMP_FontAsset fontAsset)
+    {
+        GameObject hotkeyRow = CreateUIObject("HotkeyHintRow", parent);
+        LayoutElement rowLayout = hotkeyRow.AddComponent<LayoutElement>();
+        rowLayout.minHeight = 64f;
+        rowLayout.preferredHeight = 64f;
+
+        TextMeshProUGUI hotkeyLabel = CreateTMPText("Label", hotkeyRow.transform, "단축키 표시", 20, FontStyles.Bold, TextAlignmentOptions.Left, fontAsset);
+        RectTransform hotkeyLabelRect = hotkeyLabel.GetComponent<RectTransform>();
+        hotkeyLabelRect.anchorMin = new Vector2(0f, 0.5f);
+        hotkeyLabelRect.anchorMax = new Vector2(0.55f, 0.5f);
+        hotkeyLabelRect.pivot = new Vector2(0f, 0.5f);
+        hotkeyLabelRect.anchoredPosition = Vector2.zero;
+        hotkeyLabelRect.sizeDelta = new Vector2(0f, 32f);
+
+        bool showHotkeys = HotkeyHintSettings.ShowHotkeyHints;
+        hotkeyHintStatusText = CreateTMPText("HotkeyHintStatusText", hotkeyRow.transform, showHotkeys ? "ON" : "OFF", 18, FontStyles.Normal, TextAlignmentOptions.Right, fontAsset);
+        RectTransform hotkeyStatusRect = hotkeyHintStatusText.GetComponent<RectTransform>();
+        hotkeyStatusRect.anchorMin = new Vector2(0.5f, 0.5f);
+        hotkeyStatusRect.anchorMax = new Vector2(0.84f, 0.5f);
+        hotkeyStatusRect.pivot = new Vector2(1f, 0.5f);
+        hotkeyStatusRect.anchoredPosition = Vector2.zero;
+        hotkeyStatusRect.sizeDelta = new Vector2(0f, 30f);
+
+        hotkeyHintToggle = CreateToggle("HotkeyHintToggle", hotkeyRow.transform);
+        hotkeyHintToggle.SetIsOnWithoutNotify(showHotkeys);
+
+        return hotkeyRow.transform;
+    }
+
     private static T FindChildComponent<T>(Transform parent, string relativePath) where T : Component
     {
         if (parent == null) return null;
@@ -1882,6 +2017,9 @@ public class PauseMenuPanel : UIPanelBase
 
         // 3. 툴팁 표시 토글 행
         CreateTooltipSettingRow(parent, fontAsset);
+
+        // 4. 단축키 표시 토글 행
+        CreateHotkeyHintSettingRow(parent, fontAsset);
     }
 
     private static Slider CreateSlider(string name, Transform parent)

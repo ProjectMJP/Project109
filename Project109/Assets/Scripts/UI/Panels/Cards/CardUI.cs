@@ -1140,10 +1140,10 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             badgeRect.anchorMax = new Vector2(0f, 1f);
             badgeRect.pivot = new Vector2(1f, 1f);
             badgeRect.anchoredPosition = new Vector2(-12f, 10f);
-            badgeRect.sizeDelta = new Vector2(26f, 22f);
+            badgeRect.sizeDelta = HotkeyHintSettings.BadgeSize;
 
             Image badgeBg = badgeObj.GetComponent<Image>();
-            badgeBg.color = new Color(0.08f, 0.10f, 0.15f, 0.88f);
+            badgeBg.color = HotkeyHintSettings.BadgeBackgroundColor;
             badgeBg.raycastTarget = false;
 
             hotkeyHintBadgeObject = badgeObj;
@@ -1172,10 +1172,10 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             {
                 hotkeyHintText.font = fontAsset;
             }
-            hotkeyHintText.fontSize = 14f;
+            hotkeyHintText.fontSize = HotkeyHintSettings.BadgeFontSize;
             hotkeyHintText.fontStyle = FontStyles.Bold;
             hotkeyHintText.alignment = TextAlignmentOptions.Center;
-            hotkeyHintText.color = Color.white;
+            hotkeyHintText.color = HotkeyHintSettings.BadgeTextColor;
             hotkeyHintText.raycastTarget = false;
         }
 
