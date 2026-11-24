@@ -6,7 +6,9 @@ function relic:OnInit(relicBase, owner)
     local character = owner.character
     if character ~= nil and character.curCharacterStat ~= nil then
         character.curCharacterStat.maxHealth = character.curCharacterStat.maxHealth + 20
-        character.curHealth = character.curHealth + 20
+        if relicBase == nil or not relicBase.IsRestoredFromSave then
+            character.curHealth = character.curHealth + 20
+        end
     end
 end
 

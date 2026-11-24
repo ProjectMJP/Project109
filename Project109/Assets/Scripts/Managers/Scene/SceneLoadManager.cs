@@ -18,10 +18,13 @@ public class SceneLoadManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(this.gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(this.gameObject);
+            }
             InitializeScreenFader();
         }
-        else
+        else if (instance != this)
         {
             Destroy(this.gameObject);
         }
@@ -61,6 +64,8 @@ public class SceneLoadManager : MonoBehaviour
 
     public void LoadScene(string sceneName)
     {
+        StopAllCoroutines();
+        currentLoadedSubScene = string.Empty;
         SceneManager.LoadScene(sceneName);
     }
 

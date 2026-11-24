@@ -235,6 +235,10 @@ public class GameSceneManager : MonoBehaviour
         }
 
         isInDungeon = true;
+        if (LuaManager.Instance != null)
+        {
+            LuaManager.Instance.ResetAllChoiceStates();
+        }
         OnSceneLocationChanged?.Invoke();
         Debug.Log($"[GameSceneManager] 던전 서브씬('{_dungeonScenePath}')으로 전환을 시작합니다.");
 
@@ -266,6 +270,10 @@ public class GameSceneManager : MonoBehaviour
         }
 
         isInDungeon = false;
+        if (LuaManager.Instance != null)
+        {
+            LuaManager.Instance.ResetAllChoiceStates();
+        }
         OnSceneLocationChanged?.Invoke();
         Debug.Log($"[GameSceneManager] 은신처 서브씬('{_hideoutScenePath}')으로 복귀를 시작합니다.");
 
@@ -283,6 +291,31 @@ public class GameSceneManager : MonoBehaviour
         {
             Debug.LogError("[GameSceneManager] SceneLoadManager 인스턴스가 없습니다.");
         }
+    }
+
+    /// <summary>
+    /// 전투 패배 등으로 던전 런을 종료하고 즉시 은신처 상태 세이브를 디스크에 기록합니다.
+    /// (타이틀 복귀 경로에서도 사망한 던전 세이브가 잔존하지 않도록 보장합니다.)
+    /// </summary>
+    public void FinalizeDefeatedRunState(bool saveImmediately = true)
+    {
+        isInDungeon = false;
+        if (LuaManager.Instance != null)
+        {
+            LuaManager.Instance.ResetAllChoiceStates();
+        }
+
+        if (player != null)
+        {
+            SaveSystem.InitializeDefaultPlayer(player);
+        }
+
+        if (saveImmediately)
+        {
+            SaveSystem.SaveGame(null, currentSaveSlot);
+        }
+
+        OnSceneLocationChanged?.Invoke();
     }
     #endregion
 }

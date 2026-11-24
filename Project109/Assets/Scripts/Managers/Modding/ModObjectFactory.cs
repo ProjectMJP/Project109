@@ -180,7 +180,11 @@ public static class ModObjectFactory
     /// <summary>
     /// RelicData로부터 Relic 인스턴스를 생성합니다.
     /// </summary>
-    public static Relic CreateRelic(RelicData data, Player owner)
+    public static Relic CreateRelic(
+        RelicData data,
+        Player owner,
+        bool isRestoredFromSave = false,
+        int restoredCounter = 0)
     {
         if (data == null)
         {
@@ -193,13 +197,17 @@ public static class ModObjectFactory
             luaInstance = LuaManager.Instance.NewInstance(data.luaPrototype);
         }
 
-        return new Relic(data, owner, luaInstance);
+        return new Relic(data, owner, luaInstance, isRestoredFromSave, restoredCounter);
     }
 
     /// <summary>
     /// 유물 ID를 기반으로 Relic 인스턴스를 생성합니다.
     /// </summary>
-    public static Relic CreateRelic(string relicId, Player owner)
+    public static Relic CreateRelic(
+        string relicId,
+        Player owner,
+        bool isRestoredFromSave = false,
+        int restoredCounter = 0)
     {
         if (string.IsNullOrEmpty(relicId) ||
             ModLoader.Instance == null ||
@@ -210,6 +218,6 @@ public static class ModObjectFactory
             return null;
         }
 
-        return CreateRelic(data, owner);
+        return CreateRelic(data, owner, isRestoredFromSave, restoredCounter);
     }
 }

@@ -20,6 +20,81 @@ public class CardSaveEntry
 }
 
 [Serializable]
+public class RelicSaveEntry
+{
+    public string relicName;
+    public int counter;
+}
+
+[Serializable]
+public class ActiveShopItemSaveEntry
+{
+    public string itemId;
+    public int basePrice;
+    public bool isSold;
+    public bool isOnSale;
+    public float discountRate;
+}
+
+[Serializable]
+public class ActiveShopSaveData
+{
+    public bool isValid;
+    public int nodeFloor = -1;
+    public int nodeIndex = -1;
+    public int visitRerollCount;
+    public List<ActiveShopItemSaveEntry> cards = new List<ActiveShopItemSaveEntry>();
+    public List<ActiveShopItemSaveEntry> relics = new List<ActiveShopItemSaveEntry>();
+
+    public ActiveShopSaveData Clone()
+    {
+        ActiveShopSaveData copy = new ActiveShopSaveData
+        {
+            isValid = isValid,
+            nodeFloor = nodeFloor,
+            nodeIndex = nodeIndex,
+            visitRerollCount = visitRerollCount
+        };
+
+        if (cards != null)
+        {
+            for (int i = 0; i < cards.Count; i++)
+            {
+                ActiveShopItemSaveEntry c = cards[i];
+                if (c == null) continue;
+                copy.cards.Add(new ActiveShopItemSaveEntry
+                {
+                    itemId = c.itemId,
+                    basePrice = c.basePrice,
+                    isSold = c.isSold,
+                    isOnSale = c.isOnSale,
+                    discountRate = c.discountRate
+                });
+            }
+        }
+
+        if (relics != null)
+        {
+            for (int i = 0; i < relics.Count; i++)
+            {
+                ActiveShopItemSaveEntry r = relics[i];
+                if (r == null) continue;
+                copy.relics.Add(new ActiveShopItemSaveEntry
+                {
+                    itemId = r.itemId,
+                    basePrice = r.basePrice,
+                    isSold = r.isSold,
+                    isOnSale = r.isOnSale,
+                    discountRate = r.discountRate
+                });
+            }
+        }
+
+        return copy;
+    }
+}
+
+[Serializable]
 public class RunSaveData
 {
     public string currentMapName;
@@ -46,7 +121,9 @@ public class RunSaveData
 
     public List<CardSaveEntry> playerDeckCards = new List<CardSaveEntry>();
     public List<string> playerRelicNames = new List<string>();
+    public List<RelicSaveEntry> playerRelicStates = new List<RelicSaveEntry>();
     public List<PendingRewardEntry> pendingRewards = new List<PendingRewardEntry>();
+    public ActiveShopSaveData activeShopState;
 
     // 시작 무장(진열대) 선택 및 해금 상태 저장용
     public string selectedStarterKitId;
@@ -59,13 +136,13 @@ public class RunSaveData
 /// </summary>
 public static class SaveSystem
 {
-    // 슬롯별 세이브 데이터 메모리 캐시 (중복 디스크 I/O 및 JSON 파싱 제거)
-    private static readonly Dictionary<int, RunSaveData> _saveDataCache = new Dictionary<int, RunSaveData>();
+    // 슬롯별 세이브 JSON 텍스트 메모리 캐시 (중복 디스크 I/O 제거 및 공유 객체 인메모리 오염 차단)
+    private static readonly Dictionary<int, string> _saveJsonCache = new Dictionary<int, string>();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStaticCache()
     {
-        _saveDataCache.Clear();
+        _saveJsonCache.Clear();
     }
 
     /// <summary>
@@ -73,7 +150,7 @@ public static class SaveSystem
     /// </summary>
     public static void InvalidateCache(int slotIndex)
     {
-        _saveDataCache.Remove(slotIndex);
+        _saveJsonCache.Remove(slotIndex);
     }
 
     /// <summary>
@@ -81,7 +158,7 @@ public static class SaveSystem
     /// </summary>
     public static void InvalidateAllCaches()
     {
-        _saveDataCache.Clear();
+        _saveJsonCache.Clear();
     }
 
     private static string GetSavePath(int slotIndex)
@@ -130,6 +207,7 @@ public static class SaveSystem
                 }
 
                 data.pendingRewards = runManager.ExportPendingRewardsForSave();
+                data.activeShopState = runManager.ExportActiveShopStateForSave();
             }
             else
             {
@@ -143,6 +221,7 @@ public static class SaveSystem
                 data.beforeExploreNodeFloor = -1;
                 data.beforeExploreNodeIndex = -1;
                 data.pendingRewards = new List<PendingRewardEntry>();
+                data.activeShopState = null;
             }
 
 
@@ -184,13 +263,18 @@ public static class SaveSystem
                 }
             }
 
-            // 플레이어 유물 저장
+            // 플레이어 유물 및 카운터 상태 저장
             if (player.relicManager != null)
             {
                 foreach (var relic in player.relicManager.GetRelics())
                 {
                     if (relic == null || relic.Data == null) continue;
                     data.playerRelicNames.Add(relic.Data.relicName);
+                    data.playerRelicStates.Add(new RelicSaveEntry
+                    {
+                        relicName = relic.Data.relicName,
+                        counter = relic.Counter
+                    });
                 }
             }
 
@@ -201,7 +285,7 @@ public static class SaveSystem
             string json = JsonUtility.ToJson(data, true);
             string savePath = GetSavePath(slotIndex);
             File.WriteAllText(savePath, json, System.Text.Encoding.UTF8);
-            InvalidateCache(slotIndex);
+            _saveJsonCache[slotIndex] = json;
             Debug.Log($"[SaveSystem] 게임 상태가 '{savePath}'에 정상적으로 저장되었습니다.");
         }
         catch (Exception e)
@@ -218,25 +302,30 @@ public static class SaveSystem
         bool exists = File.Exists(GetSavePath(slotIndex));
         if (!exists)
         {
-            _saveDataCache.Remove(slotIndex);
+            _saveJsonCache.Remove(slotIndex);
         }
         return exists;
     }
 
     /// <summary>
-    /// 특정 슬롯 저장소로부터 데이터를 조회합니다. 캐시에 이미 로드되어 있으면 디스크 I/O와 역직렬화를 생략합니다.
+    /// 특정 슬롯 저장소로부터 데이터를 조회합니다.
+    /// 캐시된 JSON 텍스트로부터 매번 독립된 인스턴스를 역직렬화하여 공유 참조 인메모리 오염을 방지합니다.
     /// </summary>
     public static bool TryLoadGameData(int slotIndex, out RunSaveData data, bool forceReload = false)
     {
-        if (!forceReload && _saveDataCache.TryGetValue(slotIndex, out data) && data != null)
+        if (!forceReload && _saveJsonCache.TryGetValue(slotIndex, out string cachedJson) && !string.IsNullOrEmpty(cachedJson))
         {
-            return true;
+            data = JsonUtility.FromJson<RunSaveData>(cachedJson);
+            if (data != null)
+            {
+                return true;
+            }
         }
 
         string savePath = GetSavePath(slotIndex);
         if (!File.Exists(savePath))
         {
-            _saveDataCache.Remove(slotIndex);
+            _saveJsonCache.Remove(slotIndex);
             data = null;
             return false;
         }
@@ -247,17 +336,17 @@ public static class SaveSystem
             data = JsonUtility.FromJson<RunSaveData>(json);
             if (data != null)
             {
-                _saveDataCache[slotIndex] = data;
+                _saveJsonCache[slotIndex] = json;
                 return true;
             }
 
-            _saveDataCache.Remove(slotIndex);
+            _saveJsonCache.Remove(slotIndex);
             return false;
         }
         catch (Exception e)
         {
             Debug.LogError($"[SaveSystem] 로드 중 예외 발생: {e.Message}");
-            _saveDataCache.Remove(slotIndex);
+            _saveJsonCache.Remove(slotIndex);
             data = null;
             return false;
         }
@@ -410,13 +499,13 @@ public static class SaveSystem
         // 재화(골드만 선택적으로 키트 기본값 적용, 기억의 조각은 보존) 및 기본 드로우 수 반영
         if (player.playerStat != null)
         {
+            player.playerStat.ResetSessionDefaults();
             if (resetGold)
             {
                 player.playerStat.InGameCurrencyGold = kitData.startGold;
             }
 
             player.playerStat.BaseDrawCount = kitData.baseDrawCount > 0 ? kitData.baseDrawCount : 5;
-            player.playerStat.ShopRerollCount = 0;
         }
 
         // 시작 카드 덱 초기화
@@ -525,13 +614,30 @@ public static class SaveSystem
     }
 
     /// <summary>
-    /// 세이브 데이터로부터 플레이어의 스탯, 재화, 덱, 유물을 완벽히 복원합니다.
+    /// 세이브 데이터로부터 플레이어의 스탯, 재화, 덱, 유물(카운터 포함)을 순서 부수효과 없이 정확히 복원합니다.
     /// </summary>
     public static void RestorePlayerData(RunSaveData data, Player player)
     {
         if (data == null || player == null || player.character == null) return;
 
-        // 1. 캐릭터 스탯 복원
+        // 1. 플레이어 세션 스탯 기본값 리셋 (유물 OnInit 패시브 증감이 누적 오염되지 않도록 선초기화)
+        if (player.playerStat == null) player.playerStat = new PlayerStat();
+        player.playerStat.player = player;
+        player.playerStat.ResetSessionDefaults();
+
+        // 시작 무장 선택 및 기본 드로우 수 선반영
+        if (!string.IsNullOrEmpty(data.selectedStarterKitId))
+        {
+            player.selectedStarterKitId = data.selectedStarterKitId;
+            if (ModLoader.Instance != null && ModLoader.Instance.StarterKitDatabase != null &&
+                ModLoader.Instance.StarterKitDatabase.TryGetValue(data.selectedStarterKitId, out StarterKitData savedKit) &&
+                savedKit != null && savedKit.baseDrawCount > 0)
+            {
+                player.playerStat.BaseDrawCount = savedKit.baseDrawCount;
+            }
+        }
+
+        // 2. 캐릭터 영구 기본 스탯 복원
         if (data.playerCharacterStat != null)
         {
             player.character.InitializeStat(CloneCharacterStat(data.playerCharacterStat));
@@ -544,26 +650,14 @@ public static class SaveSystem
             player.character.InitializeStat(baseStat);
         }
 
-        // 현재 체력 복원
-        if (data.playerCurHealth > 0f)
-        {
-            player.character.curHealth = Mathf.Min(data.playerCurHealth, player.character.curCharacterStat.maxHealth);
-        }
-
-        // 2. 재화 및 상점 리롤 횟수 복원
-        if (player.playerStat == null) player.playerStat = new PlayerStat();
-        player.playerStat.InGameCurrencyGold = data.playerGold;
-        player.playerStat.InGameCurrencyMemorySharp = data.playerMemorySharp;
-        player.playerStat.ShopRerollCount = Mathf.Max(0, data.playerShopRerollCount);
-        player.playerStat.player = player;
-
-        // 3. 덱 복원
-        if (player.deck != null && data.playerDeckCards != null && data.playerDeckCards.Count > 0)
+        // 3. 덱 및 마스터리 상태 복원 (빈 덱으로 저장된 경우에도 기존 잔여 덱을 비웁니다)
+        if (player.deck != null && data.playerDeckCards != null)
         {
             player.deck.Clear();
             HashSet<string> restoredCardMasteries = new HashSet<string>();
             foreach (var cardEntry in data.playerDeckCards)
             {
+                if (cardEntry == null || string.IsNullOrEmpty(cardEntry.cardName)) continue;
                 if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null &&
                     ModLoader.Instance.CardDatabase.TryGetValue(cardEntry.cardName, out CardData cardData))
                 {
@@ -586,39 +680,46 @@ public static class SaveSystem
             player.deck.RequestAllCardRefresh();
         }
 
-        // 4. 유물 복원
+        // 4. 유물 및 카운터 상태 복원 (isRestoredFromSave=true로 1회성 획득 골드/힐 중복 발동 차단)
         if (player.relicManager != null)
         {
             player.relicManager.ClearRelics();
-            if (player.playerStat != null)
+            player.playerStat.BattleMapLockBypassCount = 0;
+
+            if (data.playerRelicStates != null && data.playerRelicStates.Count > 0)
             {
-                player.playerStat.BattleMapLockBypassCount = 0;
+                for (int i = 0; i < data.playerRelicStates.Count; i++)
+                {
+                    RelicSaveEntry relicEntry = data.playerRelicStates[i];
+                    if (relicEntry == null || string.IsNullOrEmpty(relicEntry.relicName)) continue;
+                    player.AddRelic(relicEntry.relicName, isRestoredFromSave: true, restoredCounter: relicEntry.counter);
+                }
             }
-            if (data.playerRelicNames != null)
+            else if (data.playerRelicNames != null)
             {
                 foreach (var relicName in data.playerRelicNames)
                 {
-                    player.AddRelic(relicName);
+                    if (string.IsNullOrEmpty(relicName)) continue;
+                    player.AddRelic(relicName, isRestoredFromSave: true, restoredCounter: 0);
                 }
             }
         }
-        else if (player.playerStat != null)
+        else
         {
             player.playerStat.BattleMapLockBypassCount = 0;
         }
 
-        // 5. 시작 무장 선택 및 해금 기록 복원
-        if (!string.IsNullOrEmpty(data.selectedStarterKitId))
+        // 5. 유물의 최대 체력 보너스 등이 반영된 이후 최종 저장된 현재 체력·재화·리롤 횟수를 정확히 확정
+        if (data.playerCurHealth > 0f && player.character.curCharacterStat != null)
         {
-            player.selectedStarterKitId = data.selectedStarterKitId;
-            if (ModLoader.Instance != null && ModLoader.Instance.StarterKitDatabase != null &&
-                ModLoader.Instance.StarterKitDatabase.TryGetValue(data.selectedStarterKitId, out StarterKitData savedKit) &&
-                savedKit != null && savedKit.baseDrawCount > 0 && player.playerStat != null)
-            {
-                player.playerStat.BaseDrawCount = savedKit.baseDrawCount;
-            }
+            player.character.curHealth = Mathf.Clamp(data.playerCurHealth, 1f, player.character.curCharacterStat.maxHealth);
         }
 
+        player.playerStat.InGameCurrencyGold = data.playerGold;
+        player.playerStat.InGameCurrencyMemorySharp = data.playerMemorySharp;
+        player.playerStat.ShopRerollCount = Mathf.Max(0, data.playerShopRerollCount);
+
+        // 6. 해금 기록 복원
         player.unlockedStarterKitIds.Clear();
         if (data.unlockedStarterKitIds != null)
         {
@@ -692,6 +793,7 @@ public static class SaveSystem
         }
 
         runManager.RestorePendingRewardsFromSave(data.pendingRewards);
+        runManager.RestoreActiveShopStateFromSave(data.activeShopState);
 
         Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={data.currentMapName}, Stage={data.currentStageLevel}, Floor={data.currentExploreMapFloor}");
     }

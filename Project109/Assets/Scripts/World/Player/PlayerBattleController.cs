@@ -259,6 +259,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             _sideUnitHUD.Close();
             _sideUnitHUD = null;
         }
+
+        if (player != null)
+        {
+            player.DisposeBattleDeck(suppressEvents: true);
+        }
     }
 
     /// <summary>

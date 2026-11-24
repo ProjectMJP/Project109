@@ -7,6 +7,7 @@ public class Relic : IDescribable, ILuaOwnedResource
 {
     public RelicData Data { get; private set; }
     public int Counter { get; set; }
+    public bool IsRestoredFromSave { get; private set; }
 
     private readonly Player owner;
     private LuaTable luaLogic;
@@ -16,11 +17,17 @@ public class Relic : IDescribable, ILuaOwnedResource
 
     private readonly List<object> activeProxies = new();
 
-    public Relic(RelicData data, Player owner, LuaTable luaLogic)
+    public Relic(
+        RelicData data,
+        Player owner,
+        LuaTable luaLogic,
+        bool isRestoredFromSave = false,
+        int restoredCounter = 0)
     {
         this.Data = data;
         this.owner = owner;
         this.luaLogic = luaLogic;
+        this.IsRestoredFromSave = isRestoredFromSave;
 
         if (luaLogic != null)
         {
@@ -29,6 +36,11 @@ public class Relic : IDescribable, ILuaOwnedResource
             // 1. Lua 측 OnInit 함수 호출 (초기화, 카운터 세팅 등)
             var luaOnInit = luaLogic.Get<Action<LuaTable, Relic, Player>>("OnInit");
             luaOnInit?.Invoke(luaLogic, this, owner);
+
+            if (isRestoredFromSave)
+            {
+                this.Counter = restoredCounter;
+            }
 
             // 2. 캐릭터 이벤트 (전투, 체력, 이동 등) 자동 바인딩
             if (owner != null && owner.character != null)
@@ -41,6 +53,10 @@ public class Relic : IDescribable, ILuaOwnedResource
             {
                 LuaEventBinder.BindPlayerEvents(luaLogic, owner.eventBus, activeProxies);
             }
+        }
+        else if (isRestoredFromSave)
+        {
+            this.Counter = restoredCounter;
         }
     }
 

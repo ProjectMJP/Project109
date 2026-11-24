@@ -14,9 +14,9 @@ public class RelicManager : IDisposable
         this.owner = owner;
     }
 
-    public void AddRelic(string relicId)
+    public Relic AddRelic(string relicId, bool isRestoredFromSave = false, int restoredCounter = 0)
     {
-        Relic relic = ModObjectFactory.CreateRelic(relicId, owner);
+        Relic relic = ModObjectFactory.CreateRelic(relicId, owner, isRestoredFromSave, restoredCounter);
         if (relic != null)
         {
             relics.Add(relic);
@@ -27,6 +27,7 @@ public class RelicManager : IDisposable
             OnRelicAddedEvent?.Invoke(relic);
             UnityEngine.Debug.Log($"Relic Added : {relic.Data.relicName}");
         }
+        return relic;
     }
 
     public void RemoveRelic(string relicId)

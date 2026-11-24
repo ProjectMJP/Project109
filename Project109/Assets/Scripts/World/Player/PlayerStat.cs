@@ -47,12 +47,12 @@ public class PlayerStat
         } 
     }
     public int MapFloorCheckStartLength { get; set; }
-    public int MapFloorCheckLength { get; set; }
+    public int MapFloorCheckLength { get; set; } = 3;
     public int MapRevealRandomCount { get; set; }
-    public int RewardCardCount {  get; set; }
-    public int RewardRelicCount { get; set; }
-    public int MasteryChoiceCount { get; set; }
-    public int UpgradeMasteryPointValue { get; set; }
+    public int RewardCardCount { get; set; } = 3;
+    public int RewardRelicCount { get; set; } = 3;
+    public int MasteryChoiceCount { get; set; } = 3;
+    public int UpgradeMasteryPointValue { get; set; } = 500;
     public int BaseDrawCount { get; set; } = 5;
     public int BonusShopCardCount { get; set; } = 0;
     public int BonusShopRelicCount { get; set; } = 0;
@@ -67,4 +67,23 @@ public class PlayerStat
     /// 전투 중 탐험 지도 이동 제한을 우회할 수 있는지 여부입니다.
     /// </summary>
     public bool CanBypassBattleMapLock => BattleMapLockBypassCount > 0;
+
+    /// <summary>
+    /// 유물 장착 복원 또는 신규 런 초기화 전에 파생 세션 스탯 수치를 표준 기본값으로 리셋합니다.
+    /// </summary>
+    public void ResetSessionDefaults()
+    {
+        MapFloorCheckStartLength = 0;
+        MapFloorCheckLength = 3;
+        MapRevealRandomCount = 0;
+        RewardCardCount = 3;
+        RewardRelicCount = 3;
+        MasteryChoiceCount = 3;
+        UpgradeMasteryPointValue = 500;
+        BaseDrawCount = 5;
+        BonusShopCardCount = 0;
+        BonusShopRelicCount = 0;
+        ShopRerollCount = 0;
+        BattleMapLockBypassCount = 0;
+    }
 }

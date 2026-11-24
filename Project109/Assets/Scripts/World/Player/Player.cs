@@ -89,13 +89,8 @@ public class Player : IDisposable
         this.deck = new PlayerDeck(this);
 
         // 초기 스탯 세팅
+        this.playerStat.ResetSessionDefaults();
         this.playerStat.InGameCurrencyGold = 0;
-        this.playerStat.MapFloorCheckLength = 3;
-        this.playerStat.UpgradeMasteryPointValue = 500;
-        this.playerStat.RewardCardCount = 3;
-        this.playerStat.RewardRelicCount = 3;
-        this.playerStat.MasteryChoiceCount = 3;
-        this.playerStat.BaseDrawCount = 5;
 
         this.relicManager = new RelicManager(this);
     }
@@ -110,10 +105,10 @@ public class Player : IDisposable
         deck.RemoveCard(card);
     }
 
-    // 유물 관련 기능들은 backward compatibility 혹은 편의성을 위해 RelicManager로 위임
-    public void AddRelic(string relicId)
+    // 유물 관련 기능들은 RelicManager로 위임
+    public Relic AddRelic(string relicId, bool isRestoredFromSave = false, int restoredCounter = 0)
     {
-        relicManager.AddRelic(relicId);
+        return relicManager.AddRelic(relicId, isRestoredFromSave, restoredCounter);
     }
 
     public void RemoveRelic(string relicId)

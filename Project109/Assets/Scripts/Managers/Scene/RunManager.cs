@@ -74,12 +74,59 @@ public class RunManager : MonoBehaviour
     public int PendingRewardCount => pendingRewardSession != null ? pendingRewardSession.Count : 0;
 
     public ShopNPC ActiveNodeShopNPC { get; private set; }
+    private ActiveShopSaveData _restoredShopState;
     public bool CanReopenCurrentNodeShop => ActiveNodeShopNPC != null && ActiveNodeShopNPC.gameObject != null && ActiveNodeShopNPC.gameObject.activeInHierarchy;
 
     public void SetActiveNodeShop(ShopNPC shopNpc)
     {
         ActiveNodeShopNPC = shopNpc;
         NotifyNodeContextChanged();
+    }
+
+    public ActiveShopSaveData ExportActiveShopStateForSave()
+    {
+        if (currentExploreNode != null &&
+            currentExploreNode.encounterData != null &&
+            currentExploreNode.encounterData.encountType == EncountType.Store)
+        {
+            if (ActiveNodeShopNPC != null)
+            {
+                return ActiveNodeShopNPC.ExportSaveState(currentExploreNode.floor, currentExploreNode.index);
+            }
+
+            if (_restoredShopState != null &&
+                _restoredShopState.isValid &&
+                _restoredShopState.nodeFloor == currentExploreNode.floor &&
+                _restoredShopState.nodeIndex == currentExploreNode.index)
+            {
+                return _restoredShopState.Clone();
+            }
+        }
+
+        return null;
+    }
+
+    public void RestoreActiveShopStateFromSave(ActiveShopSaveData savedShopState)
+    {
+        _restoredShopState = (savedShopState != null && savedShopState.isValid)
+            ? savedShopState.Clone()
+            : null;
+    }
+
+    public bool TryGetSavedShopStateForCurrentNode(out ActiveShopSaveData savedShopState)
+    {
+        if (_restoredShopState != null &&
+            _restoredShopState.isValid &&
+            currentExploreNode != null &&
+            _restoredShopState.nodeFloor == currentExploreNode.floor &&
+            _restoredShopState.nodeIndex == currentExploreNode.index)
+        {
+            savedShopState = _restoredShopState;
+            return true;
+        }
+
+        savedShopState = null;
+        return false;
     }
 
     public void ReopenCurrentNodeShop()
@@ -166,6 +213,7 @@ public class RunManager : MonoBehaviour
     public void ResetRunProgress()
     {
         ActiveNodeShopNPC = null;
+        _restoredShopState = null;
         CloseNodeRewardAndShopPanels();
         ClearPendingRewards(notify: false);
 
@@ -794,6 +842,7 @@ public class RunManager : MonoBehaviour
         }
 
         ActiveNodeShopNPC = null;
+        _restoredShopState = null;
         ClearPendingRewards(notify: false);
     }
 
@@ -908,6 +957,7 @@ public class RunManager : MonoBehaviour
         }
 
         ActiveNodeShopNPC = null;
+        _restoredShopState = null;
         CloseNodeRewardAndShopPanels();
         ClearPendingRewards(notify: false);
 

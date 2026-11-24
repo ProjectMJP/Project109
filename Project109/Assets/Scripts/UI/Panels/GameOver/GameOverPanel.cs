@@ -87,10 +87,15 @@ public class GameOverPanel : UIPanelBase
         // 1. 캐릭터 사망 상태 복구 (체력 최대치 회복 및 전투 상태 클리어)
         RestorePlayerCharacterState();
 
-        // 2. 던전 런 진행도 초기화
+        // 2. 던전 런 진행도 초기화 및 은신처 무장 기본 상태 복구
         if (RunManager.instance != null)
         {
             RunManager.instance.ResetRunProgress();
+        }
+
+        if (GameSceneManager.instance != null && GameSceneManager.instance.player != null)
+        {
+            SaveSystem.InitializeDefaultPlayer(GameSceneManager.instance.player);
         }
 
         // 3. 팝업 닫기
@@ -118,10 +123,15 @@ public class GameOverPanel : UIPanelBase
         // 1. 캐릭터 사망 상태 복구
         RestorePlayerCharacterState();
 
-        // 2. 던전 런 진행도 초기화
+        // 2. 던전 런 진행도 초기화 및 사망 던전 세이브 덮어쓰기 (재진입 악용 차단)
         if (RunManager.instance != null)
         {
             RunManager.instance.ResetRunProgress();
+        }
+
+        if (GameSceneManager.instance != null)
+        {
+            GameSceneManager.instance.FinalizeDefeatedRunState(saveImmediately: true);
         }
 
         Close();

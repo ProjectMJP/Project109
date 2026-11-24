@@ -369,6 +369,7 @@ public class ShopNPC : InteractableObject
         targetPlayer.deck.AddCard(cardData);
         entry.isSold = true;
         AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
+        PersistShopTransactionIfInDungeon();
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {cardData.cardName} 카드를 {price}골드에 구매했습니다.");
@@ -410,6 +411,7 @@ public class ShopNPC : InteractableObject
         targetPlayer.AddRelic(relicData.relicName);
         entry.isSold = true;
         AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_SHOP_PURCHASE, 0.04f);
+        PersistShopTransactionIfInDungeon();
 
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] {relicData.relicName} 유물을 {price}골드에 구매했습니다.");
@@ -446,14 +448,146 @@ public class ShopNPC : InteractableObject
             shopUI.RefreshShopDisplay();
         }
 
+        PersistShopTransactionIfInDungeon();
+
         failMessage = string.Empty;
         Debug.Log($"[ShopNPC] 상점 품목을 {rerollCost}골드에 리롤했습니다. (방문 리롤: {currentRerollCount}, 누적 리롤: {targetPlayer.playerStat.ShopRerollCount})");
+        return true;
+    }
+
+    private void PersistShopTransactionIfInDungeon()
+    {
+        if (RunManager.instance != null &&
+            GameSceneManager.instance != null &&
+            GameSceneManager.instance.isInDungeon)
+        {
+            RunManager.instance.SetActiveNodeShop(this);
+            RunManager.instance.SaveGame();
+        }
+    }
+
+    /// <summary>
+    /// 현재 상점의 진열 슬롯(원가·세일·품절 여부) 및 방문 리롤 횟수를 직렬화용 DTO로 내보냅니다.
+    /// </summary>
+    public ActiveShopSaveData ExportSaveState(int nodeFloor, int nodeIndex)
+    {
+        ActiveShopSaveData save = new ActiveShopSaveData
+        {
+            isValid = true,
+            nodeFloor = nodeFloor,
+            nodeIndex = nodeIndex,
+            visitRerollCount = currentRerollCount
+        };
+
+        for (int i = 0; i < cardEntries.Count; i++)
+        {
+            ShopCardEntry entry = cardEntries[i];
+            if (entry == null || entry.cardData == null || string.IsNullOrEmpty(entry.cardData.cardName)) continue;
+            save.cards.Add(new ActiveShopItemSaveEntry
+            {
+                itemId = entry.cardData.cardName,
+                basePrice = entry.basePrice,
+                isSold = entry.isSold,
+                isOnSale = entry.isOnSale,
+                discountRate = entry.discountRate
+            });
+        }
+
+        for (int i = 0; i < relicEntries.Count; i++)
+        {
+            ShopRelicEntry entry = relicEntries[i];
+            if (entry == null || entry.relicData == null || string.IsNullOrEmpty(entry.relicData.relicName)) continue;
+            save.relics.Add(new ActiveShopItemSaveEntry
+            {
+                itemId = entry.relicData.relicName,
+                basePrice = entry.basePrice,
+                isSold = entry.isSold,
+                isOnSale = entry.isOnSale,
+                discountRate = entry.discountRate
+            });
+        }
+
+        return save;
+    }
+
+    /// <summary>
+    /// 직렬화된 상점 상태로부터 진열 카드·유물·세일·품절 상태 및 방문 리롤 횟수를 복원합니다.
+    /// </summary>
+    public bool TryRestoreFromSaveState(ActiveShopSaveData savedState)
+    {
+        if (savedState == null || !savedState.isValid)
+        {
+            return false;
+        }
+
+        cardEntries.Clear();
+        relicEntries.Clear();
+        currentRerollCount = Mathf.Max(0, savedState.visitRerollCount);
+
+        if (savedState.cards != null)
+        {
+            for (int i = 0; i < savedState.cards.Count; i++)
+            {
+                ActiveShopItemSaveEntry item = savedState.cards[i];
+                if (item == null || string.IsNullOrEmpty(item.itemId)) continue;
+
+                CardData cardData = GameItemRewardManager.instance != null
+                    ? GameItemRewardManager.instance.GetCardDataByName(item.itemId)
+                    : null;
+                if (cardData == null && ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
+                {
+                    ModLoader.Instance.CardDatabase.TryGetValue(item.itemId, out cardData);
+                }
+
+                if (cardData != null)
+                {
+                    ShopCardEntry restored = AddCardEntry(cardData, item.basePrice, item.isOnSale, item.discountRate);
+                    restored.isSold = item.isSold;
+                }
+            }
+        }
+
+        if (savedState.relics != null)
+        {
+            for (int i = 0; i < savedState.relics.Count; i++)
+            {
+                ActiveShopItemSaveEntry item = savedState.relics[i];
+                if (item == null || string.IsNullOrEmpty(item.itemId)) continue;
+
+                RelicData relicData = GameItemRewardManager.instance != null
+                    ? GameItemRewardManager.instance.GetRelicDataByName(item.itemId)
+                    : null;
+                if (relicData == null && ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
+                {
+                    ModLoader.Instance.RelicDatabase.TryGetValue(item.itemId, out relicData);
+                }
+
+                if (relicData != null)
+                {
+                    ShopRelicEntry restored = AddRelicEntry(relicData, item.basePrice, item.isOnSale, item.discountRate);
+                    restored.isSold = item.isSold;
+                }
+            }
+        }
+
+        UpdateShopItems();
+        isInitialized = true;
         return true;
     }
 
     public void InitializeShop()
     {
         if (isInitialized) return;
+
+        if (RunManager.instance != null)
+        {
+            RunManager.instance.SetActiveNodeShop(this);
+            if (RunManager.instance.TryGetSavedShopStateForCurrentNode(out ActiveShopSaveData savedShopState) &&
+                TryRestoreFromSaveState(savedShopState))
+            {
+                return;
+            }
+        }
 
         currentRerollCount = 0;
         AddRandomItems();
