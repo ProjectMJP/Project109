@@ -779,6 +779,10 @@ public class BattleTimelinePanel : UIPanelBase
         }
 
         int previewCount = _previewEntries.Count;
+        SetPreviewOriginDimmedFor(
+            predictedChanged ? playerChar : null,
+            targetChanged ? _currentPreview.targetCharacter : null);
+
         if (predictedChanged && targetChanged)
         {
             ShowGhostSlot(ref _ghostSlotUI, in prevPredEntry, GetSlotPositionX(prevPredIdx, previewCount));
@@ -793,6 +797,19 @@ public class BattleTimelinePanel : UIPanelBase
         {
             ShowGhostSlot(ref _ghostSlotUI, in prevPredEntry, GetSlotPositionX(prevPredIdx, previewCount));
             HideGhostSlot(_secondaryGhostSlotUI);
+        }
+    }
+
+    private void SetPreviewOriginDimmedFor(Character predictedPlayerChar, Character targetChar)
+    {
+        for (int i = 0; i < _activeSlots.Count; i++)
+        {
+            SlotInstance slot = _activeSlots[i];
+            if (slot == null || slot.ui == null) continue;
+
+            bool isDimmed = (predictedPlayerChar != null && slot.isPredictedNextTurn && slot.boundCharacter == predictedPlayerChar)
+                || (targetChar != null && !slot.isPredictedNextTurn && slot.boundCharacter == targetChar);
+            slot.ui.SetPreviewOriginDimmed(isDimmed);
         }
     }
 
@@ -813,6 +830,7 @@ public class BattleTimelinePanel : UIPanelBase
 
     private void HideGhostSlots()
     {
+        SetPreviewOriginDimmedFor(null, null);
         HideGhostSlot(_ghostSlotUI);
         HideGhostSlot(_secondaryGhostSlotUI);
     }

@@ -222,10 +222,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             }
         }
 
-        if (_isTimelineHighlighted || _isTargetingHighlighted)
-        {
-            ApplyWorldUIHighlightPresentation();
-        }
+        ApplyWorldUIHighlightPresentation();
     }
 
     #region Event Registration
@@ -556,11 +553,27 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     }
 
     /// <summary>
-    /// 타임라인 호버 강조와 카드 타깃팅 피격 강조를 병합하여 월드 UI 형제 순서와 상태바 스케일을 갱신합니다.
+    /// 타임라인 호버 강조와 카드 타깃팅 피격 강조를 병합하여 월드 UI 깊이/오버레이 레이어, 형제 순서와 상태바 스케일을 갱신합니다.
+    /// 적 캐릭터의 상태바/이펙트 목록은 평소 3D 깊이 테스트를 적용해 앞쪽 플레이어를 가리지 않으며, 호버·강조 시에만 Overlay로 통과 표시합니다.
     /// </summary>
     private void ApplyWorldUIHighlightPresentation()
     {
         bool anyHighlight = _isTimelineHighlighted || _isTargetingHighlighted;
+        bool isEnemy = character != null && character.faction == CharacterFaction.Enemy;
+        bool useOverlay = !isEnemy || anyHighlight;
+
+        if (UIManager.instance != null)
+        {
+            if (effectListUI != null)
+            {
+                UIManager.instance.SetWorldUIOverlay(effectListUI, useOverlay);
+            }
+            if (statusBarUI != null)
+            {
+                UIManager.instance.SetWorldUIOverlay(statusBarUI, useOverlay);
+            }
+        }
+
         if (anyHighlight)
         {
             if (effectListUI != null)

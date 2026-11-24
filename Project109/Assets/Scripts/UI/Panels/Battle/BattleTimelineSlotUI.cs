@@ -25,8 +25,8 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
     private static readonly Color ColorBorderEnemyTeam = new Color(0.95f, 0.30f, 0.28f, 1f);
     private static readonly Color ColorBgEnemyTeam = new Color(0.25f, 0.11f, 0.13f, 0.95f);
 
-    private static readonly Color ColorBorderGhost = new Color(0.45f, 0.95f, 1f, 0.95f);
-    private static readonly Color ColorBgGhost = new Color(0.10f, 0.26f, 0.34f, 0.82f);
+    private static readonly Color ColorBorderGhost = new Color(0.45f, 0.95f, 1f, 1f);
+    private static readonly Color ColorBgGhost = new Color(0.10f, 0.28f, 0.38f, 0.98f);
 
     private static readonly Color ColorPortraitPlayer = new Color(0.45f, 0.82f, 1f, 0.92f);
     private static readonly Color ColorPortraitEnemy = new Color(1f, 0.48f, 0.45f, 0.92f);
@@ -125,8 +125,9 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
         // 1. 상태별 알파·스케일·레이캐스트·배지 설정
         if (isGhost)
         {
-            _baseAlpha = 0.55f;
-            transform.localScale = new Vector3(0.95f, 0.95f, 1f);
+            // 이동 예정(미리보기) 슬롯은 완전 불투명으로 선명하게 표시하고, 원래 위치 슬롯을 반투명 처리
+            _baseAlpha = 1f;
+            transform.localScale = Vector3.one;
             if (canvasGroup != null)
             {
                 canvasGroup.blocksRaycasts = false;
@@ -239,6 +240,15 @@ public class BattleTimelineSlotUI : MonoBehaviour, IPointerEnterHandler, IPointe
 
         // 5. 적 행동 예고 소형 연동 ([17])
         UpdateEnemyIntentBadge(in entry);
+    }
+
+    /// <summary>
+    /// 카드/타깃팅 미리보기로 인해 새 위치로 이동 예정인 원래 위치 슬롯을 반투명 처리하거나 복원합니다.
+    /// </summary>
+    public void SetPreviewOriginDimmed(bool dimmed)
+    {
+        if (canvasGroup == null || _isGhost) return;
+        canvasGroup.alpha = dimmed ? 0.35f : _baseAlpha;
     }
 
     /// <summary>

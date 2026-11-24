@@ -434,8 +434,122 @@ public class UIManager : MonoBehaviour
     }
 
     private readonly List<Component> activeWorldUIs = new List<Component>();
+    private Canvas _worldDepthUILayer;
+    private int _cachedWorldUiLayer = -1;
+    private int _cachedWorldDepthLayer = -1;
 
     #region World UI Factory & Lifecycle
+
+    private int GetWorldUIOverlayLayer()
+    {
+        if (_cachedWorldUiLayer < 0)
+        {
+            _cachedWorldUiLayer = LayerMask.NameToLayer("WorldUI");
+        }
+        return _cachedWorldUiLayer;
+    }
+
+    private int GetWorldUIDepthLayer()
+    {
+        if (_cachedWorldDepthLayer < 0)
+        {
+            _cachedWorldDepthLayer = LayerMask.NameToLayer("UI");
+            if (_cachedWorldDepthLayer < 0)
+            {
+                _cachedWorldDepthLayer = 0;
+            }
+        }
+        return _cachedWorldDepthLayer;
+    }
+
+    /// <summary>
+    /// 3D 깊이 테스트(Main Camera)를 적용받는 월드 공간 UI 전용 캔버스를 지연 확보합니다.
+    /// UGUI는 가장 가까운 상위 Canvas의 레이어로 배치를 렌더링하므로, Overlay용 worldUILayer와 분리해 관리합니다.
+    /// </summary>
+    private Canvas EnsureWorldDepthUILayer()
+    {
+        if (_worldDepthUILayer != null)
+        {
+            return _worldDepthUILayer;
+        }
+
+        if (worldUILayer == null)
+        {
+            return null;
+        }
+
+        Transform parent = worldUILayer.transform.parent;
+        if (parent != null)
+        {
+            Transform existing = parent.Find("WorldDepthUILayer");
+            if (existing != null)
+            {
+                _worldDepthUILayer = existing.GetComponent<Canvas>();
+                if (_worldDepthUILayer != null)
+                {
+                    return _worldDepthUILayer;
+                }
+            }
+        }
+
+        GameObject depthLayerObj = new GameObject("WorldDepthUILayer", typeof(RectTransform), typeof(Canvas));
+        depthLayerObj.layer = GetWorldUIDepthLayer();
+        depthLayerObj.transform.SetParent(parent, false);
+
+        RectTransform srcRect = worldUILayer.transform as RectTransform;
+        RectTransform dstRect = depthLayerObj.GetComponent<RectTransform>();
+        if (srcRect != null && dstRect != null)
+        {
+            dstRect.anchorMin = srcRect.anchorMin;
+            dstRect.anchorMax = srcRect.anchorMax;
+            dstRect.pivot = srcRect.pivot;
+            dstRect.anchoredPosition3D = srcRect.anchoredPosition3D;
+            dstRect.sizeDelta = srcRect.sizeDelta;
+            dstRect.localRotation = srcRect.localRotation;
+            dstRect.localScale = srcRect.localScale;
+        }
+
+        Canvas depthCanvas = depthLayerObj.GetComponent<Canvas>();
+        depthCanvas.renderMode = RenderMode.WorldSpace;
+        depthCanvas.worldCamera = null;
+        depthCanvas.overrideSorting = false;
+
+        _worldDepthUILayer = depthCanvas;
+        return _worldDepthUILayer;
+    }
+
+    /// <summary>
+    /// 개별 월드 UI의 렌더링 모드를 Overlay(WorldUICamera, 3D 통과) 또는 DepthTest(Main Camera, 3D 깊이 가림)로 전환합니다.
+    /// </summary>
+    public void SetWorldUIOverlay(Component uiComponent, bool useOverlay)
+    {
+        if (uiComponent == null || uiComponent.gameObject == null)
+        {
+            return;
+        }
+
+        Transform targetParent = useOverlay
+            ? (worldUILayer != null ? worldUILayer.transform : null)
+            : (EnsureWorldDepthUILayer() != null ? _worldDepthUILayer.transform : null);
+
+        int targetLayer = useOverlay ? GetWorldUIOverlayLayer() : GetWorldUIDepthLayer();
+
+        if (targetParent != null && uiComponent.transform.parent != targetParent)
+        {
+            uiComponent.transform.SetParent(targetParent, worldPositionStays: true);
+            uiComponent.transform.localScale = Vector3.one;
+        }
+
+        if (targetLayer >= 0 && uiComponent.gameObject.layer != targetLayer)
+        {
+            SetLayerRecursively(uiComponent.gameObject, targetLayer);
+        }
+
+        if (useOverlay)
+        {
+            uiComponent.transform.SetAsLastSibling();
+        }
+    }
 
     public static void SetLayerRecursively(GameObject obj, int newLayer)
     {
@@ -557,6 +671,15 @@ public class UIManager : MonoBehaviour
             for (int i = parent.childCount - 1; i >= 0; i--)
             {
                 Destroy(parent.GetChild(i).gameObject);
+            }
+        }
+
+        if (_worldDepthUILayer != null)
+        {
+            Transform depthParent = _worldDepthUILayer.transform;
+            for (int i = depthParent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(depthParent.GetChild(i).gameObject);
             }
         }
     }
