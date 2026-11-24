@@ -642,9 +642,7 @@ end
 function GetDescription(dm) return 'Count test' end
 ", System.Text.Encoding.UTF8);
 
-        var method = typeof(LuaManager).GetMethod("LoadChoiceScriptsFromDirectory", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(method);
-        method.Invoke(luaManager, new object[] { tempDir });
+        Assert.IsTrue(luaManager.LoadChoiceScript(choiceFile));
 
         GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
         AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();

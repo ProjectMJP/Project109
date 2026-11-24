@@ -204,12 +204,12 @@ public class PerformanceAndSrpOptimizationTests
             Assert.IsTrue(SaveSystem.TryLoadGameData(slotA, out RunSaveData firstLoaded));
             Assert.AreEqual(3, firstLoaded.currentStageLevel);
 
-            // 디스크 파일을 덮어써도 캐시가 살아있으면 동일 인스턴스를 재사용(디스크 I/O 생략)
+            // 디스크 파일을 덮어써도 JSON 텍스트 캐시가 살아있으면 디스크 I/O는 생략하되 공유 참조 오염 방지를 위해 독립 인스턴스를 반환
             var dataA2 = new RunSaveData { currentStageLevel = 7, isInDungeon = true, currentMapName = "Temple" };
             File.WriteAllText(pathA, JsonUtility.ToJson(dataA2), System.Text.Encoding.UTF8);
 
             Assert.IsTrue(SaveSystem.TryLoadGameData(slotA, out RunSaveData cachedLoaded));
-            Assert.IsTrue(ReferenceEquals(firstLoaded, cachedLoaded));
+            Assert.AreNotSame(firstLoaded, cachedLoaded);
             Assert.AreEqual(3, cachedLoaded.currentStageLevel);
 
             // forceReload 또는 InvalidateCache 호출 시 디스크에서 최신 데이터를 다시 읽어야 함

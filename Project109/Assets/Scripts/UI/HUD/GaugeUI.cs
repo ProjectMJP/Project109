@@ -15,6 +15,16 @@ public class GaugeUI : MonoBehaviour
     private float _lastFillAmount = -1f;
     private const float UpdateThreshold = 0.01f;
 
+    private bool _hasCachedNumericText;
+    private int _lastCurValue;
+    private int _lastMaxValue;
+    private int _lastShieldValue;
+
+    /// <summary>
+    /// RefreshNumeric 호출 중 실제 문자열 포맷팅이 수행된 누적 횟수입니다. (핫패스 GC 무할당 검증용)
+    /// </summary>
+    public int NumericTextFormatCount { get; private set; }
+
     private void Awake()
     {
         if (gaugeImageFilled == null)
@@ -79,10 +89,45 @@ public class GaugeUI : MonoBehaviour
     }
 
     /// <summary>
+    /// 게이지 채우기 비율을 갱신하고, 표시 정수 수치가 변동되었을 때만 문자열을 생성해 텍스트를 갱신합니다.
+    /// BattleTick 등 매 프레임 호출되는 핫패스에서 불필요한 문자열 힙 할당을 방지합니다.
+    /// </summary>
+    public void RefreshNumeric(float fillRate, int curValue, int maxValue, int shieldValue = 0)
+    {
+        Refresh(fillRate);
+        EnsureGaugeTextResolved();
+        if (gaugeText == null)
+        {
+            return;
+        }
+
+        int effectiveShield = shieldValue > 0 ? shieldValue : 0;
+        if (_hasCachedNumericText &&
+            _lastCurValue == curValue &&
+            _lastMaxValue == maxValue &&
+            _lastShieldValue == effectiveShield)
+        {
+            return;
+        }
+
+        _hasCachedNumericText = true;
+        _lastCurValue = curValue;
+        _lastMaxValue = maxValue;
+        _lastShieldValue = effectiveShield;
+        NumericTextFormatCount++;
+
+        gaugeText.text = effectiveShield > 0
+            ? $"({effectiveShield}) {curValue} / {maxValue}"
+            : $"{curValue} / {maxValue}";
+    }
+
+    /// <summary>
     /// 게이지 텍스트를 지정한 문자열로 변경합니다.
     /// </summary>
     public void SetText(string textValue)
     {
+        _hasCachedNumericText = false;
+        EnsureGaugeTextResolved();
         if (gaugeText != null)
         {
             gaugeText.text = textValue;

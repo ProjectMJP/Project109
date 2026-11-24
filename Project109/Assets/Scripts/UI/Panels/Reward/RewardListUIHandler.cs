@@ -44,7 +44,7 @@ public class RewardListUIHandler : UIPanelBase
     public override void OnClose()
     {
         IsPanelOpen = false;
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }

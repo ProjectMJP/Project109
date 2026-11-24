@@ -87,6 +87,7 @@ public class PlayerInputController : MonoBehaviour
     private bool isClickPending;
     private Vector2 pendingClickPos;
     private bool _startedOverUI = false;
+    private bool _isWorldTouchActive = false;
     private bool _isInitialized = false;
 
     private void Update()
@@ -331,7 +332,14 @@ public class PlayerInputController : MonoBehaviour
                 playerInputAction.Player.Touch.performed -= OnDrag;
                 playerInputAction.Player.Touch.canceled -= OnTouchClick;
                 playerInputAction.Disable();
-                playerInputAction.Dispose();
+                if (Application.isPlaying)
+                {
+                    playerInputAction.Dispose();
+                }
+                else if (playerInputAction.asset != null)
+                {
+                    DestroyImmediate(playerInputAction.asset);
+                }
                 playerInputAction = null;
             }
             _instance = null;
@@ -346,6 +354,7 @@ public class PlayerInputController : MonoBehaviour
     public void OnDisable()
     {
         _startedOverUI = false;
+        _isWorldTouchActive = false;
         playerInputAction?.Disable();
     }
 
@@ -370,20 +379,33 @@ public class PlayerInputController : MonoBehaviour
 
         if (IsWorldInputBlocked || IsPointerDragBlockedByUI)
         {
+            _isWorldTouchActive = false;
             return;
         }
 
+        _isWorldTouchActive = true;
         OnTouchStartEvent?.Invoke(startTouchPos);
     }
 
     /// <summary>
     /// 터치/드래그 이동 좌표를 갱신하고 UI 드래그 차단 중이 아닐 때만 월드 드래그 이벤트를 발행합니다.
+    /// 진행 중인 월드 터치 도중 UI 드래그 가드가 개입하면 즉시 월드 드래그 세션을 종료하여 재튀기를 방지합니다.
     /// </summary>
     public void ProcessTouchDrag(Vector2 pos)
     {
         lastTouchPos = pos;
 
         if (IsWorldInputBlocked || IsPointerDragBlockedByUI)
+        {
+            if (_isWorldTouchActive)
+            {
+                _isWorldTouchActive = false;
+                OnTouchEndEvent?.Invoke();
+            }
+            return;
+        }
+
+        if (!_isWorldTouchActive)
         {
             return;
         }
@@ -396,8 +418,10 @@ public class PlayerInputController : MonoBehaviour
     /// </summary>
     public void ProcessTouchEnd()
     {
-        bool wasBlocked = _startedOverUI || UIDragInputGuard.IsAnyUIDragging;
+        bool wasWorldActive = _isWorldTouchActive;
+        bool wasBlocked = _startedOverUI || UIDragInputGuard.IsAnyUIDragging || !wasWorldActive;
         _startedOverUI = false;
+        _isWorldTouchActive = false;
 
         OnTouchEndEvent?.Invoke();
 

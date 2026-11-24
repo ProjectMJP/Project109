@@ -124,7 +124,7 @@ public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointer
             return;
         }
 
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }
@@ -180,7 +180,7 @@ public class ItemRewardUIHandler : MonoBehaviour, IPointerClickHandler, IPointer
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }

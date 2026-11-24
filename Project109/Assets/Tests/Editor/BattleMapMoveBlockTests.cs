@@ -434,7 +434,7 @@ public class BattleMapMoveBlockTests
         GameObject verticalPrefab = Track(new GameObject("TestVerticalLayoutPrefab", typeof(RectTransform), typeof(VerticalLayoutGroup)));
         GameObject nodePrefab = Track(new GameObject("TestExploreNodePrefab", typeof(RectTransform), typeof(Image), typeof(ExploreNodeUI)));
 
-        GameObject coverObj = new GameObject("Cover", typeof(RectTransform));
+        GameObject coverObj = new GameObject("Cover", typeof(RectTransform), typeof(Image));
         coverObj.transform.SetParent(nodePrefab.transform, false);
         GameObject hoverRingObj = new GameObject("HoverRing", typeof(RectTransform));
         hoverRingObj.transform.SetParent(nodePrefab.transform, false);

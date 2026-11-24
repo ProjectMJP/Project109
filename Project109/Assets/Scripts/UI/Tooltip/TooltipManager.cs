@@ -34,12 +34,26 @@ public class TooltipManager : MonoBehaviour
     private static TooltipManager instance;
     public static bool HasInstance => instance != null;
 
+    private bool _isRenderingTooltip;
+    private bool _pendingStateRefresh;
+
     public static void SetTooltipEnabled(bool enabled)
     {
+        if (_isTooltipEnabled == enabled)
+        {
+            return;
+        }
+
         _isTooltipEnabled = enabled;
         if (instance != null)
         {
-            if (instance._hasActiveTooltipRequest)
+            if (instance._isRenderingTooltip ||
+                CanvasUpdateRegistry.IsRebuildingLayout() ||
+                CanvasUpdateRegistry.IsRebuildingGraphics())
+            {
+                instance._pendingStateRefresh = true;
+            }
+            else if (instance._hasActiveTooltipRequest)
             {
                 instance.RenderCurrentTooltipState();
             }
@@ -464,28 +478,53 @@ public class TooltipManager : MonoBehaviour
             }
         }
 
-        // 레이아웃 즉시 계산 및 위치 지정
-        Canvas.ForceUpdateCanvases();
-        for (int i = 0; i < activePanels.Count; i++)
+        _pendingStateRefresh = false;
+        _isRenderingTooltip = true;
+        try
         {
-            if (activePanels[i] != null)
+            // 레이아웃 즉시 계산 및 위치 지정 (중첩 리빌드 루프 중에는 ForceUpdateCanvases 생략)
+            if (!CanvasUpdateRegistry.IsRebuildingLayout() && !CanvasUpdateRegistry.IsRebuildingGraphics())
             {
-                RectTransform panelRect = activePanels[i].transform as RectTransform;
-                if (panelRect != null)
+                Canvas.ForceUpdateCanvases();
+            }
+            for (int i = 0; i < activePanels.Count; i++)
+            {
+                if (activePanels[i] != null)
                 {
-                    LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+                    RectTransform panelRect = activePanels[i].transform as RectTransform;
+                    if (panelRect != null)
+                    {
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+                    }
                 }
             }
+            if (rectTransform != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+            }
+            if (!_hasLockedQuadrant)
+            {
+                LockQuadrantDirection();
+            }
+            UpdatePosition();
         }
-        if (rectTransform != null)
+        finally
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+            _isRenderingTooltip = false;
         }
-        if (!_hasLockedQuadrant)
+
+        if (_pendingStateRefresh && !CanvasUpdateRegistry.IsRebuildingLayout() && !CanvasUpdateRegistry.IsRebuildingGraphics())
         {
-            LockQuadrantDirection();
+            _pendingStateRefresh = false;
+            if (_hasActiveTooltipRequest)
+            {
+                RenderCurrentTooltipState();
+            }
+            else if (!_isTooltipEnabled && gameObject.activeSelf)
+            {
+                HideTooltip();
+            }
         }
-        UpdatePosition();
     }
 
     public void HideTooltip()

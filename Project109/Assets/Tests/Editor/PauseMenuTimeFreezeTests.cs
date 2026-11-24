@@ -44,6 +44,7 @@ public class PauseMenuTimeFreezeTests
     {
         _backupTimeScale = Time.timeScale;
         Time.timeScale = 1f;
+        BattleManager.SetGlobalBattleSpeedIndex(0, savePrefs: false);
         TooltipManager.SetTooltipEnabled(true);
 
         SetStaticAutoProperty<UIManager>("instance", null);
@@ -61,6 +62,7 @@ public class PauseMenuTimeFreezeTests
     public void TearDown()
     {
         Time.timeScale = _backupTimeScale > 0f ? _backupTimeScale : 1f;
+        BattleManager.SetGlobalBattleSpeedIndex(0, savePrefs: false);
         TooltipManager.SetTooltipEnabled(true);
 
         SetStaticAutoProperty<UIManager>("instance", null);
@@ -367,15 +369,6 @@ public class PauseMenuTimeFreezeTests
             maxStack = 99
         };
         Effect timedEffect = new Effect(timedDebuffData, null);
-        playerChar.effectManager.AddEffect(enemyChar, timedEffect, stack: 1, duration: 2.0f);
-        playerChar.AddOrRefreshStatModifier(
-            "TestSpeedBuff",
-            StatModifierTarget.StaminaRegen,
-            StatModifierOp.Flat,
-            0f,
-            StatModifierLifetime.DurationSeconds,
-            duration: 2.0f,
-            isBattleScoped: true);
 
         BattleManager battleManager = new BattleManager();
         PauseMenuPanel pausePanel = CreatePauseMenuFromPrefab();
@@ -387,6 +380,17 @@ public class PauseMenuTimeFreezeTests
                 new List<ICharacterController> { enemyCtrl });
             battleManager.StartCombat();
             Assert.AreEqual(BattleState.Combat, battleManager.battleState);
+
+            // InitBattle(ResetCharacterForBattle) 완료 후 활성 전투 상태에서 시간제 디버프/모디파이어 부여
+            playerChar.effectManager.AddEffect(enemyChar, timedEffect, stack: 1, duration: 2.0f);
+            playerChar.AddOrRefreshStatModifier(
+                "TestSpeedBuff",
+                StatModifierTarget.StaminaRegen,
+                StatModifierOp.Flat,
+                0f,
+                StatModifierLifetime.DurationSeconds,
+                duration: 2.0f,
+                isBattleScoped: true);
 
             // 일시정지 전: 0.5초 경과 시 스태미나·이펙트·모디파이어 정상 진행 확인
             battleManager.Update(0.5f);

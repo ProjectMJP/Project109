@@ -286,6 +286,12 @@ public class TopHUDPanel : UIPanelBase
 
     private void RefreshSpeedToggleVisual(float speed)
     {
+        if (this == null)
+        {
+            BattleManager.OnBattleSpeedChanged -= RefreshSpeedToggleVisual;
+            return;
+        }
+
         string speedLabel;
         Color bgColor;
         Color textColor;
@@ -343,6 +349,13 @@ public class TopHUDPanel : UIPanelBase
     /// </summary>
     public void RefreshLocationAndNavigationState()
     {
+        if (this == null)
+        {
+            GameSceneManager.OnSceneLocationChanged -= RefreshLocationAndNavigationState;
+            RunManager.OnRunLocationChanged -= RefreshLocationAndNavigationState;
+            return;
+        }
+
         bool inDungeon = GameSceneManager.instance != null && GameSceneManager.instance.isInDungeon;
 
         if (mapButton != null)
@@ -416,6 +429,12 @@ public class TopHUDPanel : UIPanelBase
 
     public void RefreshNodeReopenButton()
     {
+        if (this == null)
+        {
+            RunManager.OnNodeContextChanged -= RefreshNodeReopenButton;
+            return;
+        }
+
         EnsureNodeReopenButtonBound();
         if (nodeReopenButton == null)
         {

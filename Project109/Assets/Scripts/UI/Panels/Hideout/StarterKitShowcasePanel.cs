@@ -74,7 +74,7 @@ public class StarterKitShowcasePanel : UIPanelBase
 
     public override void OnClose()
     {
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }

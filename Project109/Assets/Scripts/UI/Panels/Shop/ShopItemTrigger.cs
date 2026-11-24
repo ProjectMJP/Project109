@@ -19,7 +19,7 @@ public class ShopItemTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     void Start()
     {
-        
+
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -29,7 +29,7 @@ public class ShopItemTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExit
         switch (ShopItemType)
         {
             case ShopItems.Card:
-                if(cardHandler != null)
+                if (cardHandler != null)
                 {
                     cardHandler.OnSelectHighlight();
                 }
@@ -65,7 +65,7 @@ public class ShopItemTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExit
             case ShopItems.Relic:
                 if (relicHandler != null)
                 {
-                    if (TooltipManager.Instance != null)
+                    if (TooltipManager.HasInstance)
                     {
                         TooltipManager.Instance.HideTooltip();
                     }

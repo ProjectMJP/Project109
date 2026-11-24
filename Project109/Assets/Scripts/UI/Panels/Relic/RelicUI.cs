@@ -30,7 +30,7 @@ public class RelicUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
             relicImage.raycastTarget = interactable;
         }
 
-        if (!interactable && TooltipManager.Instance != null)
+        if (!interactable && TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }
@@ -85,7 +85,7 @@ public class RelicUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }
@@ -93,7 +93,7 @@ public class RelicUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
 
     private void OnDisable()
     {
-        if (TooltipManager.Instance != null)
+        if (TooltipManager.HasInstance)
         {
             TooltipManager.Instance.HideTooltip();
         }

@@ -373,7 +373,7 @@ public class ExploreMapUI : UIPanelBase
             {
                 if (_exploreMap[i][j] != null)
                 {
-                    GameObject.Destroy(_exploreMap[i][j].gameObject);
+                    DestroyMapUiObject(_exploreMap[i][j].gameObject);
                 }
             }
         }
@@ -383,7 +383,7 @@ public class ExploreMapUI : UIPanelBase
         {
             if (_exploreVerticalObjects[i] != null)
             {
-                GameObject.Destroy(_exploreVerticalObjects[i].gameObject);
+                DestroyMapUiObject(_exploreVerticalObjects[i].gameObject);
             }
         }
 
@@ -405,8 +405,21 @@ public class ExploreMapUI : UIPanelBase
             Transform child = ArrowObjects.transform.GetChild(i);
             if (child != null)
             {
-                GameObject.Destroy(child.gameObject);
+                DestroyMapUiObject(child.gameObject);
             }
+        }
+    }
+
+    private static void DestroyMapUiObject(GameObject target)
+    {
+        if (target == null) return;
+        if (Application.isPlaying)
+        {
+            Destroy(target);
+        }
+        else
+        {
+            DestroyImmediate(target);
         }
     }
 

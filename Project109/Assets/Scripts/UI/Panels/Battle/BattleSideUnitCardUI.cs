@@ -377,14 +377,10 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
             ? Mathf.RoundToInt(_boundCharacter.curHealth)
             : Mathf.CeilToInt(_boundCharacter.curHealth);
         int maxHpInt = Mathf.RoundToInt(maxHp);
-        int shieldVal = Mathf.CeilToInt(_boundCharacter.shield);
-
-        string hpText = (_boundCharacter.shield > 0f)
-            ? $"({shieldVal}) {curHp} / {maxHpInt}"
-            : $"{curHp} / {maxHpInt}";
+        int shieldVal = _boundCharacter.shield > 0f ? Mathf.CeilToInt(_boundCharacter.shield) : 0;
 
         healthGaugeUI.SetGaugeColor(_boundCharacter.shield > 0f ? UIConstants.COLOR_SHIELD : UIConstants.COLOR_HEALTH);
-        healthGaugeUI.Refresh(rate, hpText);
+        healthGaugeUI.RefreshNumeric(rate, curHp, maxHpInt, shieldVal);
     }
 
     private void RefreshStamina()
@@ -404,7 +400,7 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
         int maxStamInt = Mathf.RoundToInt(maxStamina);
 
         staminaGaugeUI.SetGaugeColor(UIConstants.COLOR_STAMINA);
-        staminaGaugeUI.Refresh(rate, $"{curStam} / {maxStamInt}");
+        staminaGaugeUI.RefreshNumeric(rate, curStam, maxStamInt);
     }
 
     private void RefreshIntent()

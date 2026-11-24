@@ -104,9 +104,8 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         {
             int curHp = (curHealth >= maxHealth) ? Mathf.RoundToInt(curHealth) : Mathf.CeilToInt(curHealth);
             int maxHp = Mathf.RoundToInt(maxHealth);
-            int shieldVal = Mathf.CeilToInt(shield);
-            string text = (shield > 0f) ? $"({shieldVal}) {curHp} / {maxHp}" : $"{curHp} / {maxHp}";
-            healthGaugeUI.Refresh(rate, text);
+            int shieldVal = shield > 0f ? Mathf.CeilToInt(shield) : 0;
+            healthGaugeUI.RefreshNumeric(rate, curHp, maxHp, shieldVal);
         }
         else
         {
@@ -127,8 +126,7 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         {
             int displayStamina = (curStamina >= maxStamina) ? Mathf.RoundToInt(curStamina) : Mathf.CeilToInt(curStamina);
             int displayMaxStamina = Mathf.RoundToInt(maxStamina);
-            string text = $"{displayStamina} / {displayMaxStamina}";
-            staminaGaugeUI.Refresh(rate, text);
+            staminaGaugeUI.RefreshNumeric(rate, displayStamina, displayMaxStamina);
         }
         else
         {

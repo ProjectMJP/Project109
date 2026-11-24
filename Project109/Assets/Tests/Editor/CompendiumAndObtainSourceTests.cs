@@ -677,13 +677,14 @@ public class CompendiumAndObtainSourceTests
         Assert.GreaterOrEqual(GetMinY(barRect), GetMaxY(scrollRect), "RelicFilterSortBar와 RelicScrollView가 겹치면 안 됩니다.");
         Assert.GreaterOrEqual(GetMinY(scrollRect), GetMaxY(backRect), "RelicScrollView와 RelicBackButton이 겹치면 안 됩니다.");
 
-        // 4. 뒤로/설정 전환 및 닫기 시 기존 460x520 크기 원복 확인
+        // 4. 뒤로/설정(460x640) 전환 및 닫기 시 기존 460x520 크기 원복 확인
         relicBackBtn.onClick.Invoke();
         Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta, "Main 메뉴 복귀 시 WindowFrame이 460x520으로 복원되어야 합니다.");
 
         settingsBtn.onClick.Invoke();
-        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta);
+        Assert.AreEqual(new Vector2(460f, 640f), windowFrame.sizeDelta, "설정(볼륨 슬라이더 포함) 진입 시 WindowFrame이 460x640으로 확장되어야 합니다.");
         settingsBackBtn.onClick.Invoke();
+        Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta);
 
         relicCompendiumBtn.onClick.Invoke();
         Assert.AreEqual(new Vector2(1420f, 840f), windowFrame.sizeDelta);

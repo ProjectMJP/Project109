@@ -66,9 +66,13 @@ public class BattleTimelinePanel : UIPanelBase
     private BattleTimelineSlotUI _ghostSlotUI;
     private BattleTimelineSlotUI _secondaryGhostSlotUI;
 
-    // Update 핫패스 LayerMask 캐시
+    // Update 핫패스 LayerMask 및 레이캐스트 Collider→Component 캐시
     private int _characterLayerMask;
     private int _tileLayerMask;
+    private Collider _cachedCharHitCollider;
+    private Character _cachedCharHitResult;
+    private Collider _cachedTileHitCollider;
+    private Tile _cachedTileHitResult;
 
     public override bool DestroyOnClose => false;
     public override bool CanCloseByCancel => false;
@@ -391,7 +395,13 @@ public class BattleTimelinePanel : UIPanelBase
 
     private Character DetectHoveredWorldCharacter()
     {
-        if (_battleManager == null || Camera.main == null)
+        if (_battleManager == null)
+        {
+            return null;
+        }
+
+        Camera mainCam = Camera.main;
+        if (mainCam == null)
         {
             return null;
         }
@@ -415,23 +425,33 @@ public class BattleTimelinePanel : UIPanelBase
             return null;
         }
 
-        Ray ray = Camera.main.ScreenPointToRay(screenPos);
+        Ray ray = mainCam.ScreenPointToRay(screenPos);
 
         if (_characterLayerMask != 0 && Physics.Raycast(ray, out RaycastHit charHit, 10000f, _characterLayerMask, QueryTriggerInteraction.Collide))
         {
-            Character hitChar = charHit.collider.GetComponentInParent<Character>();
-            if (hitChar != null && !hitChar.isDead)
+            if (charHit.collider != _cachedCharHitCollider)
             {
-                return hitChar;
+                _cachedCharHitCollider = charHit.collider;
+                _cachedCharHitResult = charHit.collider != null ? charHit.collider.GetComponentInParent<Character>() : null;
+            }
+
+            if (_cachedCharHitResult != null && !_cachedCharHitResult.isDead)
+            {
+                return _cachedCharHitResult;
             }
         }
 
         if (_tileLayerMask != 0 && Physics.Raycast(ray, out RaycastHit tileHit, 10000f, _tileLayerMask, QueryTriggerInteraction.Collide))
         {
-            Tile hoveredTile = tileHit.collider.GetComponentInParent<Tile>();
-            if (hoveredTile != null && hoveredTile.occupyingCharacter != null && !hoveredTile.occupyingCharacter.isDead)
+            if (tileHit.collider != _cachedTileHitCollider)
             {
-                return hoveredTile.occupyingCharacter;
+                _cachedTileHitCollider = tileHit.collider;
+                _cachedTileHitResult = tileHit.collider != null ? tileHit.collider.GetComponentInParent<Tile>() : null;
+            }
+
+            if (_cachedTileHitResult != null && _cachedTileHitResult.occupyingCharacter != null && !_cachedTileHitResult.occupyingCharacter.isDead)
+            {
+                return _cachedTileHitResult.occupyingCharacter;
             }
         }
 
@@ -1059,6 +1079,10 @@ public class BattleTimelinePanel : UIPanelBase
         _worldHoveredCharacter = null;
         _externalHoveredCharacter = null;
         _uiHoveredSlot = null;
+        _cachedCharHitCollider = null;
+        _cachedCharHitResult = null;
+        _cachedTileHitCollider = null;
+        _cachedTileHitResult = null;
         _currentPreview = TimelinePreviewRequest.None;
 
         if (_lastFocusedWorldChar != null)

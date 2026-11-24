@@ -37,6 +37,13 @@ public static class GenConfig
         typeof(EffectManager),
         typeof(RunManager),
         typeof(BattleManager),
+        typeof(CharacterMove),
+        typeof(Tile),
+        typeof(GameMap),
+        typeof(ExploreNode),
+        typeof(EncounterData),
+        typeof(EncountType),
+        typeof(Vector2Int),
 
         // Event Payloads & Flags
         typeof(EventStructs.DamageInfo),
@@ -71,6 +78,28 @@ public static class GenConfig
         typeof(List<int>),
         typeof(List<float>),
         typeof(List<string>),
+    };
+
+    // XLua 값 타입(순수 struct 및 enum) 전달 시 박싱(GC Alloc)을 제거할 타입 목록
+    [GCOptimize]
+    public static List<Type> GCOptimize = new List<Type>()
+    {
+        typeof(Vector2Int),
+        typeof(Vector3Int),
+        typeof(EffectClockType),
+        typeof(StatModifierTarget),
+        typeof(StatModifierOp),
+        typeof(StatModifierLifetime),
+        typeof(EventStructs.DamageFlag),
+        typeof(EventStructs.HealFlag),
+        typeof(EventStructs.StaminaFlag),
+        typeof(EventStructs.ShieldFlag),
+        typeof(EventStructs.CardFlag),
+        typeof(EventStructs.MoveFlag),
+        typeof(EventStructs.EffectFlag),
+        typeof(CharacterFaction),
+        typeof(EventStructs.DefaultDamageTypeID),
+        typeof(EncountType),
     };
 
     // XLua가 C#에서 Lua(인터페이스/델리게이트 프록시)를 호출할 때 필요한 코드를 생성할 타입 목록
