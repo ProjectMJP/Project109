@@ -15,7 +15,7 @@ public class MapGridShaderGUI : ShaderGUI
             MaterialProperty queueOffsetProp = FindProperty("_QueueOffset", properties, false);
             if (queueOffsetProp != null)
             {
-                int baseQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent; // 3000
+                int baseQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest + 40; // 2490 (Opaque 직후, 월드 UI(3000) 이전)
                 int offset = Mathf.RoundToInt(queueOffsetProp.floatValue);
 
                 // 실제 머티리얼의 렌더링 큐를 직접 업데이트

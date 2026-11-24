@@ -21,7 +21,7 @@ Shader "Custom/MapGridShader"
     
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
+        Tags { "RenderType"="Transparent" "Queue"="AlphaTest+40" "RenderPipeline"="UniversalPipeline" }
         
         Pass
         {

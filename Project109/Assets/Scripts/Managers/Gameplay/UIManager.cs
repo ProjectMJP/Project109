@@ -6,6 +6,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 /// <summary>
@@ -13,6 +15,7 @@ using UnityEngine.UI;
 /// </summary>
 public interface IWorldFollowUI
 {
+    Transform TargetTransform { get; }
     void SetTarget(Transform target, Vector3? offset = null);
 }
 
@@ -134,16 +137,25 @@ public class UIManager : MonoBehaviour
     private void OnEnable()
     {
         SubscribeCancelEvent();
+        RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+        RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
     }
 
     private void OnDisable()
     {
         UnsubscribeCancelEvent();
+        RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
     }
 
     private void OnDestroy()
     {
         UnsubscribeCancelEvent();
+        RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+        if (_obstacleDepthClearPass != null)
+        {
+            _obstacleDepthClearPass.Dispose();
+            _obstacleDepthClearPass = null;
+        }
 
         if (instance == this)
         {
@@ -166,6 +178,14 @@ public class UIManager : MonoBehaviour
             }
 
             TooltipManager.ToggleGlobalTooltipEnabled();
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (activeWorldUIs.Count > 1)
+        {
+            SortWorldUILayersByRotatedDepth(Camera.main);
         }
     }
 
@@ -433,12 +453,231 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    private struct WorldUISortMeta
+    {
+        public Component component;
+        public IWorldFollowUI followUI;
+        public int typeOrder;
+    }
+
+    private struct WorldUISortEntry
+    {
+        public Transform child;
+        public float rotatedDepth;
+        public int typeOrder;
+        public bool isHighlighted;
+        public int originalIndex;
+    }
+
+    private static readonly Comparison<WorldUISortEntry> WorldUISortComparison = CompareWorldUISortEntries;
+
     private readonly List<Component> activeWorldUIs = new List<Component>();
+    private readonly Dictionary<Transform, WorldUISortMeta> _worldUIMetaByTransform = new Dictionary<Transform, WorldUISortMeta>();
+    private readonly HashSet<Component> _highlightedWorldUIs = new HashSet<Component>();
+    private readonly List<WorldUISortEntry> _worldUISortBuffer = new List<WorldUISortEntry>(32);
     private Canvas _worldDepthUILayer;
+    private ObstacleDepthClearRenderPass _obstacleDepthClearPass;
     private int _cachedWorldUiLayer = -1;
     private int _cachedWorldDepthLayer = -1;
 
     #region World UI Factory & Lifecycle
+
+    private void OnBeginCameraRendering(ScriptableRenderContext context, Camera cam)
+    {
+        if (cam == null || (cam.cameraType != CameraType.Game && cam.cameraType != CameraType.SceneView))
+        {
+            return;
+        }
+
+        if (!HasActiveDepthWorldUI())
+        {
+            return;
+        }
+
+        UniversalAdditionalCameraData cameraData = cam.GetUniversalAdditionalCameraData();
+        if (cameraData == null || cameraData.renderType != CameraRenderType.Base || cameraData.scriptableRenderer == null)
+        {
+            return;
+        }
+
+        if (_obstacleDepthClearPass == null)
+        {
+            _obstacleDepthClearPass = new ObstacleDepthClearRenderPass();
+        }
+
+        if (_obstacleDepthClearPass.IsReady)
+        {
+            cameraData.scriptableRenderer.EnqueuePass(_obstacleDepthClearPass);
+        }
+    }
+
+    private bool HasActiveDepthWorldUI()
+    {
+        if (_worldDepthUILayer == null)
+        {
+            return false;
+        }
+
+        Transform depthParent = _worldDepthUILayer.transform;
+        int childCount = depthParent.childCount;
+        for (int i = 0; i < childCount; i++)
+        {
+            Transform child = depthParent.GetChild(i);
+            if (child != null && child.gameObject.activeInHierarchy)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 월드 UI의 호버·타깃팅 강조 상태를 등록합니다. 강조된 UI는 회전 Y-Order 정렬 시 최상단에 배치됩니다.
+    /// </summary>
+    public void SetWorldUIHighlighted(Component uiComponent, bool highlighted)
+    {
+        if (uiComponent == null)
+        {
+            return;
+        }
+
+        if (highlighted)
+        {
+            _highlightedWorldUIs.Add(uiComponent);
+        }
+        else
+        {
+            _highlightedWorldUIs.Remove(uiComponent);
+        }
+    }
+
+    /// <summary>
+    /// 카메라 회전에 맞춘 수평 전방 벡터(camForwardXZ) 내적 기준으로
+    /// WorldUILayer 및 WorldDepthUILayer의 활성 월드 UI를 회전 Y-Order(멀리 있는 유닛 → 가까운 유닛 순)로 정렬합니다.
+    /// 실제 순서 변경이 발생한 경우에만 SetSiblingIndex를 호출하여 정지 상태의 캔버스 리빌드를 방지합니다.
+    /// </summary>
+    public void SortWorldUILayersByRotatedDepth(Camera cam)
+    {
+        if (cam == null)
+        {
+            return;
+        }
+
+        Vector3 camForward = cam.transform.forward;
+        Vector3 sortAxis = new Vector3(camForward.x, 0f, camForward.z);
+        if (sortAxis.sqrMagnitude < 0.0001f)
+        {
+            sortAxis = camForward;
+        }
+        else
+        {
+            sortAxis.Normalize();
+        }
+
+        if (worldUILayer != null)
+        {
+            SortLayerChildrenByRotatedDepth(worldUILayer.transform, sortAxis);
+        }
+
+        if (_worldDepthUILayer != null)
+        {
+            SortLayerChildrenByRotatedDepth(_worldDepthUILayer.transform, sortAxis);
+        }
+    }
+
+    private void SortLayerChildrenByRotatedDepth(Transform layerTransform, Vector3 sortAxis)
+    {
+        if (layerTransform == null)
+        {
+            return;
+        }
+
+        int childCount = layerTransform.childCount;
+        if (childCount <= 1)
+        {
+            return;
+        }
+
+        _worldUISortBuffer.Clear();
+        for (int i = 0; i < childCount; i++)
+        {
+            Transform child = layerTransform.GetChild(i);
+            if (child == null)
+            {
+                continue;
+            }
+
+            Vector3 refPos = child.position;
+            int typeOrder = 1;
+            bool isHighlighted = false;
+
+            if (_worldUIMetaByTransform.TryGetValue(child, out WorldUISortMeta meta))
+            {
+                if (meta.followUI != null && meta.followUI.TargetTransform != null)
+                {
+                    refPos = meta.followUI.TargetTransform.position;
+                }
+                typeOrder = meta.typeOrder;
+                isHighlighted = meta.component != null && _highlightedWorldUIs.Contains(meta.component);
+            }
+
+            _worldUISortBuffer.Add(new WorldUISortEntry
+            {
+                child = child,
+                rotatedDepth = Vector3.Dot(refPos, sortAxis),
+                typeOrder = typeOrder,
+                isHighlighted = isHighlighted,
+                originalIndex = i
+            });
+        }
+
+        if (_worldUISortBuffer.Count <= 1)
+        {
+            return;
+        }
+
+        _worldUISortBuffer.Sort(WorldUISortComparison);
+
+        for (int i = 0; i < _worldUISortBuffer.Count; i++)
+        {
+            Transform child = _worldUISortBuffer[i].child;
+            if (child != null && child.GetSiblingIndex() != i)
+            {
+                child.SetSiblingIndex(i);
+            }
+        }
+    }
+
+    private static int CompareWorldUISortEntries(WorldUISortEntry a, WorldUISortEntry b)
+    {
+        if (a.isHighlighted != b.isHighlighted)
+        {
+            return a.isHighlighted ? 1 : -1;
+        }
+
+        // 내림차순: 카메라 수평 전방 벡터 방향(화면 위쪽/먼 유닛)이 먼저, 가까운 유닛이 나중에 그려짐
+        const float depthEpsilon = 0.0005f;
+        float depthDiff = b.rotatedDepth - a.rotatedDepth;
+        if (depthDiff > depthEpsilon) return 1;
+        if (depthDiff < -depthEpsilon) return -1;
+
+        int typeCmp = a.typeOrder.CompareTo(b.typeOrder);
+        if (typeCmp != 0)
+        {
+            return typeCmp;
+        }
+
+        return a.originalIndex.CompareTo(b.originalIndex);
+    }
+
+    private static int ResolveWorldUITypeOrder(Component uiComponent)
+    {
+        if (uiComponent is CharacterEffectListUI) return 0;
+        if (uiComponent is CharacterStatusBarUI) return 1;
+        if (uiComponent is CharacterIntentUI) return 2;
+        return 1;
+    }
 
     private int GetWorldUIOverlayLayer()
     {
@@ -453,7 +692,11 @@ public class UIManager : MonoBehaviour
     {
         if (_cachedWorldDepthLayer < 0)
         {
-            _cachedWorldDepthLayer = LayerMask.NameToLayer("UI");
+            _cachedWorldDepthLayer = LayerMask.NameToLayer(ObstacleDepthClearRenderPass.WorldDepthUILayerName);
+            if (_cachedWorldDepthLayer < 0)
+            {
+                _cachedWorldDepthLayer = LayerMask.NameToLayer("UI");
+            }
             if (_cachedWorldDepthLayer < 0)
             {
                 _cachedWorldDepthLayer = 0;
@@ -607,10 +850,18 @@ public class UIManager : MonoBehaviour
 
         // World Space 캔버스의 scale이 0.01f이므로 자식 UI의 기본 scale을 (1, 1, 1)로 보장합니다.
         uiComponent.transform.localScale = Vector3.one;
-        if (uiComponent is IWorldFollowUI followUI)
+        IWorldFollowUI followUI = uiComponent as IWorldFollowUI;
+        if (followUI != null)
         {
             followUI.SetTarget(target, offset);
         }
+
+        _worldUIMetaByTransform[go.transform] = new WorldUISortMeta
+        {
+            component = uiComponent,
+            followUI = followUI,
+            typeOrder = ResolveWorldUITypeOrder(uiComponent)
+        };
 
         activeWorldUIs.Add(uiComponent);
         return uiComponent;
@@ -645,6 +896,11 @@ public class UIManager : MonoBehaviour
         if (uiComponent == null) return;
 
         activeWorldUIs.Remove(uiComponent);
+        _highlightedWorldUIs.Remove(uiComponent);
+        if (uiComponent.transform != null)
+        {
+            _worldUIMetaByTransform.Remove(uiComponent.transform);
+        }
         if (uiComponent.gameObject != null)
         {
             Destroy(uiComponent.gameObject);
@@ -664,6 +920,8 @@ public class UIManager : MonoBehaviour
             }
         }
         activeWorldUIs.Clear();
+        _worldUIMetaByTransform.Clear();
+        _highlightedWorldUIs.Clear();
 
         if (worldUILayer != null)
         {

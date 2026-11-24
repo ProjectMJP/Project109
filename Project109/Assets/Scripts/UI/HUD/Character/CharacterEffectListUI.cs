@@ -415,15 +415,8 @@ public class CharacterEffectListUI : MonoBehaviour, IWorldFollowUI
             if (cachedCamera == null) return;
         }
 
-        // 1. 타깃 월드 위치 + 오프셋 반영 (깊이 테스트 시 바닥 타일에 파묻히지 않도록 카메라 시선 반대 방향으로 최소 높이 보정)
-        Vector3 pos = targetTransform.position + worldOffset;
-        float minSurfaceY = targetTransform.position.y + 0.16f;
-        if (pos.y < minSurfaceY && cachedCamera.transform.forward.y < -0.05f)
-        {
-            float liftDist = (minSurfaceY - pos.y) / -cachedCamera.transform.forward.y;
-            pos -= cachedCamera.transform.forward * liftDist;
-        }
-        transform.position = pos;
+        // 1. 타깃 월드 위치 + 오프셋 반영 (바닥·자기 발 클리핑 방지 및 앞쪽 캐릭터 깊이 테스트 보장)
+        transform.position = CharacterStatusBarUI.ComputeDepthSafeWorldPosition(targetTransform.position, worldOffset, cachedCamera);
 
         // 2. 카메라의 회전과 완전히 일치시켜 UI가 컬링이나 반전 없이 정면을 바라보도록 유지
         if (useBillboard)

@@ -567,10 +567,16 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             if (effectListUI != null)
             {
                 UIManager.instance.SetWorldUIOverlay(effectListUI, useOverlay);
+                UIManager.instance.SetWorldUIHighlighted(effectListUI, anyHighlight);
             }
             if (statusBarUI != null)
             {
                 UIManager.instance.SetWorldUIOverlay(statusBarUI, useOverlay);
+                UIManager.instance.SetWorldUIHighlighted(statusBarUI, anyHighlight);
+            }
+            if (intentUI != null)
+            {
+                UIManager.instance.SetWorldUIHighlighted(intentUI, anyHighlight);
             }
         }
 
