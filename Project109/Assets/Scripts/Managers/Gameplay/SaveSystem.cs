@@ -185,8 +185,25 @@ public static class SaveSystem
 
             if (data.isInDungeon && runManager != null)
             {
-                data.currentMapName = runManager.currentMapName;
-                data.currentStageLevel = runManager.currentStageLevel;
+                string resolvedMapName = runManager.currentMapName;
+                if (string.IsNullOrEmpty(resolvedMapName))
+                {
+                    if (runManager.currentStage != null && runManager.currentStage.currentMapData != null)
+                    {
+                        resolvedMapName = runManager.currentStage.currentMapData.locationType.ToString();
+                    }
+                    else if (runManager.currentExploreNode != null && runManager.currentExploreNode.encounterData != null)
+                    {
+                        resolvedMapName = runManager.currentExploreNode.encounterData.locationType.ToString();
+                    }
+                    else
+                    {
+                        resolvedMapName = "Temple";
+                    }
+                }
+
+                data.currentMapName = resolvedMapName;
+                data.currentStageLevel = runManager.currentStageLevel > 0 ? runManager.currentStageLevel : 1;
                 data.currentExploreMapFloor = runManager.currentExploreMapFloor;
 
                 if (runManager.exploreMapManager != null)
@@ -758,8 +775,6 @@ public static class SaveSystem
             return;
         }
 
-        runManager.currentMapName = data.currentMapName;
-        runManager.currentStageLevel = data.currentStageLevel;
         runManager.currentExploreMapFloor = data.currentExploreMapFloor;
 
         if (runManager.exploreMapManager != null)
@@ -792,10 +807,26 @@ public static class SaveSystem
             runManager.beforeExploreNode = null;
         }
 
+        string resolvedMapName = data.currentMapName;
+        if (string.IsNullOrEmpty(resolvedMapName))
+        {
+            if (runManager.currentExploreNode != null && runManager.currentExploreNode.encounterData != null)
+            {
+                resolvedMapName = runManager.currentExploreNode.encounterData.locationType.ToString();
+            }
+            else
+            {
+                resolvedMapName = "Temple";
+            }
+        }
+
+        runManager.currentMapName = resolvedMapName;
+        runManager.currentStageLevel = data.currentStageLevel > 0 ? data.currentStageLevel : 1;
+
         runManager.RestorePendingRewardsFromSave(data.pendingRewards);
         runManager.RestoreActiveShopStateFromSave(data.activeShopState);
 
-        Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={data.currentMapName}, Stage={data.currentStageLevel}, Floor={data.currentExploreMapFloor}");
+        Debug.Log($"[SaveSystem] 던전 런 진행도 복원 완료: Map={runManager.currentMapName}, Stage={runManager.currentStageLevel}, Floor={data.currentExploreMapFloor}");
     }
 
     /// <summary>

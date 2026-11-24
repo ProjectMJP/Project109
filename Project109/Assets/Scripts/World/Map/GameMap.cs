@@ -42,6 +42,11 @@ public class GameMap : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (PlayerInputController.HasInstance)
+        {
+            PlayerInputController.instance.ClearCameraPanRayValidator(ValidateCameraPanRay);
+        }
+
         if (current == this)
         {
             current = null;

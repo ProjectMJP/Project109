@@ -139,7 +139,7 @@ public class StageManager : IInitializable, System.IDisposable
         }
 
         // 5. 스테이지 생성 실행 (저장된 맵 ID 우선 로드 및 결정론적 시드 적용)
-        GenerateStage(enc.locationType, enc.encountType, playerChar, eventData, battleData, enc.mapDataId, enc.stageSeed);
+        GenerateStage(enc.locationType, enc.encountType, playerChar, eventData, battleData, enc.mapDataId, enc.stageSeed, isNodeCleared: node.isCleared);
 
         // 6. 최초 진입이거나 저장된 맵 ID가 유효하지 않아 폴백된 경우 선택된 맵 ID를 노드에 영속화
         if (currentMapData != null && !string.Equals(enc.mapDataId, currentMapData.ID, StringComparison.Ordinal))
@@ -156,7 +156,8 @@ public class StageManager : IInitializable, System.IDisposable
         InteractableData secretEventData = null,
         BattleData battleData = null,
         string preferredMapDataId = null,
-        int stageSeed = 0)
+        int stageSeed = 0,
+        bool isNodeCleared = false)
     {
         // 플레이어 캐릭터가 인자로 오지 않은 경우 GameSceneManager에서 자동 조회
         Character targetPlayer = playerCharacter != null ? playerCharacter
@@ -264,7 +265,7 @@ public class StageManager : IInitializable, System.IDisposable
             }
         }
 
-        if (battleData != null && battleData.monsterNames != null && EncountType.IsCombat())
+        if (!isNodeCleared && battleData != null && battleData.monsterNames != null && EncountType.IsCombat())
         {
             ShuffleWithSeed(spawnEnemyCells, stageSeed, EnemySpawnSeedSalt);
             int spawnEnemyCount = Mathf.Min(spawnEnemyCells.Count, battleData.monsterNames.Count);
@@ -293,12 +294,12 @@ public class StageManager : IInitializable, System.IDisposable
 
             if (eventData != null || EncountType != EncountType.None)
             {
-                GenerateNPC(currentMapData, EncountType, eventData);
+                GenerateNPC(currentMapData, EncountType, eventData, isNodeCleared);
             }
         }
 
-        // 맵 상태 설정 자동화
-        if (EncountType.IsCombat())
+        // 맵 상태 설정 자동화 (이미 클리어된 전투 노드는 비전투 탐색 상태 유지)
+        if (EncountType.IsCombat() && !isNodeCleared)
         {
             currentMapState = MapState.Battle;
         }
@@ -462,7 +463,7 @@ public class StageManager : IInitializable, System.IDisposable
         }
     }
 
-    public void GenerateNPC(MapDataSO mapData, EncountType EncountType, InteractableData eventData = null)
+    public void GenerateNPC(MapDataSO mapData, EncountType EncountType, InteractableData eventData = null, bool isNodeCleared = false)
     {
         if (spawnNPCCells.Count == 0)
         {
@@ -493,10 +494,11 @@ public class StageManager : IInitializable, System.IDisposable
 
         if (newNPC != null)
         {
-            if (RunManager.instance != null &&
-                RunManager.instance.currentExploreNode != null &&
-                RunManager.instance.currentExploreNode.isCleared &&
-                !(newNPC is ShopNPC))
+            bool cleared = isNodeCleared ||
+                           (RunManager.instance != null &&
+                            RunManager.instance.currentExploreNode != null &&
+                            RunManager.instance.currentExploreNode.isCleared);
+            if (cleared && !(newNPC is ShopNPC))
             {
                 newNPC.MarkAsUsed();
             }

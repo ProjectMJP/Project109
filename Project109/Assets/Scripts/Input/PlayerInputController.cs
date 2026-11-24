@@ -274,7 +274,14 @@ public class PlayerInputController : MonoBehaviour
     {
         if (_cameraPanRayValidator != null)
         {
-            return _cameraPanRayValidator.Invoke(centerRay);
+            if (_cameraPanRayValidator.Target is UnityEngine.Object unityTarget && unityTarget == null)
+            {
+                _cameraPanRayValidator = null;
+            }
+            else
+            {
+                return _cameraPanRayValidator.Invoke(centerRay);
+            }
         }
 
         Plane groundPlane = new Plane(Vector3.up, Vector3.zero);

@@ -829,6 +829,200 @@ public class StageSaveVariationConsistencyTests
         bm3.Dispose();
     }
 
+    [Test]
+    public void ResumeRunAfterLoad_ClearedBattleRoom_GeneratesMapWithoutSpawningEnemiesOrRestartingBattle()
+    {
+        MapDataSO battleMap = CreateBattleMapData(
+            "Map_Temple_Battle_Cleared",
+            LocationType.Temple,
+            EncountType.Battle,
+            new[] { new Vector2Int(3, 0), new Vector2Int(3, 1), new Vector2Int(4, 0) },
+            new[] { new Vector2Int(0, 0), new Vector2Int(0, 1) });
+
+        RegisterTestBattleAndMonsters("Battle_ClearedRoom_Test", "Goblin_A", "Goblin_B");
+        CreateSeededAssetCache(
+            new List<MapDataSO> { battleMap },
+            CreateTestMonsterPrefabs("Goblin_A", "Goblin_B"));
+
+        var (_, runManager1, _, _) = CreateTestSession();
+        BattleManager bm1 = new BattleManager();
+        SetInstanceAutoProperty(runManager1, "battleManager", bm1);
+
+        ExploreMapData mapData = new ExploreMapData();
+        ExploreFloorData floor0 = new ExploreFloorData();
+        ExploreNode clearedBattleNode = new ExploreNode(0, 0)
+        {
+            isCleared = true,
+            isVisited = true
+        };
+        clearedBattleNode.encounterData.locationType = LocationType.Temple;
+        clearedBattleNode.encounterData.encountType = EncountType.Battle;
+        clearedBattleNode.encounterData.battleDataId = "Battle_ClearedRoom_Test";
+        clearedBattleNode.encounterData.mapDataId = "Map_Temple_Battle_Cleared";
+        clearedBattleNode.encounterData.stageSeed = 11223344;
+        floor0.nodes.Add(clearedBattleNode);
+        mapData.floors.Add(floor0);
+
+        // 구버전/미초기화 상태(currentMapName="", currentStageLevel=0)로 저장되는 엣지 케이스 포함
+        runManager1.currentMapName = string.Empty;
+        runManager1.currentStageLevel = 0;
+        runManager1.currentExploreMapFloor = 3;
+        runManager1.exploreMapManager.RestoreMapData(mapData);
+        runManager1.currentExploreNode = clearedBattleNode;
+
+        SaveSystem.SaveGame(runManager1, TestSaveSlot);
+        Assert.IsTrue(SaveSystem.TryLoadGameData(TestSaveSlot, out RunSaveData saved, forceReload: true));
+        Assert.AreEqual("Temple", saved.currentMapName);
+        Assert.AreEqual(1, saved.currentStageLevel);
+
+        // 레거시 빈 값 세이브 복원 경로도 함께 검증
+        saved.currentMapName = string.Empty;
+        saved.currentStageLevel = 0;
+
+        var (_, runManager2, stageManager2, _) = CreateTestSession();
+        BattleManager bm2 = new BattleManager();
+        SetInstanceAutoProperty(runManager2, "battleManager", bm2);
+
+        SaveSystem.RestoreRunData(saved, runManager2);
+        runManager2.ResumeRunAfterLoad();
+
+        Assert.IsNotNull(stageManager2.currentMapData, "전투 종료 방 재로드 시 현재 방 MapData가 복원되어야 합니다.");
+        Assert.AreEqual("Map_Temple_Battle_Cleared", stageManager2.currentMapData.ID);
+        Assert.IsNotNull(stageManager2.currentGameMap.GetTileMap(), "전투 종료 방 재로드 시 바닥 타일이 생성되어야 합니다.");
+        Assert.Greater(stageManager2.currentGameMap.GetTileMap().Count, 0);
+        Assert.AreEqual(0, stageManager2.currentSpawnEnemyList.Count, "이미 종료된 전투 방 재로드 시 적이 재스폰되면 안 됩니다.");
+        Assert.AreEqual(MapState.None, stageManager2.currentMapState);
+        Assert.AreEqual(BattleState.None, bm2.battleState);
+        Assert.AreSame(runManager2.playerExploreController, runManager2.activePlayerController);
+        Assert.AreEqual("Temple", runManager2.currentMapName);
+        Assert.AreEqual(1, runManager2.currentStageLevel);
+
+        bm1.Dispose();
+        bm2.Dispose();
+    }
+
+    [Test]
+    public void ResumeRunAfterLoad_ClearedSecretRoom_GeneratesMapAndMarksInteractableUsed()
+    {
+        MapDataSO secretMap = CreateBattleMapData(
+            "Map_Temple_Secret_Cleared",
+            LocationType.Temple,
+            EncountType.Secret,
+            Array.Empty<Vector2Int>(),
+            new[] { new Vector2Int(0, 0) });
+        CellData npcCell = FindCell(secretMap, new Vector2Int(2, 2));
+        Assert.IsNotNull(npcCell);
+        npcCell.eventID = "NPCSpawn";
+
+        InteractableData secretEvent = new InteractableData
+        {
+            interactableID = "Test_Secret_Cleared_Event",
+            interactableType = CardTypes.InteractableType.Normal,
+            modelPrefabPath = string.Empty,
+            targetDialogueID = string.Empty
+        };
+        ModLoader.Instance.InteractableDatabase[secretEvent.ID] = secretEvent;
+
+        GameObject eventPrefab = Track(new GameObject("TestEventObjectPrefab", typeof(InteractableObject)));
+        Dictionary<string, GameObject> models = new Dictionary<string, GameObject>
+        {
+            ["EventObject"] = eventPrefab
+        };
+        CreateSeededAssetCache(new List<MapDataSO> { secretMap }, models);
+
+        var (_, runManager1, _, _) = CreateTestSession();
+        BattleManager bm1 = new BattleManager();
+        SetInstanceAutoProperty(runManager1, "battleManager", bm1);
+
+        ExploreMapData mapData = new ExploreMapData();
+        ExploreFloorData floor0 = new ExploreFloorData();
+        ExploreNode secretNode = new ExploreNode(0, 0)
+        {
+            isCleared = true,
+            isVisited = true
+        };
+        secretNode.encounterData.locationType = LocationType.Temple;
+        secretNode.encounterData.encountType = EncountType.Secret;
+        secretNode.encounterData.interactableDataId = secretEvent.ID;
+        secretNode.encounterData.mapDataId = "Map_Temple_Secret_Cleared";
+        secretNode.encounterData.stageSeed = 55667788;
+        floor0.nodes.Add(secretNode);
+        mapData.floors.Add(floor0);
+
+        runManager1.currentMapName = "Temple";
+        runManager1.currentStageLevel = 1;
+        runManager1.exploreMapManager.RestoreMapData(mapData);
+        runManager1.currentExploreNode = secretNode;
+
+        SaveSystem.SaveGame(runManager1, TestSaveSlot);
+        Assert.IsTrue(SaveSystem.TryLoadGameData(TestSaveSlot, out RunSaveData saved, forceReload: true));
+
+        var (_, runManager2, stageManager2, _) = CreateTestSession();
+        BattleManager bm2 = new BattleManager();
+        SetInstanceAutoProperty(runManager2, "battleManager", bm2);
+
+        SaveSystem.RestoreRunData(saved, runManager2);
+        runManager2.ResumeRunAfterLoad();
+
+        Assert.IsNotNull(stageManager2.currentMapData, "비전투(Secret) 방 재로드 시 현재 방 MapData가 복원되어야 합니다.");
+        Assert.AreEqual("Map_Temple_Secret_Cleared", stageManager2.currentMapData.ID);
+        Assert.IsNotNull(stageManager2.currentGameMap.GetTileMap(), "비전투(Secret) 방 재로드 시 바닥 타일이 생성되어야 합니다.");
+        Assert.AreEqual(1, stageManager2.currentSpawnNPCList.Count);
+        InteractableObject spawnedInteractable = stageManager2.currentSpawnNPCList[0].GetComponent<InteractableObject>();
+        Assert.IsNotNull(spawnedInteractable);
+        Assert.IsTrue(spawnedInteractable.IsUsed, "이미 클리어된 Secret 방 재로드 시 상호작용 오브젝트는 사용 완료 상태여야 합니다.");
+        Assert.AreEqual(MapState.Secret, stageManager2.currentMapState);
+        Assert.AreSame(runManager2.playerExploreController, runManager2.activePlayerController);
+
+        bm1.Dispose();
+        bm2.Dispose();
+    }
+
+    [Test]
+    public void PlayerInputController_ValidateCameraPanRay_DestroyedGameMap_DoesNotThrowAndFallsBack()
+    {
+        GameObject inputGo = Track(new GameObject("TestPlayerInputController"));
+        PlayerInputController inputCtrl = inputGo.AddComponent<PlayerInputController>();
+        FieldInfo instanceField = typeof(PlayerInputController).GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic);
+        FieldInfo shuttingDownField = typeof(PlayerInputController).GetField("_isShuttingDown", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.IsNotNull(instanceField);
+        Assert.IsNotNull(shuttingDownField);
+
+        try
+        {
+            instanceField.SetValue(null, inputCtrl);
+            shuttingDownField.SetValue(null, false);
+
+            // 1. GameMap.OnDestroy() 자동 해제 경로 검증
+            GameMap mapA = CreateTestGameMap();
+            inputCtrl.SetCameraPanRayValidator(mapA.ValidateCameraPanRay);
+            UnityEngine.Object.DestroyImmediate(mapA.gameObject);
+
+            Ray downRay = new Ray(new Vector3(0f, 10f, 0f), Vector3.down);
+            bool resultAfterDestroy = false;
+            Assert.DoesNotThrow(() => resultAfterDestroy = inputCtrl.ValidateCameraPanRay(downRay));
+            Assert.IsTrue(resultAfterDestroy);
+
+            // 2. ClearCameraPanRayValidator 누락으로 파괴된 UnityEngine.Object 델리게이트가 남은 경우 방어 검증
+            GameMap mapB = CreateTestGameMap();
+            Func<Ray, bool> staleDelegate = mapB.ValidateCameraPanRay;
+            FieldInfo validatorField = typeof(PlayerInputController).GetField("_cameraPanRayValidator", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(validatorField);
+            UnityEngine.Object.DestroyImmediate(mapB.gameObject);
+            validatorField.SetValue(inputCtrl, staleDelegate);
+
+            bool resultWithStaleDelegate = false;
+            Assert.DoesNotThrow(() => resultWithStaleDelegate = inputCtrl.ValidateCameraPanRay(downRay));
+            Assert.IsTrue(resultWithStaleDelegate);
+            Assert.IsNull(validatorField.GetValue(inputCtrl));
+        }
+        finally
+        {
+            instanceField.SetValue(null, null);
+            shuttingDownField.SetValue(null, false);
+        }
+    }
+
     private static void SetInstanceAutoProperty(object target, string propName, object value)
     {
         FieldInfo backing = target.GetType().GetField($"<{propName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);

@@ -35,6 +35,15 @@ public class RunManager : MonoBehaviour
 
             exploreMapManager = new ExploreMapManager();
 
+            if (string.IsNullOrEmpty(currentMapName))
+            {
+                currentMapName = "Temple";
+            }
+            if (currentStageLevel <= 0)
+            {
+                currentStageLevel = 1;
+            }
+
             EnsurePlayerInstancesInitialized();
             LuaManager.OnBeforeLuaEnvDispose -= CleanupRunManagers;
             LuaManager.OnBeforeLuaEnvDispose += CleanupRunManagers;
@@ -54,8 +63,8 @@ public class RunManager : MonoBehaviour
 
     [Header("Stage & Map")]
     //맵 관련 변수
-    public string currentMapName;
-    public int currentStageLevel = 0;
+    public string currentMapName = "Temple";
+    public int currentStageLevel = 1;
     public int currentExploreMapFloor = 0;
     [System.NonSerialized] public ExploreNode currentExploreNode;
     [System.NonSerialized] public ExploreNode beforeExploreNode;
@@ -217,6 +226,7 @@ public class RunManager : MonoBehaviour
         CloseNodeRewardAndShopPanels();
         ClearPendingRewards(notify: false);
 
+        currentMapName = "Temple";
         currentStageLevel = 1;
         currentExploreMapFloor = 0;
         currentExploreNode = null;
@@ -276,19 +286,24 @@ public class RunManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 세이브 데이터 복원 후 노드 진행 상태에 맞춰 스테이지를 재구축하거나 맵 창을 엽니다.
+    /// 세이브 데이터 복원 후 노드 진행 상태에 맞춰 현재 방 맵을 재구축하고, 이미 완료된 방이면 탐험 맵 창을 함께 엽니다.
     /// </summary>
     public void ResumeRunAfterLoad()
     {
         EnsurePlayerInstancesInitialized();
         OnRunLocationChanged?.Invoke();
-        if (currentExploreNode == null || currentExploreNode.isCleared)
+
+        if (currentExploreNode != null)
         {
-            OpenOrShowExploreMap();
+            LoadCurrentNodeDataInMap();
+            if (currentExploreNode.isCleared && !HasPendingRewards)
+            {
+                OpenOrShowExploreMap();
+            }
         }
         else
         {
-            LoadCurrentNodeDataInMap();
+            OpenOrShowExploreMap();
         }
 
         NotifyNodeContextChanged();
@@ -1029,11 +1044,29 @@ public class RunManager : MonoBehaviour
                         ModLoader.Instance != null && ModLoader.Instance.InteractableDatabase != null &&
                         ModLoader.Instance.InteractableDatabase.TryGetValue(currentExploreNode.encounterData.interactableDataId, out var interactableData))
                     {
-                        currentStage.GenerateNPC(currentStage.currentMapData, EncountType.Secret, interactableData);
+                        currentStage.GenerateNPC(currentStage.currentMapData, EncountType.Secret, interactableData, currentExploreNode.isCleared);
                     }
                     break;
                 case ExtraEncountType.ShineWell:
                     break;
+            }
+
+            if (currentStage.currentMapData != null)
+            {
+                currentMapName = currentStage.currentMapData.locationType.ToString();
+            }
+            else if (currentExploreNode.encounterData != null)
+            {
+                currentMapName = currentExploreNode.encounterData.locationType.ToString();
+            }
+            else if (string.IsNullOrEmpty(currentMapName))
+            {
+                currentMapName = "Temple";
+            }
+
+            if (currentStageLevel <= 0)
+            {
+                currentStageLevel = 1;
             }
 
             // 맵 생성이 끝난 후 RunManager에게 상태 전이 알림
