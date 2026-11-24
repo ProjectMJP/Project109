@@ -82,6 +82,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
 
     private Action<List<Card>> _onConfirmCallback;
     private Action _onCancelCallback;
+    private string _confirmButtonLabel = "확인";
     private bool _isMasterDeckMode = false;
     private bool _isCompendiumMode = false;
     private bool _filterSortListenersBound = false;
@@ -124,8 +125,10 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         if (closeButton != null)
         {
             closeButton.onClick.RemoveAllListeners();
-            closeButton.onClick.AddListener(Close);
+            closeButton.onClick.AddListener(OnCloseClicked);
         }
+
+        UpdateConfirmButtonUI();
 
         // 플레이어 이벤트 버스 등록
         RegisterPlayerEvents();
@@ -232,9 +235,10 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         CardViewMode mode = CardViewMode.ViewOnly,
         int targetSelectCount = 1,
         Action<List<Card>> onConfirm = null,
-        Action onCancel = null)
+        Action onCancel = null,
+        string confirmLabel = null)
     {
-        OpenInternal(title, cards, mode, targetSelectCount, onConfirm, onCancel, isMasterDeck: false, isCompendium: false);
+        OpenInternal(title, cards, mode, targetSelectCount, onConfirm, onCancel, isMasterDeck: false, isCompendium: false, confirmLabel: confirmLabel);
     }
 
     /// <summary>
@@ -257,7 +261,8 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         Action<List<Card>> onConfirm,
         Action onCancel,
         bool isMasterDeck,
-        bool isCompendium)
+        bool isCompendium,
+        string confirmLabel = null)
     {
         _isMasterDeckMode = isMasterDeck;
         _isCompendiumMode = isCompendium;
@@ -265,6 +270,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         this.targetSelectCount = Mathf.Max(1, targetSelectCount);
         _onConfirmCallback = onConfirm;
         _onCancelCallback = onCancel;
+        _confirmButtonLabel = string.IsNullOrWhiteSpace(confirmLabel) ? "확인" : confirmLabel;
 
         selectedCards.Clear();
 
@@ -1115,6 +1121,7 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
 
         if (currentMode == CardViewMode.ViewOnly)
         {
+            confirmButton.interactable = false;
             confirmButton.gameObject.SetActive(false);
             return;
         }
@@ -1127,42 +1134,53 @@ public class CardDeckViewPanel : UIPanelBase, IOnAddCard, IOnRemoveCard, IOnCard
         if (confirmButtonText != null)
         {
             confirmButtonText.text = isReady
-                ? "확인"
+                ? _confirmButtonLabel
                 : $"선택 ({selectedCards.Count}/{targetSelectCount})";
         }
     }
 
     public void OnConfirmClicked()
     {
-        if (selectedCards.Count != targetSelectCount)
+        if (currentMode == CardViewMode.ViewOnly || selectedCards.Count != targetSelectCount)
         {
             Debug.LogWarning($"[CardDeckViewPanel] {targetSelectCount}장을 선택해야 합니다. (현재: {selectedCards.Count})");
             return;
         }
 
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         var result = new List<Card>(selectedCards);
         var confirmCallback = _onConfirmCallback;
         _onConfirmCallback = null;
         _onCancelCallback = null;
-        confirmCallback?.Invoke(result);
 
+        Close();
+        confirmCallback?.Invoke(result);
+    }
+
+    public void OnCloseClicked()
+    {
+        AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_UI_CLICK);
         Close();
     }
 
     public override void Close()
     {
-        _onCancelCallback?.Invoke();
+        var cancelCallback = _onCancelCallback;
         _onConfirmCallback = null;
         _onCancelCallback = null;
         selectedCards.Clear();
         _sourceCards.Clear();
         currentDisplayedCards.Clear();
+        currentMode = CardViewMode.ViewOnly;
+        _confirmButtonLabel = "확인";
         _isMasterDeckMode = false;
         _isCompendiumMode = false;
 
+        UpdateConfirmButtonUI();
         ClearAllCardUIs();
 
         base.Close();
+        cancelCallback?.Invoke();
     }
 
     #endregion

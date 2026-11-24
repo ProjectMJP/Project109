@@ -558,6 +558,10 @@ public class CompendiumAndObtainSourceTests
         CardDeckViewPanel deckPanel = deckGo.GetComponent<CardDeckViewPanel>();
         Assert.IsNotNull(deckPanel);
 
+        MethodInfo deckAwakeMethod = typeof(CardDeckViewPanel).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(deckAwakeMethod);
+        deckAwakeMethod.Invoke(deckPanel, null);
+
         Card card = CreateTestCard("c_prefab", "테스트", CardRarity.Common, 30, "Attack", ItemObtainSource.Standard, "Warrior");
         LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
         deckPanel.OpenCompendium("카드 도감", new List<Card> { card });
@@ -760,6 +764,193 @@ public class CompendiumAndObtainSourceTests
             Assert.GreaterOrEqual(GetMinY(closeRect), 0f);
             Assert.LessOrEqual(GetMaxY(closeRect), GetMinY(barRect), $"{res.x}x{res.y}에서 나가기 버튼이 FilterSortBar와 겹치면 안 됩니다.");
             Assert.GreaterOrEqual(GetMinX(closeRect), GetMaxX(contentRect), $"{res.x}x{res.y}에서 나가기 버튼이 카드 그리드 영역과 겹치면 안 됩니다.");
+        }
+    }
+
+    [Test]
+    public void CardDeckCanvas_ConfirmButton_IsPositionedAboveExitButtonAndWired()
+    {
+        GameObject deckPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/CardDeckCanvas.prefab");
+        Assert.IsNotNull(deckPrefab, "CardDeckCanvas.prefab을 찾을 수 없습니다.");
+
+        CardDeckViewPanel prefabPanel = deckPrefab.GetComponent<CardDeckViewPanel>();
+        Assert.IsNotNull(prefabPanel);
+        Assert.IsNotNull(prefabPanel.confirmButton, "CardDeckViewPanel.confirmButton이 연결되어야 합니다.");
+        Assert.IsNotNull(prefabPanel.confirmButtonText, "CardDeckViewPanel.confirmButtonText가 연결되어야 합니다.");
+
+        Transform confirmTr = deckPrefab.transform.Find("ConfirmButton");
+        Assert.IsNotNull(confirmTr, "CardDeckCanvas에서 'ConfirmButton'을 찾을 수 없습니다.");
+        Assert.IsFalse(confirmTr.gameObject.activeSelf, "기본 프리팹 상태에서 ConfirmButton은 비활성 상태여야 합니다.");
+        Assert.AreEqual(0, prefabPanel.confirmButton.onClick.GetPersistentEventCount());
+
+        GameObject canvasGo = Track(new GameObject("DeckConfirmLayoutCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster)));
+        Canvas canvas = canvasGo.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        RectTransform canvasRect = canvasGo.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(1920f, 1080f);
+
+        GameObject deckGo = Track(UnityEngine.Object.Instantiate(deckPrefab, canvasGo.transform, false));
+        CardDeckViewPanel deckPanel = deckGo.GetComponent<CardDeckViewPanel>();
+        Card card = CreateTestCard("c_confirm_layout", "테스트", CardRarity.Common, 30, "Attack", ItemObtainSource.Standard, "Warrior");
+
+        // ViewOnly 모드에서는 승인 버튼이 숨겨져야 합니다.
+        LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+        deckPanel.Open("전체 덱", new List<Card> { card }, CardViewMode.ViewOnly);
+        Assert.IsFalse(deckPanel.confirmButton.gameObject.activeSelf);
+        Assert.IsFalse(deckPanel.confirmButton.interactable);
+
+        // SingleSelect 모드에서는 승인 버튼이 나가기 버튼 상단에 노출되어야 합니다.
+        LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+        deckPanel.Open("제거할 카드를 선택하세요", new List<Card> { card }, CardViewMode.SingleSelect, 1, null, null, "제거 승인");
+        Assert.IsTrue(deckPanel.confirmButton.gameObject.activeSelf);
+        Assert.IsFalse(deckPanel.confirmButton.interactable);
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+
+        RectTransform confirmRect = deckGo.transform.Find("ConfirmButton") as RectTransform;
+        RectTransform closeRect = deckGo.transform.Find("CloseUI Button") as RectTransform;
+        RectTransform barRect = deckGo.transform.Find("FilterSortBar") as RectTransform;
+        RectTransform contentRect = deckGo.transform.Find("CardList/Viewport/Content") as RectTransform;
+        Assert.IsNotNull(confirmRect);
+        Assert.IsNotNull(closeRect);
+        Assert.IsNotNull(barRect);
+        Assert.IsNotNull(contentRect);
+
+        Assert.Greater(GetMinY(confirmRect), GetMaxY(closeRect), "승인 버튼은 나가기 버튼 위쪽에 배치되어야 합니다.");
+        Assert.AreEqual(GetMaxX(closeRect), GetMaxX(confirmRect), 0.1f, "승인 버튼과 나가기 버튼은 오른쪽 끝이 정렬되어야 합니다.");
+        Assert.AreEqual(closeRect.rect.width, confirmRect.rect.width, 0.1f);
+        Assert.AreEqual(closeRect.rect.height, confirmRect.rect.height, 0.1f);
+        Assert.LessOrEqual(GetMaxY(confirmRect), GetMinY(barRect), "승인 버튼이 FilterSortBar와 겹치면 안 됩니다.");
+        Assert.GreaterOrEqual(GetMinX(confirmRect), GetMaxX(contentRect), "승인 버튼이 카드 그리드 영역과 겹치면 안 됩니다.");
+    }
+
+    [Test]
+    public void CardDeckViewPanel_CardRemovalFlow_SeparatesConfirmAndExitAndManagesButtonStates()
+    {
+        GameObject deckPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/CardDeckCanvas.prefab");
+        Assert.IsNotNull(deckPrefab);
+
+        GameObject deckGo = Track(UnityEngine.Object.Instantiate(deckPrefab));
+        CardDeckViewPanel deckPanel = deckGo.GetComponent<CardDeckViewPanel>();
+        Assert.IsNotNull(deckPanel);
+
+        MethodInfo deckAwakeMethod = typeof(CardDeckViewPanel).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(deckAwakeMethod);
+        deckAwakeMethod.Invoke(deckPanel, null);
+
+        Card cardA = CreateTestCard("c_rem_a", "카드A", CardRarity.Common, 30, "Attack", ItemObtainSource.Starter, "Warrior");
+        Card cardB = CreateTestCard("c_rem_b", "카드B", CardRarity.Common, 30, "Skill", ItemObtainSource.Starter, "Warrior");
+        var cards = new List<Card> { cardA, cardB };
+
+        GameObject dummyCardUiGo = Track(new GameObject("DummyCardUI", typeof(RectTransform)));
+        CardUI dummyCardUI = dummyCardUiGo.AddComponent<CardUI>();
+        MethodInfo selectClickMethod = typeof(CardDeckViewPanel).GetMethod("HandleSingleSelectClick", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(selectClickMethod);
+
+        // 1. ViewOnly 모드에서는 승인 버튼이 숨겨지고 비활성화됩니다.
+        LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+        deckPanel.Open("전체 덱", cards, CardViewMode.ViewOnly);
+        Assert.IsFalse(deckPanel.confirmButton.gameObject.activeSelf);
+        Assert.IsFalse(deckPanel.confirmButton.interactable);
+
+        // 2. SingleSelect(제거) 모드 진입: 미선택 시 승인 버튼 비활성화 및 클릭 무효
+        int confirmCalls = 0;
+        int cancelCalls = 0;
+        List<Card> confirmedSelection = null;
+
+        LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+        deckPanel.Open(
+            "제거할 카드를 선택하세요",
+            cards,
+            CardViewMode.SingleSelect,
+            1,
+            onConfirm: sel => { confirmCalls++; confirmedSelection = sel; },
+            onCancel: () => { cancelCalls++; },
+            confirmLabel: "제거 승인");
+
+        Assert.IsTrue(deckPanel.confirmButton.gameObject.activeSelf);
+        Assert.IsFalse(deckPanel.confirmButton.interactable);
+        Assert.AreEqual("선택 (0/1)", deckPanel.confirmButtonText.text);
+
+        LogAssert.Expect(LogType.Warning, "[CardDeckViewPanel] 1장을 선택해야 합니다. (현재: 0)");
+        deckPanel.confirmButton.onClick.Invoke();
+        Assert.AreEqual(0, confirmCalls);
+        Assert.AreEqual(0, cancelCalls);
+        Assert.IsTrue(deckPanel.gameObject.activeSelf);
+
+        // 3. 카드 선택 후 나가기 버튼 클릭: 제거가 확정되지 않고 취소 콜백만 실행되어야 함
+        selectClickMethod.Invoke(deckPanel, new object[] { dummyCardUI, cardA });
+        Assert.AreEqual(1, deckPanel.selectedCards.Count);
+        Assert.IsTrue(deckPanel.confirmButton.interactable);
+        Assert.AreEqual("제거 승인", deckPanel.confirmButtonText.text);
+
+        deckPanel.closeButton.onClick.Invoke();
+        Assert.AreEqual(0, confirmCalls, "나가기 버튼 클릭 시 제거 확정 콜백이 호출되면 안 됩니다.");
+        Assert.AreEqual(1, cancelCalls, "나가기 버튼 클릭 시 취소 콜백이 호출되어야 합니다.");
+        Assert.IsFalse(deckPanel.gameObject.activeSelf);
+        Assert.AreEqual(0, deckPanel.selectedCards.Count);
+        Assert.IsFalse(deckPanel.confirmButton.gameObject.activeSelf);
+
+        // 4. 재진입 후 카드 선택 및 승인 버튼 클릭: 확정 콜백만 실행되고 취소 콜백은 미호출
+        LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+        deckPanel.Open(
+            "제거할 카드를 선택하세요",
+            cards,
+            CardViewMode.SingleSelect,
+            1,
+            onConfirm: sel => { confirmCalls++; confirmedSelection = sel; },
+            onCancel: () => { cancelCalls++; },
+            confirmLabel: "제거 승인");
+
+        selectClickMethod.Invoke(deckPanel, new object[] { dummyCardUI, cardB });
+        Assert.IsTrue(deckPanel.confirmButton.interactable);
+        Assert.AreEqual("제거 승인", deckPanel.confirmButtonText.text);
+
+        deckPanel.confirmButton.onClick.Invoke();
+        Assert.AreEqual(1, confirmCalls, "승인 버튼 클릭 시 확정 콜백이 1회 호출되어야 합니다.");
+        Assert.AreEqual(1, cancelCalls, "승인 완료 시 취소 콜백이 중복 호출되면 안 됩니다.");
+        Assert.IsNotNull(confirmedSelection);
+        CollectionAssert.AreEqual(new[] { cardB }, confirmedSelection);
+        Assert.IsFalse(deckPanel.gameObject.activeSelf);
+        Assert.IsFalse(deckPanel.confirmButton.gameObject.activeSelf);
+
+        // 5. DialogueManager 일시정지 상태에서 MarkActiveInteractableUsed 지연 및 취소 시 소모 방지 검증
+        GameObject dmGo = Track(new GameObject("TestDialogueManagerForErase"));
+        DialogueManager dm = dmGo.AddComponent<DialogueManager>();
+        MethodInfo dmAwake = typeof(DialogueManager).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(dmAwake);
+        dmAwake.Invoke(dm, null);
+
+        GameObject interactGo = Track(new GameObject("TestBonfireInteractable"));
+        InteractableObject interactable = interactGo.AddComponent<InteractableObject>();
+        FieldInfo activeInteractBacking = typeof(DialogueManager).GetField("<ActiveInteractable>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(activeInteractBacking);
+        activeInteractBacking.SetValue(dm, interactable);
+
+        try
+        {
+            dm.PauseDialogue();
+            dm.MarkActiveInteractableUsed();
+            Assert.IsFalse(interactable.IsUsed, "제거 UI가 열려 있는 동안에는 오브젝트가 즉시 소모 처리되면 안 됩니다.");
+
+            dm.CancelPausedChoice();
+            Assert.IsFalse(dm.IsDialoguePaused);
+            Assert.IsFalse(interactable.IsUsed, "나가기(취소) 시에는 오브젝트 소모 상태가 확정되면 안 됩니다.");
+
+            dm.PauseDialogue();
+            dm.MarkActiveInteractableUsed();
+            dm.ResumeDialogue();
+            Assert.IsFalse(dm.IsDialoguePaused);
+            Assert.IsTrue(interactable.IsUsed, "제거 승인 후 대화 재개 시에만 오브젝트가 사용 완료 처리되어야 합니다.");
+        }
+        finally
+        {
+            FieldInfo dmInstanceBacking = typeof(DialogueManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            dmInstanceBacking?.SetValue(null, null);
         }
     }
 

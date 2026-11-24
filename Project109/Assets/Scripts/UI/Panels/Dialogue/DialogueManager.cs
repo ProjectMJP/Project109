@@ -44,6 +44,7 @@ public class DialogueManager : MonoBehaviour
     private string luaNextNodeOverride = null;
     private bool endDialogueTriggered = false;
     private bool _isWaitingForChoice = false;
+    private bool _pendingMarkActiveInteractableUsed = false;
 
     public bool IsWaitingForChoice => _isWaitingForChoice;
 
@@ -176,6 +177,7 @@ public class DialogueManager : MonoBehaviour
         currentLineIndex = 0;
         isDialoguePaused = false;
         pendingNextNodeID = null;
+        _pendingMarkActiveInteractableUsed = false;
         luaNextNodeOverride = null;
         endDialogueTriggered = false;
         _isWaitingForChoice = false;
@@ -307,11 +309,38 @@ public class DialogueManager : MonoBehaviour
             dialogueUI.Open();
         }
 
+        if (_pendingMarkActiveInteractableUsed)
+        {
+            _pendingMarkActiveInteractableUsed = false;
+            actionExecutor.MarkActiveInteractableUsed(ActiveInteractable);
+        }
+
         if (pendingNextNodeID != null)
         {
             string target = pendingNextNodeID;
             pendingNextNodeID = null;
             ExecuteNodeTransition(target);
+        }
+    }
+
+    public void CancelPausedChoice()
+    {
+        if (!isDialoguePaused) return;
+        isDialoguePaused = false;
+        _pendingMarkActiveInteractableUsed = false;
+        pendingNextNodeID = null;
+        luaNextNodeOverride = null;
+        endDialogueTriggered = false;
+
+        if (dialogueUI != null)
+        {
+            dialogueUI.Open();
+        }
+
+        if (currentNode != null)
+        {
+            _isWaitingForChoice = true;
+            SetupChoiceButtons();
         }
     }
 
@@ -451,39 +480,59 @@ public class DialogueManager : MonoBehaviour
 
     public void OpenEraseCardUI(int count)
     {
+        if (UIManager.instance == null)
+        {
+            return;
+        }
+
+        var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
+        var cards = (player != null && player.deck != null) ? player.deck.GetCards() : null;
+        if (cards == null || cards.Count == 0)
+        {
+            Debug.LogWarning("[DialogueManager] 제거할 카드가 없어 카드 제거 UI를 열지 않습니다.");
+            return;
+        }
+
         PauseDialogue();
 
-        if (UIManager.instance != null)
+        var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
+        if (deckPanel == null)
         {
-            var deckPanel = UIManager.instance.OpenUI<CardDeckViewPanel>(UIConstants.PANEL_CARD_DECK, UILayerType.Popup, true);
-            if (deckPanel != null)
-            {
-                var player = GameSceneManager.instance != null ? GameSceneManager.instance.player : null;
-                var cards = (player != null && player.deck != null) ? player.deck.GetCards() : null;
-                if (cards != null)
-                {
-                    deckPanel.Open("제거할 카드를 선택하세요", cards, CardViewMode.SingleSelect, count,
-                        onConfirm: (selectedCards) =>
-                        {
-                            if (player != null && player.deck != null && selectedCards != null)
-                            {
-                                for (int i = 0; i < selectedCards.Count; i++)
-                                {
-                                    if (selectedCards[i] != null)
-                                    {
-                                        player.deck.RemoveCard(selectedCards[i].runtimeID);
-                                    }
-                                }
-                            }
-                            ResumeDialogue();
-                        },
-                        onCancel: () =>
-                        {
-                            ResumeDialogue();
-                        });
-                }
-            }
+            CancelPausedChoice();
+            return;
         }
+
+        int targetCount = Mathf.Clamp(count, 1, cards.Count);
+        CardViewMode selectMode = targetCount > 1 ? CardViewMode.MultiSelect : CardViewMode.SingleSelect;
+        deckPanel.Open("제거할 카드를 선택하세요", cards, selectMode, targetCount,
+            onConfirm: (selectedCards) =>
+            {
+                if (player != null && player.deck != null && selectedCards != null)
+                {
+                    for (int i = 0; i < selectedCards.Count; i++)
+                    {
+                        if (selectedCards[i] != null)
+                        {
+                            player.deck.RemoveCard(selectedCards[i].runtimeID);
+                        }
+                    }
+                }
+
+                bool willSaveInMarkUsed = _pendingMarkActiveInteractableUsed;
+                ResumeDialogue();
+                if (!willSaveInMarkUsed &&
+                    GameSceneManager.instance != null &&
+                    GameSceneManager.instance.isInDungeon &&
+                    RunManager.instance != null)
+                {
+                    RunManager.instance.SaveGame();
+                }
+            },
+            onCancel: () =>
+            {
+                CancelPausedChoice();
+            },
+            confirmLabel: "제거 승인");
     }
 
     public void OpenUpgradeCardUI()
@@ -512,7 +561,16 @@ public class DialogueManager : MonoBehaviour
         actionExecutor.OpenRestore(targetInteractable);
     }
 
-    public void MarkActiveInteractableUsed() => actionExecutor.MarkActiveInteractableUsed(ActiveInteractable);
+    public void MarkActiveInteractableUsed()
+    {
+        if (isDialoguePaused)
+        {
+            _pendingMarkActiveInteractableUsed = true;
+            return;
+        }
+
+        actionExecutor.MarkActiveInteractableUsed(ActiveInteractable);
+    }
 
     public void OpenChest()
     {
