@@ -1394,6 +1394,8 @@ MonoBehaviour:
   usedCountText: {fileID: 4850860266578932558}
   switchToMoveModeButton: {fileID: 2170007661428149395}
   modeSwitchButtonText: {fileID: 6380580919683742152}
+  modeSwitchHotkeyBadgeObject: {fileID: 0}
+  modeSwitchHotkeyBadgeText: {fileID: 0}
   restingCardYOffset: -105
   hoverRevealScale: 1.1
   hoverRevealYOffset: 140
@@ -1404,7 +1406,6 @@ MonoBehaviour:
   unplayableFeedbackText: {fileID: 0}
   unplayableFeedbackCanvasGroup: {fileID: 0}
   unplayableFeedbackRect: {fileID: 0}
-  showHotkeyHints: 1
 --- !u!1 &5406632024516269840
 GameObject:
   m_ObjectHideFlags: 0
@@ -2392,12 +2393,13 @@ MonoBehaviour:
   battleHandPanel: {fileID: 6679983572842491755}
   battleMovePanel: {fileID: 5079537147591078920}
   endTurnButton: {fileID: 7710902680627439301}
+  endTurnHotkeyBadgeObject: {fileID: 0}
+  endTurnHotkeyBadgeText: {fileID: 0}
   staminaBadgeContainer: {fileID: 4670920631530764049}
   staminaBadgeImage: {fileID: 6742608172164938632}
   staminaValueText: {fileID: 5744997100573682953}
   staminaNormalColor: {r: 1, g: 1, b: 1, a: 1}
   staminaPreviewColor: {r: 0.55, g: 0.96, b: 1, a: 1}
-  showHotkeyHints: 1
   targetingPreviewContainer: {fileID: 1686328036961881712}
   targetingPreviewCardUI: {fileID: 4368274481386964654}
   cancelTargetingButton: {fileID: 3517145978372594384}
