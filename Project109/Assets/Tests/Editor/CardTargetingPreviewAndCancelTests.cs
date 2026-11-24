@@ -570,4 +570,99 @@ public class CardTargetingPreviewAndCancelTests
         Assert.AreEqual(normalY, cardAUI.CachedRectTransform.anchoredPosition.y, 0.01f);
         Assert.AreEqual(normalY, cardBUI.CachedRectTransform.anchoredPosition.y, 0.01f);
     }
+
+    [Test]
+    public void BattleUIPanel_TargetingPreviewContainer_IsPositionedLeftOfStaminaBadgeWithoutOverlap()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/BattleUIPanel.prefab");
+        Assert.IsNotNull(prefab);
+
+        BattleUIPanel panel = prefab.GetComponent<BattleUIPanel>();
+        Assert.IsNotNull(panel);
+        Assert.IsNotNull(panel.TargetingPreviewContainer);
+        Assert.IsNotNull(panel.StaminaBadgeContainer);
+
+        RectTransform previewRect = panel.TargetingPreviewContainer.GetComponent<RectTransform>();
+        RectTransform staminaRect = panel.StaminaBadgeContainer.GetComponent<RectTransform>();
+        Assert.IsNotNull(previewRect);
+        Assert.IsNotNull(staminaRect);
+
+        float previewRightX = previewRect.anchoredPosition.x + previewRect.sizeDelta.x * (1f - previewRect.pivot.x);
+        float staminaLeftX = staminaRect.anchoredPosition.x - staminaRect.sizeDelta.x * staminaRect.pivot.x;
+
+        Assert.Less(
+            previewRightX,
+            staminaLeftX,
+            $"타깃팅 카드 프리뷰 우측 끝({previewRightX})이 스태미나 배지 좌측 끝({staminaLeftX})보다 왼쪽에 배치되어야 합니다.");
+    }
+
+    [Test]
+    public void SingleEnemyTargeting_WhenPlayerColliderOccludesEnemy_IgnoresPlayerAndSelectsEnemy()
+    {
+        GameMap gameMap = CreateTestGameMap(6, 6);
+        Tile playerTile = gameMap.GetTile(2, 2);
+        Tile enemyTile = gameMap.GetTile(3, 3);
+
+        Character playerChar = CreateTestCharacter("PlayerChar", CharacterFaction.Player, playerTile);
+        Character enemyChar = CreateTestCharacter("EnemyChar", CharacterFaction.Enemy, enemyTile);
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        int enemyLayer = LayerMask.NameToLayer("Enemy");
+        if (playerLayer >= 0) playerChar.gameObject.layer = playerLayer;
+        if (enemyLayer >= 0) enemyChar.gameObject.layer = enemyLayer;
+
+        BoxCollider playerCol = playerChar.gameObject.AddComponent<BoxCollider>();
+        playerCol.isTrigger = true;
+        playerCol.center = new Vector3(0f, 0.8f, 0f);
+        playerCol.size = new Vector3(1.2f, 1.8f, 1.2f);
+
+        BoxCollider enemyCol = enemyChar.gameObject.AddComponent<BoxCollider>();
+        enemyCol.isTrigger = true;
+        enemyCol.center = new Vector3(0f, 0.8f, 0f);
+        enemyCol.size = new Vector3(1.0f, 1.5f, 0.8f);
+
+        Physics.SyncTransforms();
+
+        // 플레이어 콜라이더가 적 콜라이더를 정면으로 가리는 시선(카메라 -> 플레이어 -> 적 일직선) 배치
+        Camera cam = CreateTestMainCamera(playerTile.transform.position);
+        Vector3 enemyCenter = enemyTile.transform.position + new Vector3(0f, 0.8f, 0f);
+        Vector3 playerCenter = playerTile.transform.position + new Vector3(0f, 0.8f, 0f);
+        Vector3 camDir = (playerCenter - enemyCenter).normalized;
+        cam.orthographic = false;
+        cam.transform.position = playerCenter + camDir * 4f;
+        cam.transform.LookAt(enemyCenter);
+
+        Player player = new Player(playerChar);
+        player.InitBattleDeck();
+        _createdPlayers.Add(player);
+        PlayerBattleController controller = new PlayerBattleController(player);
+        _createdControllers.Add(controller);
+
+        GameObject runGo = Track(new GameObject("TestRunManager"));
+        RunManager runManager = runGo.AddComponent<RunManager>();
+        SetStaticAutoProperty<RunManager>("instance", runManager);
+
+        BattleManager battleManager = new BattleManager();
+        battleManager.Initialize();
+        _createdBattleManagers.Add(battleManager);
+        typeof(RunManager).GetProperty("battleManager", BindingFlags.Instance | BindingFlags.Public).SetValue(runManager, battleManager);
+        battleManager.AddCombatant(controller, true);
+        battleManager.AddCombatant(new StubEnemyController(enemyChar), false);
+        typeof(BattleManager).GetProperty("battleState", BindingFlags.Instance | BindingFlags.Public).SetValue(battleManager, BattleState.TurnInProgress);
+        typeof(BattleManager).GetProperty("currentTurnController", BindingFlags.Instance | BindingFlags.Public).SetValue(battleManager, controller);
+
+        Card chargeCard = CreateTestCard("돌진", "Enemy", minDistance: 1, maxDistance: 2);
+        controller.TryUseCard(chargeCard);
+        Assert.AreEqual(PlayerControlState.TargetSelection, controller.controlState);
+
+        // 플레이어 콜라이더와 적 콜라이더가 겹치는 스크린 좌표를 클릭
+        Vector2 occludedScreenPos = cam.WorldToScreenPoint(enemyCenter);
+        InvokePrivateMethod(controller, "HandleGlobalClick", occludedScreenPos);
+
+        Assert.AreEqual(
+            PlayerControlState.Normal,
+            controller.controlState,
+            "적 지정 카드에서 카메라 앞쪽 플레이어 콜라이더에 가려진 대각선 사거리 내 적을 정상 지정할 수 있어야 합니다.");
+        Assert.IsNull(controller.ActiveTargetingCard);
+    }
 }

@@ -115,6 +115,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private readonly List<Character> _targetingPreviewBuffer = new List<Character>(8);
     private readonly HashSet<Vector2Int> _targetingAoeCoordBuffer = new HashSet<Vector2Int>();
     private readonly List<Character> _appliedWorldTargetingHighlights = new List<Character>(8);
+    private readonly RaycastHit[] _characterRaycastHits = new RaycastHit[16];
     private int _moveRequestToken = 0;
 
     #region Targeting Strategies
@@ -1202,25 +1203,87 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     }
 
     /// <summary>
-    /// 화면 스크린 좌표로부터 캐릭터(플레이어/적) 콜라이더를 우선 레이캐스트하고, 미스 시 타일 점유 캐릭터로 폴백 감지합니다.
+    /// 지정된 타깃팅 타입 기준으로 캐릭터가 레이캐스트/스냅 후보에 부합하는지 판정합니다.
     /// </summary>
-    private Character TryGetCharacterFromScreenPosition(Vector2 pos, Tile fallbackTile)
+    private bool IsCharacterEligibleForScreenSnap(Character candidate, TargetType? filterTargetType)
+    {
+        if (candidate == null || candidate.isDead)
+        {
+            return false;
+        }
+
+        if (!filterTargetType.HasValue)
+        {
+            return true;
+        }
+
+        switch (filterTargetType.Value)
+        {
+            case TargetType.SingleEnemy:
+            case TargetType.MultiEnemy:
+                return IsCharacterMatchingTargetType(candidate, isFriendlyTarget: false);
+
+            case TargetType.SingleAlly:
+                return IsCharacterMatchingTargetType(candidate, isFriendlyTarget: true);
+
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// 화면 스크린 좌표로부터 캐릭터(플레이어/적) 콜라이더를 우선 레이캐스트하고, 미스 시 타일 점유 캐릭터로 폴백 감지합니다.
+    /// 적 지정형 타깃팅 중 카메라 앞쪽의 플레이어/아군 콜라이더가 뒤편 적을 가리는 경우를 방지하기 위해 RaycastNonAlloc으로 유효 대상만 필터링합니다.
+    /// </summary>
+    private Character TryGetCharacterFromScreenPosition(Vector2 pos, Tile fallbackTile, TargetType? filterTargetType = null)
     {
         if (Camera.main != null)
         {
             Ray ray = Camera.main.ScreenPointToRay(pos);
-            int charMask = LayerMask.GetMask("Player", "Enemy");
-            if (charMask != 0 && Physics.Raycast(ray, out RaycastHit hit, 10000f, charMask, QueryTriggerInteraction.Collide))
+            int charMask;
+            if (filterTargetType == TargetType.SingleEnemy || filterTargetType == TargetType.MultiEnemy)
             {
-                Character hitChar = hit.collider.GetComponentInParent<Character>();
-                if (hitChar != null && !hitChar.isDead)
+                charMask = LayerMask.GetMask("Enemy");
+                if (charMask == 0)
                 {
-                    return hitChar;
+                    charMask = LayerMask.GetMask("Player", "Enemy");
+                }
+            }
+            else
+            {
+                charMask = LayerMask.GetMask("Player", "Enemy");
+            }
+
+            if (charMask != 0)
+            {
+                int hitCount = Physics.RaycastNonAlloc(ray, _characterRaycastHits, 10000f, charMask, QueryTriggerInteraction.Collide);
+                Character closestChar = null;
+                float closestDistance = float.MaxValue;
+
+                for (int i = 0; i < hitCount; i++)
+                {
+                    Collider hitCollider = _characterRaycastHits[i].collider;
+                    if (hitCollider == null) continue;
+
+                    Character hitChar = hitCollider.GetComponentInParent<Character>();
+                    if (!IsCharacterEligibleForScreenSnap(hitChar, filterTargetType)) continue;
+
+                    float dist = _characterRaycastHits[i].distance;
+                    if (dist < closestDistance)
+                    {
+                        closestDistance = dist;
+                        closestChar = hitChar;
+                    }
+                }
+
+                if (closestChar != null)
+                {
+                    return closestChar;
                 }
             }
         }
 
-        if (fallbackTile != null && fallbackTile.occupyingCharacter != null && !fallbackTile.occupyingCharacter.isDead)
+        if (fallbackTile != null && IsCharacterEligibleForScreenSnap(fallbackTile.occupyingCharacter, filterTargetType))
         {
             return fallbackTile.occupyingCharacter;
         }
@@ -1280,8 +1343,11 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     private Tile ResolveTargetingTileWithCharacterSnap(Vector2 screenPos, Tile rayTile, TargetType targetType, out Character directChar)
     {
-        directChar = TryGetCharacterFromScreenPosition(screenPos, rayTile);
-        if ((targetType == TargetType.SingleEnemy || targetType == TargetType.MultiEnemy || targetType == TargetType.SingleAlly)
+        bool shouldFilterSnap = targetType == TargetType.SingleEnemy
+            || targetType == TargetType.MultiEnemy
+            || targetType == TargetType.SingleAlly;
+        directChar = TryGetCharacterFromScreenPosition(screenPos, rayTile, shouldFilterSnap ? targetType : (TargetType?)null);
+        if (shouldFilterSnap
             && directChar != null
             && !directChar.isDead
             && directChar.characterMove != null)

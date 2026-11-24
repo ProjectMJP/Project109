@@ -383,7 +383,7 @@ public static class SetupBattleUIPanelPrefab
         tcRect.anchorMin = new Vector2(1f, 0f);
         tcRect.anchorMax = new Vector2(1f, 0f);
         tcRect.pivot = new Vector2(1f, 0f);
-        tcRect.anchoredPosition = new Vector2(-16f, 192f);
+        tcRect.anchoredPosition = new Vector2(-146f, 192f);
         tcRect.sizeDelta = new Vector2(180f, 330f);
 
         Image tcBg = GetOrAddComponent<Image>(targetingContainerObj);
