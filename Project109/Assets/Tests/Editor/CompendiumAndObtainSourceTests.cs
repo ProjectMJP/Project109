@@ -692,6 +692,91 @@ public class CompendiumAndObtainSourceTests
         Assert.AreEqual(new Vector2(460f, 520f), windowFrame.sizeDelta, "패널 닫기 시 WindowFrame이 460x520으로 복원되어야 합니다.");
     }
 
+    [Test]
+    public void CardDeckCanvas_CloseButton_MatchesShopExitButtonPositionWithoutOverlap()
+    {
+        GameObject deckPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/CardDeckCanvas.prefab");
+        GameObject shopPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/NPC/ShopUI/ShopNPCUI.prefab");
+        Assert.IsNotNull(deckPrefab, "CardDeckCanvas.prefab을 찾을 수 없습니다.");
+        Assert.IsNotNull(shopPrefab, "ShopNPCUI.prefab을 찾을 수 없습니다.");
+
+        Transform deckCloseTr = deckPrefab.transform.Find("CloseUI Button");
+        Transform shopCloseTr = shopPrefab.transform.Find("CloseUIButton");
+        Assert.IsNotNull(deckCloseTr, "CardDeckCanvas에서 'CloseUI Button'을 찾을 수 없습니다.");
+        Assert.IsNotNull(shopCloseTr, "ShopNPCUI에서 'CloseUIButton'을 찾을 수 없습니다.");
+
+        RectTransform deckCloseRectPrefab = deckCloseTr as RectTransform;
+        RectTransform shopCloseRectPrefab = shopCloseTr as RectTransform;
+        Assert.IsNotNull(deckCloseRectPrefab);
+        Assert.IsNotNull(shopCloseRectPrefab);
+
+        Assert.AreEqual(shopCloseRectPrefab.anchorMin, deckCloseRectPrefab.anchorMin);
+        Assert.AreEqual(shopCloseRectPrefab.anchorMax, deckCloseRectPrefab.anchorMax);
+        Assert.AreEqual(shopCloseRectPrefab.pivot, deckCloseRectPrefab.pivot);
+        Assert.AreEqual(shopCloseRectPrefab.anchoredPosition, deckCloseRectPrefab.anchoredPosition);
+        Assert.AreEqual(shopCloseRectPrefab.sizeDelta, deckCloseRectPrefab.sizeDelta);
+
+        Button deckCloseButton = deckCloseTr.GetComponent<Button>();
+        Assert.IsNotNull(deckCloseButton);
+        Assert.AreEqual(0, deckCloseButton.onClick.GetPersistentEventCount(), "인스펙터 중복 Persistent onClick 리스너는 제거되어야 합니다.");
+
+        TextMeshProUGUI deckCloseLabel = deckCloseTr.GetComponentInChildren<TextMeshProUGUI>(true);
+        Assert.IsNotNull(deckCloseLabel);
+        Assert.AreEqual("나가기", deckCloseLabel.text);
+
+        Vector2[] resolutions = { new Vector2(1920f, 1080f), new Vector2(2560f, 1440f) };
+        for (int i = 0; i < resolutions.Length; i++)
+        {
+            Vector2 res = resolutions[i];
+            GameObject canvasGo = Track(new GameObject($"DeckExitLayoutCanvas_{res.x}x{res.y}", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster)));
+            Canvas canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            RectTransform canvasRect = canvasGo.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = res;
+
+            GameObject deckGo = Track(UnityEngine.Object.Instantiate(deckPrefab, canvasGo.transform, false));
+            CardDeckViewPanel deckPanel = deckGo.GetComponent<CardDeckViewPanel>();
+            Assert.IsNotNull(deckPanel);
+
+            Card card = CreateTestCard($"c_exit_{i}", "테스트", CardRarity.Common, 30, "Attack", ItemObtainSource.Standard, "Warrior");
+            LogAssert.Expect(LogType.Error, "[CardDeckViewPanel] ObjectPoolManager is not initialized.");
+            deckPanel.Open("전체 덱", new List<Card> { card }, CardViewMode.ViewOnly);
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+
+            RectTransform closeRect = deckGo.transform.Find("CloseUI Button") as RectTransform;
+            RectTransform barRect = deckGo.transform.Find("FilterSortBar") as RectTransform;
+            RectTransform contentRect = deckGo.transform.Find("CardList/Viewport/Content") as RectTransform;
+            Assert.IsNotNull(closeRect);
+            Assert.IsNotNull(barRect);
+            Assert.IsNotNull(contentRect);
+
+            Assert.GreaterOrEqual(GetMinX(closeRect), 0f);
+            Assert.LessOrEqual(GetMaxX(closeRect), res.x);
+            Assert.GreaterOrEqual(GetMinY(closeRect), 0f);
+            Assert.LessOrEqual(GetMaxY(closeRect), GetMinY(barRect), $"{res.x}x{res.y}에서 나가기 버튼이 FilterSortBar와 겹치면 안 됩니다.");
+            Assert.GreaterOrEqual(GetMinX(closeRect), GetMaxX(contentRect), $"{res.x}x{res.y}에서 나가기 버튼이 카드 그리드 영역과 겹치면 안 됩니다.");
+        }
+    }
+
+    private static float GetMinX(RectTransform rect)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        return Mathf.Min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+    }
+
+    private static float GetMaxX(RectTransform rect)
+    {
+        Vector3[] corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        return Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+    }
+
     private static float GetMinY(RectTransform rect)
     {
         Vector3[] corners = new Vector3[4];
