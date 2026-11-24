@@ -724,4 +724,66 @@ public class MoveModeContinuousTests
             playerChar.eventBus.Remove<IOnBeforeMove>(syncCanceler);
         }
     }
+
+    [Test]
+    public void GetReachableTiles_BlockedByLivingEnemy_ExcludesDetourExceedingRangeAndIncludesWithinRange()
+    {
+        GameMap gameMap = CreateTestGameMap(5, 5);
+        Tile startTile = gameMap.GetTile(0, 2);
+        Tile enemyTile = gameMap.GetTile(1, 2);
+
+        Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, startTile, moveRange: 3);
+        Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, enemyTile, moveRange: 2);
+
+        List<Tile> reachableTiles = new List<Tile>(32);
+        gameMap.GetReachableTiles(startTile, 3, playerChar.characterMove, reachableTiles);
+
+        Assert.IsFalse(reachableTiles.Contains(enemyTile), "살아있는 적이 점유한 타일은 이동 가능 범위에 포함되면 안 됩니다.");
+        Assert.IsFalse(reachableTiles.Contains(gameMap.GetTile(2, 2)), "우회 거리 4인 (2,2)는 이동력 3으로 도달 불가여야 합니다.");
+        Assert.IsFalse(reachableTiles.Contains(gameMap.GetTile(3, 2)), "우회 거리 5인 (3,2)는 이동력 3으로 도달 불가여야 합니다.");
+        Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 3)), "우회 거리 3인 (2,3)은 이동 가능해야 합니다.");
+        Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 1)), "우회 거리 3인 (2,1)은 이동 가능해야 합니다.");
+
+        enemyChar.isDead = true;
+        gameMap.GetReachableTiles(startTile, 3, playerChar.characterMove, reachableTiles);
+
+        Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 2)), "사망한 적 타일은 통과 가능하므로 (2,2)에 도달 가능해야 합니다.");
+        Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(3, 2)), "사망한 적 타일은 통과 가능하므로 (3,2)에 도달 가능해야 합니다.");
+    }
+
+    [Test]
+    public void ExecuteMoveToTile_WhenDetourExceedsMoveRangeOrTargetBlocked_RejectsMoveAndPreservesState()
+    {
+        GameMap gameMap = CreateTestGameMap(5, 5);
+        Tile startTile = gameMap.GetTile(0, 2);
+        Tile blockerTile = gameMap.GetTile(1, 2);
+        Tile detourTargetTile = gameMap.GetTile(3, 2);
+        Tile occupiedTargetTile = gameMap.GetTile(0, 3);
+
+        Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, startTile, moveRange: 3);
+        PlayerBattleMove playerMove = new PlayerBattleMove(playerChar.characterMove);
+
+        // 장애물/적이 없는 상태에서 이동 가능 타일 목록을 먼저 캐시 (detourTargetTile, occupiedTargetTile 포함)
+        playerMove.CheckCanMoveTiles();
+        Assert.IsTrue(playerMove.canMoveTiles.Contains(detourTargetTile));
+        Assert.IsTrue(playerMove.canMoveTiles.Contains(occupiedTargetTile));
+
+        // 직선 경로를 막는 적 배치 -> 실제 우회 경로 길이는 5로 curMoveRange(3) 초과
+        CreateTestCharacter("BlockerEnemy", CharacterFaction.Enemy, blockerTile, moveRange: 2);
+        bool detourStarted = playerMove.ExecuteMoveToTile(detourTargetTile);
+
+        Assert.IsFalse(detourStarted, "실제 우회 경로 길이가 curMoveRange를 초과하면 이동이 거부되어야 합니다.");
+        Assert.AreEqual(3, playerChar.curMoveRange);
+        Assert.AreEqual(CharacterState.Idle, playerChar.currentState);
+        Assert.AreSame(startTile, playerChar.characterMove.GetCurrentTile());
+
+        // 캐시된 목표 타일에 다른 생존 유닛이 들어온 경우에도 진입 거부 검증
+        CreateTestCharacter("TargetOccupantEnemy", CharacterFaction.Enemy, occupiedTargetTile, moveRange: 2);
+        bool occupiedStarted = playerMove.ExecuteMoveToTile(occupiedTargetTile);
+
+        Assert.IsFalse(occupiedStarted, "목표 타일이 생존 유닛에 의해 점유된 경우 이동이 거부되어야 합니다.");
+        Assert.AreEqual(3, playerChar.curMoveRange);
+        Assert.AreEqual(CharacterState.Idle, playerChar.currentState);
+        Assert.AreSame(startTile, playerChar.characterMove.GetCurrentTile());
+    }
 }

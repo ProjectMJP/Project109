@@ -95,6 +95,12 @@ public class PlayerBattleMove
                 return false;
             }
 
+            if (!targetTile.CanEnter(characterMove))
+            {
+                Debug.LogWarning("[PlayerBattleMove] 목표 타일에 진입할 수 없습니다.");
+                return false;
+            }
+
             Debug.Log("[PlayerBattleMove] 이동 목표 타일: " + targetTile.GetCoordToString());
 
             // 1. 경로 탐색 및 실제 이동 명령
@@ -109,6 +115,12 @@ public class PlayerBattleMove
                 List<Tile> movePath = gameMap.FindPath(startTile, targetTile, caps);
                 if (movePath != null && movePath.Count > 0)
                 {
+                    if (characterMove.character != null && movePath.Count > characterMove.character.curMoveRange)
+                    {
+                        Debug.LogWarning($"[PlayerBattleMove] 실제 경로 거리({movePath.Count})가 남은 이동력({characterMove.character.curMoveRange})을 초과하여 이동할 수 없습니다.");
+                        return false;
+                    }
+
                     // 전투 이동 거리 차감 (실제 이동한 타일 수만큼 차감)
                     if (characterMove.character != null)
                     {

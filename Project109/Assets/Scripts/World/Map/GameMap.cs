@@ -438,6 +438,13 @@ public class GameMap : MonoBehaviour
                             if ((mover.capabilities & MoverCapability.PassObstacles) == 0) continue;
                         }
 
+                        // 다른 살아있는 유닛이 점유 중인 타일은 통과 및 BFS 전파 모두 차단 (우회 거리 정확도 보장)
+                        if (nextTile.occupyingCharacter != null && !nextTile.occupyingCharacter.isDead &&
+                            nextTile.occupyingCharacter != mover.character)
+                        {
+                            continue;
+                        }
+
                         _bfsVisited.Add(nextTile);
                         nextQueue.Enqueue(nextTile);
 
