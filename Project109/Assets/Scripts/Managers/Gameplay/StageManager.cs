@@ -188,6 +188,10 @@ public class StageManager : IInitializable, System.IDisposable
 
         // 1. 바닥 타일 및 이동 인디케이터 생성 (기존 타일/자식 정리 후 새로 생성)
         currentGameMap.TileCreateByMapData(currentMapData);
+        if (PlayerInputController.HasInstance)
+        {
+            PlayerInputController.instance.SetCameraPanRayValidator(currentGameMap.ValidateCameraPanRay);
+        }
 
         spawnEnemyCells.Clear();
         spawnPlayerCells.Clear();
@@ -539,15 +543,20 @@ public class StageManager : IInitializable, System.IDisposable
             }
         }
 
-        // 카메라를 새로운 스테이지의 플레이어 위치로 이동/포커싱
-        if (CameraController.instance != null)
+        // 카메라를 새로운 스테이지의 플레이어 위치로 이동/포커싱 (Input 이벤트 경유)
+        bool focusedViaInput = PlayerInputController.HasInstance &&
+                               PlayerInputController.instance.RequestCameraFocus(worldPos);
+        if (!focusedViaInput)
         {
-            CameraController.instance.CameraFocusToTarget(worldPos);
-        }
-        else if (Camera.main != null)
-        {
-            Vector3 camPos = Camera.main.transform.position;
-            Camera.main.transform.position = new Vector3(worldPos.x, camPos.y, worldPos.z - 7f);
+            if (CameraController.instance != null)
+            {
+                CameraController.instance.CameraFocusToTarget(worldPos);
+            }
+            else if (Camera.main != null)
+            {
+                Vector3 camPos = Camera.main.transform.position;
+                Camera.main.transform.position = new Vector3(worldPos.x, camPos.y, worldPos.z - 7f);
+            }
         }
     }
 
@@ -835,6 +844,10 @@ public class StageManager : IInitializable, System.IDisposable
         // GameMap 게임오브젝트를 파괴하지 않고 타일들만 정리하여 인스턴스를 재사용합니다.
         if (currentGameMap != null)
         {
+            if (PlayerInputController.HasInstance)
+            {
+                PlayerInputController.instance.ClearCameraPanRayValidator(currentGameMap.ValidateCameraPanRay);
+            }
             currentGameMap.ClearTiles();
         }
     }

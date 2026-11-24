@@ -102,10 +102,13 @@ public class RunManager : MonoBehaviour
         }
         OnRunLocationChanged?.Invoke();
 
-        // 2. 리워드 매니저 아이템 목록 동기화
-        if (GameItemRewardManager.instance != null)
+        // 2. 리워드 매니저 정적 데이터베이스 주입 및 아이템 목록 동기화
+        if (GameItemRewardManager.instance != null && ModLoader.Instance != null)
         {
-            GameItemRewardManager.instance.UpdateItemList();
+            GameItemRewardManager.instance.InitializeDatabases(
+                ModLoader.Instance.CardDatabase,
+                ModLoader.Instance.RelicDatabase,
+                ModLoader.Instance.DropTableDatabase);
         }
     }
 

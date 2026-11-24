@@ -111,7 +111,7 @@ public class StarterKitData : IModAssetResolver, IIdentifiable
     [YamlIgnore]
     public string LocalizedDisplayName => LocalizationManager.GetOrDefault(displayName, displayName);
 
-    public bool ResolveAndValidate(string modDirectory)
+    public bool ResolveAndValidate(string modDirectory, XLua.LuaEnv luaEnv = null)
     {
         weaponSprite = null;
 

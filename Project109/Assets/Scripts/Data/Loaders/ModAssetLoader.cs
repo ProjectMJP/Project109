@@ -45,7 +45,7 @@ public static class ModAssetLoader
     }
 
     /// <summary>
-    /// 지정된 경로의 Lua 스크립트를 실행하여 프로토타입 LuaTable을 획득하고,
+    /// 지정된 경로의 Lua 스크립트를 주입된 LuaEnv에서 실행하여 프로토타입 LuaTable을 획득하고,
     /// 전역 네임스페이스 오염을 방지하기 위해 임시 전역 변수를 정리합니다.
     /// </summary>
     public static bool TryLoadLuaPrototype(
@@ -54,6 +54,7 @@ public static class ModAssetLoader
         string logContext,
         string[] fallbackGlobalKeys,
         string requiredFunctionWarningName,
+        LuaEnv env,
         out LuaTable prototype)
     {
         prototype = null;
@@ -64,13 +65,11 @@ public static class ModAssetLoader
             return false;
         }
 
-        if (LuaManager.Instance == null || LuaManager.Instance.luaEnv == null)
+        if (env == null || env.rawL == IntPtr.Zero)
         {
-            Debug.LogError($"[{logContext}: {itemId}] LuaManager.Instance 또는 luaEnv가 초기화되지 않았습니다.");
+            Debug.LogError($"[{logContext}: {itemId}] 주입된 LuaEnv가 유효하지 않습니다.");
             return false;
         }
-
-        LuaEnv env = LuaManager.Instance.luaEnv;
 
         try
         {

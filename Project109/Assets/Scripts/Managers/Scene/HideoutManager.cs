@@ -80,6 +80,10 @@ public class HideoutManager : MonoBehaviour
 
         // 2. 바닥 타일 생성
         currentGameMap.TileCreateByMapData(_hideoutMapData);
+        if (PlayerInputController.HasInstance)
+        {
+            PlayerInputController.instance.SetCameraPanRayValidator(currentGameMap.ValidateCameraPanRay);
+        }
 
         // 3. 셀 데이터 순회하며 지형/오브젝트 스폰 및 이벤트 셀 탐색
         _spawnedObjects.Clear();
@@ -189,16 +193,21 @@ public class HideoutManager : MonoBehaviour
         playerExploreController = new PlayerExploreController(player);
         playerExploreController.Activate();
 
-        // 카메라 포커스 이동
-        if (CameraController.instance != null)
+        // 카메라 포커스 이동 (Input 이벤트 경유)
+        bool focusedViaInput = PlayerInputController.HasInstance &&
+                               PlayerInputController.instance.RequestCameraFocus(spawnWorldPos);
+        if (!focusedViaInput)
         {
-            CameraController.instance.CameraFocusToTarget(spawnWorldPos);
-        }
-        else if (Camera.main != null)
-        {
-            // CameraController가 없거나 초기화 전인 경우 메인 카메라를 플레이어 위치로 즉시 이동
-            Vector3 camPos = Camera.main.transform.position;
-            Camera.main.transform.position = new Vector3(spawnWorldPos.x, camPos.y, spawnWorldPos.z - 7f);
+            if (CameraController.instance != null)
+            {
+                CameraController.instance.CameraFocusToTarget(spawnWorldPos);
+            }
+            else if (Camera.main != null)
+            {
+                // CameraController가 없거나 초기화 전인 경우 메인 카메라를 플레이어 위치로 즉시 이동
+                Vector3 camPos = Camera.main.transform.position;
+                Camera.main.transform.position = new Vector3(spawnWorldPos.x, camPos.y, spawnWorldPos.z - 7f);
+            }
         }
 
         Debug.Log($"[HideoutManager] 플레이어가 은신처 스폰 좌표({spawnCoord})로 배치 및 ExploreController 활성화 완료.");
@@ -219,6 +228,10 @@ public class HideoutManager : MonoBehaviour
 
         if (currentGameMap != null)
         {
+            if (PlayerInputController.HasInstance)
+            {
+                PlayerInputController.instance.ClearCameraPanRayValidator(currentGameMap.ValidateCameraPanRay);
+            }
             Destroy(currentGameMap.gameObject);
             currentGameMap = null;
         }

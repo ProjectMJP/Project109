@@ -11,13 +11,34 @@ public class GameItemRewardManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(this.gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(this.gameObject);
+            }
         }
-        else
+        else if (instance != this)
         {
             Destroy(this.gameObject);
         }
     }
+
+    private void OnDestroy()
+    {
+        if (instance == this)
+        {
+            instance = null;
+        }
+    }
+
+    // 초기화 시점 외부 주입 정적 데이터베이스 참조
+    private IReadOnlyDictionary<string, CardData> _cardDatabase;
+    private IReadOnlyDictionary<string, RelicData> _relicDatabase;
+    private IReadOnlyDictionary<string, DropTableData> _dropTableDatabase;
+
+    /// <summary>
+    /// 외부 오케스트레이터로부터 데이터베이스가 주입되었는지 여부입니다.
+    /// </summary>
+    public bool IsDatabasesInitialized => _cardDatabase != null && _relicDatabase != null;
 
     // Cards
     private List<CardData> commonCardList = new List<CardData>();
@@ -64,6 +85,20 @@ public class GameItemRewardManager : MonoBehaviour
                 (relic.obtainSource == ItemObtainSource.BossOnly && relic.rarity == RelicRarity.Boss));
     }
 
+    /// <summary>
+    /// 카드·유물·드롭테이블 정적 데이터베이스 참조를 외부에서 주입하고 등급별 추첨 풀을 동기화합니다.
+    /// </summary>
+    public void InitializeDatabases(
+        IReadOnlyDictionary<string, CardData> cardDatabase,
+        IReadOnlyDictionary<string, RelicData> relicDatabase,
+        IReadOnlyDictionary<string, DropTableData> dropTableDatabase = null)
+    {
+        _cardDatabase = cardDatabase;
+        _relicDatabase = relicDatabase;
+        _dropTableDatabase = dropTableDatabase;
+        UpdateItemList();
+    }
+
     public void UpdateItemList()
     {
         // 이전 목록 비우기 (누적 증식 방지)
@@ -77,9 +112,9 @@ public class GameItemRewardManager : MonoBehaviour
         uniqueRelicList.Clear();
         bossRelicList.Clear();
 
-        if (ModLoader.Instance != null && ModLoader.Instance.CardDatabase != null)
+        if (_cardDatabase != null)
         {
-            foreach (CardData data in ModLoader.Instance.CardDatabase.Values)
+            foreach (CardData data in _cardDatabase.Values)
             {
                 if (!IsCardObtainableInRandomPool(data))
                 {
@@ -104,9 +139,9 @@ public class GameItemRewardManager : MonoBehaviour
             }
         }
 
-        if (ModLoader.Instance != null && ModLoader.Instance.RelicDatabase != null)
+        if (_relicDatabase != null)
         {
-            foreach (RelicData data in ModLoader.Instance.RelicDatabase.Values)
+            foreach (RelicData data in _relicDatabase.Values)
             {
                 if (!IsRelicObtainableInRandomPool(data))
                 {
@@ -134,8 +169,7 @@ public class GameItemRewardManager : MonoBehaviour
 
     public CardData GetRandomCardDataByDropTable(string dropTableID)
     {
-        var cardDatabase = ModLoader.Instance != null ? ModLoader.Instance.CardDatabase : null;
-        if (TryResolveDropTableAndSpecific(dropTableID, cardDatabase, out DropTableData dropTable, out CardData specificCard))
+        if (TryResolveDropTableAndSpecific(dropTableID, _cardDatabase, out DropTableData dropTable, out CardData specificCard))
         {
             return specificCard;
         }
@@ -145,9 +179,9 @@ public class GameItemRewardManager : MonoBehaviour
         _filteredRareCards.Clear();
         _filteredUniqueCards.Clear();
 
-        if (cardDatabase != null)
+        if (_cardDatabase != null)
         {
-            foreach (var card in cardDatabase.Values)
+            foreach (var card in _cardDatabase.Values)
             {
                 if (!IsCardObtainableInRandomPool(card)) continue;
                 if (!PassesDropTableFilter(card.cardName, card.classTypes, dropTable)) continue;
@@ -192,8 +226,7 @@ public class GameItemRewardManager : MonoBehaviour
 
     public RelicData GetRandomRelicDataByDropTable(string dropTableID)
     {
-        var relicDatabase = ModLoader.Instance != null ? ModLoader.Instance.RelicDatabase : null;
-        if (TryResolveDropTableAndSpecific(dropTableID, relicDatabase, out DropTableData dropTable, out RelicData specificRelic))
+        if (TryResolveDropTableAndSpecific(dropTableID, _relicDatabase, out DropTableData dropTable, out RelicData specificRelic))
         {
             return specificRelic;
         }
@@ -204,9 +237,9 @@ public class GameItemRewardManager : MonoBehaviour
         _filteredBossRelics.Clear();
         RefreshOwnedRelicCache();
 
-        if (relicDatabase != null)
+        if (_relicDatabase != null)
         {
-            foreach (var relic in relicDatabase.Values)
+            foreach (var relic in _relicDatabase.Values)
             {
                 if (!IsRelicObtainableInRandomPool(relic)) continue;
                 if (_ownedRelicNameSet.Contains(relic.relicName)) continue;
@@ -260,18 +293,18 @@ public class GameItemRewardManager : MonoBehaviour
         }
     }
 
-    private static bool TryResolveDropTableAndSpecific<T>(
+    private bool TryResolveDropTableAndSpecific<T>(
         string dropTableID,
-        Dictionary<string, T> database,
+        IReadOnlyDictionary<string, T> database,
         out DropTableData dropTable,
         out T specificItem) where T : class
     {
         dropTable = null;
         specificItem = null;
 
-        if (ModLoader.Instance != null && !string.IsNullOrEmpty(dropTableID))
+        if (_dropTableDatabase != null && !string.IsNullOrEmpty(dropTableID))
         {
-            ModLoader.Instance.DropTableDatabase.TryGetValue(dropTableID, out dropTable);
+            _dropTableDatabase.TryGetValue(dropTableID, out dropTable);
         }
 
         if (dropTable != null && dropTable.specificItemIDs != null && dropTable.specificItemIDs.Count > 0 && database != null)
@@ -387,30 +420,30 @@ public class GameItemRewardManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 카드 ID(cardName)로 ModLoader.CardDatabase에서 CardData를 조회합니다.
+    /// 카드 ID(cardName)로 주입된 CardDatabase에서 CardData를 조회합니다.
     /// </summary>
     public CardData GetCardDataByName(string cardName)
     {
-        if (string.IsNullOrEmpty(cardName) || ModLoader.Instance == null || ModLoader.Instance.CardDatabase == null)
+        if (string.IsNullOrEmpty(cardName) || _cardDatabase == null)
         {
             return null;
         }
 
-        ModLoader.Instance.CardDatabase.TryGetValue(cardName, out CardData cardData);
+        _cardDatabase.TryGetValue(cardName, out CardData cardData);
         return cardData;
     }
 
     /// <summary>
-    /// 유물 ID(relicName)로 ModLoader.RelicDatabase에서 RelicData를 조회합니다.
+    /// 유물 ID(relicName)로 주입된 RelicDatabase에서 RelicData를 조회합니다.
     /// </summary>
     public RelicData GetRelicDataByName(string relicName)
     {
-        if (string.IsNullOrEmpty(relicName) || ModLoader.Instance == null || ModLoader.Instance.RelicDatabase == null)
+        if (string.IsNullOrEmpty(relicName) || _relicDatabase == null)
         {
             return null;
         }
 
-        ModLoader.Instance.RelicDatabase.TryGetValue(relicName, out RelicData relicData);
+        _relicDatabase.TryGetValue(relicName, out RelicData relicData);
         return relicData;
     }
 

@@ -215,16 +215,9 @@ public class Card : IDescribable, ILuaOwnedResource
     /// </summary>
     public Card Clone(Character newOwner = null, int? newRuntimeID = null)
     {
-        // 1. 새로운 Lua 인스턴스 생성
-        LuaTable luaInstance = null;
-        if (cardData != null && cardData.luaPrototype != null)
-        {
-            if (LuaManager.Instance != null) luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
-        }
-
-        // 2. Card 인스턴스 생성 (식별자 충돌 방지를 위해 newRuntimeID가 지정되지 않으면 음수 전역 고유 시퀀스 ID 자동 순차 발급)
+        // 1. Card 및 새로운 Lua 인스턴스 생성 (식별자 충돌 방지를 위해 newRuntimeID가 지정되지 않으면 음수 전역 고유 시퀀스 ID 자동 순차 발급)
         int id = newRuntimeID ?? System.Threading.Interlocked.Decrement(ref nextTemporaryRuntimeID);
-        Card clonedCard = new Card(cardData, newOwner ?? this.owner, luaInstance, id);
+        Card clonedCard = ModObjectFactory.CreateCard(cardData, newOwner ?? this.owner, id);
 
         // 3. 마스터리 공유 상태 참조 복사
         clonedCard.masteryState = this.masteryState;

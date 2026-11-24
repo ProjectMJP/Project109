@@ -197,9 +197,9 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
                     characterMove.LookAtTile(npcTile);
                 }
 
-                if (interactable.RequiresCameraFocus && CameraController.instance != null)
+                if (interactable.RequiresCameraFocus && PlayerInputController.HasInstance)
                 {
-                    CameraController.instance.CameraFocusToTarget(npcComp.transform.position);
+                    PlayerInputController.instance.RequestCameraFocus(npcComp.transform.position);
                 }
                 interactable.OnInteract();
             });
@@ -208,9 +208,9 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         {
             // 경로가 완전히 막힌(Unreachable) 경우, 멀리서 대화가 가능하도록 원거리 즉시 상호작용 폴백 실행
             characterMove.LookAtTile(npcTile);
-            if (interactable.RequiresCameraFocus && CameraController.instance != null)
+            if (interactable.RequiresCameraFocus && PlayerInputController.HasInstance)
             {
-                CameraController.instance.CameraFocusToTarget(npcComp.transform.position);
+                PlayerInputController.instance.RequestCameraFocus(npcComp.transform.position);
             }
             interactable.OnInteract();
         }

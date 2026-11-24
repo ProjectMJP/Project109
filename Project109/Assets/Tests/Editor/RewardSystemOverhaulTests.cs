@@ -282,7 +282,10 @@ public class RewardSystemOverhaulTests
         GameObject rewardMgrGo = Track(new GameObject("TestGameItemRewardManager"));
         GameItemRewardManager rewardManager = rewardMgrGo.AddComponent<GameItemRewardManager>();
         SetStaticAutoProperty<GameItemRewardManager>("instance", rewardManager);
-        rewardManager.UpdateItemList();
+        rewardManager.InitializeDatabases(
+            ModLoader.Instance.CardDatabase,
+            ModLoader.Instance.RelicDatabase,
+            ModLoader.Instance.DropTableDatabase);
 
         GameObject mapGo = Track(new GameObject("TestGameMap"));
         GameMap gameMap = mapGo.AddComponent<GameMap>();

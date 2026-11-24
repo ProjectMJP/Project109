@@ -224,7 +224,10 @@ public class ShopSystemTests
         GameObject rewardGo = Track(new GameObject("TestGameItemRewardManager"));
         GameItemRewardManager rewardManager = rewardGo.AddComponent<GameItemRewardManager>();
         SetStaticBackingField<GameItemRewardManager>("instance", rewardManager);
-        rewardManager.UpdateItemList();
+        rewardManager.InitializeDatabases(
+            ModLoader.Instance.CardDatabase,
+            ModLoader.Instance.RelicDatabase,
+            ModLoader.Instance.DropTableDatabase);
         return rewardManager;
     }
 

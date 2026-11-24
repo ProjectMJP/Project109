@@ -166,10 +166,10 @@ public class LuaEnvShutdownLifecycleTests
     {
         ModLoader.Instance.LoadAllMods();
 
-        // 1. 모든 CardData의 _dummyInstance 강제 생성
+        // 1. 모든 CardData의 설명 미리보기 Card 인스턴스 강제 생성
         foreach (CardData cardData in ModLoader.Instance.CardDatabase.Values)
         {
-            _ = cardData.GetDescription();
+            _ = ModObjectFactory.GetCardDescription(cardData);
         }
 
         // 2. PauseMenuPanel 카드 도감 캐시 구축

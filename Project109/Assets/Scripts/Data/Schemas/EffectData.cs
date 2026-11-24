@@ -49,11 +49,11 @@ public class EffectData : IModAssetResolver, IIdentifiable
     /// <summary>
     /// 프로토타입 LuaTable 네이티브 참조를 안전하게 해제합니다.
     /// </summary>
-    public void DisposeLuaResources()
+    public void DisposeLuaResources(bool canDisposeLuaNative = true)
     {
         if (luaPrototype != null)
         {
-            if (LuaManager.IsLuaEnvAlive)
+            if (canDisposeLuaNative)
             {
                 luaPrototype.Dispose();
             }
@@ -61,7 +61,7 @@ public class EffectData : IModAssetResolver, IIdentifiable
         }
     }
 
-    public bool ResolveAndValidate(string modDirectory)
+    public bool ResolveAndValidate(string modDirectory, LuaEnv luaEnv = null)
     {
         // 1. 아이콘 스프라이트 링크 (Default.png 폴백 지원)
         ModAssetLoader.TryLoadIconWithFallback(modDirectory, "Effects", effectName, 128, out Sprite sprite);
@@ -69,7 +69,7 @@ public class EffectData : IModAssetResolver, IIdentifiable
 
         // 2. 루아 스크립트 검증 및 사전 로딩 (effectName으로 경로 자동 추론)
         string expectedScriptPath = Path.Combine(modDirectory, "Scripts", "Effects", effectName + ".lua");
-        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, effectName, "EffectData", _luaFallbackGlobals, "OnInit", out LuaTable proto))
+        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, effectName, "EffectData", _luaFallbackGlobals, "OnInit", luaEnv, out LuaTable proto))
         {
             this.luaPrototype = proto;
             return true;

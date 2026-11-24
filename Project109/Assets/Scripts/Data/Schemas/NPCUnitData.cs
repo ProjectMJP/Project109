@@ -33,11 +33,11 @@ public class NPCUnitData : IModAssetResolver, IIdentifiable
     /// <summary>
     /// 프로토타입 LuaTable 네이티브 참조를 안전하게 해제합니다.
     /// </summary>
-    public void DisposeLuaResources()
+    public void DisposeLuaResources(bool canDisposeLuaNative = true)
     {
         if (luaPrototype != null)
         {
-            if (LuaManager.IsLuaEnvAlive)
+            if (canDisposeLuaNative)
             {
                 luaPrototype.Dispose();
             }
@@ -45,7 +45,7 @@ public class NPCUnitData : IModAssetResolver, IIdentifiable
         }
     }
 
-    public bool ResolveAndValidate(string modDirectory)
+    public bool ResolveAndValidate(string modDirectory, LuaEnv luaEnv = null)
     {
         // 루아 스크립트 검증 및 사전 로딩 (NPCs 또는 Enemies 폴더 호환성 지원)
         string expectedScriptPath = Path.Combine(modDirectory, "Scripts", "NPCs", unitId + ".lua");
@@ -56,7 +56,7 @@ public class NPCUnitData : IModAssetResolver, IIdentifiable
 
         if (File.Exists(expectedScriptPath))
         {
-            if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, unitId, "NPCUnitData", _luaFallbackGlobals, null, out LuaTable proto))
+            if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, unitId, "NPCUnitData", _luaFallbackGlobals, null, luaEnv, out LuaTable proto))
             {
                 this.luaPrototype = proto;
                 return true;

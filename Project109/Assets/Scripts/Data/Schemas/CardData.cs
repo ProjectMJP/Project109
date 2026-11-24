@@ -157,42 +157,14 @@ public class CardData : IModAssetResolver, IIdentifiable
     [YamlIgnore]
     public LuaTable luaPrototype { get; set; }
 
-    [YamlIgnore]
-    private Card _dummyInstance;
-
-    public string GetDescription()
-    {
-        if (string.IsNullOrEmpty(LocalizedDescription)) return string.Empty;
-        if (LuaManager.IsShuttingDown || LuaManager.IsDisposing)
-        {
-            return LocalizedDescription;
-        }
-        if (_dummyInstance == null)
-        {
-            LuaTable dummyLua = null;
-            if (luaPrototype != null && LuaManager.Instance != null)
-            {
-                dummyLua = LuaManager.Instance.NewInstance(luaPrototype);
-            }
-            _dummyInstance = new Card(this, null, dummyLua, -1);
-        }
-        return _dummyInstance.GetDescription();
-    }
-
     /// <summary>
-    /// 캐싱된 설명용 더미 카드 인스턴스와 프로토타입 LuaTable 참조를 안전하게 해제합니다.
+    /// 프로토타입 LuaTable 참조를 안전하게 해제합니다.
     /// </summary>
-    public void DisposeLuaResources()
+    public void DisposeLuaResources(bool canDisposeLuaNative = true)
     {
-        if (_dummyInstance != null)
-        {
-            _dummyInstance.Dispose();
-            _dummyInstance = null;
-        }
-
         if (luaPrototype != null)
         {
-            if (LuaManager.IsLuaEnvAlive)
+            if (canDisposeLuaNative)
             {
                 luaPrototype.Dispose();
             }
@@ -223,7 +195,7 @@ public class CardData : IModAssetResolver, IIdentifiable
         }
     }
 
-    public bool ResolveAndValidate(string modDirectory)
+    public bool ResolveAndValidate(string modDirectory, LuaEnv luaEnv = null)
     {
         // 0. 타깃팅 타입 문자열 사전 파싱 및 캐싱
         this.parsedTargetType = ParseTargetType(this.targetType);
@@ -234,7 +206,7 @@ public class CardData : IModAssetResolver, IIdentifiable
 
         // 2. Lua 스크립트 검증 및 사전 로딩 (cardName으로 경로 자동 추론)
         string expectedScriptPath = Path.Combine(modDirectory, "Scripts", "Cards", cardName + ".lua");
-        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, cardName, "CardData", _luaFallbackGlobals, null, out LuaTable proto))
+        if (ModAssetLoader.TryLoadLuaPrototype(expectedScriptPath, cardName, "CardData", _luaFallbackGlobals, null, luaEnv, out LuaTable proto))
         {
             this.luaPrototype = proto;
             return true;

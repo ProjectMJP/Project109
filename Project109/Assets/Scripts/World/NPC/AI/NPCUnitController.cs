@@ -93,21 +93,12 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
 
         if (cardData != null)
         {
-            XLua.LuaTable luaInstance = null;
-            if (cardData.luaPrototype != null)
-            {
-                if (LuaManager.Instance != null)
-                {
-                    luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
-                }
-                else
-                {
-                    luaInstance = cardData.luaPrototype;
-                }
-            }
-
             int runtimeId = -100 - _cardPool.Count;
-            Card newCard = new Card(cardData, controlledCharacter, luaInstance, runtimeId);
+            Card newCard = ModObjectFactory.CreateCard(
+                cardData,
+                controlledCharacter,
+                runtimeId,
+                fallbackToPrototypeWithoutLuaManager: true);
             _cardPool[cardId] = newCard;
             return newCard;
         }

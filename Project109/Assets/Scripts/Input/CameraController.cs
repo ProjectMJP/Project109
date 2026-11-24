@@ -8,6 +8,7 @@ public class CameraController : MonoBehaviour
     private Camera mainCamera;
     private Vector3 dragOrigin;
     private bool _isDraggingWorld = false;
+    private Coroutine _focusCoroutine;
 
     private void Awake()
     {
@@ -58,6 +59,9 @@ public class CameraController : MonoBehaviour
 
             PlayerInputController.instance.OnTouchEndEvent -= HandleTouchEnd;
             PlayerInputController.instance.OnTouchEndEvent += HandleTouchEnd;
+
+            PlayerInputController.instance.OnCameraFocusRequested -= CameraFocusToTarget;
+            PlayerInputController.instance.OnCameraFocusRequested += CameraFocusToTarget;
         }
     }
 
@@ -69,6 +73,7 @@ public class CameraController : MonoBehaviour
             PlayerInputController.instance.OnTouchStartEvent -= HandleTouchStart;
             PlayerInputController.instance.OnTouchDragEvent -= HandleTouchDrag;
             PlayerInputController.instance.OnTouchEndEvent -= HandleTouchEnd;
+            PlayerInputController.instance.OnCameraFocusRequested -= CameraFocusToTarget;
         }
     }
 
@@ -121,30 +126,30 @@ public class CameraController : MonoBehaviour
         Vector3 planeOffset = mainCamera.transform.right * Vector3.Dot(worldToTarget, mainCamera.transform.right) +
                               mainCamera.transform.up * Vector3.Dot(worldToTarget, mainCamera.transform.up);
 
-        StartCoroutine(SmoothFocus(mainCamera.transform.position + planeOffset, 0.5f));
+        if (_focusCoroutine != null)
+        {
+            StopCoroutine(_focusCoroutine);
+        }
+        _focusCoroutine = StartCoroutine(SmoothFocus(mainCamera.transform.position + planeOffset, 0.5f));
     }
 
     private Vector3 CameraMoveInClampArea(Vector3 targetPos)
     {
-        // 화면 중앙에서 나가는 Ray는 카메라의 위치(targetPos)에서 카메라가 바라보는 방향(forward)으로 나가는 선과 정확히 일치합니다.
+        // 화면 중앙 시선 Ray를 Input 이벤트 허브의 검증 위임자로 전달하여 L2 Map/Tile 물리 레이어 직접 의존을 배제합니다.
         Ray ray = new Ray(targetPos, mainCamera.transform.forward);
-        int layerMask = LayerMask.GetMask("Map", "Tile");
+        bool isWithinClampArea;
 
-        // 1. 카메라가 targetPos로 이동했을 때 Map 또는 Tile 레이어의 오브젝트가 화면 중앙에 걸리는지 검사
-        if (layerMask != 0 && Physics.Raycast(ray, out RaycastHit hit, 10000.0f, layerMask))
+        if (PlayerInputController.HasInstance)
         {
-            return targetPos; // Map이나 Tile이 있다면 해당 위치로 이동 허용
+            isWithinClampArea = PlayerInputController.instance.ValidateCameraPanRay(ray);
+        }
+        else
+        {
+            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+            isWithinClampArea = groundPlane.Raycast(ray, out float enter) && enter >= 0f;
         }
 
-        // 2. 콜라이더가 없는 경우에도 기본 지면 평면(Y=0)과 교차하는 경우 이동 허용 (드래그 먹통 방지)
-        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
-        if (groundPlane.Raycast(ray, out float enter))
-        {
-            return targetPos;
-        }
-
-        // 완전히 허공을 벗어난다면 원래 위치 유지
-        return mainCamera.transform.position; 
+        return isWithinClampArea ? targetPos : mainCamera.transform.position;
     }
 
     private IEnumerator SmoothFocus(Vector3 targetPos, float duration = 0.5f)
@@ -161,5 +166,6 @@ public class CameraController : MonoBehaviour
         }
 
         mainCamera.transform.position = targetPos;
+        _focusCoroutine = null;
     }
 }

@@ -301,15 +301,12 @@ public class StarterKitShowcasePanel : UIPanelBase
                 continue;
             }
 
-            LuaTable luaLogic = null;
-            if (cardData.luaPrototype != null && LuaManager.Instance != null)
-            {
-                luaLogic = LuaManager.Instance.NewInstance(cardData.luaPrototype);
-            }
-
             // 미리보기 전용 임시 카드이므로 owner는 null, 음수 runtimeID를 부여해 실제 덱 카드와 ID 충돌 방지
-            Card previewCard = new Card(cardData, null, luaLogic, -30000 - i);
-            _previewCards.Add(previewCard);
+            Card previewCard = ModObjectFactory.CreateCard(cardData, null, -30000 - i);
+            if (previewCard != null)
+            {
+                _previewCards.Add(previewCard);
+            }
         }
     }
 

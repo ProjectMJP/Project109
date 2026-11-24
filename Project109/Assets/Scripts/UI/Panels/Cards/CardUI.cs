@@ -864,7 +864,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
         else if (cardData != null)
         {
-            rawDescription = cardData.GetDescription();
+            rawDescription = ModObjectFactory.GetCardDescription(cardData);
         }
         string formattedDescription = TooltipManager.ReplaceKeywordsForDisplay(rawDescription);
         if (cardDescription != null)
@@ -1191,7 +1191,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
         }
         else if (cardData != null)
         {
-            rawDescription = cardData.GetDescription();
+            rawDescription = ModObjectFactory.GetCardDescription(cardData);
         }
 
         if (!string.IsNullOrEmpty(rawDescription))

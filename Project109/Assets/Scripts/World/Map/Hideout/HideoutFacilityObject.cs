@@ -253,16 +253,12 @@ public class HideoutFacilityObject : MonoBehaviour, IInteractable
 
         for (int i = 0; i < sortedCards.Count; i++)
         {
-            CardData data = sortedCards[i];
-            LuaTable luaLogic = null;
-            if (data.luaPrototype != null && LuaManager.Instance != null)
-            {
-                luaLogic = LuaManager.Instance.NewInstance(data.luaPrototype);
-            }
-
             // 도감 전용 임시 카드이므로 owner는 null로 두고 음수 runtimeID를 부여해 덱 카드와 충돌 방지
-            Card compendiumCard = new Card(data, null, luaLogic, -(i + 1));
-            _cachedCompendiumCards.Add(compendiumCard);
+            Card compendiumCard = ModObjectFactory.CreateCard(sortedCards[i], null, -(i + 1));
+            if (compendiumCard != null)
+            {
+                _cachedCompendiumCards.Add(compendiumCard);
+            }
         }
     }
 

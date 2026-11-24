@@ -103,6 +103,35 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
+    /// 카메라 중앙 시선 Ray가 맵 지면 평면과 전방 교차하며 유효한 카메라 패닝 허용 범위 내에 있는지 검사합니다.
+    /// 물리 Raycast 없이 O(1) 평면 교차 및 그리드 영역 판정으로 동작합니다.
+    /// </summary>
+    public bool ValidateCameraPanRay(Ray centerRay)
+    {
+        Plane groundPlane = new Plane(Vector3.up, transform.position);
+        if (!groundPlane.Raycast(centerRay, out float enter) || enter < 0f)
+        {
+            return false;
+        }
+
+        if (mapColumn <= 0 || mapRow <= 0 || _cellSize <= 0f)
+        {
+            return true;
+        }
+
+        Vector3 localHit = transform.InverseTransformPoint(centerRay.GetPoint(enter));
+        float minX = _gridOffset.x - (_cellSize * 0.5f);
+        float maxX = _gridOffset.x + ((mapColumn - 0.5f) * _cellSize);
+        float minZ = _gridOffset.z - (_cellSize * 0.5f);
+        float maxZ = _gridOffset.z + ((mapRow - 0.5f) * _cellSize);
+
+        // 하단 손패 UI 시야 확보 및 가장자리 여유 패닝을 위한 마진 부여
+        float margin = Mathf.Max(12f, Mathf.Max(mapColumn, mapRow) * _cellSize);
+        return localHit.x >= (minX - margin) && localHit.x <= (maxX + margin) &&
+               localHit.z >= (minZ - margin) && localHit.z <= (maxZ + margin);
+    }
+
+    /// <summary>
     /// 지정된 격자 좌표 타일의 상태(Empty, Obstacle 등)를 안전하게 변경합니다.
     /// </summary>
     public bool SetTileState(Vector2Int coord, TileState state)

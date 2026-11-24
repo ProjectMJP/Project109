@@ -248,16 +248,10 @@ public class PlayerDeck
 
     private Card CreateNewCard(CardData cardData, int? customRuntimeID = null)
     {
-        LuaTable luaInstance = null;
-        if (cardData.luaPrototype != null)
-        {
-            if (LuaManager.Instance != null) luaInstance = LuaManager.Instance.NewInstance(cardData.luaPrototype);
-        }
-
         int id = customRuntimeID ?? nextRuntimeID++;
-        Card newCard = new Card(cardData, owner.character, luaInstance, id);
+        Card newCard = ModObjectFactory.CreateCard(cardData, owner.character, id);
 
-        if (cardData != null && cardData.maxMasteryPoint > 0)
+        if (newCard != null && cardData != null && cardData.maxMasteryPoint > 0)
         {
             newCard.masteryState = GetOrCreateSharedMasteryState(cardData.cardName, cardData);
         }

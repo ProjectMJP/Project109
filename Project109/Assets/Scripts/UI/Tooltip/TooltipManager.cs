@@ -340,7 +340,7 @@ public class TooltipManager : MonoBehaviour
                         if (ModLoader.Instance.CardDatabase.TryGetValue(id, out CardData cardData))
                         {
                             subTitle = cardData.cardName;
-                            subDescription = cardData.GetDescription();
+                            subDescription = ModObjectFactory.GetCardDescription(cardData);
                         }
                     }
                     break;

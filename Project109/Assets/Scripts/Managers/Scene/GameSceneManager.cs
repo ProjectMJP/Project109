@@ -96,6 +96,14 @@ public class GameSceneManager : MonoBehaviour
 
     private IEnumerator Start()
     {
+        if (GameItemRewardManager.instance != null && ModLoader.Instance != null)
+        {
+            GameItemRewardManager.instance.InitializeDatabases(
+                ModLoader.Instance.CardDatabase,
+                ModLoader.Instance.RelicDatabase,
+                ModLoader.Instance.DropTableDatabase);
+        }
+
         // 1. 플레이어 인스턴스 비동기 초기화 (AssetReferenceGameObject 인스턴스화 및 바인딩)
         yield return InitializePlayerCoroutine();
 

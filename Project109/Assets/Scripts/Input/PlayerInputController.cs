@@ -27,7 +27,10 @@ public class PlayerInputController : MonoBehaviour
                 {
                     GameObject go = new GameObject("[PlayerInputController]");
                     _instance = go.AddComponent<PlayerInputController>();
-                    DontDestroyOnLoad(go);
+                    if (Application.isPlaying)
+                    {
+                        DontDestroyOnLoad(go);
+                    }
                 }
             }
             return _instance;
@@ -46,6 +49,9 @@ public class PlayerInputController : MonoBehaviour
     public event Action<int> OnCardHotkeyEvent; // 숫자 단축키(0-based 손패 인덱스)
     public event Action OnEndTurnHotkeyEvent; // 턴 종료 단축키(E / Space)
     public event Action OnToggleMoveModeHotkeyEvent; // 이동 모드 토글 단축키(Tab / Q / M)
+    public event Action<Vector3> OnCameraFocusRequested; // 월드 목표 지점 카메라 포커스 요청 이벤트
+
+    private Func<Ray, bool> _cameraPanRayValidator;
 
     /// <summary>
     /// UI 팝업 등으로 인해 월드 상호작용 입력(터치/드래그/클릭)이 차단되어야 하는지 여부입니다.
@@ -224,12 +230,65 @@ public class PlayerInputController : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 카메라 포커스 이동 요청을 Input 이벤트 버스로 발행합니다.
+    /// 활성 구독자(CameraController 등)가 존재하면 true를 반환합니다.
+    /// </summary>
+    public bool RequestCameraFocus(Vector3 targetWorldPos)
+    {
+        Action<Vector3> handler = OnCameraFocusRequested;
+        if (handler == null)
+        {
+            return false;
+        }
+
+        handler.Invoke(targetWorldPos);
+        return true;
+    }
+
+    /// <summary>
+    /// 현재 활성 스테이지/맵의 카메라 팬 허용 경계 검증기를 등록합니다.
+    /// </summary>
+    public void SetCameraPanRayValidator(Func<Ray, bool> validator)
+    {
+        _cameraPanRayValidator = validator;
+    }
+
+    /// <summary>
+    /// 등록된 카메라 팬 경계 검증기를 해제합니다.
+    /// </summary>
+    public void ClearCameraPanRayValidator(Func<Ray, bool> validator = null)
+    {
+        if (validator == null || _cameraPanRayValidator == validator)
+        {
+            _cameraPanRayValidator = null;
+        }
+    }
+
+    /// <summary>
+    /// 카메라 중앙 시선 Ray가 유효한 이동 허용 영역 내에 있는지 검증합니다.
+    /// 외부 검증기가 없으면 기본 지면 평면(Y=0)과의 전방 교차 여부를 반환합니다.
+    /// </summary>
+    public bool ValidateCameraPanRay(Ray centerRay)
+    {
+        if (_cameraPanRayValidator != null)
+        {
+            return _cameraPanRayValidator.Invoke(centerRay);
+        }
+
+        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+        return groundPlane.Raycast(centerRay, out float enter) && enter >= 0f;
+    }
+
     private void Awake()
     {
         if (_instance == null)
         {
             _instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
             InitializeInputActions();
         }
         else if (_instance != this)
@@ -264,6 +323,8 @@ public class PlayerInputController : MonoBehaviour
     {
         if (_instance == this)
         {
+            _cameraPanRayValidator = null;
+            OnCameraFocusRequested = null;
             if (playerInputAction != null)
             {
                 playerInputAction.Player.Touch.started -= OnTouchStart;

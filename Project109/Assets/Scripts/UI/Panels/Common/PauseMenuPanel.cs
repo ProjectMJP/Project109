@@ -746,15 +746,11 @@ public class PauseMenuPanel : UIPanelBase
 
         for (int i = 0; i < sortedCards.Count; i++)
         {
-            CardData cardData = sortedCards[i];
-            LuaTable luaLogic = null;
-            if (cardData.luaPrototype != null && LuaManager.Instance != null)
+            Card tempCard = ModObjectFactory.CreateCard(sortedCards[i], null, -(i + 1));
+            if (tempCard != null)
             {
-                luaLogic = LuaManager.Instance.NewInstance(cardData.luaPrototype);
+                _cachedCompendiumCards.Add(tempCard);
             }
-
-            Card tempCard = new Card(cardData, null, luaLogic, -(i + 1));
-            _cachedCompendiumCards.Add(tempCard);
         }
     }
 

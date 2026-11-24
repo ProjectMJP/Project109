@@ -67,25 +67,28 @@ public class ModLoader
     }
 
     /// <summary>
-    /// 정적 모드 데이터베이스(CardData._dummyInstance 및 각 스키마의 luaPrototype)가 보유한 모든 Lua 참조를 일괄 해제합니다.
+    /// 정적 모드 데이터베이스(ModObjectFactory 미리보기 캐시 및 각 스키마의 luaPrototype)가 보유한 모든 Lua 참조를 일괄 해제합니다.
     /// </summary>
     public void DisposeLuaResources()
     {
+        ModObjectFactory.DisposeCachedDescriptions();
+        bool canDisposeLua = LuaManager.IsLuaEnvAlive;
+
         foreach (CardData data in CardDatabase.Values)
         {
-            data?.DisposeLuaResources();
+            data?.DisposeLuaResources(canDisposeLua);
         }
         foreach (RelicData data in RelicDatabase.Values)
         {
-            data?.DisposeLuaResources();
+            data?.DisposeLuaResources(canDisposeLua);
         }
         foreach (EffectData data in EffectDatabase.Values)
         {
-            data?.DisposeLuaResources();
+            data?.DisposeLuaResources(canDisposeLua);
         }
         foreach (NPCUnitData data in NPCUnitDatabase.Values)
         {
-            data?.DisposeLuaResources();
+            data?.DisposeLuaResources(canDisposeLua);
         }
     }
 
@@ -130,28 +133,33 @@ public class ModLoader
             Directory.CreateDirectory(userModsPath);
         }
 
-
+        if (GameItemRewardManager.instance != null)
+        {
+            GameItemRewardManager.instance.InitializeDatabases(CardDatabase, RelicDatabase, DropTableDatabase);
+        }
 
         Debug.Log($"[ModLoader] 총 {EffectDatabase.Count}개의 이펙트 데이터, {RelicDatabase.Count}개의 유물 데이터, {CardDatabase.Count}개의 카드 데이터, {StarterKitDatabase.Count}개의 시작 키트 데이터, {NPCUnitDatabase.Count}개의 적 데이터, {BattleDatabase.Count}개의 전투 데이터, {InteractableDatabase.Count}개의 상호작용 데이터, {DropTableDatabase.Count}개의 드롭 테이블 데이터가 로드되었습니다.");
     }
 
     private static void DisposeSingleSchemaLuaResources(object schemaData)
     {
+        bool canDisposeLua = LuaManager.IsLuaEnvAlive;
         if (schemaData is CardData cardData)
         {
-            cardData.DisposeLuaResources();
+            ModObjectFactory.DisposeCachedCardDescription(cardData);
+            cardData.DisposeLuaResources(canDisposeLua);
         }
         else if (schemaData is RelicData relicData)
         {
-            relicData.DisposeLuaResources();
+            relicData.DisposeLuaResources(canDisposeLua);
         }
         else if (schemaData is EffectData effectData)
         {
-            effectData.DisposeLuaResources();
+            effectData.DisposeLuaResources(canDisposeLua);
         }
         else if (schemaData is NPCUnitData npcUnitData)
         {
-            npcUnitData.DisposeLuaResources();
+            npcUnitData.DisposeLuaResources(canDisposeLua);
         }
     }
 
@@ -259,16 +267,12 @@ public class ModLoader
             LoadDataFromPath(dropTablesPath, modDir, DropTableDatabase, d => d.dropTableID, "드롭 테이블");
         }
         LocalizationManager.LoadFromModDirectory(modDir);
-        if (false)
-        {
-        }
     }
 
     private void LoadDataFromPath<T>(string dataPath, string modRootPath, Dictionary<string, T> targetDict, System.Func<T, string> keySelector, string typeName, System.Action<T> onLoaded = null) where T : class
     {
         var deserializer = _yamlDeserializer;
-
-
+        XLua.LuaEnv luaEnv = LuaManager.Instance != null ? LuaManager.Instance.luaEnv : null;
 
         string[] yamlFiles = Directory.GetFiles(dataPath, "*.yaml", SearchOption.AllDirectories);
 
@@ -282,7 +286,7 @@ public class ModLoader
                 {
                     if (data is IModAssetResolver resolver)
                     {
-                        if (!resolver.ResolveAndValidate(modRootPath))
+                        if (!resolver.ResolveAndValidate(modRootPath, luaEnv))
                         {
                             Debug.LogWarning($"[ModLoader] 무결성 검증 실패로 {typeName} 데이터가 무시되었습니다: {file}");
                             continue;

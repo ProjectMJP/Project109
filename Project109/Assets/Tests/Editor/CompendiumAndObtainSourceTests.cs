@@ -267,7 +267,10 @@ public class CompendiumAndObtainSourceTests
             specificItemIDs = new List<string> { eventRelic.relicName }
         };
 
-        rewardManager.UpdateItemList();
+        rewardManager.InitializeDatabases(
+            ModLoader.Instance.CardDatabase,
+            ModLoader.Instance.RelicDatabase,
+            ModLoader.Instance.DropTableDatabase);
 
         var commonCardList = GetPrivateField<List<CardData>>(rewardManager, "commonCardList");
         Assert.AreEqual(1, commonCardList.Count);
@@ -302,7 +305,10 @@ public class CompendiumAndObtainSourceTests
 
         // Standard 카드가 없는 경우 일반 풀 및 폴백 모두 비어 null을 반환해야 합니다.
         ModLoader.Instance.CardDatabase.Remove(stdCard.cardName);
-        rewardManager.UpdateItemList();
+        rewardManager.InitializeDatabases(
+            ModLoader.Instance.CardDatabase,
+            ModLoader.Instance.RelicDatabase,
+            ModLoader.Instance.DropTableDatabase);
         Assert.IsNull(rewardManager.GetRandomCardDataByDropTable("Test_Random_Cards"));
     }
 
