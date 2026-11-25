@@ -655,4 +655,169 @@ public class EnemyIntentTests
         Assert.AreEqual(0, cardPool.Count);
         Assert.AreEqual(0, guard.effectManager.GetEffects().Count);
     }
+
+    [Test]
+    public void MoveOnlyEarlyTurnEnd_ReturnsHalfStaminaCarryover_NoMoveBonus_AndReevaluatesNextIntent()
+    {
+        var (gameMap, _, battleManager) = CreateBattleEnvironment(width: 6, height: 5);
+        List<List<Tile>> tileMap = gameMap.GetTileMap();
+
+        NPCUnitData guardData = LoadEnemyData("SkeletonGuard"); // moveRange = 2, maxStamina = 100
+        Character player = CreateCombatCharacter("Player", CharacterFaction.Player, new CharacterStat
+        {
+            maxHealth = 100f,
+            maxStamina = 100f,
+            staminaRegenPerSecond = 20f,
+            moveRange = 3
+        }, tileMap[4][2]);
+
+        Character guard = CreateCombatCharacter("SkeletonGuard", CharacterFaction.Enemy, guardData.characterStat, tileMap[0][2]);
+
+        var playerCtrl = new StubPlayerController(player);
+        var guardCtrl = new NPCUnitController(guard, guardData, LookupCard);
+        _createdNpcControllers.Add(guardCtrl);
+
+        battleManager.InitBattle(
+            new List<ICharacterController> { playerCtrl },
+            new List<ICharacterController> { guardCtrl });
+        battleManager.StartCombat();
+        guardCtrl.EvaluateNextIntent();
+
+        Assert.AreEqual(EnemyIntentType.MoveOnly, guard.CurrentIntent.intentType);
+
+        // 1턴 시작: 사거리 미달(MoveOnly) -> 이동만 적재하고 턴 조기 종료
+        guard.curStamina = guard.curCharacterStat.maxStamina;
+        battleManager.RequestTurnStart(guard);
+        Assert.AreEqual(1, guard.currentTurn);
+
+        ActionQueueManager aqm = ActionQueueManager.Instance;
+        BattleAction currentAction = GetPrivateField<BattleAction>(aqm, "_currentAction");
+        Assert.IsInstanceOf<EnemyMoveAction>(currentAction);
+
+        // 이동 완료 후 조기 종료 콜백 실행
+        aqm.ClearQueue(invokeCanceled: true);
+
+        Assert.AreEqual(BattleState.Combat, battleManager.battleState);
+        Assert.AreEqual(guard.curCharacterStat.maxStamina * 0.5f, guard.curStamina, 0.001f,
+            "조기 턴 종료 시 플레이어와 동일하게 스태미나 50%가 이월되어야 합니다.");
+        Assert.AreEqual(100f, player.curHealth, 0.001f);
+        Assert.AreEqual("방어", guard.CurrentIntent.cardId,
+            "조기 종료 후 다음 턴 의도가 강제 고정되지 않고 현재 턴 규칙에 맞게 재결정되어야 합니다.");
+        Assert.AreEqual(EnemyIntentType.Defend, guard.CurrentIntent.intentType);
+
+        // 다음 턴 시작 시 이동력 이월 보너스 없이 기본 moveRange로 초기화되는지 검증
+        guard.curMoveRange = 0;
+        guard.curStamina = guard.curCharacterStat.maxStamina;
+        battleManager.RequestTurnStart(guard);
+        Assert.AreEqual(guardData.characterStat.moveRange, guard.curMoveRange,
+            "적 AI 조기 종료 시 추가 이동력 이월 보너스는 부여되지 않아야 합니다.");
+    }
+
+    [Test]
+    public void PostMoveInterruptedOutOfRange_SkipsCardPlay_AppliesHalfStaminaCarryover_AndReevaluatesIntent()
+    {
+        var (gameMap, _, battleManager) = CreateBattleEnvironment(width: 6, height: 5);
+        List<List<Tile>> tileMap = gameMap.GetTileMap();
+
+        NPCUnitData guardData = LoadEnemyData("SkeletonGuard"); // moveRange = 2
+        Character player = CreateCombatCharacter("Player", CharacterFaction.Player, new CharacterStat
+        {
+            maxHealth = 100f,
+            maxStamina = 100f,
+            staminaRegenPerSecond = 20f,
+            moveRange = 3
+        }, tileMap[3][2]);
+
+        Character guard = CreateCombatCharacter("SkeletonGuard", CharacterFaction.Enemy, guardData.characterStat, tileMap[0][2]);
+
+        var playerCtrl = new StubPlayerController(player);
+        var guardCtrl = new NPCUnitController(guard, guardData, LookupCard);
+        _createdNpcControllers.Add(guardCtrl);
+
+        battleManager.InitBattle(
+            new List<ICharacterController> { playerCtrl },
+            new List<ICharacterController> { guardCtrl });
+        battleManager.StartCombat();
+        guardCtrl.EvaluateNextIntent();
+
+        // 초기 거리 3 -> (2, 2)로 이동 후 공격 예정 (AttackMove)
+        Assert.AreEqual(EnemyIntentType.AttackMove, guard.CurrentIntent.intentType);
+
+        guard.curStamina = guard.curCharacterStat.maxStamina;
+        battleManager.RequestTurnStart(guard);
+        Assert.AreEqual(1, guard.currentTurn);
+
+        ActionQueueManager aqm = ActionQueueManager.Instance;
+        BattleAction currentAction = GetPrivateField<BattleAction>(aqm, "_currentAction");
+        Assert.IsInstanceOf<EnemyMoveAction>(currentAction, "이동이 필요한 AttackMove는 EnemyMoveAction을 먼저 실행해야 합니다.");
+
+        Queue<BattleAction> queuedActions = GetPrivateField<Queue<BattleAction>>(aqm, "_actionQueue");
+        Assert.AreEqual(1, queuedActions.Count, "이동 완료 전에는 CardPlayAction 대신 사후 판정 CustomCallbackAction만 대기해야 합니다.");
+        Assert.IsInstanceOf<CustomCallbackAction>(queuedActions.Peek());
+
+        // 이동이 중간 차단되어 제자리 (0, 2)에 남았다고 가정하고 사후 판정 호출
+        Card plannedCard = guard.CurrentIntent.plannedCard;
+        aqm.ClearQueue(invokeCanceled: false);
+        MethodInfo postMoveMethod = typeof(NPCUnitController).GetMethod("HandlePostMoveDecision", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(postMoveMethod);
+        postMoveMethod.Invoke(guardCtrl, new object[] { plannedCard });
+
+        Assert.AreEqual(BattleState.Combat, battleManager.battleState);
+        Assert.IsFalse(aqm.IsBusy, "이동 후 사거리 미달 시 CardPlayAction을 적재하지 않고 즉시 조기 종료해야 합니다.");
+        Assert.AreEqual(100f, player.curHealth, 0.001f);
+        Assert.AreEqual(guard.curCharacterStat.maxStamina * 0.5f, guard.curStamina, 0.001f);
+        Assert.AreEqual("방어", guard.CurrentIntent.cardId);
+    }
+
+    [Test]
+    public void AreaSelfAttackCard_WhenOutOfRange_ResolvesToMoveOnlyIntent()
+    {
+        var (gameMap, _, battleManager) = CreateBattleEnvironment(width: 6, height: 5);
+        List<List<Tile>> tileMap = gameMap.GetTileMap();
+
+        CardData areaAttack = new CardData
+        {
+            cardName = "테스트 주변 공격",
+            cardType = "Attack",
+            targetType = "AreaSelf",
+            targetMinDistance = 1,
+            targetMaxDistance = 1,
+            stamina = 30,
+            baseValues = new Dictionary<string, float> { { "damage", 8f } }
+        };
+        _cardDatabase[areaAttack.cardName] = areaAttack;
+
+        NPCUnitData guardData = LoadEnemyData("SkeletonGuard"); // moveRange = 2
+        LuaTable customAi = _luaEnv.DoString(@"
+            local ai = {}
+            function ai:ChooseCard(character) return '테스트 주변 공격' end
+            return ai
+        ")[0] as LuaTable;
+        _createdLuaTables.Add(customAi);
+        guardData.luaPrototype = customAi;
+
+        Character player = CreateCombatCharacter("Player", CharacterFaction.Player, new CharacterStat
+        {
+            maxHealth = 100f,
+            maxStamina = 100f,
+            staminaRegenPerSecond = 20f,
+            moveRange = 3
+        }, tileMap[4][2]);
+
+        Character guard = CreateCombatCharacter("SkeletonGuard", CharacterFaction.Enemy, guardData.characterStat, tileMap[0][2]);
+
+        var playerCtrl = new StubPlayerController(player);
+        var guardCtrl = new NPCUnitController(guard, guardData, LookupCard);
+        _createdNpcControllers.Add(guardCtrl);
+
+        battleManager.InitBattle(
+            new List<ICharacterController> { playerCtrl },
+            new List<ICharacterController> { guardCtrl });
+        battleManager.StartCombat();
+        guardCtrl.EvaluateNextIntent();
+
+        Assert.AreEqual(EnemyIntentType.MoveOnly, guard.CurrentIntent.intentType,
+            "공격형 AreaSelf 카드도 이동 후 사거리 내 적이 없으면 MoveOnly로 판정되어 조기 종료해야 합니다.");
+        Assert.IsFalse(guard.CurrentIntent.canReachTarget);
+    }
 }

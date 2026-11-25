@@ -163,7 +163,7 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
             ? controlledCharacter.characterMove.GetCurrentTile()
             : null;
 
-        bool requiresHostile = RequiresHostileTarget(plannedCard.cardData.parsedTargetType);
+        bool requiresHostile = RequiresHostileTarget(plannedCard.cardData);
         Tile moveTarget = null;
 
         // [실시간 사거리 및 이동 계획 계산]
@@ -192,31 +192,15 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
         // 이동 후 도착 예정 타일 기준 타깃 사거리 만족 여부 최종 검증 (MoveOnly 예고와 실행 100% 일치 보장)
         if (canUseCard && requiresHostile)
         {
-            if (hostileTarget == null)
-            {
-                canUseCard = false;
-            }
-            else
-            {
-                Tile finalTile = (moveTarget != null) ? moveTarget : currentTile;
-                Tile hostileTile = (hostileTarget.characterMove != null) ? hostileTarget.characterMove.GetCurrentTile() : null;
-                if (finalTile == null || hostileTile == null)
-                {
-                    canUseCard = false;
-                }
-                else
-                {
-                    int dist = Tile.GetDistance(finalTile, hostileTile);
-                    canUseCard = (dist >= plannedCard.cardData.targetMinDistance && dist <= plannedCard.cardData.targetMaxDistance);
-                }
-            }
+            Tile finalTile = (moveTarget != null) ? moveTarget : currentTile;
+            canUseCard = IsHostileInCardRange(plannedCard.cardData, finalTile, hostileTarget);
         }
 
         if (!canUseCard)
         {
             if (shouldMove)
             {
-                Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}' 사거리/조건 미달로 이동만 수행합니다 ({moveTarget.GetCoordToString()}).");
+                Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}' 사거리/조건 미달로 이동 후 턴을 조기 종료합니다 ({moveTarget.GetCoordToString()}).");
                 ActionQueueManager.Instance.EnqueueAction(new EnemyMoveAction(controlledCharacter, moveTarget), forceEnqueue: true);
                 ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(
                     controlledCharacter,
@@ -226,19 +210,64 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
             }
             else
             {
-                Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}'의 사용 조건 또는 사거리를 만족하지 못해 행동 없이 턴을 종료합니다.");
+                Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 카드 '{cardId}'의 사용 조건 또는 사거리를 만족하지 못해 행동 없이 턴을 조기 종료합니다.");
                 EndNPCTurn();
             }
             return;
         }
 
-        // 1. 이동 액션 적재 (필요 시)
+        // 1. 이동 필요 시 이동 완료 후 사거리/조건을 재검증한 뒤 카드 시전 또는 조기 종료
         if (shouldMove)
         {
             Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 타겟 '{hostileTarget.name}'에게 카드 '{cardId}'를 쓰기 위해 타일 {moveTarget.GetCoordToString()}로 이동합니다.");
             ActionQueueManager.Instance.EnqueueAction(new EnemyMoveAction(controlledCharacter, moveTarget), forceEnqueue: true);
+            ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(
+                controlledCharacter,
+                callback: () => HandlePostMoveDecision(plannedCard),
+                onCanceled: () => EndNPCTurn()
+            ), forceEnqueue: true);
+            return;
         }
 
+        // 2. 제자리 시전: 카드 시전 액션 및 턴 종료 콜백 적재
+        EnqueueCardPlayAndEndTurn(plannedCard, hostileTarget, currentTile);
+    }
+
+    /// <summary>
+    /// 이동 완료 후 실제 도착 타일 기준으로 시전 조건과 사거리를 재판정하여 카드 시전 또는 조기 턴 종료를 수행합니다.
+    /// </summary>
+    private void HandlePostMoveDecision(Card plannedCard)
+    {
+        if (_isDisposed || controlledCharacter == null || controlledCharacter.isDead || IsBattleEnded())
+        {
+            EndNPCTurn();
+            return;
+        }
+
+        if (plannedCard == null || plannedCard.cardData == null || !plannedCard.CanPlay(controlledCharacter))
+        {
+            Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 이동 후 카드 '{plannedCard?.cardName}' 사용 조건을 만족하지 못해 턴을 조기 종료합니다.");
+            EndNPCTurn();
+            return;
+        }
+
+        Character postMoveHostile = FindClosestHostile();
+        Tile currentTileAfterMove = (controlledCharacter.characterMove != null)
+            ? controlledCharacter.characterMove.GetCurrentTile()
+            : null;
+
+        if (RequiresHostileTarget(plannedCard.cardData) && !IsHostileInCardRange(plannedCard.cardData, currentTileAfterMove, postMoveHostile))
+        {
+            Debug.Log($"[NPCAI] '{controlledCharacter.name}'이 이동 완료 후 사거리 내 적이 없어 턴을 조기 종료합니다.");
+            EndNPCTurn();
+            return;
+        }
+
+        EnqueueCardPlayAndEndTurn(plannedCard, postMoveHostile, currentTileAfterMove);
+    }
+
+    private void EnqueueCardPlayAndEndTurn(Card plannedCard, Character hostileTarget, Tile currentTile)
+    {
         List<Character> targets = new List<Character>();
         if (hostileTarget != null)
         {
@@ -255,16 +284,27 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
             targetPos = currentTile.GetCoord();
         }
 
-        // 2. 카드 시전 액션을 큐에 적재 (AI 전용 강제 적재)
+        // 카드 시전 액션을 큐에 적재 (AI 전용 강제 적재)
         CardPlayAction playAction = new CardPlayAction(controlledCharacter, plannedCard, targets, targetPos);
         ActionQueueManager.Instance.EnqueueAction(playAction, forceEnqueue: true);
 
-        // 3. 액션 완료 후 턴을 마치는 콜백 액션을 큐에 추가
+        // 액션 완료 후 턴을 마치는 콜백 액션을 큐에 추가
         ActionQueueManager.Instance.EnqueueAction(new CustomCallbackAction(
             controlledCharacter,
             callback: () => EndNPCTurn(),
             onCanceled: () => EndNPCTurn()
         ), forceEnqueue: true);
+    }
+
+    private bool IsBattleEnded()
+    {
+        if (RunManager.instance == null || RunManager.instance.battleManager == null)
+        {
+            return false;
+        }
+
+        BattleState state = RunManager.instance.battleManager.battleState;
+        return state == BattleState.BattleEnd || state == BattleState.None;
     }
 
     private void EndNPCTurn()
@@ -480,7 +520,7 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
         Character hostileTarget = FindClosestHostile();
         GameMap gameMap = ResolveGameMap();
         Tile currentTile = (controlledCharacter.characterMove != null) ? controlledCharacter.characterMove.GetCurrentTile() : null;
-        bool requiresHostile = RequiresHostileTarget(cardData.parsedTargetType);
+        bool requiresHostile = RequiresHostileTarget(cardData);
 
         Tile moveTarget = null;
         if (requiresHostile && hostileTarget != null && gameMap != null && currentTile != null)
@@ -517,24 +557,8 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
         bool canReachTarget = true;
         if (requiresHostile)
         {
-            if (hostileTarget == null)
-            {
-                canReachTarget = false;
-            }
-            else
-            {
-                Tile finalTile = (moveTarget != null) ? moveTarget : currentTile;
-                Tile hostileTile = (hostileTarget.characterMove != null) ? hostileTarget.characterMove.GetCurrentTile() : null;
-                if (finalTile == null || hostileTile == null)
-                {
-                    canReachTarget = false;
-                }
-                else
-                {
-                    int dist = Tile.GetDistance(finalTile, hostileTile);
-                    canReachTarget = (dist >= cardData.targetMinDistance && dist <= cardData.targetMaxDistance);
-                }
-            }
+            Tile finalTile = (moveTarget != null) ? moveTarget : currentTile;
+            canReachTarget = IsHostileInCardRange(cardData, finalTile, hostileTarget);
         }
 
         if (!canReachTarget)
@@ -627,13 +651,40 @@ public class NPCUnitController : ICharacterController, IDisposable, ILuaOwnedRes
         UpdateIntentHUD();
     }
 
-    private static bool RequiresHostileTarget(TargetType targetType)
+    private static bool RequiresHostileTarget(CardData cardData)
     {
+        if (cardData == null) return false;
+        TargetType targetType = cardData.parsedTargetType;
+        if (targetType == TargetType.AreaSelf)
+        {
+            bool hasDamage = cardData.baseValues != null
+                && cardData.baseValues.TryGetValue("damage", out float dmg)
+                && dmg > 0f;
+            return hasDamage || string.Equals(cardData.cardType, "Attack", StringComparison.OrdinalIgnoreCase);
+        }
+
         return targetType == TargetType.SingleEnemy
             || targetType == TargetType.MultiEnemy
             || targetType == TargetType.Directional
             || targetType == TargetType.RandomEnemy
             || targetType == TargetType.AreaGround;
+    }
+
+    private static bool IsHostileInCardRange(CardData cardData, Tile originTile, Character hostileTarget)
+    {
+        if (cardData == null || originTile == null || hostileTarget == null)
+        {
+            return false;
+        }
+
+        Tile hostileTile = (hostileTarget.characterMove != null) ? hostileTarget.characterMove.GetCurrentTile() : null;
+        if (hostileTile == null)
+        {
+            return false;
+        }
+
+        int dist = Tile.GetDistance(originTile, hostileTile);
+        return dist >= cardData.targetMinDistance && dist <= cardData.targetMaxDistance;
     }
 
     private static bool TryParseIntentTypeOverride(string intentTypeStr, out EnemyIntentType intentType)
