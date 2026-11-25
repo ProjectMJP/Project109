@@ -186,34 +186,36 @@ public static class EffectAreaShapeGenerator
     }
 
     /// <summary>
-    /// 시선(facing) 기준 전방 부채꼴(0°, ±60°, 거리 1..radius) 범위를 계산합니다.
-    /// 거리 r에서 r=1이면 3칸, r=2이면 총 8칸(3+5)을 포함합니다.
+    /// 시선(facing) 기준 전방 부채꼴(0°, ±60°, 거리 1..radius) 범위를 정수 Axial 대칭 공식으로 계산합니다.
+    /// 거리 r에서 r=1이면 3칸, r=2이면 총 8칸(3+5)을 6방향 모두에 대해 대칭으로 포함합니다.
     /// </summary>
     private static List<Vector2Int> GetHexCone(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
         if (radius <= 0) return results;
 
-        Vector2Int origin = new Vector2Int(targetX, targetY);
-        HexMath.OddRToAxial(origin.x, origin.y, out int oq, out int or);
+        HexMath.OddRToAxial(targetX, targetY, out int oq, out int or);
+        HexMath.AxialDirection(facing, out int fq, out int fr);
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 1), out int lq, out int lr);
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 5), out int rq, out int rr);
 
-        for (int dq = -radius; dq <= radius; dq++)
+        for (int dist = 1; dist <= radius; dist++)
         {
-            int rMin = Mathf.Max(-radius, -dq - radius);
-            int rMax = Mathf.Min(radius, -dq + radius);
-            for (int dr = rMin; dr <= rMax; dr++)
+            for (int k = 0; k <= dist; k++)
             {
-                int ds = -dq - dr;
-                int dist = (Mathf.Abs(dq) + Mathf.Abs(dr) + Mathf.Abs(ds)) >> 1;
-                if (dist < 1 || dist > radius) continue;
-
-                HexMath.AxialToOddR(oq + dq, or + dr, out int col, out int row);
-                if (!IsInsideMap(col, row, mapSize)) continue;
-
-                Vector2Int candidate = new Vector2Int(col, row);
-                if (HexMath.IsInFrontArc(origin, facing, candidate))
+                HexMath.AxialToOddR(oq + fq * (dist - k) + lq * k, or + fr * (dist - k) + lr * k, out int col, out int row);
+                if (IsInsideMap(col, row, mapSize))
                 {
-                    results.Add(candidate);
+                    results.Add(new Vector2Int(col, row));
+                }
+            }
+
+            for (int k = 1; k <= dist; k++)
+            {
+                HexMath.AxialToOddR(oq + fq * (dist - k) + rq * k, or + fr * (dist - k) + rr * k, out int col, out int row);
+                if (IsInsideMap(col, row, mapSize))
+                {
+                    results.Add(new Vector2Int(col, row));
                 }
             }
         }

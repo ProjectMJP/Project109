@@ -464,8 +464,8 @@ public class CardModeRotateAndTargetingHighlightTests
         enemyCol.center = new Vector3(0f, 1.2f, 0f);
         enemyCol.size = new Vector3(0.8f, 2.4f, 0.8f);
 
-        // 35도 경사 카메라를 배치해 적 상단을 클릭할 때 뒤쪽 타일을 관통하도록 설정
-        Camera cam = CreateSlantedTestMainCamera(new Vector3(2.5f, 4.5f, -3.8f), new Vector3(3.0f, 0f, 2.0f));
+        // 35도 경사 카메라를 배치해 적 상단을 클릭할 때 뒤쪽 타일((5,4) 영역)을 관통하도록 설정
+        Camera cam = CreateSlantedTestMainCamera(new Vector3(3.2f, 4.5f, -3.8f), new Vector3(3.5f, 0f, 2.0f));
         Physics.SyncTransforms();
 
         var (_, controller) = CreateTestPlayerController(playerChar);
