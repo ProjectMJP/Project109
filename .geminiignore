@@ -1,0 +1,62 @@
+# Project109 AI 에이전트 컨텍스트 및 대용량 파일 차단 규칙
+# - Unity 빌드/캐시 폴더와 대용량 YAML/바이너리 에셋을 에이전트 탐색에서 제외해 토큰·쿼터 소모를 줄입니다.
+# - 주의: Project109/Assets/StreamingAssets/Mods/Core/YAML/**/*.yaml 및 Scripts/**/*.lua 는
+#         게임 기획 SSOT이므로 절대 제외하지 않습니다.
+
+# 1. Unity 캐시 · 빌드 · 임시 디렉터리
+Project109/Library/
+Project109/Temp/
+Project109/Logs/
+Project109/Obj/
+Project109/Build/
+Project109/Builds/
+Project109/UserSettings/
+Project109/MemoryCaptures/
+Project109/Recordings/
+Project109/Screenshots/
+Project109/Assets/_Recovery/
+
+# 2. 루트 보조 · 빌드 산출물 · 백업 폴더
+EventBinderGenerator/bin/
+EventBinderGenerator/obj/
+.vs/
+BackupFile/
+obsidian/
+
+# 3. 생성 코드 및 서드파티 에셋
+Project109/Assets/XLua/
+Project109/Assets/YamlDotNet/
+Project109/Assets/Plugins/
+Project109/Assets/TextMesh Pro/
+Project109/Assets/AddressableAssetsData/
+
+# 4. 대용량 Unity YAML · 메타 · 바이너리 에셋 확장자
+*.unity
+*.prefab
+*.asset
+*.mat
+*.anim
+*.controller
+*.overrideController
+*.physicMaterial
+*.physicsMaterial2D
+*.lighting
+*.renderTexture
+*.shadergraph
+*.shadersubgraph
+*.meta
+*.fbx
+*.obj
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.psd
+*.wav
+*.ogg
+*.mp3
+*.ttf
+*.otf
+*.dll
+*.pdb
+*.unitypackage
