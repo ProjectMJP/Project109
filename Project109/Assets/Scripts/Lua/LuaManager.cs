@@ -477,6 +477,9 @@ public class LuaManager : MonoBehaviour
                 StatModifierTarget = CS.StatModifierTarget,
                 StatModifierOp = CS.StatModifierOp,
                 StatModifierLifetime = CS.StatModifierLifetime,
+                FacingZone = CS.FacingZone,
+                FacingHitRelation = CS.FacingHitRelation,
+                FacingOriginMode = CS.FacingOriginMode,
                 
                 CardTag = CS.CardTag,
             }
@@ -495,6 +498,7 @@ public class LuaManager : MonoBehaviour
             RunManager = CS.RunManager
             LookDirection = CS.LookDirection
             HexMath = CS.HexMath
+            CombatFacing = CS.CombatFacing
 
             CS = nil
 

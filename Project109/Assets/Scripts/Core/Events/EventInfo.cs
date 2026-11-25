@@ -41,6 +41,16 @@ namespace EventStructs
         // public bool isCritical;
         // public bool isDodged;
 
+        // 방향(Facing) 판정 컨텍스트 및 결과
+        public FacingOriginMode facingOriginMode;
+        public Vector2Int attackOriginCoord;
+        public LookDirection incomingTravelDirection;
+        public bool hasAttackSourceDirection;
+        public LookDirection resolvedSourceDirection;
+        public FacingHitRelation facingHitRelation;
+        public bool isBackstab;
+        public float facingDamageMultiplier;
+
         public DamageInfo(Character caster, Character target, float baseAmount, DamageFlag flags = DamageFlag.Normal) : this()
         {
             this.caster = caster;
@@ -51,7 +61,47 @@ namespace EventStructs
             this.damageMultiplier = 1.0f;
             this.shieldMultiplier = 1.0f;
             this.healthMultiplier = 1.0f;
+            this.facingDamageMultiplier = 1.0f;
         }
+
+        /// <summary>광역(AoE) 중심점 등 특정 원점 좌표 기준 방향 판정을 지정합니다.</summary>
+        public void SetOriginCoord(Vector2Int originCoord)
+        {
+            facingOriginMode = FacingOriginMode.OriginCoord;
+            attackOriginCoord = originCoord;
+        }
+
+        /// <summary>투사체 진행(입사) 방향 기준 방향 판정을 지정합니다.</summary>
+        public void SetIncomingTravelDirection(LookDirection travelDirection)
+        {
+            facingOriginMode = FacingOriginMode.TravelDirection;
+            incomingTravelDirection = travelDirection;
+        }
+
+        /// <summary>지속피해/반사 등 방향 판정 및 피격 회전을 비활성화합니다.</summary>
+        public void SetIgnoreFacing()
+        {
+            facingOriginMode = FacingOriginMode.IgnoreFacing;
+        }
+
+        public bool IsDirectFront() => facingHitRelation == FacingHitRelation.DirectFront;
+        public bool IsDirectBack() => facingHitRelation == FacingHitRelation.DirectBack;
+        public bool IsFrontArc() => HexMath.IsFacingZoneMatch(facingHitRelation, FacingZone.FrontArc);
+        public bool IsBackArc() => HexMath.IsFacingZoneMatch(facingHitRelation, FacingZone.BackArc);
+        public bool MatchesFacingZone(FacingZone zone) => HexMath.IsFacingZoneMatch(facingHitRelation, zone);
+    }
+
+    /// <summary>
+    /// 카드 타깃팅·호버 시 대상의 월드 UI에 표시할 예상 피해 및 방향 보정 미리보기 페이로드입니다.
+    /// </summary>
+    public struct DamagePreviewInfo
+    {
+        public bool isValid;
+        public int expectedDamage;
+        public FacingHitRelation facingRelation;
+        public float facingMultiplier;
+
+        public bool IsBackstab => isValid && facingRelation == FacingHitRelation.DirectBack && facingMultiplier > 1.001f;
     }
 
     public struct HealInfo

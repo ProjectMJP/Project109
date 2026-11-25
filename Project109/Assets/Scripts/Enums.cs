@@ -10,6 +10,41 @@ public enum LookDirection
     SouthEast = 5   // 300° (+X, -Z)
 }
 
+/// <summary>
+/// 6방향 육각 격자 기준 4종 방향 판정 구역입니다.
+/// </summary>
+public enum FacingZone
+{
+    DirectFront = 0, // 정전면 1방향 (0°)
+    DirectBack = 1,  // 정후면 1방향 (180°)
+    FrontArc = 2,    // 전방 3방향 (0°, ±60°)
+    BackArc = 3      // 후방 3방향 (±120°, 180°)
+}
+
+/// <summary>
+/// 피격자 시선 기준 공격 입사 방향의 세부 관계입니다.
+/// </summary>
+public enum FacingHitRelation
+{
+    None = 0,
+    DirectFront = 1, // 정전면 (0°)
+    FrontSide = 2,   // 전측면 (±60°)
+    BackSide = 3,    // 후측면 (±120°)
+    DirectBack = 4   // 정후면 (180°)
+}
+
+/// <summary>
+/// 공격 피해의 방향 판정 원점/입사 벡터 결정 방식입니다.
+/// </summary>
+public enum FacingOriginMode
+{
+    Auto = 0,            // 활성 시전 컨텍스트가 있으면 사용, 없으면 공격자 위치 기준
+    CasterPosition = 1,  // 공격자 현재 타일 기준 (근접/단일 타깃)
+    OriginCoord = 2,     // 지정 원점 좌표 기준 (광역 AoE 중심점)
+    TravelDirection = 3, // 지정 진행 벡터 기준 (직선 투사체/관통 사선)
+    IgnoreFacing = 4     // 방향 판정 및 피격 회전 미적용 (지속피해/반사 등)
+}
+
 namespace GameItem.Types
 {
     public enum CardRarity

@@ -649,6 +649,9 @@ public class Character : MonoBehaviour, IDamageable
         _damageRecursionDepth++;
         try
         {
+            // 0. 방향(Facing) 판정 및 정후면(1방향) 1.5배 보정 적용 (이벤트 버스에서 참조 가능하도록 선계산)
+            CombatFacing.ApplyFacingToDamageInfo(this, ref info, out LookDirection hitTurnDir, out bool hasHitTurnDir);
+
             // 1. 공격자의 "공격 직전" 발동 (ex. 힘(Strength) 버프를 통해 baseDamageAmount 증가)
             if (!info.damageFlags.HasFlag(DamageFlag.NoCasterEvents) && info.caster != null)
                 CombatEventDispatcher.DispatchBeforeDealDamage(info.caster.eventBus, ref info);
@@ -739,6 +742,19 @@ public class Character : MonoBehaviour, IDamageable
             if (!info.damageFlags.HasFlag(DamageFlag.NoTargetEvents))
             {
                 CombatEventDispatcher.DispatchAfterTakeDamage(this.eventBus, info);
+            }
+
+            // 6-1. 피격 시 돌아보기 (활성 시전 세션 중에는 시전 종료 시 일괄 회전, 단독 피격은 즉시 회전)
+            if (!isDead && hasHitTurnDir)
+            {
+                if (CombatFacing.HasActiveCastSession)
+                {
+                    CombatFacing.RecordPendingHitRotation(this, hitTurnDir);
+                }
+                else
+                {
+                    TryRotateOnHit(hitTurnDir);
+                }
             }
 
             // 7. 게임 내 사망 이벤트 발송 및 후처리
@@ -978,6 +994,28 @@ public class Character : MonoBehaviour, IDamageable
             if (tile != null) return tile.GetCoord();
         }
         return Vector2Int.zero;
+    }
+
+    /// <summary>
+    /// 기절 등 행동 불가 상태인지 확인합니다. (피격 시 시선 회전 예외 판정용)
+    /// </summary>
+    public bool IsIncapacitated()
+    {
+        return effectManager != null && effectManager.HasEffect("Stun");
+    }
+
+    /// <summary>
+    /// 행동 불가 상태가 아닐 때 공격 원점 방향으로 시선을 즉시 회전시킵니다.
+    /// </summary>
+    public bool TryRotateOnHit(LookDirection sourceDirection)
+    {
+        if (!CombatFacing.CanRotateOnHit(this))
+        {
+            return false;
+        }
+
+        characterMove.SetFacingDirection(sourceDirection, true);
+        return true;
     }
 
     /// <summary>

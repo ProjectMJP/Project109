@@ -255,6 +255,117 @@ public static class HexMath
         return diff == 2 || diff == 3 || diff == 4;
     }
 
+    /// <summary>투사체 등의 진행 방향(travelDirection)으로부터 피격자 입장에서의 공격 원점 방향(정반대)을 계산합니다.</summary>
+    public static LookDirection GetAttackSourceDirectionFromTravel(LookDirection travelDirection)
+    {
+        return GetOpposite(travelDirection);
+    }
+
+    /// <summary>피격자 시선(targetFacing)과 피격자→공격 원점 방향(sourceDirection) 간의 방향 관계를 판정합니다.</summary>
+    public static FacingHitRelation EvaluateFacingRelation(LookDirection targetFacing, LookDirection sourceDirection)
+    {
+        int diff = GetRelativeDirectionStep(targetFacing, sourceDirection);
+        switch (diff)
+        {
+            case 0:
+                return FacingHitRelation.DirectFront;
+            case 1:
+            case 5:
+                return FacingHitRelation.FrontSide;
+            case 2:
+            case 4:
+                return FacingHitRelation.BackSide;
+            case 3:
+                return FacingHitRelation.DirectBack;
+            default:
+                return FacingHitRelation.None;
+        }
+    }
+
+    /// <summary>피격자 좌표/시선과 공격 원점 좌표(공격자 위치 또는 AoE 중심점) 간의 방향 관계를 판정합니다.</summary>
+    public static FacingHitRelation EvaluateFacingRelationFromCoords(Vector2Int targetCoord, LookDirection targetFacing, Vector2Int originCoord)
+    {
+        if (targetCoord == originCoord)
+        {
+            return FacingHitRelation.None;
+        }
+
+        LookDirection sourceDir = DirectionFromCoords(targetCoord, originCoord, targetFacing);
+        return EvaluateFacingRelation(targetFacing, sourceDir);
+    }
+
+    /// <summary>피격자 시선과 투사체 진행(입사) 방향 간의 방향 관계를 판정합니다.</summary>
+    public static FacingHitRelation EvaluateFacingRelationFromTravel(LookDirection targetFacing, LookDirection travelDirection)
+    {
+        return EvaluateFacingRelation(targetFacing, GetAttackSourceDirectionFromTravel(travelDirection));
+    }
+
+    /// <summary>방향 관계가 지정된 4종 판정 구역(전면1/후면1/전방3/후방3)에 포함되는지 반환합니다.</summary>
+    public static bool IsFacingZoneMatch(FacingHitRelation relation, FacingZone zone)
+    {
+        switch (zone)
+        {
+            case FacingZone.DirectFront:
+                return relation == FacingHitRelation.DirectFront;
+            case FacingZone.DirectBack:
+                return relation == FacingHitRelation.DirectBack;
+            case FacingZone.FrontArc:
+                return relation == FacingHitRelation.DirectFront || relation == FacingHitRelation.FrontSide;
+            case FacingZone.BackArc:
+                return relation == FacingHitRelation.DirectBack || relation == FacingHitRelation.BackSide;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>시선(facing) 기준 공격 원점 방향(sourceDirection)이 정전면 1방향(0°)인지 판정합니다.</summary>
+    public static bool IsInDirectFront(LookDirection facing, LookDirection sourceDirection)
+    {
+        return EvaluateFacingRelation(facing, sourceDirection) == FacingHitRelation.DirectFront;
+    }
+
+    /// <summary>시선(facing) 기준 공격 원점 방향(sourceDirection)이 전방 3방향(0°, ±60°)인지 판정합니다.</summary>
+    public static bool IsInFrontArc(LookDirection facing, LookDirection sourceDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelation(facing, sourceDirection), FacingZone.FrontArc);
+    }
+
+    /// <summary>시선(facing) 기준 공격 원점 방향(sourceDirection)이 정후면 1방향(180°)인지 판정합니다.</summary>
+    public static bool IsInDirectBack(LookDirection facing, LookDirection sourceDirection)
+    {
+        return EvaluateFacingRelation(facing, sourceDirection) == FacingHitRelation.DirectBack;
+    }
+
+    /// <summary>시선(facing) 기준 공격 원점 방향(sourceDirection)이 후방 3방향(±120°, 180°)인지 판정합니다.</summary>
+    public static bool IsInBackArc(LookDirection facing, LookDirection sourceDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelation(facing, sourceDirection), FacingZone.BackArc);
+    }
+
+    /// <summary>투사체 진행 방향(travelDirection) 기준으로 피격자가 정전면(1방향) 피격인지 판정합니다.</summary>
+    public static bool IsTravelDirectFront(LookDirection targetFacing, LookDirection travelDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelationFromTravel(targetFacing, travelDirection), FacingZone.DirectFront);
+    }
+
+    /// <summary>투사체 진행 방향(travelDirection) 기준으로 피격자가 전방(3방향) 피격인지 판정합니다.</summary>
+    public static bool IsTravelFrontArc(LookDirection targetFacing, LookDirection travelDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelationFromTravel(targetFacing, travelDirection), FacingZone.FrontArc);
+    }
+
+    /// <summary>투사체 진행 방향(travelDirection) 기준으로 피격자가 정후면(1방향) 피격인지 판정합니다.</summary>
+    public static bool IsTravelDirectBack(LookDirection targetFacing, LookDirection travelDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelationFromTravel(targetFacing, travelDirection), FacingZone.DirectBack);
+    }
+
+    /// <summary>투사체 진행 방향(travelDirection) 기준으로 피격자가 후방(3방향) 피격인지 판정합니다.</summary>
+    public static bool IsTravelBackArc(LookDirection targetFacing, LookDirection travelDirection)
+    {
+        return IsFacingZoneMatch(EvaluateFacingRelationFromTravel(targetFacing, travelDirection), FacingZone.BackArc);
+    }
+
     /// <summary>Pointy-Top Odd-R 셀 좌표를 3D 월드(또는 로컬) 좌표로 변환합니다.</summary>
     public static Vector3 CellToWorld(int col, int row, Vector3 gridOffset, float cellSize)
     {

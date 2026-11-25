@@ -22,6 +22,7 @@ public class CardPlayAction : BattleAction
     public Card card { get; private set; }
     public List<Character> targets { get; private set; }
     public Vector2Int targetPosition { get; private set; }
+    private int _castSessionId;
 
     public CardPlayAction(Character caster, Card card, List<Character> targets, Vector2Int targetPosition) 
         : base(caster)
@@ -83,6 +84,9 @@ public class CardPlayAction : BattleAction
             }
 
             AudioServiceLocator.PlaySFX(AudioCueKeys.SFX_CARD_PLAY, 0.05f);
+            Vector2Int casterCoord = caster.GetGridPosition();
+            LookDirection casterFacing = caster.characterMove != null ? caster.characterMove.facingDirection : LookDirection.East;
+            _castSessionId = CombatFacing.BeginCastSession(caster, card.cardData, casterCoord, casterFacing, info.targetPosition);
             card.Execute(info);
             DamageDestructiblesInRange(info);
         }
@@ -90,6 +94,7 @@ public class CardPlayAction : BattleAction
         // 카드 실행 결과로 전투가 승리/종료되었다면 이미 Dispose된 BattleDeck 조작 차단
         if (IsBattleEnded())
         {
+            CompleteCastSessionIfActive(applyRotations: false);
             RestoreCasterState();
             yield break;
         }
@@ -132,6 +137,9 @@ public class CardPlayAction : BattleAction
             caster.currentState = CharacterState.Idle;
             CombatEventDispatcher.DispatchAfterUseCard(caster.eventBus, info);
         }
+
+        // 카드/스킬 1회 시전 완료 시점에 피격 대상 시선 일괄 회전
+        CompleteCastSessionIfActive(applyRotations: !IsBattleEnded());
     }
 
     private void DamageDestructiblesInRange(CardInfo info)
@@ -179,7 +187,18 @@ public class CardPlayAction : BattleAction
     public override void OnCanceled()
     {
         base.OnCanceled();
+        CompleteCastSessionIfActive(applyRotations: false);
         RestoreCasterState();
+    }
+
+    private void CompleteCastSessionIfActive(bool applyRotations)
+    {
+        if (_castSessionId != 0)
+        {
+            int sessionId = _castSessionId;
+            _castSessionId = 0;
+            CombatFacing.CompleteCastSession(sessionId, applyRotations);
+        }
     }
 
     private bool IsBattleEnded()
