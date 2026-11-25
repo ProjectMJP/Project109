@@ -115,6 +115,8 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     private readonly List<Character> _targetingPreviewBuffer = new List<Character>(8);
     private readonly HashSet<Vector2Int> _targetingAoeCoordBuffer = new HashSet<Vector2Int>();
     private readonly List<Character> _appliedWorldTargetingHighlights = new List<Character>(8);
+    private readonly List<Character> _appliedDamagePreviewTargets = new List<Character>(8);
+    private readonly List<Character> _immediateHoverPreviewBuffer = new List<Character>(8);
     private readonly RaycastHit[] _characterRaycastHits = new RaycastHit[16];
     private int _moveRequestToken = 0;
 
@@ -500,6 +502,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
     /// </summary>
     public void UseCard(Card card, List<Character> targets, Vector2Int targetPosition)
     {
+        ClearDamagePreviews();
         SetKeyboardSelectedCard(null);
         // 즉시 실행하지 않고 액션 큐에 위임
         CardPlayAction playAction = new CardPlayAction(controlledCharacter, card, targets, targetPosition);
@@ -1331,6 +1334,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             if (tileDiff != Vector3.zero)
             {
                 controlledCharacter.characterMove.LookAtTile(targetTile);
+                RefreshKeyboardSelectedImmediatePreview();
                 return true;
             }
         }
@@ -1339,6 +1343,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         if (diff != Vector3.zero)
         {
             controlledCharacter.characterMove.SetFacingDirection(CharacterMove.GetDirectionFromVector(diff), true);
+            RefreshKeyboardSelectedImmediatePreview();
             return true;
         }
 
@@ -1435,6 +1440,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             directHoveredChar,
             _targetingPreviewBuffer);
         ApplyTargetingHighlights(_targetingPreviewBuffer, activeCardForTargeting);
+        UpdateDamagePreviews(activeCardForTargeting, _targetingPreviewBuffer, hoveredCoord);
     }
 
     /// <summary>
@@ -1677,6 +1683,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         _lastHoveredCoord = new Vector2Int(-999, -999);
         _lastHoveredTargetingChar = null;
 
+        ClearDamagePreviews();
         ClearFallbackWorldTargetingHighlights();
 
         if (BattleTimelinePanel.Instance != null)
@@ -1690,6 +1697,213 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         }
 
         CharacterUIController.ClearAllTargetingHighlights();
+    }
+
+    /// <summary>
+    /// 지정된 대상 목록에 대해 방향 보정 및 버프/디버프가 반영된 예상 피해 미리보기를 갱신합니다.
+    /// </summary>
+    public void UpdateDamagePreviews(Card card, IReadOnlyList<Character> targets, Vector2Int targetPosition)
+    {
+        for (int i = _appliedDamagePreviewTargets.Count - 1; i >= 0; i--)
+        {
+            Character prev = _appliedDamagePreviewTargets[i];
+            if (prev == null || !ContainsCharacter(targets, prev))
+            {
+                if (prev != null)
+                {
+                    prev.ClearDamagePreview();
+                }
+                _appliedDamagePreviewTargets.RemoveAt(i);
+            }
+        }
+
+        if (card == null || card.cardData == null || controlledCharacter == null || controlledCharacter.isDead || targets == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < targets.Count; i++)
+        {
+            Character target = targets[i];
+            if (target == null || target.isDead)
+            {
+                continue;
+            }
+
+            if (CombatFacing.TrySimulateCardDamagePreview(controlledCharacter, target, card, targetPosition, out DamagePreviewInfo preview))
+            {
+                target.UpdateDamagePreview(in preview);
+                if (!ContainsCharacter(_appliedDamagePreviewTargets, target))
+                {
+                    _appliedDamagePreviewTargets.Add(target);
+                }
+            }
+            else
+            {
+                target.ClearDamagePreview();
+                _appliedDamagePreviewTargets.Remove(target);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 현재 표시 중인 모든 대상의 예상 피해 미리보기를 초기화합니다.
+    /// </summary>
+    public void ClearDamagePreviews()
+    {
+        _immediateHoverPreviewBuffer.Clear();
+
+        for (int i = _appliedDamagePreviewTargets.Count - 1; i >= 0; i--)
+        {
+            Character c = _appliedDamagePreviewTargets[i];
+            if (c != null)
+            {
+                c.ClearDamagePreview();
+            }
+        }
+        _appliedDamagePreviewTargets.Clear();
+    }
+
+    /// <summary>
+    /// 즉시 시전형(Directional/AreaSelf/AllEnemies/RandomEnemy) 카드 호버·선택 시 예상 피해 미리보기를 표시합니다.
+    /// </summary>
+    public void PreviewImmediateCardHover(Card card)
+    {
+        if (controlState != PlayerControlState.Normal)
+        {
+            return;
+        }
+
+        if (card == null || card.cardData == null || controlledCharacter == null || controlledCharacter.isDead)
+        {
+            ClearDamagePreviews();
+            return;
+        }
+
+        TargetType targetType = card.cardData.parsedTargetType;
+        if (GetTargetingStrategy(targetType).IsManualSelectionRequired || targetType == TargetType.Self || targetType == TargetType.SingleAlly || targetType == TargetType.AllAllies)
+        {
+            ClearDamagePreviews();
+            return;
+        }
+
+        _immediateHoverPreviewBuffer.Clear();
+        Tile casterTile = controlledCharacter.characterMove != null ? controlledCharacter.characterMove.GetCurrentTile() : null;
+        Vector2Int casterCoord = casterTile != null ? casterTile.GetCoord() : controlledCharacter.GetGridPosition();
+        LookDirection casterFacing = controlledCharacter.characterMove != null ? controlledCharacter.characterMove.facingDirection : LookDirection.East;
+
+        if (targetType == TargetType.AllEnemies)
+        {
+            CollectAllMatchingCombatants(isFriendlyTarget: false, _immediateHoverPreviewBuffer);
+        }
+        else if (targetType == TargetType.RandomEnemy)
+        {
+            CollectEnemiesInRangeNonAlloc(casterTile, card.cardData.targetMinDistance, card.cardData.targetMaxDistance, _immediateHoverPreviewBuffer);
+        }
+        else if (targetType == TargetType.AreaSelf)
+        {
+            if (GameMap.current != null && card.cardData.additionalEffectAreaList != null && card.cardData.additionalEffectAreaList.Count > 0)
+            {
+                _targetingAoeCoordBuffer.Clear();
+                List<Vector2Int> aoeCoords = GameMap.current.CalculateCardAoECoords(casterCoord, casterCoord, card.cardData, casterFacing);
+                if (aoeCoords != null)
+                {
+                    for (int i = 0; i < aoeCoords.Count; i++)
+                    {
+                        _targetingAoeCoordBuffer.Add(aoeCoords[i]);
+                    }
+                }
+                _targetingAoeCoordBuffer.Add(casterCoord);
+                CollectCharactersInCoordsNonAlloc(_targetingAoeCoordBuffer, TargetType.SingleEnemy, _immediateHoverPreviewBuffer);
+            }
+            else
+            {
+                CollectEnemiesInRangeNonAlloc(casterTile, card.cardData.targetMinDistance, card.cardData.targetMaxDistance, _immediateHoverPreviewBuffer);
+            }
+        }
+        else if (targetType == TargetType.Directional)
+        {
+            if (GameMap.current != null)
+            {
+                _targetingAoeCoordBuffer.Clear();
+                List<Vector2Int> aoeCoords = GameMap.current.CalculateCardAoECoords(casterCoord, casterCoord, card.cardData, casterFacing);
+                if (aoeCoords != null && aoeCoords.Count > 0)
+                {
+                    for (int i = 0; i < aoeCoords.Count; i++)
+                    {
+                        _targetingAoeCoordBuffer.Add(aoeCoords[i]);
+                    }
+                    CollectCharactersInCoordsNonAlloc(_targetingAoeCoordBuffer, TargetType.SingleEnemy, _immediateHoverPreviewBuffer);
+                }
+            }
+        }
+
+        UpdateDamagePreviews(card, _immediateHoverPreviewBuffer, casterCoord);
+    }
+
+    /// <summary>
+    /// 즉시 시전형 카드 호버 종료 시 표시된 예상 피해 미리보기를 숨깁니다.
+    /// </summary>
+    public void ClearImmediateCardHoverPreview()
+    {
+        if (controlState == PlayerControlState.TargetSelection)
+        {
+            return;
+        }
+
+        ClearDamagePreviews();
+    }
+
+    private void RefreshKeyboardSelectedImmediatePreview()
+    {
+        if (controlState == PlayerControlState.Normal && _keyboardSelectedCard != null)
+        {
+            PreviewImmediateCardHover(_keyboardSelectedCard);
+        }
+    }
+
+    private void CollectEnemiesInRangeNonAlloc(Tile originTile, int minDistance, int maxDistance, List<Character> results)
+    {
+        if (originTile == null || results == null) return;
+
+        if (RunManager.instance != null && RunManager.instance.battleManager != null)
+        {
+            IReadOnlyList<ICharacterController> combatants = RunManager.instance.battleManager.GetAllCombatants();
+            for (int i = 0; i < combatants.Count; i++)
+            {
+                Character candidate = combatants[i]?.controlledCharacter;
+                if (!IsCharacterMatchingTargetType(candidate, isFriendlyTarget: false)) continue;
+
+                Tile candidateTile = candidate.characterMove != null ? candidate.characterMove.GetCurrentTile() : null;
+                if (candidateTile == null) continue;
+
+                int dist = Tile.GetDistance(originTile, candidateTile);
+                if (dist >= minDistance && dist <= maxDistance && !ContainsCharacter(results, candidate))
+                {
+                    results.Add(candidate);
+                }
+            }
+            return;
+        }
+
+        if (GameMap.current != null)
+        {
+            for (int c = 0; c < GameMap.current.mapColumn; c++)
+            {
+                for (int r = 0; r < GameMap.current.mapRow; r++)
+                {
+                    Tile tile = GameMap.current.GetTile(c, r);
+                    Character candidate = tile != null ? tile.occupyingCharacter : null;
+                    if (!IsCharacterMatchingTargetType(candidate, isFriendlyTarget: false)) continue;
+
+                    int dist = Tile.GetDistance(originTile, tile);
+                    if (dist >= minDistance && dist <= maxDistance && !ContainsCharacter(results, candidate))
+                    {
+                        results.Add(candidate);
+                    }
+                }
+            }
+        }
     }
 
     private void ClearFallbackWorldTargetingHighlights()
@@ -1825,6 +2039,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                 if (controlledCharacter != null && controlledCharacter.characterMove != null)
                 {
                     controlledCharacter.characterMove.LookAtTile(targetTile);
+                    RefreshKeyboardSelectedImmediatePreview();
                 }
                 Debug.Log($"[PlayerBattleController] 바라보기 회전: {targetDir} (diff: ({diff.x:F2}, {diff.z:F2}))");
             }
@@ -1921,6 +2136,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                                 else if (targetType == TargetType.MultiEnemy && _multiSelectedTargets.Count > 0)
                                 {
                                     ApplyTargetingHighlights(_multiSelectedTargets, activeCardForTargeting);
+                                    UpdateDamagePreviews(activeCardForTargeting, _multiSelectedTargets, targetTile.GetCoord());
                                 }
                             }
                             else

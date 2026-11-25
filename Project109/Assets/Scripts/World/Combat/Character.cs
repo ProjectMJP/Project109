@@ -379,8 +379,10 @@ public class Character : MonoBehaviour, IDamageable
     public event Action<Character> OnCharacterJoinedBattle;
     public event Action<Character> OnCharacterLeftBattle;
     public event Action<EnemyIntentInfo> OnIntentChanged;
+    public event Action<DamagePreviewInfo> OnDamagePreviewChanged;
 
     public EnemyIntentInfo CurrentIntent { get; private set; }
+    public DamagePreviewInfo CurrentDamagePreview { get; private set; }
 
     /// <summary>
     /// 캐릭터(적)의 현재 행동 예고 상태를 갱신하고 구독자들에게 알립니다.
@@ -389,6 +391,42 @@ public class Character : MonoBehaviour, IDamageable
     {
         CurrentIntent = intent;
         OnIntentChanged?.Invoke(CurrentIntent);
+    }
+
+    /// <summary>
+    /// 카드 타깃팅·호버 시 캐릭터 월드 UI에 표시할 예상 피해 미리보기 상태를 갱신합니다.
+    /// </summary>
+    public void UpdateDamagePreview(in DamagePreviewInfo preview)
+    {
+        if (!CurrentDamagePreview.isValid && !preview.isValid)
+        {
+            return;
+        }
+
+        if (CurrentDamagePreview.isValid == preview.isValid
+            && CurrentDamagePreview.expectedDamage == preview.expectedDamage
+            && CurrentDamagePreview.facingRelation == preview.facingRelation
+            && Mathf.Approximately(CurrentDamagePreview.facingMultiplier, preview.facingMultiplier))
+        {
+            return;
+        }
+
+        CurrentDamagePreview = preview;
+        OnDamagePreviewChanged?.Invoke(CurrentDamagePreview);
+    }
+
+    /// <summary>
+    /// 캐릭터 월드 UI의 예상 피해 미리보기 상태를 초기화합니다.
+    /// </summary>
+    public void ClearDamagePreview()
+    {
+        if (!CurrentDamagePreview.isValid)
+        {
+            return;
+        }
+
+        CurrentDamagePreview = default;
+        OnDamagePreviewChanged?.Invoke(CurrentDamagePreview);
     }
 
     public void NotifyJoinedBattle() => OnCharacterJoinedBattle?.Invoke(this);
@@ -604,6 +642,8 @@ public class Character : MonoBehaviour, IDamageable
         currentTurn = 0;
         CurrentIntent = default;
         OnIntentChanged?.Invoke(CurrentIntent);
+        CurrentDamagePreview = default;
+        OnDamagePreviewChanged?.Invoke(CurrentDamagePreview);
 
         if (effectManager != null)
         {
@@ -717,6 +757,7 @@ public class Character : MonoBehaviour, IDamageable
                 info.isFatal = true;
                 isDead = true;
                 currentState = CharacterState.Die;
+                ClearDamagePreview();
                 if (characterMove != null)
                 {
                     Tile tile = characterMove.GetCurrentTile();

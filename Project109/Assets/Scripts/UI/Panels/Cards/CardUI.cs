@@ -79,6 +79,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private MotionHandle _hoverScaleHandle;
     private bool _isShowingTooltip = false;
     private bool _isShowingTimelinePreview = false;
+    private bool _isShowingImmediateDamagePreview = false;
 
     private bool _isDragging = false;
     private bool _dragCanceled = false;
@@ -1217,23 +1218,46 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private void ShowTimelineCardPreview()
     {
-        if (!bShowEffectAreaUI || cardInstance == null || BattleTimelinePanel.Instance == null)
+        if (!bShowEffectAreaUI || cardInstance == null)
         {
             return;
         }
 
-        _isShowingTimelinePreview = true;
-        BattleTimelinePanel.Instance.SetCardHoverPreview(cardInstance);
+        if (BattleTimelinePanel.Instance != null)
+        {
+            _isShowingTimelinePreview = true;
+            BattleTimelinePanel.Instance.SetCardHoverPreview(cardInstance);
+        }
+
+        if (!IsPlayerTargetSelectionActive()
+            && RunManager.instance != null
+            && RunManager.instance.playerBattleController != null)
+        {
+            _isShowingImmediateDamagePreview = true;
+            RunManager.instance.playerBattleController.PreviewImmediateCardHover(cardInstance);
+        }
     }
 
     private void ClearTimelineCardPreview()
     {
-        if (!_isShowingTimelinePreview) return;
-        _isShowingTimelinePreview = false;
-
-        if (BattleTimelinePanel.Instance != null)
+        if (_isShowingTimelinePreview)
         {
-            BattleTimelinePanel.Instance.ClearCardHoverPreview();
+            _isShowingTimelinePreview = false;
+            if (BattleTimelinePanel.Instance != null)
+            {
+                BattleTimelinePanel.Instance.ClearCardHoverPreview();
+            }
+        }
+
+        if (_isShowingImmediateDamagePreview)
+        {
+            _isShowingImmediateDamagePreview = false;
+            if (!IsPlayerTargetSelectionActive()
+                && RunManager.instance != null
+                && RunManager.instance.playerBattleController != null)
+            {
+                RunManager.instance.playerBattleController.ClearImmediateCardHoverPreview();
+            }
         }
     }
 

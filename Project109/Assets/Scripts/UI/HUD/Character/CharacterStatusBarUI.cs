@@ -1,4 +1,7 @@
+using EventStructs;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 캐릭터의 체력/방어막/스태미나 게이지(GaugeUI) 및 위치 추적을 전담하는 순수 상태바 View 컴포넌트입니다.
@@ -22,10 +25,28 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
     [Header("Display Options")]
     [SerializeField] private bool showValueText = false;
 
+    [Header("Damage Preview")]
+    [SerializeField] private GameObject damagePreviewContainer;
+    [SerializeField] private Image damagePreviewBackground;
+    [SerializeField] private TextMeshProUGUI damagePreviewText;
+    [SerializeField] private GameObject facingBadgeContainer;
+    [SerializeField] private Image facingBadgeBackground;
+    [SerializeField] private TextMeshProUGUI facingBadgeText;
+    [SerializeField] private Color normalDamagePreviewBgColor = new Color(0.08f, 0.08f, 0.12f, 0.90f);
+    [SerializeField] private Color normalDamagePreviewTextColor = new Color(1f, 0.88f, 0.85f, 1f);
+    [SerializeField] private Color backstabDamagePreviewBgColor = new Color(0.42f, 0.09f, 0.09f, 0.95f);
+    [SerializeField] private Color backstabDamagePreviewTextColor = new Color(1f, 0.86f, 0.30f, 1f);
+    [SerializeField] private Color backstabBadgeBgColor = new Color(0.95f, 0.52f, 0.08f, 0.96f);
+    [SerializeField] private Color backstabBadgeTextColor = new Color(1f, 0.98f, 0.92f, 1f);
+
     private Camera cachedCamera;
 
     public Transform TargetTransform => targetTransform;
     public bool ShowValueText => showValueText;
+    public bool IsDamagePreviewVisible => damagePreviewContainer != null && damagePreviewContainer.activeSelf;
+    public bool IsFacingBadgeVisible => facingBadgeContainer != null && facingBadgeContainer.activeSelf;
+    public string DamagePreviewDisplayText => damagePreviewText != null ? damagePreviewText.text : string.Empty;
+    public string FacingBadgeDisplayText => facingBadgeText != null ? facingBadgeText.text : string.Empty;
     public Vector3 WorldOffset
     {
         get => worldOffset;
@@ -56,6 +77,8 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
             staminaGaugeUI.SetGaugeColor(staminaColor);
             staminaGaugeUI.SetTextVisible(showValueText);
         }
+
+        ClearDamagePreview();
     }
 
     /// <summary>
@@ -191,6 +214,75 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         }
     }
 
+    /// <summary>
+    /// 방향 보정이 반영된 예상 피해 수치 및 정후면 강조 배지를 표시하거나 숨깁니다.
+    /// </summary>
+    public void SetDamagePreview(in DamagePreviewInfo preview)
+    {
+        if (!preview.isValid)
+        {
+            ClearDamagePreview();
+            return;
+        }
+
+        bool isBackstab = preview.IsBackstab;
+
+        if (damagePreviewContainer != null)
+        {
+            damagePreviewContainer.SetActive(true);
+            damagePreviewContainer.transform.SetAsLastSibling();
+        }
+
+        if (damagePreviewBackground != null)
+        {
+            damagePreviewBackground.color = isBackstab ? backstabDamagePreviewBgColor : normalDamagePreviewBgColor;
+        }
+
+        if (damagePreviewText != null)
+        {
+            damagePreviewText.color = isBackstab ? backstabDamagePreviewTextColor : normalDamagePreviewTextColor;
+            damagePreviewText.text = $"-{preview.expectedDamage}";
+        }
+
+        if (facingBadgeContainer != null)
+        {
+            facingBadgeContainer.SetActive(isBackstab);
+            if (isBackstab)
+            {
+                facingBadgeContainer.transform.SetAsLastSibling();
+            }
+        }
+
+        if (isBackstab)
+        {
+            if (facingBadgeBackground != null)
+            {
+                facingBadgeBackground.color = backstabBadgeBgColor;
+            }
+            if (facingBadgeText != null)
+            {
+                facingBadgeText.color = backstabBadgeTextColor;
+                facingBadgeText.text = $"정후면 {preview.facingMultiplier:0.#}x";
+            }
+        }
+    }
+
+    /// <summary>
+    /// 예상 피해 미리보기 수치와 방향 배지를 숨깁니다.
+    /// </summary>
+    public void ClearDamagePreview()
+    {
+        if (damagePreviewContainer != null)
+        {
+            damagePreviewContainer.SetActive(false);
+        }
+
+        if (facingBadgeContainer != null)
+        {
+            facingBadgeContainer.SetActive(false);
+        }
+    }
+
     public void Show()
     {
         gameObject.SetActive(true);
@@ -198,6 +290,7 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
 
     public void Hide()
     {
+        ClearDamagePreview();
         gameObject.SetActive(false);
     }
 }

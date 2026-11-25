@@ -51,7 +51,7 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         CleanupLegacyEffectDetailPrefabsAndAddressables();
 
         // 2. 월드 컴팩트 상태바 (64x14) 및 도트 이펙트 리스트 (2-B안) 갱신
-        UpdateCompactStatusBarPrefab(worldUiLayer, squareSprite);
+        UpdateCompactStatusBarPrefab(worldUiLayer, baseFont, squareSprite);
         UpdateCompactEffectListPrefab(worldUiLayer);
 
         // 3. 캐릭터 프리팹 3종 오프셋 컴팩트화 (발아래 상태바/도트, 머리 위 적 행동 예고, 기존 BoxCollider 유지)
@@ -211,7 +211,47 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         }
     }
 
-    private static void UpdateCompactStatusBarPrefab(int worldUiLayer, Sprite squareSprite)
+    [MenuItem("Tools/UI/Update StatusBar Damage Preview Prefab")]
+    public static void UpdateStatusBarDamagePreviewPrefab()
+    {
+        int worldUiLayer = LayerMask.NameToLayer("WorldUI");
+        if (worldUiLayer < 0) worldUiLayer = 11;
+
+        TMP_FontAsset baseFont = ResolveBaseFont();
+        Sprite squareSprite = ResolveSquareSprite();
+
+        GameObject root = PrefabUtility.LoadPrefabContents(StatusBarPrefabPath);
+        if (root == null)
+        {
+            Debug.LogError($"[SetupBattleSideUnitHUDAndCompactWorldUI] 프리팹 로드 실패: {StatusBarPrefabPath}");
+            return;
+        }
+
+        try
+        {
+            ConfigureStatusBarDamagePreviewChildren(root, worldUiLayer, baseFont, squareSprite);
+            SetLayerRecursively(root, worldUiLayer);
+
+            bool saved;
+            PrefabUtility.SaveAsPrefabAsset(root, StatusBarPrefabPath, out saved);
+            if (!saved)
+            {
+                Debug.LogError($"[SetupBattleSideUnitHUDAndCompactWorldUI] 저장 실패: {StatusBarPrefabPath}");
+            }
+            else
+            {
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log("[SetupBattleSideUnitHUDAndCompactWorldUI] CharacterStatusBarUI 예상 피해 미리보기 UI 프리팹 갱신 완료");
+            }
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    private static void UpdateCompactStatusBarPrefab(int worldUiLayer, TMP_FontAsset baseFont, Sprite squareSprite)
     {
         GameObject root = PrefabUtility.LoadPrefabContents(StatusBarPrefabPath);
         if (root == null)
@@ -273,6 +313,8 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             serializedStatus.FindProperty("showValueText").boolValue = false;
             serializedStatus.ApplyModifiedPropertiesWithoutUndo();
 
+            ConfigureStatusBarDamagePreviewChildren(root, worldUiLayer, baseFont, squareSprite);
+
             SetLayerRecursively(root, worldUiLayer);
 
             bool saved;
@@ -286,6 +328,149 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         {
             PrefabUtility.UnloadPrefabContents(root);
         }
+    }
+
+    private static void ConfigureStatusBarDamagePreviewChildren(
+        GameObject root,
+        int worldUiLayer,
+        TMP_FontAsset baseFont,
+        Sprite squareSprite)
+    {
+        if (root == null) return;
+
+        Transform dmgContainerTr = EnsurePreviewPillChild(
+            root.transform,
+            containerName: "DamagePreviewContainer",
+            bgName: "DamagePreviewBackground",
+            textName: "DamagePreviewText",
+            anchoredPos: new Vector2(0f, 16f),
+            sizeDelta: new Vector2(86f, 16f),
+            bgColor: new Color(0.08f, 0.08f, 0.12f, 0.90f),
+            textColor: new Color(1f, 0.88f, 0.85f, 1f),
+            fontSize: 11f,
+            defaultText: "-10",
+            worldUiLayer: worldUiLayer,
+            baseFont: baseFont,
+            squareSprite: squareSprite,
+            out Image dmgBgImg,
+            out TextMeshProUGUI dmgTmp);
+
+        Transform badgeContainerTr = EnsurePreviewPillChild(
+            root.transform,
+            containerName: "FacingBadgeContainer",
+            bgName: "FacingBadgeBackground",
+            textName: "FacingBadgeText",
+            anchoredPos: new Vector2(0f, 31f),
+            sizeDelta: new Vector2(86f, 13f),
+            bgColor: new Color(0.95f, 0.52f, 0.08f, 0.96f),
+            textColor: new Color(1f, 0.98f, 0.92f, 1f),
+            fontSize: 9f,
+            defaultText: "정후면 1.5x",
+            worldUiLayer: worldUiLayer,
+            baseFont: baseFont,
+            squareSprite: squareSprite,
+            out Image badgeBgImg,
+            out TextMeshProUGUI badgeTmp);
+
+        dmgContainerTr.gameObject.SetActive(false);
+        badgeContainerTr.gameObject.SetActive(false);
+
+        CharacterStatusBarUI statusBar = root.GetComponent<CharacterStatusBarUI>();
+        if (statusBar != null)
+        {
+            SerializedObject serializedStatus = new SerializedObject(statusBar);
+            serializedStatus.FindProperty("damagePreviewContainer").objectReferenceValue = dmgContainerTr.gameObject;
+            serializedStatus.FindProperty("damagePreviewBackground").objectReferenceValue = dmgBgImg;
+            serializedStatus.FindProperty("damagePreviewText").objectReferenceValue = dmgTmp;
+            serializedStatus.FindProperty("facingBadgeContainer").objectReferenceValue = badgeContainerTr.gameObject;
+            serializedStatus.FindProperty("facingBadgeBackground").objectReferenceValue = badgeBgImg;
+            serializedStatus.FindProperty("facingBadgeText").objectReferenceValue = badgeTmp;
+            serializedStatus.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    private static Transform EnsurePreviewPillChild(
+        Transform parent,
+        string containerName,
+        string bgName,
+        string textName,
+        Vector2 anchoredPos,
+        Vector2 sizeDelta,
+        Color bgColor,
+        Color textColor,
+        float fontSize,
+        string defaultText,
+        int worldUiLayer,
+        TMP_FontAsset baseFont,
+        Sprite squareSprite,
+        out Image bgImage,
+        out TextMeshProUGUI textComp)
+    {
+        Transform containerTr = parent.Find(containerName);
+        if (containerTr == null)
+        {
+            GameObject go = new GameObject(containerName, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            containerTr = go.transform;
+        }
+        containerTr.gameObject.layer = worldUiLayer;
+
+        RectTransform containerRect = containerTr.GetComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.5f, 0.5f);
+        containerRect.anchorMax = new Vector2(0.5f, 0.5f);
+        containerRect.pivot = new Vector2(0.5f, 0.5f);
+        containerRect.anchoredPosition = anchoredPos;
+        containerRect.sizeDelta = sizeDelta;
+
+        Transform bgTr = containerTr.Find(bgName);
+        if (bgTr == null)
+        {
+            GameObject bgGo = new GameObject(bgName, typeof(RectTransform), typeof(Image));
+            bgGo.transform.SetParent(containerTr, false);
+            bgTr = bgGo.transform;
+        }
+        bgTr.gameObject.layer = worldUiLayer;
+        RectTransform bgRect = bgTr.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.pivot = new Vector2(0.5f, 0.5f);
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+
+        bgImage = bgTr.GetComponent<Image>();
+        if (bgImage == null) bgImage = bgTr.gameObject.AddComponent<Image>();
+        if (squareSprite != null) bgImage.sprite = squareSprite;
+        bgImage.type = Image.Type.Simple;
+        bgImage.color = bgColor;
+        bgImage.raycastTarget = false;
+
+        Transform textTr = containerTr.Find(textName);
+        if (textTr == null)
+        {
+            GameObject textGo = new GameObject(textName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            textGo.transform.SetParent(containerTr, false);
+            textTr = textGo.transform;
+        }
+        textTr.gameObject.layer = worldUiLayer;
+        RectTransform textRect = textTr.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.pivot = new Vector2(0.5f, 0.5f);
+        textRect.offsetMin = new Vector2(2f, 0f);
+        textRect.offsetMax = new Vector2(-2f, 0f);
+
+        textComp = textTr.GetComponent<TextMeshProUGUI>();
+        if (textComp == null) textComp = textTr.gameObject.AddComponent<TextMeshProUGUI>();
+        if (baseFont != null) textComp.font = baseFont;
+        textComp.fontSize = fontSize;
+        textComp.fontStyle = FontStyles.Bold;
+        textComp.alignment = TextAlignmentOptions.Center;
+        textComp.textWrappingMode = TextWrappingModes.NoWrap;
+        textComp.color = textColor;
+        textComp.raycastTarget = false;
+        textComp.text = defaultText;
+
+        return containerTr;
     }
 
     private static GaugeUI ConfigureCompactGaugeGroup(

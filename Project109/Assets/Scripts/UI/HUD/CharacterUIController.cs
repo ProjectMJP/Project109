@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using EventStructs;
 using UnityEngine;
 
 /// <summary>
@@ -35,6 +36,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     private bool _isEventBusRegistered = false;
     private bool _isTimelineHighlighted = false;
     private bool _isTargetingHighlighted = false;
+    private bool _hasDamagePreview = false;
     private bool _hasAppliedPropertyBlock = false;
     private Renderer[] _cachedRenderers;
     private MaterialPropertyBlock _highlightPropertyBlock;
@@ -123,11 +125,17 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
 
     private void OnDisable()
     {
+        _hasDamagePreview = false;
+        if (statusBarUI != null)
+        {
+            statusBarUI.ClearDamagePreview();
+        }
         SetTargetingHighlight(false);
     }
 
     private void OnDestroy()
     {
+        _hasDamagePreview = false;
         SetTimelineHighlight(false);
         SetTargetingHighlight(false);
         if (character != null && _controllersByCharacter.TryGetValue(character, out CharacterUIController registered) && registered == this)
@@ -197,9 +205,17 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (statusBarUI == null)
         {
             statusBarUI = UIManager.instance.CreateStatusBarUI(transform, statusBarOffset);
-            if (statusBarUI != null && !_isBattleActive)
+            if (statusBarUI != null)
             {
-                statusBarUI.Hide();
+                if (character != null && _isBattleActive)
+                {
+                    _hasDamagePreview = character.CurrentDamagePreview.isValid;
+                    statusBarUI.SetDamagePreview(character.CurrentDamagePreview);
+                }
+                else
+                {
+                    statusBarUI.Hide();
+                }
             }
         }
 
@@ -254,6 +270,9 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         character.OnIntentChanged -= OnIntentChanged;
         character.OnIntentChanged += OnIntentChanged;
 
+        character.OnDamagePreviewChanged -= OnDamagePreviewChanged;
+        character.OnDamagePreviewChanged += OnDamagePreviewChanged;
+
         if (character.effectManager != null)
         {
             character.effectManager.OnEffectAdded -= OnEffectAdded;
@@ -285,6 +304,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         character.OnCharacterJoinedBattle -= OnJoinedBattle;
         character.OnCharacterLeftBattle -= OnLeftBattle;
         character.OnIntentChanged -= OnIntentChanged;
+        character.OnDamagePreviewChanged -= OnDamagePreviewChanged;
 
         if (character.effectManager != null)
         {
@@ -373,6 +393,27 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         }
     }
 
+    private void OnDamagePreviewChanged(DamagePreviewInfo preview)
+    {
+        if (!_isBattleActive || character == null || character.isDead)
+        {
+            _hasDamagePreview = false;
+            if (statusBarUI != null)
+            {
+                statusBarUI.ClearDamagePreview();
+            }
+            ApplyWorldUIHighlightPresentation();
+            return;
+        }
+
+        _hasDamagePreview = preview.isValid;
+        if (statusBarUI != null)
+        {
+            statusBarUI.SetDamagePreview(in preview);
+        }
+        ApplyWorldUIHighlightPresentation();
+    }
+
     private void OnEffectAdded(Effect effect)
     {
         if (!_isBattleActive) return;
@@ -425,6 +466,16 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
                 ? character.curCharacterStat.maxStamina
                 : Mathf.Max(1f, character.curStamina);
             statusBarUI.UpdateStamina(character.curStamina, maxStamina);
+
+            _hasDamagePreview = _isBattleActive && character.CurrentDamagePreview.isValid;
+            if (_isBattleActive)
+            {
+                statusBarUI.SetDamagePreview(character.CurrentDamagePreview);
+            }
+            else
+            {
+                statusBarUI.ClearDamagePreview();
+            }
         }
 
         if (effectListUI != null && character.effectManager != null)
@@ -484,6 +535,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     public void HideUI()
     {
         _isBattleActive = false;
+        _hasDamagePreview = false;
         SetTimelineHighlight(false);
         SetTargetingHighlight(false);
         if (statusBarUI != null) statusBarUI.Hide();
@@ -558,7 +610,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     /// </summary>
     private void ApplyWorldUIHighlightPresentation()
     {
-        bool anyHighlight = _isTimelineHighlighted || _isTargetingHighlighted;
+        bool anyHighlight = _isTimelineHighlighted || _isTargetingHighlighted || _hasDamagePreview;
         bool isEnemy = character != null && character.faction == CharacterFaction.Enemy;
         bool useOverlay = !isEnemy || anyHighlight;
 

@@ -574,6 +574,10 @@ public class BattleHandPanel : UIPanelBase
             {
                 BattleTimelinePanel.Instance.SetCardHoverPreview(selectedCard);
             }
+            if (_boundController != null)
+            {
+                _boundController.PreviewImmediateCardHover(selectedCard);
+            }
         }
         else if (!IsTargetingMode)
         {
@@ -584,6 +588,10 @@ public class BattleHandPanel : UIPanelBase
             if (BattleTimelinePanel.Instance != null)
             {
                 BattleTimelinePanel.Instance.ClearCardHoverPreview();
+            }
+            if (_boundController != null)
+            {
+                _boundController.ClearImmediateCardHoverPreview();
             }
         }
     }
