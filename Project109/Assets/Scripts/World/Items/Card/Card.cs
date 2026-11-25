@@ -217,7 +217,8 @@ public class Card : IDescribable, ILuaOwnedResource
     {
         // 1. Card 및 새로운 Lua 인스턴스 생성 (식별자 충돌 방지를 위해 newRuntimeID가 지정되지 않으면 음수 전역 고유 시퀀스 ID 자동 순차 발급)
         int id = newRuntimeID ?? System.Threading.Interlocked.Decrement(ref nextTemporaryRuntimeID);
-        Card clonedCard = ModObjectFactory.CreateCard(cardData, newOwner ?? this.owner, id);
+        Character resolvedOwner = newOwner != null ? newOwner : this.owner;
+        Card clonedCard = ModObjectFactory.CreateCard(cardData, resolvedOwner, id);
 
         // 3. 마스터리 공유 상태 참조 복사
         clonedCard.masteryState = this.masteryState;

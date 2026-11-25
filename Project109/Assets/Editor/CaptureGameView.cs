@@ -18,7 +18,11 @@ public static class GameViewScreenshot
 
         // 에디트 모드에서도 즉시 파일이 기록되도록 GameView 강제 갱신
         var gameViewType = typeof(Editor).Assembly.GetType("UnityEditor.GameView");
-        EditorWindow.GetWindow(gameViewType)?.Repaint();
+        EditorWindow gameView = EditorWindow.GetWindow(gameViewType);
+        if (gameView != null)
+        {
+            gameView.Repaint();
+        }
 
         Debug.Log($"Saved screenshot: {Path.GetFullPath(path)}");
     }
