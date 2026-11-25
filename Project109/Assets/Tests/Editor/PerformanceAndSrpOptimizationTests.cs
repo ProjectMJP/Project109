@@ -82,18 +82,27 @@ public class PerformanceAndSrpOptimizationTests
         mapData.cellSize = 2.5f;
         mapData.gridOffset = new Vector3(-5f, 1.5f, 10f);
 
-        Vector2Int original = new Vector2Int(3, 4);
-        Vector3 world = mapData.CellToWorld(original);
+        Vector2Int originalEven = new Vector2Int(3, 4);
+        Vector3 worldEven = mapData.CellToWorld(originalEven);
 
-        Assert.AreEqual(new Vector3(2.5f, 1.5f, 20f), world);
-        Assert.AreEqual(original, mapData.WorldToCell(world));
+        Assert.AreEqual(-5f + 3f * 2.5f, worldEven.x, 0.001f);
+        Assert.AreEqual(1.5f, worldEven.y, 0.001f);
+        Assert.AreEqual(10f + 4f * HexMath.HalfSqrt3 * 2.5f, worldEven.z, 0.001f);
+        Assert.AreEqual(originalEven, mapData.WorldToCell(worldEven));
 
-        // 셀 경계 내부 미세 오프셋(±0.49 * cellSize)도 동일 셀로 스냅되어야 합니다.
-        Vector3 jittered = world + new Vector3(1.1f, 0f, -1.1f);
-        Assert.AreEqual(original, mapData.WorldToCell(jittered));
+        // 홀수 행은 +0.5 * cellSize X 시프트가 적용되어야 합니다.
+        Vector2Int originalOdd = new Vector2Int(3, 3);
+        Vector3 worldOdd = mapData.CellToWorld(originalOdd);
+        Assert.AreEqual(-5f + 3.5f * 2.5f, worldOdd.x, 0.001f);
+        Assert.AreEqual(10f + 3f * HexMath.HalfSqrt3 * 2.5f, worldOdd.z, 0.001f);
+        Assert.AreEqual(originalOdd, mapData.WorldToCell(worldOdd));
+
+        // 육각 내접원 반경 내부 미세 오프셋도 동일 셀로 스냅되어야 합니다.
+        Vector3 jittered = worldEven + new Vector3(0.8f, 0f, -0.5f);
+        Assert.AreEqual(originalEven, mapData.WorldToCell(jittered));
 
         // cellSize가 0 이하일 때는 안전하게 (0, 0)을 반환해야 합니다.
-        Assert.AreEqual(Vector2Int.zero, MapDataSO.WorldToCell(world, mapData.gridOffset, 0f));
+        Assert.AreEqual(Vector2Int.zero, MapDataSO.WorldToCell(worldEven, mapData.gridOffset, 0f));
     }
 
     [Test]

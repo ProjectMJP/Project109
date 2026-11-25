@@ -149,7 +149,7 @@ public class CardPlayAction : BattleAction
         Vector2Int originCoord = GameMap.current.GetCharacterCoordinate(caster);
         LookDirection facing = (caster != null && caster.characterMove != null)
             ? caster.characterMove.facingDirection
-            : LookDirection.Down;
+            : LookDirection.East;
 
         HashSet<Vector2Int> hitCoords = new HashSet<Vector2Int>();
         var aoeCoords = GameMap.current.CalculateCardAoECoords(originCoord, info.targetPosition, card.cardData, facing);

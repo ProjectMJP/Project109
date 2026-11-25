@@ -3,64 +3,119 @@ using System.Collections.Generic;
 using System;
 
 /// <summary>
-/// 다양한 기하학적 형태(직사각형, 원, 십자 등)의 타일 좌표 목록을 계산하는 순수 알고리즘 유틸리티 클래스입니다.
+/// 육각 격자(Pointy-Top Odd-R) 기반의 다양한 기하학적 효과 범위(원, 링, 4대각, Y자, 부채꼴, 직선, Axial 패턴)
+/// 타일 좌표 목록을 계산하는 순수 알고리즘 유틸리티 클래스입니다.
 /// MonoBehaviour 오버헤드 없이 정적(static)으로 동작합니다.
 /// </summary>
 public static class EffectAreaShapeGenerator
 {
-    private static readonly Dictionary<string, Func<Vector2Int, int, int, int, int, List<Vector2Int>>> shapeAlgorithms =
-        new Dictionary<string, Func<Vector2Int, int, int, int, int, List<Vector2Int>>>()
+    private static readonly Dictionary<string, Func<Vector2Int, int, int, int, int, LookDirection, List<Vector2Int>>> shapeAlgorithms =
+        new Dictionary<string, Func<Vector2Int, int, int, int, int, LookDirection, List<Vector2Int>>>()
         {
-            { "None",       GetDefaultShape },  // 기본값 (중심점만)
-            { "SquareLine", GetSquareLine },    // 빈 네모
-            { "SquareFill", GetSquareFill },    // 꽉 찬 네모
-            { "CircleLine", GetCircleLine },    // 빈 원
-            { "CircleFill", GetCircleFill },    // 꽉 찬 원
-            { "Cross",           GetCross },           // 십자가 (+)
-            { "XShape",          GetXShape },          // X 자
-            { "TargetLine",      GetTargetLine },      // 타겟 지정 라인
-            { "DirectionalLine", GetTargetLine },      // 방향성 직진 라인
-            { "Line",            GetTargetLine },      // 직선 라인
-            { "WholeMap",        GetWholeMapShape },   // 맵 전체
-            { "All",             GetWholeMapShape }    // 맵 전체 (별칭)
+            { "None",            GetDefaultShape },     // 기본값 (중심점만)
+            { "SquareLine",      GetHexRing },          // 육각 링 테두리
+            { "SquareFill",      GetHexFill },          // 육각 반경 채우기
+            { "CircleLine",      GetHexRing },          // 육각 링 테두리
+            { "CircleFill",      GetHexFill },          // 육각 반경 채우기
+            { "Cross",           GetHexDiagonalCross }, // 시선 기준 4대각 방향 (±60°, ±120°)
+            { "XShape",          GetHexDiagonalCross }, // 시선 기준 4대각 방향 (±60°, ±120°)
+            { "HexTri",          GetHexTri },           // 시선 기준 3방향 Y자 (0°, ±120°)
+            { "HexCone",         GetHexCone },          // 시선 기준 전방 부채꼴 (0°, ±60°)
+            { "TargetLine",      GetTargetLine },       // 타겟 지정 6방향 직선
+            { "DirectionalLine", GetTargetLine },       // 방향성 6방향 직선
+            { "Line",            GetTargetLine },       // 직선 라인
+            { "WholeMap",        GetWholeMapShape },    // 맵 전체
+            { "All",             GetWholeMapShape }     // 맵 전체 (별칭)
         };
 
-    public static List<Vector2Int> GetShapePositions(string shapeName, Vector2Int mapSize, int shapeLength, int targetX, int targetY, int radius)
+    public static List<Vector2Int> GetShapePositions(
+        string shapeName,
+        Vector2Int mapSize,
+        int shapeLength,
+        int targetX,
+        int targetY,
+        int radius,
+        LookDirection facing = LookDirection.East)
     {
         if (shapeAlgorithms.TryGetValue(shapeName, out var algorithm))
         {
-            return algorithm(mapSize, targetX, targetY, shapeLength, radius);
+            return algorithm(mapSize, targetX, targetY, shapeLength, radius, facing);
         }
-        else
-        {
-            Debug.LogWarning($"Shape algorithm '{shapeName}' not found.");
-            return new List<Vector2Int>();
-        }
+
+        Debug.LogWarning($"Shape algorithm '{shapeName}' not found.");
+        return new List<Vector2Int>();
     }
 
-    private static List<Vector2Int> GetDefaultShape(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    private static bool IsInsideMap(int col, int row, Vector2Int mapSize)
+    {
+        return col >= 0 && col < mapSize.x && row >= 0 && row < mapSize.y;
+    }
+
+    private static List<Vector2Int> GetDefaultShape(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
-        results.Add(new Vector2Int(targetX, targetY));
+        if (IsInsideMap(targetX, targetY, mapSize))
+        {
+            results.Add(new Vector2Int(targetX, targetY));
+        }
         return results;
     }
 
-    private static List<Vector2Int> GetSquareLine(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    private static List<Vector2Int> GetHexRing(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
+        if (radius < 0) return results;
 
-        for (int x = targetX - radius; x <= targetX + radius; x++)
+        if (radius == 0)
         {
-            for (int y = targetY - radius; y <= targetY + radius; y++)
+            if (IsInsideMap(targetX, targetY, mapSize))
             {
-                int dx = Math.Abs(x - targetX);
-                int dy = Math.Abs(y - targetY);
+                results.Add(new Vector2Int(targetX, targetY));
+            }
+            return results;
+        }
 
-                // 둘 중 더 큰 값이 radius와 같으면 테두리 위치
-                if (Mathf.Max(dx, dy) == radius)
+        HexMath.OddRToAxial(targetX, targetY, out int cq, out int cr);
+        // 링 시작점: SouthWest(4) 방향으로 radius칸 이동 후 6변을 반시계 순회
+        HexMath.AxialDirection(4, out int sq, out int sr);
+        int curQ = cq + sq * radius;
+        int curR = cr + sr * radius;
+
+        for (int side = 0; side < HexMath.DirectionCount; side++)
+        {
+            HexMath.AxialDirection(side, out int dq, out int dr);
+            for (int step = 0; step < radius; step++)
+            {
+                HexMath.AxialToOddR(curQ, curR, out int col, out int row);
+                if (IsInsideMap(col, row, mapSize))
                 {
-                    if (x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y)
-                        results.Add(new Vector2Int(x, y));
+                    results.Add(new Vector2Int(col, row));
+                }
+                curQ += dq;
+                curR += dr;
+            }
+        }
+
+        return results;
+    }
+
+    private static List<Vector2Int> GetHexFill(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
+    {
+        List<Vector2Int> results = new List<Vector2Int>();
+        if (radius < 0) return results;
+
+        HexMath.OddRToAxial(targetX, targetY, out int cq, out int cr);
+
+        for (int dq = -radius; dq <= radius; dq++)
+        {
+            int rMin = Mathf.Max(-radius, -dq - radius);
+            int rMax = Mathf.Min(radius, -dq + radius);
+            for (int dr = rMin; dr <= rMax; dr++)
+            {
+                HexMath.AxialToOddR(cq + dq, cr + dr, out int col, out int row);
+                if (IsInsideMap(col, row, mapSize))
+                {
+                    results.Add(new Vector2Int(col, row));
                 }
             }
         }
@@ -68,38 +123,30 @@ public static class EffectAreaShapeGenerator
         return results;
     }
 
-    private static List<Vector2Int> GetSquareFill(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    /// <summary>
+    /// 시선(facing) 기준 전면(0°)과 후면(180°)을 제외한 4개 대각 방향(±60°, ±120°)으로 radius칸만큼 뻗는 X자 범위입니다.
+    /// </summary>
+    private static List<Vector2Int> GetHexDiagonalCross(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
-
-        for (int x = targetX - radius; x <= targetX + radius; x++)
+        Vector2Int origin = new Vector2Int(targetX, targetY);
+        if (IsInsideMap(origin.x, origin.y, mapSize))
         {
-            for (int y = targetY - radius; y <= targetY + radius; y++)
-            {
-                // 범위 안이라면 모두 추가
-                if (x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y)
-                    results.Add(new Vector2Int(x, y));
-            }
+            results.Add(origin);
         }
 
-        return results;
-    }
+        if (radius <= 0) return results;
 
-    private static List<Vector2Int> GetCircleLine(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
-    {
-        List<Vector2Int> results = new List<Vector2Int>();
-
-        for (int x = targetX - radius; x <= targetX + radius; x++)
+        int[] relativeSteps = { 1, 2, 4, 5 };
+        for (int d = 0; d < relativeSteps.Length; d++)
         {
-            for (int y = targetY - radius; y <= targetY + radius; y++)
+            LookDirection rayDir = HexMath.RotateDirection(facing, relativeSteps[d]);
+            for (int step = 1; step <= radius; step++)
             {
-                float dist = Vector2.Distance(new Vector2(targetX, targetY), new Vector2(x, y));
-
-                // 값이 radius +- 0.5f 범위 내에 있다면 테두리 위치
-                if (dist >= radius - 0.5f && dist <= radius + 0.5f)
+                Vector2Int coord = HexMath.Step(origin, rayDir, step);
+                if (IsInsideMap(coord.x, coord.y, mapSize))
                 {
-                    if (x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y)
-                        results.Add(new Vector2Int(x, y));
+                    results.Add(coord);
                 }
             }
         }
@@ -107,21 +154,30 @@ public static class EffectAreaShapeGenerator
         return results;
     }
 
-    private static List<Vector2Int> GetCircleFill(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    /// <summary>
+    /// 시선(facing) 기준 3방향 Y자 패턴(0°, +120°, -120°)으로 radius칸만큼 뻗는 범위입니다.
+    /// </summary>
+    private static List<Vector2Int> GetHexTri(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
-
-        for (int x = targetX - radius; x <= targetX + radius; x++)
+        Vector2Int origin = new Vector2Int(targetX, targetY);
+        if (IsInsideMap(origin.x, origin.y, mapSize))
         {
-            for (int y = targetY - radius; y <= targetY + radius; y++)
-            {
-                float dist = Vector2.Distance(new Vector2(targetX, targetY), new Vector2(x, y));
+            results.Add(origin);
+        }
 
-                // 값이 radius + 0.5f 범위 내에 있다면 모두 추가
-                if (dist <= radius + 0.5f)
+        if (radius <= 0) return results;
+
+        int[] relativeSteps = { 0, 2, 4 };
+        for (int d = 0; d < relativeSteps.Length; d++)
+        {
+            LookDirection rayDir = HexMath.RotateDirection(facing, relativeSteps[d]);
+            for (int step = 1; step <= radius; step++)
+            {
+                Vector2Int coord = HexMath.Step(origin, rayDir, step);
+                if (IsInsideMap(coord.x, coord.y, mapSize))
                 {
-                    if (x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y)
-                        results.Add(new Vector2Int(x, y));
+                    results.Add(coord);
                 }
             }
         }
@@ -129,94 +185,69 @@ public static class EffectAreaShapeGenerator
         return results;
     }
 
-    private static List<Vector2Int> GetCross(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    /// <summary>
+    /// 시선(facing) 기준 전방 부채꼴(0°, ±60°, 거리 1..radius) 범위를 계산합니다.
+    /// 거리 r에서 r=1이면 3칸, r=2이면 총 8칸(3+5)을 포함합니다.
+    /// </summary>
+    private static List<Vector2Int> GetHexCone(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
+        if (radius <= 0) return results;
 
-        for (int x = targetX - radius; x <= targetX + radius; x++)
-            if (x >= 0 && x < mapSize.x)
-                results.Add(new Vector2Int(x, targetY));
-        for (int y = targetY - radius; y <= targetY + radius; y++)
-            if (y >= 0 && y < mapSize.y)
-                if (y != targetY) results.Add(new Vector2Int(targetX, y));
+        Vector2Int origin = new Vector2Int(targetX, targetY);
+        HexMath.OddRToAxial(origin.x, origin.y, out int oq, out int or);
 
-        return results;
-    }
-
-    private static List<Vector2Int> GetXShape(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
-    {
-        List<Vector2Int> results = new List<Vector2Int>();
-
-        for (int i = -radius; i <= radius; i++)
+        for (int dq = -radius; dq <= radius; dq++)
         {
-            if (targetX + i >= 0 && targetX + i < mapSize.x && targetY + i >= 0 && targetY + i < mapSize.y && targetY - i >= 0 && targetY - i < mapSize.y)
+            int rMin = Mathf.Max(-radius, -dq - radius);
+            int rMax = Mathf.Min(radius, -dq + radius);
+            for (int dr = rMin; dr <= rMax; dr++)
             {
-                results.Add(new Vector2Int(targetX + i, targetY + i));
-                if (i != 0) results.Add(new Vector2Int(targetX + i, targetY - i));
+                int ds = -dq - dr;
+                int dist = (Mathf.Abs(dq) + Mathf.Abs(dr) + Mathf.Abs(ds)) >> 1;
+                if (dist < 1 || dist > radius) continue;
+
+                HexMath.AxialToOddR(oq + dq, or + dr, out int col, out int row);
+                if (!IsInsideMap(col, row, mapSize)) continue;
+
+                Vector2Int candidate = new Vector2Int(col, row);
+                if (HexMath.IsInFrontArc(origin, facing, candidate))
+                {
+                    results.Add(candidate);
+                }
             }
         }
 
         return results;
     }
 
-    private static List<Vector2Int> GetTargetLine(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    private static List<Vector2Int> GetTargetLine(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
-        List<Vector2Int> results = new List<Vector2Int>();
-        int safeLength = Mathf.Max(0, shapeLength);
-        int halfWidth = Mathf.Max(0, radius / 2);
-
-        for (int x = targetX - halfWidth; x <= targetX + halfWidth; x++)
-        {
-            for (int y = targetY; y <= targetY + safeLength; y++)
-            {
-                // 범위 안이라면 모두 추가
-                if (x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y)
-                    results.Add(new Vector2Int(x, y));
-            }
-        }
-
-        return results;
+        int maxDist = Mathf.Max(1, Mathf.Max(shapeLength, radius));
+        return GetDirectionalLine(mapSize, new Vector2Int(targetX, targetY), facing, 1, maxDist, 1);
     }
 
-    private static List<Vector2Int> GetWholeMapShape(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius)
+    private static List<Vector2Int> GetWholeMapShape(Vector2Int mapSize, int targetX, int targetY, int shapeLength, int radius, LookDirection facing)
     {
         return GetWholeMap(mapSize);
     }
 
     /// <summary>
-    /// 북쪽(Up, 0도) 기준 상대 오프셋 (dx, dy)를 지정된 시선 방향(facing)으로 90도 단위 정수 회전 변환합니다.
+    /// East(0°) 기준 Axial 상대 오프셋 (dq, dr)을 지정된 시선 방향(facing)으로 60° 단위 회전합니다.
     /// </summary>
-    public static Vector2Int RotateOffset(int dx, int dy, LookDirection facing)
+    public static Vector2Int RotateAxialOffset(int dq, int dr, LookDirection facing)
     {
-        switch (facing)
-        {
-            case LookDirection.Up:    return new Vector2Int(dx, dy);
-            case LookDirection.Right: return new Vector2Int(dy, -dx);
-            case LookDirection.Down:  return new Vector2Int(-dx, -dy);
-            case LookDirection.Left:  return new Vector2Int(-dy, dx);
-            default:                  return new Vector2Int(dx, dy);
-        }
+        HexMath.RotateAxial(dq, dr, (int)facing, out int outQ, out int outR);
+        return new Vector2Int(outQ, outR);
     }
 
     /// <summary>
-    /// 시전자 좌표에서 목표 좌표를 향하는 방향을 가장 가까운 상하좌우 LookDirection으로 스냅하여 반환합니다.
+    /// 시전자 좌표에서 목표 좌표를 향하는 방향을 가장 가까운 6방향 LookDirection으로 스냅하여 반환합니다.
     /// 두 좌표가 동일하면 fallback 방향을 반환합니다.
     /// </summary>
-    public static LookDirection GetDirectionFromCoords(Vector2Int originCoord, Vector2Int targetCoord, LookDirection fallback = LookDirection.Down)
+    public static LookDirection GetDirectionFromCoords(Vector2Int originCoord, Vector2Int targetCoord, LookDirection fallback = LookDirection.East)
     {
-        if (originCoord == targetCoord) return fallback;
-
-        int dx = targetCoord.x - originCoord.x;
-        int dy = targetCoord.y - originCoord.y;
-
-        if (Mathf.Abs(dx) > Mathf.Abs(dy))
-        {
-            return dx > 0 ? LookDirection.Right : LookDirection.Left;
-        }
-        else
-        {
-            return dy > 0 ? LookDirection.Up : LookDirection.Down;
-        }
+        return HexMath.DirectionFromCoords(originCoord, targetCoord, fallback);
     }
 
     /// <summary>
@@ -236,21 +267,82 @@ public static class EffectAreaShapeGenerator
     }
 
     /// <summary>
-    /// 시전자 좌표에서 시선 방향(facing)으로 minDistance~maxDistance 범위의 직선 타일 좌표를 생성합니다.
+    /// 6방향 직선의 특정 step 거리에서 폭(width)을 이루는 Odd-R 좌표들을 outBuffer에 채웁니다.
+    /// 좌우 확장은 진행 방향에 수직(±90°)이 되도록 +120°/+60° 및 -120°/-60°를 교대 누적합니다.
+    /// </summary>
+    public static void GetDirectionalLineStepCoords(Vector2Int originCoord, LookDirection facing, int step, int width, List<Vector2Int> outBuffer)
+    {
+        if (outBuffer == null) return;
+        outBuffer.Clear();
+
+        HexMath.OddRToAxial(originCoord.x, originCoord.y, out int oq, out int or);
+        HexMath.AxialDirection(facing, out int fq, out int fr);
+
+        int centerQ = oq + fq * step;
+        int centerR = or + fr * step;
+        outBuffer.Add(HexMath.AxialToOddR(centerQ, centerR));
+
+        int halfWidth = Mathf.Max(0, (width - 1) / 2);
+        if (halfWidth == 0) return;
+
+        // 좌측 수직 확장: 홀수 스텝(+120°), 짝수 스텝(+60°)
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 2), out int l1q, out int l1r);
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 1), out int l2q, out int l2r);
+        int lq = centerQ;
+        int lr = centerR;
+        for (int k = 1; k <= halfWidth; k++)
+        {
+            if ((k & 1) != 0)
+            {
+                lq += l1q;
+                lr += l1r;
+            }
+            else
+            {
+                lq += l2q;
+                lr += l2r;
+            }
+            outBuffer.Add(HexMath.AxialToOddR(lq, lr));
+        }
+
+        // 우측 수직 확장: 홀수 스텝(-120° / +4), 짝수 스텝(-60° / +5)
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 4), out int r1q, out int r1r);
+        HexMath.AxialDirection(HexMath.RotateDirection(facing, 5), out int r2q, out int r2r);
+        int rq = centerQ;
+        int rr = centerR;
+        for (int k = 1; k <= halfWidth; k++)
+        {
+            if ((k & 1) != 0)
+            {
+                rq += r1q;
+                rr += r1r;
+            }
+            else
+            {
+                rq += r2q;
+                rr += r2r;
+            }
+            outBuffer.Add(HexMath.AxialToOddR(rq, rr));
+        }
+    }
+
+    /// <summary>
+    /// 시전자 좌표에서 시선 방향(facing)으로 minDistance~maxDistance 범위의 6방향 직선 타일 좌표를 생성합니다.
     /// </summary>
     public static List<Vector2Int> GetDirectionalLine(Vector2Int mapSize, Vector2Int originCoord, LookDirection facing, int minDistance, int maxDistance, int width = 1)
     {
         List<Vector2Int> results = new List<Vector2Int>();
         int startStep = Mathf.Max(1, minDistance);
         int endStep = Mathf.Max(startStep, maxDistance);
-        int halfWidth = Mathf.Max(0, (width - 1) / 2);
+        List<Vector2Int> stepCoords = new List<Vector2Int>(Mathf.Max(1, width));
 
         for (int step = startStep; step <= endStep; step++)
         {
-            for (int lat = -halfWidth; lat <= halfWidth; lat++)
+            GetDirectionalLineStepCoords(originCoord, facing, step, width, stepCoords);
+            for (int i = 0; i < stepCoords.Count; i++)
             {
-                Vector2Int coord = originCoord + RotateOffset(lat, step, facing);
-                if (coord.x >= 0 && coord.x < mapSize.x && coord.y >= 0 && coord.y < mapSize.y)
+                Vector2Int coord = stepCoords[i];
+                if (IsInsideMap(coord.x, coord.y, mapSize))
                 {
                     results.Add(coord);
                 }
@@ -261,25 +353,26 @@ public static class EffectAreaShapeGenerator
     }
 
     /// <summary>
-    /// 상대 오프셋 텍스트 패턴을 파싱하고 시선 방향(facing)으로 4방향 회전하여 맵 내 유효 타일 좌표를 반환합니다.
+    /// East(0°) 기준 Axial 상대 오프셋 패턴을 파싱하고 시선 방향(facing)으로 60° 단위 6방향 회전하여 맵 내 유효 Odd-R 타일 좌표를 반환합니다.
     /// </summary>
     public static List<Vector2Int> GetPatternWithRotation(Vector2Int mapSize, Vector2Int anchorCoord, List<string> pattern, LookDirection facing)
     {
         List<Vector2Int> results = new List<Vector2Int>();
         if (pattern == null || pattern.Count == 0) return results;
 
-        List<Vector2Int> offsets = ParsePatternOffsets(pattern);
+        List<Vector2Int> axialOffsets = ParsePatternOffsets(pattern);
+        HexMath.OddRToAxial(anchorCoord.x, anchorCoord.y, out int anchorQ, out int anchorR);
         HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
 
-        for (int i = 0; i < offsets.Count; i++)
+        for (int i = 0; i < axialOffsets.Count; i++)
         {
-            Vector2Int rotated = RotateOffset(offsets[i].x, offsets[i].y, facing);
-            Vector2Int worldCoord = anchorCoord + rotated;
-            if (worldCoord.x >= 0 && worldCoord.x < mapSize.x && worldCoord.y >= 0 && worldCoord.y < mapSize.y)
+            Vector2Int rotated = RotateAxialOffset(axialOffsets[i].x, axialOffsets[i].y, facing);
+            Vector2Int oddRCoord = HexMath.AxialToOddR(anchorQ + rotated.x, anchorR + rotated.y);
+            if (IsInsideMap(oddRCoord.x, oddRCoord.y, mapSize))
             {
-                if (seen.Add(worldCoord))
+                if (seen.Add(oddRCoord))
                 {
-                    results.Add(worldCoord);
+                    results.Add(oddRCoord);
                 }
             }
         }
@@ -310,10 +403,10 @@ public static class EffectAreaShapeGenerator
                 if (string.IsNullOrWhiteSpace(entry)) continue;
                 string[] parts = entry.Split(',');
                 if (parts.Length >= 2 &&
-                    int.TryParse(parts[0].Trim(), out int dx) &&
-                    int.TryParse(parts[1].Trim(), out int dy))
+                    int.TryParse(parts[0].Trim(), out int dq) &&
+                    int.TryParse(parts[1].Trim(), out int dr))
                 {
-                    offsets.Add(new Vector2Int(dx, dy));
+                    offsets.Add(new Vector2Int(dq, dr));
                 }
             }
             return offsets;
@@ -359,9 +452,9 @@ public static class EffectAreaShapeGenerator
                 char ch = rowStr[c];
                 if (ch == 'X' || ch == 'x' || ch == '1' || ch == '#' || ch == '*' || ch == '@')
                 {
-                    int dx = c - originCol;
-                    int dy = originRow - r;
-                    offsets.Add(new Vector2Int(dx, dy));
+                    int dq = c - originCol;
+                    int dr = originRow - r;
+                    offsets.Add(new Vector2Int(dq, dr));
                 }
             }
         }

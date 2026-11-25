@@ -493,6 +493,8 @@ public class LuaManager : MonoBehaviour
 
             -- 두 개의 시계(Two-Clock) 상태이상(Stun 턴 종료 등)에서 안전하게 접근할 수 있도록 싱글턴 참조 주입
             RunManager = CS.RunManager
+            LookDirection = CS.LookDirection
+            HexMath = CS.HexMath
 
             CS = nil
 

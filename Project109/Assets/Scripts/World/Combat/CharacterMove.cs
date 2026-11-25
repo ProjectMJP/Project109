@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public class CharacterMove
 {
-    private LookDirection _facingDirection = LookDirection.Down;
+    private LookDirection _facingDirection = LookDirection.East;
     public LookDirection facingDirection => _facingDirection;
 
     public Character character { private set; get; }
@@ -85,7 +85,7 @@ public class CharacterMove
     }
 
     /// <summary>
-    /// 특정 타일이 있는 방향을 향해 캐릭터를 즉시 회전시킵니다. (가장 가까운 상하좌우 축으로 스냅)
+    /// 특정 타일이 있는 방향을 향해 캐릭터를 즉시 회전시킵니다. (가장 가까운 6방향 육각 축으로 스냅)
     /// </summary>
     public void LookAtTile(Tile targetTile)
     {
@@ -99,36 +99,19 @@ public class CharacterMove
     }
 
     /// <summary>
-    /// 방향(LookDirection)에 매핑되는 3D 벡터를 반환합니다.
+    /// 방향(LookDirection)에 매핑되는 3D 단위 벡터를 반환합니다.
     /// </summary>
     public static Vector3 GetVectorFromDirection(LookDirection direction)
     {
-        switch (direction)
-        {
-            case LookDirection.Up: return Vector3.forward;
-            case LookDirection.Down: return Vector3.back;
-            case LookDirection.Left: return Vector3.left;
-            case LookDirection.Right: return Vector3.right;
-            default: return Vector3.forward;
-        }
+        return HexMath.DirectionToWorldVector(direction);
     }
 
     /// <summary>
-    /// 3D 방향 벡터(X-Z 평면 기준)를 기반으로 대응하는 LookDirection을 반환합니다.
+    /// 3D 방향 벡터(X-Z 평면 기준)를 기반으로 가장 가까운 6방향 LookDirection을 반환합니다.
     /// </summary>
     public static LookDirection GetDirectionFromVector(Vector3 direction)
     {
-        float x = direction.x;
-        float z = direction.z;
-
-        if (Mathf.Abs(x) > Mathf.Abs(z))
-        {
-            return x > 0 ? LookDirection.Right : LookDirection.Left;
-        }
-        else
-        {
-            return z > 0 ? LookDirection.Up : LookDirection.Down;
-        }
+        return HexMath.WorldVectorToDirection(direction, LookDirection.East);
     }
 
 

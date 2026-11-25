@@ -10,11 +10,7 @@ function relic:OnBeforeDealDamage(info)
     local cTile = info.caster.characterMove:GetCurrentTile()
     local tTile = info.target.characterMove:GetCurrentTile()
     if cTile ~= nil and tTile ~= nil then
-        local cCoord = cTile:GetCoord()
-        local tCoord = tTile:GetCoord()
-        local dx = math.abs(cCoord.x - tCoord.x)
-        local dy = math.abs(cCoord.y - tCoord.y)
-        if dx + dy <= 1 then
+        if cTile:GetDistanceTo(tTile) <= 1 then
             info.baseDamageAmount = info.baseDamageAmount + 2
         end
     end

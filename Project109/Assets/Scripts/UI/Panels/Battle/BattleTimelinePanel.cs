@@ -974,7 +974,7 @@ public class BattleTimelinePanel : UIPanelBase
 
             if (GameMap.current != null && card.cardData.additionalEffectAreaList != null && card.cardData.additionalEffectAreaList.Count > 0)
             {
-                LookDirection facing = playerChar.characterMove != null ? playerChar.characterMove.facingDirection : LookDirection.Down;
+                LookDirection facing = playerChar.characterMove != null ? playerChar.characterMove.facingDirection : LookDirection.East;
                 Vector2Int originCoord = playerTile.GetCoord();
                 List<Vector2Int> coords = GameMap.current.CalculateCardAoECoords(originCoord, originCoord, card.cardData, facing);
 

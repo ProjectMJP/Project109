@@ -739,8 +739,8 @@ public class MoveModeContinuousTests
         gameMap.GetReachableTiles(startTile, 3, playerChar.characterMove, reachableTiles);
 
         Assert.IsFalse(reachableTiles.Contains(enemyTile), "살아있는 적이 점유한 타일은 이동 가능 범위에 포함되면 안 됩니다.");
-        Assert.IsFalse(reachableTiles.Contains(gameMap.GetTile(2, 2)), "우회 거리 4인 (2,2)는 이동력 3으로 도달 불가여야 합니다.");
-        Assert.IsFalse(reachableTiles.Contains(gameMap.GetTile(3, 2)), "우회 거리 5인 (3,2)는 이동력 3으로 도달 불가여야 합니다.");
+        Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 2)), "육각 우회 거리 3인 (2,2)는 이동 가능해야 합니다.");
+        Assert.IsFalse(reachableTiles.Contains(gameMap.GetTile(3, 2)), "육각 우회 거리 4인 (3,2)는 이동력 3으로 도달 불가여야 합니다.");
         Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 3)), "우회 거리 3인 (2,3)은 이동 가능해야 합니다.");
         Assert.IsTrue(reachableTiles.Contains(gameMap.GetTile(2, 1)), "우회 거리 3인 (2,1)은 이동 가능해야 합니다.");
 
@@ -768,7 +768,7 @@ public class MoveModeContinuousTests
         Assert.IsTrue(playerMove.canMoveTiles.Contains(detourTargetTile));
         Assert.IsTrue(playerMove.canMoveTiles.Contains(occupiedTargetTile));
 
-        // 직선 경로를 막는 적 배치 -> 실제 우회 경로 길이는 5로 curMoveRange(3) 초과
+        // 직선 경로를 막는 적 배치 -> 실제 육각 우회 경로 길이는 4로 curMoveRange(3) 초과
         CreateTestCharacter("BlockerEnemy", CharacterFaction.Enemy, blockerTile, moveRange: 2);
         bool detourStarted = playerMove.ExecuteMoveToTile(detourTargetTile);
 

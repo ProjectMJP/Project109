@@ -368,36 +368,44 @@ public class CardModeRotateAndTargetingHighlightTests
     #region (a) Normal Mode Rotation & 3D Collider Priority
 
     [Test]
-    public void TryRotatePlayerTowardCharacter_RotatesInAllFourDirectionsWithoutCost_AndEnforcesGuards()
+    public void TryRotatePlayerTowardCharacter_RotatesInAllSixDirectionsWithoutCost_AndEnforcesGuards()
     {
         GameMap map = CreateTestGameMap(5, 5);
         Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, map.GetTile(2, 2));
-        Character enemyUp = CreateTestCharacter("EnemyUp", CharacterFaction.Enemy, map.GetTile(2, 4));
-        Character enemyDown = CreateTestCharacter("EnemyDown", CharacterFaction.Enemy, map.GetTile(2, 0));
-        Character enemyLeft = CreateTestCharacter("EnemyLeft", CharacterFaction.Enemy, map.GetTile(0, 2));
-        Character enemyRight = CreateTestCharacter("EnemyRight", CharacterFaction.Enemy, map.GetTile(4, 2));
+        Character enemyEast = CreateTestCharacter("EnemyEast", CharacterFaction.Enemy, map.GetTile(4, 2));
+        Character enemyNE = CreateTestCharacter("EnemyNE", CharacterFaction.Enemy, map.GetTile(3, 4));
+        Character enemyNW = CreateTestCharacter("EnemyNW", CharacterFaction.Enemy, map.GetTile(1, 4));
+        Character enemyWest = CreateTestCharacter("EnemyWest", CharacterFaction.Enemy, map.GetTile(0, 2));
+        Character enemySW = CreateTestCharacter("EnemySW", CharacterFaction.Enemy, map.GetTile(1, 0));
+        Character enemySE = CreateTestCharacter("EnemySE", CharacterFaction.Enemy, map.GetTile(3, 0));
         Character deadEnemy = CreateTestCharacter("DeadEnemy", CharacterFaction.Enemy, map.GetTile(4, 3));
         deadEnemy.isDead = true;
 
         var (_, controller) = CreateTestPlayerController(playerChar);
         var (_, battleManager) = CreateTestRunAndBattleManager(
             controller,
-            new ICharacterController[] { new StubCharacterController(enemyUp), new StubCharacterController(enemyDown) });
+            new ICharacterController[] { new StubCharacterController(enemyEast), new StubCharacterController(enemyWest) });
 
         playerChar.curStamina = 75f;
         playerChar.curMoveRange = 3;
 
-        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyUp));
-        Assert.AreEqual(LookDirection.Up, playerChar.characterMove.facingDirection);
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyEast));
+        Assert.AreEqual(LookDirection.East, playerChar.characterMove.facingDirection);
 
-        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyDown));
-        Assert.AreEqual(LookDirection.Down, playerChar.characterMove.facingDirection);
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyNE));
+        Assert.AreEqual(LookDirection.NorthEast, playerChar.characterMove.facingDirection);
 
-        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyLeft));
-        Assert.AreEqual(LookDirection.Left, playerChar.characterMove.facingDirection);
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyNW));
+        Assert.AreEqual(LookDirection.NorthWest, playerChar.characterMove.facingDirection);
 
-        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyRight));
-        Assert.AreEqual(LookDirection.Right, playerChar.characterMove.facingDirection);
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemyWest));
+        Assert.AreEqual(LookDirection.West, playerChar.characterMove.facingDirection);
+
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemySW));
+        Assert.AreEqual(LookDirection.SouthWest, playerChar.characterMove.facingDirection);
+
+        Assert.IsTrue(controller.TryRotatePlayerTowardCharacter(enemySE));
+        Assert.AreEqual(LookDirection.SouthEast, playerChar.characterMove.facingDirection);
 
         Assert.AreEqual(75f, playerChar.curStamina, 0.001f, "회전은 스태미나를 소모하지 않아야 합니다.");
         Assert.AreEqual(3, playerChar.curMoveRange, "회전은 이동력을 소모하지 않아야 합니다.");
@@ -409,22 +417,22 @@ public class CardModeRotateAndTargetingHighlightTests
 
         // Move / TargetSelection 상태 거부
         SetPrivateField(controller, "<controlState>k__BackingField", PlayerControlState.Move);
-        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyUp));
+        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyEast));
 
         SetPrivateField(controller, "<controlState>k__BackingField", PlayerControlState.TargetSelection);
-        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyUp));
+        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyEast));
 
         SetPrivateField(controller, "<controlState>k__BackingField", PlayerControlState.Normal);
 
         // 비-Idle 상태 거부
         playerChar.currentState = CharacterState.Attack;
-        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyUp));
+        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyEast));
         playerChar.currentState = CharacterState.Idle;
 
         // 적 턴일 때 거부
-        var enemyCtrl = new StubCharacterController(enemyUp);
+        var enemyCtrl = new StubCharacterController(enemyEast);
         typeof(BattleManager).GetProperty("currentTurnController", BindingFlags.Instance | BindingFlags.Public).SetValue(battleManager, enemyCtrl);
-        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyUp));
+        Assert.IsFalse(controller.TryRotatePlayerTowardCharacter(enemyEast));
     }
 
     [Test]
@@ -445,9 +453,9 @@ public class CardModeRotateAndTargetingHighlightTests
             }
         }
 
-        // 플레이어 (2, 1), 적 (4, 1) -> 플레이어가 적을 바라보면 Right여야 함
+        // 플레이어 (2, 1), 적 (4, 1) -> 플레이어가 적을 바라보면 East여야 함
         Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, map.GetTile(2, 1));
-        playerChar.characterMove.SetFacingDirection(LookDirection.Left, true);
+        playerChar.characterMove.SetFacingDirection(LookDirection.West, true);
 
         Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(4, 1));
         int enemyLayer = LayerMask.NameToLayer("Enemy");
@@ -456,7 +464,7 @@ public class CardModeRotateAndTargetingHighlightTests
         enemyCol.center = new Vector3(0f, 1.2f, 0f);
         enemyCol.size = new Vector3(0.8f, 2.4f, 0.8f);
 
-        // 35도 경사 카메라를 (1.5, 4.5, -3.5)에 배치해 적 상단을 클릭할 때 뒤쪽 타일(Up 방향 영역)을 관통하도록 설정
+        // 35도 경사 카메라를 배치해 적 상단을 클릭할 때 뒤쪽 타일을 관통하도록 설정
         Camera cam = CreateSlantedTestMainCamera(new Vector3(2.5f, 4.5f, -3.8f), new Vector3(3.0f, 0f, 2.0f));
         Physics.SyncTransforms();
 
@@ -474,7 +482,7 @@ public class CardModeRotateAndTargetingHighlightTests
         }
 
         InvokePrivateMethod(controller, "HandleGlobalClick", clickScreenPos);
-        Assert.AreEqual(LookDirection.Right, playerChar.characterMove.facingDirection, "3D 콜라이더 히트 시 뒤쪽 타일이 아닌 적 유닛 방향으로 회전해야 합니다.");
+        Assert.AreEqual(LookDirection.East, playerChar.characterMove.facingDirection, "3D 콜라이더 히트 시 뒤쪽 타일이 아닌 적 유닛 방향으로 회전해야 합니다.");
     }
 
     #endregion
@@ -489,8 +497,8 @@ public class CardModeRotateAndTargetingHighlightTests
 
         GameMap map = CreateTestGameMap(5, 5);
         Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, map.GetTile(2, 2));
-        playerChar.characterMove.SetFacingDirection(LookDirection.Down, true);
-        Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(2, 4));
+        playerChar.characterMove.SetFacingDirection(LookDirection.SouthWest, true);
+        Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(3, 4));
 
         var (_, controller) = CreateTestPlayerController(playerChar);
         var enemyCtrl = new StubCharacterController(enemyChar);
@@ -511,13 +519,13 @@ public class CardModeRotateAndTargetingHighlightTests
         // 우클릭 무시
         enemyCard.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Right });
         Assert.AreEqual(0, clickedUnits.Count);
-        Assert.AreEqual(LookDirection.Down, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.SouthWest, playerChar.characterMove.facingDirection);
 
         // 좌클릭 시 콜백 발행 및 플레이어 회전
         enemyCard.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Left });
         Assert.AreEqual(1, clickedUnits.Count);
         Assert.AreSame(enemyChar, clickedUnits[0]);
-        Assert.AreEqual(LookDirection.Up, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.NorthEast, playerChar.characterMove.facingDirection);
     }
 
     [Test]
@@ -530,7 +538,7 @@ public class CardModeRotateAndTargetingHighlightTests
 
         GameMap map = CreateTestGameMap(5, 5);
         Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, map.GetTile(3, 2));
-        playerChar.characterMove.SetFacingDirection(LookDirection.Down, true);
+        playerChar.characterMove.SetFacingDirection(LookDirection.SouthWest, true);
         Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(0, 2));
 
         var (_, controller) = CreateTestPlayerController(playerChar);
@@ -554,7 +562,7 @@ public class CardModeRotateAndTargetingHighlightTests
         // 우클릭 무시
         enemySlot.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Right });
         Assert.AreEqual(0, clickedUnits.Count);
-        Assert.AreEqual(LookDirection.Down, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.SouthWest, playerChar.characterMove.facingDirection);
 
         // 고스트 슬롯 좌클릭 무시
         GameObject ghostGo = Track(UnityEngine.Object.Instantiate(slotPrefab, canvas.transform, false));
@@ -564,13 +572,13 @@ public class CardModeRotateAndTargetingHighlightTests
         ghostSlot.Bind(in ghostEntry, isGhost: true);
         ghostSlot.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Left });
         Assert.AreEqual(0, clickedUnits.Count);
-        Assert.AreEqual(LookDirection.Down, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.SouthWest, playerChar.characterMove.facingDirection);
 
         // 비-고스트 슬롯 좌클릭 시 이벤트 발행 및 회전
         enemySlot.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Left });
         Assert.AreEqual(1, clickedUnits.Count);
         Assert.AreSame(enemyChar, clickedUnits[0]);
-        Assert.AreEqual(LookDirection.Left, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.West, playerChar.characterMove.facingDirection);
     }
 
     [Test]
@@ -581,8 +589,8 @@ public class CardModeRotateAndTargetingHighlightTests
 
         GameMap map = CreateTestGameMap(5, 5);
         Character playerChar = CreateTestCharacter("Player", CharacterFaction.Player, map.GetTile(2, 4));
-        playerChar.characterMove.SetFacingDirection(LookDirection.Up, true);
-        Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(2, 1));
+        playerChar.characterMove.SetFacingDirection(LookDirection.NorthEast, true);
+        Character enemyChar = CreateTestCharacter("Enemy", CharacterFaction.Enemy, map.GetTile(0, 0));
 
         var (_, controller) = CreateTestPlayerController(playerChar);
         CreateTestRunAndBattleManager(controller, new ICharacterController[] { new StubCharacterController(enemyChar) });
@@ -612,11 +620,11 @@ public class CardModeRotateAndTargetingHighlightTests
 
         // 우클릭 무시
         intentUI.OnPointerClick(new PointerEventData(es) { button = PointerEventData.InputButton.Right });
-        Assert.AreEqual(LookDirection.Up, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.NorthEast, playerChar.characterMove.facingDirection);
 
         // 좌클릭 시 회전
         intentUI.OnPointerClick(pointerData);
-        Assert.AreEqual(LookDirection.Down, playerChar.characterMove.facingDirection);
+        Assert.AreEqual(LookDirection.SouthWest, playerChar.characterMove.facingDirection);
     }
 
     #endregion

@@ -12,12 +12,13 @@ maxMasteryPoint: 0
 isUpgradable: false
 isUpgraded: false
 upgradedCardName: ""
-description: "[임시 테스트]\n보는 방향 전방 부채꼴 패턴(4방향 회전)에 {damage}의 피해를 줍니다."
+description: "[임시 테스트]\n보는 방향 전방 부채꼴 패턴(6방향 Axial 회전)에 {damage}의 피해를 줍니다."
 baseValues:
   damage: 5
 additionalEffectAreaList:
   - areaType: "Pattern"
     pattern:
-      - "XXX"
-      - ".X."
-      - ".C."
+      - "1, 0"
+      - "2, 0"
+      - "1, 1"
+      - "2, -1"

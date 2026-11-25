@@ -1167,11 +1167,18 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
         Ray ray = Camera.main.ScreenPointToRay(pos);
         Tile targetTile = null;
 
-        // 1. Tile 레이어 우선 레이캐스트
+        // 1. Tile 레이어 우선 레이캐스트 (히트 지점 기준 육각 Voronoi 피킹 우선)
         int tileMask = LayerMask.GetMask("Tile");
         if (tileMask != 0 && Physics.Raycast(ray, out RaycastHit tileHit, 10000.0f, tileMask))
         {
-            targetTile = tileHit.collider.GetComponentInParent<Tile>();
+            if (GameMap.current != null)
+            {
+                targetTile = GameMap.current.GetTileAtWorldPosition(tileHit.point);
+            }
+            if (targetTile == null)
+            {
+                targetTile = tileHit.collider.GetComponentInParent<Tile>();
+            }
         }
 
         // 2. Tile 레이어 히트 실패 시 일반 레이캐스트 (장애물 레이어 제외)
@@ -1411,7 +1418,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
             // 유효 사거리 내 타일이면 사거리(R) 유지 + 해당 타일 중심 폭발 범위(G) 실시간 표시
             LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
                 ? controlledCharacter.characterMove.facingDirection
-                : LookDirection.Down;
+                : LookDirection.East;
             GameMap.current.ShowCardAoE(playerCoord, hoveredCoord, activeCardForTargeting.cardData, facing);
         }
         else if (GameMap.current != null)
@@ -1555,7 +1562,7 @@ public class PlayerBattleController : ICharacterController, IOnBattleEnd, System
                     Vector2Int playerCoord = playerTile != null ? playerTile.GetCoord() : Vector2Int.zero;
                     LookDirection facing = (controlledCharacter != null && controlledCharacter.characterMove != null)
                         ? controlledCharacter.characterMove.facingDirection
-                        : LookDirection.Down;
+                        : LookDirection.East;
 
                     if (GameMap.current != null)
                     {

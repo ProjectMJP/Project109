@@ -183,18 +183,16 @@ public class Tile : MonoBehaviour
     }
 
     /// <summary>
-    /// 두 타일 간의 맨해튼 거리(격자 이동 거리)를 계산합니다.
+    /// 두 타일 간의 육각 격자 거리(Cube 거리)를 계산합니다.
     /// </summary>
     public static int GetDistance(Tile t1, Tile t2)
     {
         if (t1 == null || t2 == null) return int.MaxValue;
-        Vector2Int c1 = t1.coord;
-        Vector2Int c2 = t2.coord;
-        return Mathf.Abs(c1.x - c2.x) + Mathf.Abs(c1.y - c2.y);
+        return HexMath.Distance(t1.coord, t2.coord);
     }
 
     /// <summary>
-    /// 다른 타일까지의 맨해튼 거리(격자 이동 거리)를 계산합니다.
+    /// 다른 타일까지의 육각 격자 거리를 계산합니다.
     /// </summary>
     public int GetDistanceTo(Tile other)
     {

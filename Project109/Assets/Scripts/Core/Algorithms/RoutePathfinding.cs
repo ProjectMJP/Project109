@@ -83,9 +83,6 @@ public class RoutePathfinding
         _tileQueue.Enqueue(startNode);
         _openList.Add(startNode);
 
-        int[] dirX = { 0, 0, 1, -1 };
-        int[] dirY = { 1, -1, 0, 0 };
-
         while (_tileQueue.Count > 0)
         {
             TileNode currentTile = _tileQueue.Dequeue();
@@ -99,11 +96,10 @@ public class RoutePathfinding
                 return resultPath;
             }
 
-            // 현재 타일의 상,하,좌,우 탐색(대각선은 탐색하지 않음)
-            for (int i = 0; i < 4; i++)
+            // 현재 타일의 6방향 육각 이웃 탐색
+            for (int i = 0; i < HexMath.DirectionCount; i++)
             {
-                int x = currentTile.gridX + dirX[i];
-                int y = currentTile.gridY + dirY[i];
+                HexMath.GetOddRNeighbor(currentTile.gridX, currentTile.gridY, i, out int x, out int y);
 
                 // 맵을 넘어가거나 통과 불가능하거나 닫힌 목록에 있으면 제외
                 if (x >= map.Count || y >= map[0].Count || x < 0 || y < 0)
@@ -149,11 +145,8 @@ public class RoutePathfinding
 
     private static int GetDistanceToTileNode(TileNode startNode, TileNode endNode)
     {
-        int distX = Mathf.Abs(startNode.gridX - endNode.gridX);
-        int distY = Mathf.Abs(startNode.gridY - endNode.gridY);
-
-        // 가장 빠른 경로일 경우의 두 노드간의 거리 계산 (각 칸 가중치 10)
-        return 10 * (distX + distY);
+        // 육각 격자 거리 기반 휴리스틱 및 스텝 가중치 (각 칸 가중치 10)
+        return 10 * HexMath.Distance(startNode.gridX, startNode.gridY, endNode.gridX, endNode.gridY);
     }
 
     // 탐색을 위한 타일 맵 생성 및 캐시 재활용

@@ -83,12 +83,10 @@ public class GameMap : MonoBehaviour
     private float _cellSize = 1.0f;
     private Vector3 _gridOffset = Vector3.zero;
 
-    private static readonly int[] _dirX = { 0, 0, 1, -1 };
-    private static readonly int[] _dirY = { 1, -1, 0, 0 };
-
     private readonly Queue<Tile> _bfsCurrentQueue = new Queue<Tile>(32);
     private readonly Queue<Tile> _bfsNextQueue = new Queue<Tile>(32);
     private readonly HashSet<Tile> _bfsVisited = new HashSet<Tile>();
+    private readonly List<Vector2Int> _directionalStepBuffer = new List<Vector2Int>(8);
 
     /// <summary>
     /// 월드 좌표를 그리드 오프셋 및 셀 크기 기반 O(1) 산술 인덱싱으로 변환하여 타일을 반환합니다.
@@ -125,10 +123,11 @@ public class GameMap : MonoBehaviour
         }
 
         Vector3 localHit = transform.InverseTransformPoint(centerRay.GetPoint(enter));
+        float extraX = mapRow > 1 ? 0.5f : 0f;
         float minX = _gridOffset.x - (_cellSize * 0.5f);
-        float maxX = _gridOffset.x + ((mapColumn - 0.5f) * _cellSize);
-        float minZ = _gridOffset.z - (_cellSize * 0.5f);
-        float maxZ = _gridOffset.z + ((mapRow - 0.5f) * _cellSize);
+        float maxX = _gridOffset.x + ((mapColumn - 0.5f + extraX) * _cellSize);
+        float minZ = _gridOffset.z - HexMath.OuterRadius(_cellSize);
+        float maxZ = _gridOffset.z + ((mapRow - 1) * HexMath.RowSpacing(_cellSize) + HexMath.OuterRadius(_cellSize));
 
         // 하단 손패 UI 시야 확보 및 가장자리 여유 패닝을 위한 마진 부여
         float margin = Mathf.Max(12f, Mathf.Max(mapColumn, mapRow) * _cellSize);
@@ -178,32 +177,25 @@ public class GameMap : MonoBehaviour
     }
 
     /// <summary>
-    /// 특정 좌표에서 지정된 방향으로 밀려날 때, 최종 도달할 타일 좌표와 벽/장외 충돌 여부를 계산합니다.
+    /// 특정 좌표에서 지정된 6방향으로 밀려날 때, 최종 도달할 타일 좌표와 벽/장외/유닛 충돌 여부를 계산합니다.
     /// </summary>
     /// <param name="startCoord">밀치기가 시작되는 캐릭터의 타일 좌표</param>
-    /// <param name="direction">밀려나는 방향 (상하좌우 단위 벡터)</param>
+    /// <param name="direction">밀려나는 6방향 육각 축</param>
     /// <param name="distance">밀려나는 최대 타일 수</param>
     /// <param name="finalCoord">최종 도달하는 타일 좌표 (벽/장외/유닛 충돌 시 충돌 직전 좌표)</param>
     /// <param name="collidedUnit">밀려나는 경로에서 충돌한 다른 생존 유닛 (없으면 null)</param>
     /// <returns>벽, 장애물, 장외, 또는 다른 생존 유닛에 부딪혔다면 true, 안전하게 밀려났다면 false</returns>
-    public bool CalculateKnockbackPosition(Vector2Int startCoord, Vector2Int direction, int distance, out Vector2Int finalCoord, out Character collidedUnit)
+    public bool CalculateKnockbackPosition(Vector2Int startCoord, LookDirection direction, int distance, out Vector2Int finalCoord, out Character collidedUnit)
     {
         finalCoord = startCoord;
         collidedUnit = null;
         bool isCollided = false;
 
-        // 방향 벡터를 상하좌우 1칸 단위 격자 벡터로 정규화 (대각선 및 초과 벡터 오작동 방지)
-        Vector2Int stepDir = Vector2Int.zero;
-        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y))
-            stepDir = new Vector2Int(direction.x > 0 ? 1 : (direction.x < 0 ? -1 : 0), 0);
-        else
-            stepDir = new Vector2Int(0, direction.y > 0 ? 1 : (direction.y < 0 ? -1 : 0));
-
-        if (stepDir == Vector2Int.zero || distance <= 0) return false;
+        if (distance <= 0) return false;
 
         for (int i = 1; i <= distance; i++)
         {
-            Vector2Int nextCoord = startCoord + stepDir * i;
+            Vector2Int nextCoord = HexMath.Step(startCoord, direction, i);
 
             // 1. 벽, 장애물, 맵 바깥 충돌 검사
             if (IsWallOrOutside(nextCoord.x, nextCoord.y))
@@ -314,11 +306,11 @@ public class GameMap : MonoBehaviour
                 tileLocalPos.y = 0.01f;
                 tile.transform.localPosition = tileLocalPos;
 
-                // 타일의 콜라이더 크기를 현재 맵의 cellSize에 맞춰 동기화 (콜라이더 중첩 방지)
+                // 타일의 콜라이더 크기를 Pointy-Top 육각 행 간격에 맞춰 동기화 (인접 행 중첩 방지)
                 BoxCollider col = tile.GetComponent<BoxCollider>();
                 if (col != null)
                 {
-                    col.size = new Vector3(mapData.cellSize, col.size.y, mapData.cellSize);
+                    col.size = new Vector3(mapData.cellSize * 0.95f, col.size.y, HexMath.RowSpacing(mapData.cellSize));
                 }
 
                 tile.SetCoord(columnIndex, rowIndex);
@@ -420,11 +412,10 @@ public class GameMap : MonoBehaviour
                     Tile t = currentQueue.Dequeue();
                     Vector2Int tCoord = t.GetCoord();
 
-                    // 상,하,좌,우 순으로 탐색
-                    for (int i = 0; i < 4; i++)
+                    // 6방향 육각 이웃 순으로 탐색
+                    for (int i = 0; i < HexMath.DirectionCount; i++)
                     {
-                        int x = tCoord.x + _dirX[i];
-                        int y = tCoord.y + _dirY[i];
+                        HexMath.GetOddRNeighbor(tCoord.x, tCoord.y, i, out int x, out int y);
 
                         // 맵 범위 검사
                         if (!IsValidCoordinate(x, y)) continue;
@@ -515,52 +506,15 @@ public class GameMap : MonoBehaviour
 
         TargetType parsedTargetType = cardData.parsedTargetType;
         GridAreaSearch search = new GridAreaSearch();
-        return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance);
+        return search.GetGridArea(parsedTargetType, new Vector2Int(mapColumn, mapRow), originCoord.x, originCoord.y, cardData.targetMinDistance, cardData.targetMaxDistance, GetPlayerFacingDirection());
     }
 
     /// <summary>
-    /// Bresenham 정수 직선 알고리즘으로 originCoord에서 targetCoord까지의 격자 좌표 경로를 순서대로 반환합니다.
+    /// Hex Cube 선형 보간으로 originCoord에서 targetCoord까지의 육각 직선 좌표 경로를 순서대로 반환합니다.
     /// </summary>
     public static List<Vector2Int> GetLineCoords(Vector2Int originCoord, Vector2Int targetCoord, bool includeOrigin = false)
     {
-        List<Vector2Int> coords = new List<Vector2Int>();
-        int x0 = originCoord.x;
-        int y0 = originCoord.y;
-        int x1 = targetCoord.x;
-        int y1 = targetCoord.y;
-
-        int dx = Mathf.Abs(x1 - x0);
-        int dy = Mathf.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1;
-        int sy = y0 < y1 ? 1 : -1;
-        int err = dx - dy;
-
-        while (true)
-        {
-            if (includeOrigin || x0 != originCoord.x || y0 != originCoord.y)
-            {
-                coords.Add(new Vector2Int(x0, y0));
-            }
-
-            if (x0 == x1 && y0 == y1)
-            {
-                break;
-            }
-
-            int e2 = 2 * err;
-            if (e2 > -dy)
-            {
-                err -= dy;
-                x0 += sx;
-            }
-            if (e2 < dx)
-            {
-                err += dx;
-                y0 += sy;
-            }
-        }
-
-        return coords;
+        return HexMath.GetLine(originCoord, targetCoord, includeOrigin);
     }
 
     private bool IsTileBlockingProjectile(Tile tile)
@@ -575,7 +529,7 @@ public class GameMap : MonoBehaviour
     /// <summary>
     /// 시전자 좌표, 타깃 좌표, 시선 방향 및 카드 데이터를 바탕으로 효과 범위(AoE) 및 투사체 시선(LoS) 타일 좌표 목록을 계산합니다.
     /// </summary>
-    public List<Vector2Int> CalculateCardAoECoords(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.Down)
+    public List<Vector2Int> CalculateCardAoECoords(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.East)
     {
         List<Vector2Int> aoeCoords = new List<Vector2Int>();
         if (cardData == null) return aoeCoords;
@@ -609,13 +563,13 @@ public class GameMap : MonoBehaviour
                     }
                     else
                     {
-                        int halfWidth = Mathf.Max(0, (width - 1) / 2);
                         for (int step = minDist; step <= maxDist; step++)
                         {
                             bool blockedAtStep = false;
-                            for (int lat = -halfWidth; lat <= halfWidth; lat++)
+                            EffectAreaShapeGenerator.GetDirectionalLineStepCoords(originCoord, effectiveFacing, step, width, _directionalStepBuffer);
+                            for (int k = 0; k < _directionalStepBuffer.Count; k++)
                             {
-                                Vector2Int coord = originCoord + EffectAreaShapeGenerator.RotateOffset(lat, step, effectiveFacing);
+                                Vector2Int coord = _directionalStepBuffer[k];
                                 if (!IsValidCoordinate(coord.x, coord.y)) continue;
 
                                 aoeCoords.Add(coord);
@@ -655,7 +609,8 @@ public class GameMap : MonoBehaviour
                         shapeLen,
                         center.x,
                         center.y,
-                        area.distance);
+                        area.distance,
+                        effectiveFacing);
 
                     if (shapePositions != null)
                     {
@@ -672,7 +627,7 @@ public class GameMap : MonoBehaviour
                 int maxDist = cardData.targetMaxDistance > 0 ? cardData.targetMaxDistance : minDist;
                 for (int step = minDist; step <= maxDist; step++)
                 {
-                    Vector2Int coord = originCoord + EffectAreaShapeGenerator.RotateOffset(0, step, effectiveFacing);
+                    Vector2Int coord = HexMath.Step(originCoord, effectiveFacing, step);
                     if (!IsValidCoordinate(coord.x, coord.y)) continue;
 
                     aoeCoords.Add(coord);
@@ -723,7 +678,7 @@ public class GameMap : MonoBehaviour
     /// <summary>
     /// 카드의 사거리를 유지하면서, 마우스가 위치한 대상 타일 중심의 폭발 범위(AoE)를 월드 타일맵에 실시간 표시합니다.
     /// </summary>
-    public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.Down)
+    public void ShowCardAoE(Vector2Int originCoord, Vector2Int targetCoord, CardData cardData, LookDirection facing = LookDirection.East)
     {
         if (cardData == null || moveRangeIndicator == null) return;
         if (!moveRangeIndicator.gameObject.activeSelf)
@@ -745,7 +700,7 @@ public class GameMap : MonoBehaviour
         {
             return GameSceneManager.instance.player.character.characterMove.facingDirection;
         }
-        return LookDirection.Down;
+        return LookDirection.East;
     }
 
     /// <summary>

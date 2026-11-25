@@ -26,11 +26,14 @@ public class MapMoveRangeIndicator : MonoBehaviour
             tileRenderer.material.SetFloat("_GridRows", gridRows);
         }
 
-        // 2. 오버레이 평면 스케일 및 위치 정렬
-        transform.localScale = new Vector3(gridColumns * cellSize, gridRows * cellSize, 1f);
-        float centerX = gridOffset.x + (gridColumns - 1) * cellSize / 2.0f;
-        float centerZ = gridOffset.z + (gridRows - 1) * cellSize / 2.0f;
-        
+        // 2. 오버레이 평면 스케일 및 위치 정렬 (Pointy-Top Odd-R 육각 격자 바운딩 박스)
+        float extraX = gridRows > 1 ? 0.5f : 0f;
+        float quadWidth = (gridColumns + extraX) * cellSize;
+        float quadHeight = ((gridRows - 1) * HexMath.HalfSqrt3 + 2f * HexMath.InvSqrt3) * cellSize;
+        float centerX = gridOffset.x + ((gridColumns - 1 + extraX) * 0.5f) * cellSize;
+        float centerZ = gridOffset.z + ((gridRows - 1) * HexMath.HalfSqrt3 * 0.5f) * cellSize;
+
+        transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
         transform.localPosition = new Vector3(centerX, gridOffset.y + 0.02f, centerZ);
         transform.localRotation = Quaternion.Euler(90, 0, 0);
 

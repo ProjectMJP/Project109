@@ -14,7 +14,7 @@ maxMasteryPoint: 0
 isUpgradable: false
 isUpgraded: false
 upgradedCardName: ""
-description: "[임시 테스트]\n지정한 타일 십자 1칸에 {damage}의 피해를 줍니다.\n(빈 땅 시전·장애물 무시 곡사·자동 회전)"
+description: "[임시 테스트]\n지정한 타일 육각 대각 4방향 1칸에 {damage}의 피해를 줍니다.\n(빈 땅 시전·장애물 무시 곡사·자동 회전)"
 baseValues:
   damage: 5
 additionalEffectAreaList:

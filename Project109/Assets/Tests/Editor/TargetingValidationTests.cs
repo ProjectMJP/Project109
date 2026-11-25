@@ -117,7 +117,7 @@ public class TargetingValidationTests
             var tile = tileObj.AddComponent<Tile>();
             tile.SetCoord(3, 0);
 
-            character.characterMove.SetFacingDirection(LookDirection.Down, false);
+            character.characterMove.SetFacingDirection(LookDirection.SouthWest, false);
             using var player = new Player(character);
             var controller = new PlayerBattleController(player);
             var card = CreateCard("선수필승", "AreaGround", 1, 2);
@@ -128,7 +128,7 @@ public class TargetingValidationTests
             bool confirmed = strategy.TryCollectTargetsOnTileClicked(controller, card, tile, out _, out Vector2Int targetPos);
             Assert.IsTrue(confirmed);
             Assert.AreEqual(new Vector2Int(3, 0), targetPos);
-            Assert.AreEqual(LookDirection.Right, character.characterMove.facingDirection);
+            Assert.AreEqual(LookDirection.East, character.characterMove.facingDirection);
         }
         finally
         {
@@ -143,42 +143,44 @@ public class TargetingValidationTests
         Vector2Int mapSize = new Vector2Int(10, 10);
         Vector2Int origin = new Vector2Int(5, 5);
 
-        Assert.AreEqual(new Vector2Int(1, 2), EffectAreaShapeGenerator.RotateOffset(1, 2, LookDirection.Up));
-        Assert.AreEqual(new Vector2Int(2, -1), EffectAreaShapeGenerator.RotateOffset(1, 2, LookDirection.Right));
-        Assert.AreEqual(new Vector2Int(-1, -2), EffectAreaShapeGenerator.RotateOffset(1, 2, LookDirection.Down));
-        Assert.AreEqual(new Vector2Int(-2, 1), EffectAreaShapeGenerator.RotateOffset(1, 2, LookDirection.Left));
+        Assert.AreEqual(new Vector2Int(1, 1), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.East));
+        Assert.AreEqual(new Vector2Int(-1, 2), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.NorthEast));
+        Assert.AreEqual(new Vector2Int(-2, 1), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.NorthWest));
+        Assert.AreEqual(new Vector2Int(-1, -1), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.West));
+        Assert.AreEqual(new Vector2Int(1, -2), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.SouthWest));
+        Assert.AreEqual(new Vector2Int(2, -1), EffectAreaShapeGenerator.RotateAxialOffset(1, 1, LookDirection.SouthEast));
 
-        var rightLine = EffectAreaShapeGenerator.GetDirectionalLine(mapSize, origin, LookDirection.Right, 1, 3);
+        var eastLine = EffectAreaShapeGenerator.GetDirectionalLine(mapSize, origin, LookDirection.East, 1, 3);
         CollectionAssert.AreEqual(
             new[] { new Vector2Int(6, 5), new Vector2Int(7, 5), new Vector2Int(8, 5) },
-            rightLine);
+            eastLine);
 
-        var arcPattern = new List<string> { "XXX", ".C." };
-        var upArc = EffectAreaShapeGenerator.GetPatternWithRotation(mapSize, origin, arcPattern, LookDirection.Up);
+        var arcPattern = new List<string> { "1, 0", "0, 1", "1, -1" };
+        var eastArc = EffectAreaShapeGenerator.GetPatternWithRotation(mapSize, origin, arcPattern, LookDirection.East);
         CollectionAssert.AreEquivalent(
-            new[] { new Vector2Int(4, 6), new Vector2Int(5, 6), new Vector2Int(6, 6) },
-            upArc);
+            new[] { new Vector2Int(6, 5), new Vector2Int(6, 6), new Vector2Int(6, 4) },
+            eastArc);
 
-        var downArc = EffectAreaShapeGenerator.GetPatternWithRotation(mapSize, origin, arcPattern, LookDirection.Down);
+        var westArc = EffectAreaShapeGenerator.GetPatternWithRotation(mapSize, origin, arcPattern, LookDirection.West);
         CollectionAssert.AreEquivalent(
-            new[] { new Vector2Int(4, 4), new Vector2Int(5, 4), new Vector2Int(6, 4) },
-            downArc);
+            new[] { new Vector2Int(4, 5), new Vector2Int(5, 4), new Vector2Int(5, 6) },
+            westArc);
 
         var whole = EffectAreaShapeGenerator.GetWholeMap(new Vector2Int(3, 2));
         Assert.AreEqual(6, whole.Count);
     }
 
     [Test]
-    public void GameMap_GetLineCoords_ReturnsBresenhamStepsExcludingOrigin()
+    public void GameMap_GetLineCoords_ReturnsHexLineStepsExcludingOrigin()
     {
         var straight = GameMap.GetLineCoords(new Vector2Int(1, 1), new Vector2Int(4, 1));
         CollectionAssert.AreEqual(
             new[] { new Vector2Int(2, 1), new Vector2Int(3, 1), new Vector2Int(4, 1) },
             straight);
 
-        var diagonal = GameMap.GetLineCoords(new Vector2Int(0, 0), new Vector2Int(2, 2));
+        var diagonal = GameMap.GetLineCoords(new Vector2Int(0, 0), new Vector2Int(1, 2));
         CollectionAssert.AreEqual(
-            new[] { new Vector2Int(1, 1), new Vector2Int(2, 2) },
+            new[] { new Vector2Int(0, 1), new Vector2Int(1, 2) },
             diagonal);
     }
 }

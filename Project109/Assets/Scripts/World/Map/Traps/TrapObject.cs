@@ -231,45 +231,42 @@ public class TrapObject : MonoBehaviour, ITileHazard
 
         if (_occupiedTile != null && map != null)
         {
-            Vector2Int stepDir = ResolveShotDirection(triggerUnit);
-            if (stepDir != Vector2Int.zero)
+            LookDirection shotDir = ResolveShotDirection(triggerUnit);
+            Vector2Int originCoord = _occupiedTile.GetCoord();
+            int startStep = hitUnitOnOriginTile ? 0 : 1;
+            int range = Mathf.Max(1, maxShotRange);
+
+            for (int step = startStep; step <= range; step++)
             {
-                Vector2Int originCoord = _occupiedTile.GetCoord();
-                int startStep = hitUnitOnOriginTile ? 0 : 1;
-                int range = Mathf.Max(1, maxShotRange);
-
-                for (int step = startStep; step <= range; step++)
+                Vector2Int checkCoord = step == 0 ? originCoord : HexMath.Step(originCoord, shotDir, step);
+                if (!map.IsValidCoordinate(checkCoord.x, checkCoord.y))
                 {
-                    Vector2Int checkCoord = originCoord + stepDir * step;
-                    if (!map.IsValidCoordinate(checkCoord.x, checkCoord.y))
-                    {
-                        break;
-                    }
+                    break;
+                }
 
-                    Tile checkTile = map.GetTile(checkCoord);
-                    if (checkTile == null)
-                    {
-                        break;
-                    }
+                Tile checkTile = map.GetTile(checkCoord);
+                if (checkTile == null)
+                {
+                    break;
+                }
 
-                    // 발사 타일 이후 벽 또는 장애물에 부딪히면 직선 투사체 차단
-                    if (step > 0 && (checkTile.tileState == TileState.Full || checkTile.tileState == TileState.Obstacle))
+                // 발사 타일 이후 벽 또는 장애물에 부딪히면 직선 투사체 차단
+                if (step > 0 && (checkTile.tileState == TileState.Full || checkTile.tileState == TileState.Obstacle))
+                {
+                    if (checkTile.occupyingDestructible != null && !checkTile.occupyingDestructible.isDead && damageAmount > 0f)
                     {
-                        if (checkTile.occupyingDestructible != null && !checkTile.occupyingDestructible.isDead && damageAmount > 0f)
-                        {
-                            DamageInfo objDmg = new DamageInfo(null, null, damageAmount, BuildDamageFlag());
-                            checkTile.occupyingDestructible.TakeDamage(objDmg);
-                        }
-                        break;
+                        DamageInfo objDmg = new DamageInfo(null, null, damageAmount, BuildDamageFlag());
+                        checkTile.occupyingDestructible.TakeDamage(objDmg);
                     }
+                    break;
+                }
 
-                    Character occupant = checkTile.occupyingCharacter;
-                    if (occupant != null && (canHitDeadUnits || !occupant.isDead))
-                    {
-                        hitTarget = occupant;
-                        ApplyTrapPayload(occupant);
-                        break;
-                    }
+                Character occupant = checkTile.occupyingCharacter;
+                if (occupant != null && (canHitDeadUnits || !occupant.isDead))
+                {
+                    hitTarget = occupant;
+                    ApplyTrapPayload(occupant);
+                    break;
                 }
             }
         }
@@ -312,29 +309,19 @@ public class TrapObject : MonoBehaviour, ITileHazard
         return ignoreShield ? DamageFlag.IgnoreShield : DamageFlag.Normal;
     }
 
-    private Vector2Int ResolveShotDirection(Character triggerUnit)
+    private LookDirection ResolveShotDirection(Character triggerUnit)
     {
         if (fireDirection != Vector2Int.zero)
         {
-            if (Mathf.Abs(fireDirection.x) >= Mathf.Abs(fireDirection.y))
-            {
-                return new Vector2Int(fireDirection.x > 0 ? 1 : -1, 0);
-            }
-            return new Vector2Int(0, fireDirection.y > 0 ? 1 : -1);
+            return HexMath.WorldVectorToDirection(fireDirection.x, fireDirection.y, LookDirection.East);
         }
 
         if (triggerUnit != null && triggerUnit.characterMove != null)
         {
-            switch (triggerUnit.characterMove.facingDirection)
-            {
-                case LookDirection.Up: return Vector2Int.up;
-                case LookDirection.Down: return Vector2Int.down;
-                case LookDirection.Left: return Vector2Int.left;
-                case LookDirection.Right: return Vector2Int.right;
-            }
+            return triggerUnit.characterMove.facingDirection;
         }
 
-        return Vector2Int.right;
+        return LookDirection.East;
     }
 
     private void PlayTriggerVisual()

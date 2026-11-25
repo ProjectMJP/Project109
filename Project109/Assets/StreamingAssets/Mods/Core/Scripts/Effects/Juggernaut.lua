@@ -17,25 +17,14 @@ function effect:OnAfterUseCard(cardInfo)
     if target == nil or target.isDead then return end
 
     if cardInfo.caster == target and cardInfo.card ~= nil and cardInfo.card.cardData ~= nil and cardInfo.card.cardData.cardType == "Attack" then
-        -- 캐릭터의 시선 방향 계산
-        local dir = UnityEngine.Vector2Int(0, 1)
+        -- 캐릭터의 6방향 시선(LookDirection) 조회
+        local look = LookDirection.East
         if target.characterMove ~= nil then
-            local look = target.characterMove.facingDirection
-            -- LookDirection: Up(0), Down(1), Left(2), Right(3)
-            local lookStr = tostring(look)
-            if lookStr:find("Down") then
-                dir = UnityEngine.Vector2Int(0, -1)
-            elseif lookStr:find("Left") then
-                dir = UnityEngine.Vector2Int(-1, 0)
-            elseif lookStr:find("Right") then
-                dir = UnityEngine.Vector2Int(1, 0)
-            else
-                dir = UnityEngine.Vector2Int(0, 1)
-            end
+            look = target.characterMove.facingDirection
         end
 
         -- 전방 1칸 강제 전진
-        target:ForcedMoveInDirection(dir, 1)
+        target:ForcedMoveInDirection(look, 1)
 
         -- 타깃이 존재하면 타깃도 같은 방향으로 1칸 밀쳐냄
         if cardInfo.targets ~= nil and cardInfo.targets.Count > 0 then

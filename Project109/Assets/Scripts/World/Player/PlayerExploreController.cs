@@ -83,7 +83,13 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         int tileMask = LayerMask.GetMask("Tile");
         if (Physics.Raycast(ray, out RaycastHit tileHit, 10000.0f, tileMask))
         {
-            Tile targetTile = tileHit.collider.GetComponent<Tile>();
+            Tile targetTile = GameMap.current != null
+                ? GameMap.current.GetTileAtWorldPosition(tileHit.point)
+                : null;
+            if (targetTile == null)
+            {
+                targetTile = tileHit.collider.GetComponent<Tile>();
+            }
             if (targetTile == null)
             {
                 targetTile = tileHit.collider.transform.root.GetComponentInChildren<Tile>();
@@ -92,6 +98,18 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
             if (targetTile != null)
             {
                 HandleTileMovementClick(targetTile);
+                return;
+            }
+        }
+
+        // 3차 폴백: 지면 평면(Y=0) 교차점에서 육각 Voronoi 피킹
+        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+        if (GameMap.current != null && groundPlane.Raycast(ray, out float enter))
+        {
+            Tile planeTile = GameMap.current.GetTileAtWorldPosition(ray.GetPoint(enter));
+            if (planeTile != null)
+            {
+                HandleTileMovementClick(planeTile);
             }
         }
     }
@@ -224,13 +242,9 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
         int col = centerTile.GetCoord().x;
         int row = centerTile.GetCoord().y;
 
-        int[] dirX = { 0, 0, 1, -1 };
-        int[] dirY = { 1, -1, 0, 0 };
-
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < HexMath.DirectionCount; i++)
         {
-            int x = col + dirX[i];
-            int y = row + dirY[i];
+            HexMath.GetOddRNeighbor(col, row, i, out int x, out int y);
 
             if (x >= 0 && x < tileMap.Count && y >= 0 && y < tileMap[0].Count)
             {
@@ -247,8 +261,6 @@ public class PlayerExploreController : ICharacterController, System.IDisposable
     private bool IsAdjacent(Tile t1, Tile t2)
     {
         if (t1 == null || t2 == null) return false;
-        int dist = Mathf.Abs(t1.GetCoord().x - t2.GetCoord().x) +
-                   Mathf.Abs(t1.GetCoord().y - t2.GetCoord().y);
-        return dist == 1;
+        return Tile.GetDistance(t1, t2) == 1;
     }
 }

@@ -449,7 +449,7 @@ public class StageManager : IInitializable, System.IDisposable
 
                 if (enemyCharacter.characterMove != null)
                 {
-                    enemyCharacter.characterMove.SetFacingDirection(LookDirection.Down);
+                    enemyCharacter.characterMove.SetFacingDirection(LookDirection.West);
                     if (tileMap != null &&
                         cell.position.x >= 0 && cell.position.x < tileMap.Count &&
                         cell.position.y >= 0 && cell.position.y < tileMap[cell.position.x].Count)

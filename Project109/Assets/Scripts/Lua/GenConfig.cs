@@ -40,6 +40,8 @@ public static class GenConfig
         typeof(CharacterMove),
         typeof(Tile),
         typeof(GameMap),
+        typeof(LookDirection),
+        typeof(HexMath),
         typeof(ExploreNode),
         typeof(EncounterData),
         typeof(EncountType),
@@ -86,6 +88,7 @@ public static class GenConfig
     {
         typeof(Vector2Int),
         typeof(Vector3Int),
+        typeof(LookDirection),
         typeof(EffectClockType),
         typeof(StatModifierTarget),
         typeof(StatModifierOp),

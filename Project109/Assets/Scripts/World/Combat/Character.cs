@@ -990,22 +990,19 @@ public class Character : MonoBehaviour, IDamageable
 
         Vector2Int myCoord = GetGridPosition();
         Vector2Int casterCoord = caster != null ? caster.GetGridPosition() : myCoord;
-        Vector2Int dir = myCoord - casterCoord;
+        LookDirection fallbackDir = (caster != null && caster.characterMove != null)
+            ? caster.characterMove.facingDirection
+            : LookDirection.East;
 
-        // 시전자와 동일 위치이거나 방향이 0인 경우 기본 상향 벡터 사용
-        if (dir == Vector2Int.zero)
-        {
-            dir = Vector2Int.up;
-        }
-
+        LookDirection dir = HexMath.DirectionFromCoords(casterCoord, myCoord, fallbackDir);
         return ForcedMoveInDirection(dir, distance, moveSpeedMultiplier);
     }
 
     /// <summary>
-    /// 지정된 방향 벡터로 distance칸만큼 강제 이동(밀치기/당기기)을 수행합니다.
+    /// 지정된 6방향으로 distance칸만큼 강제 이동(밀치기/당기기)을 수행합니다.
     /// 벽이나 다른 생존 유닛과 충돌했는지 여부(bool)를 반환합니다.
     /// </summary>
-    public bool ForcedMoveInDirection(Vector2Int direction, int distance, float moveSpeedMultiplier = 2.5f)
+    public bool ForcedMoveInDirection(LookDirection direction, int distance, float moveSpeedMultiplier = 2.5f)
     {
         if (isDead || characterMove == null || GameMap.current == null) return false;
 
@@ -1111,16 +1108,15 @@ public class Character : MonoBehaviour, IDamageable
         }
 
         Vector2Int tCoord = targetTile.GetCoord();
-        Vector2Int[] dirs = { new Vector2Int(0, 1), new Vector2Int(0, -1), new Vector2Int(1, 0), new Vector2Int(-1, 0) };
         Tile bestTile = null;
         int minDistance = int.MaxValue;
 
-        for (int i = 0; i < dirs.Length; i++)
+        for (int i = 0; i < HexMath.DirectionCount; i++)
         {
-            Vector2Int c = tCoord + dirs[i];
-            if (c.x >= 0 && c.x < tileMap.Count && c.y >= 0 && c.y < tileMap[0].Count)
+            HexMath.GetOddRNeighbor(tCoord.x, tCoord.y, i, out int nx, out int ny);
+            if (nx >= 0 && nx < tileMap.Count && ny >= 0 && ny < tileMap[0].Count)
             {
-                Tile tile = tileMap[c.x][c.y];
+                Tile tile = tileMap[nx][ny];
                 if (tile != null && tile.CanEnter(characterMove))
                 {
                     int d = Tile.GetDistance(currentTile, tile);
@@ -1155,15 +1151,10 @@ public class Character : MonoBehaviour, IDamageable
         List<Tile> path = new List<Tile>();
         if (map == null || startCoord == finalCoord) return path;
 
-        Vector2Int delta = finalCoord - startCoord;
-        Vector2Int stepDir = new Vector2Int(
-            delta.x != 0 ? (delta.x > 0 ? 1 : -1) : 0,
-            delta.y != 0 ? (delta.y > 0 ? 1 : -1) : 0);
-
-        int steps = Mathf.Abs(delta.x) + Mathf.Abs(delta.y);
-        for (int i = 1; i <= steps; i++)
+        List<Vector2Int> lineCoords = GameMap.GetLineCoords(startCoord, finalCoord, includeOrigin: false);
+        for (int i = 0; i < lineCoords.Count; i++)
         {
-            Tile stepTile = map.GetTile(startCoord + stepDir * i);
+            Tile stepTile = map.GetTile(lineCoords[i]);
             if (stepTile != null)
             {
                 path.Add(stepTile);

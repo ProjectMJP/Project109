@@ -2,10 +2,12 @@ using UnityEngine;
 
 public enum LookDirection
 {
-    Up,
-    Down,
-    Left,
-    Right
+    East = 0,       //   0° (+X)
+    NorthEast = 1,  //  60° (+X, +Z)
+    NorthWest = 2,  // 120° (-X, +Z)
+    West = 3,       // 180° (-X)
+    SouthWest = 4,  // 240° (-X, -Z)
+    SouthEast = 5   // 300° (+X, -Z)
 }
 
 namespace GameItem.Types

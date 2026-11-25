@@ -8,7 +8,7 @@ internal static class TargetingStrategyHelper
     public static void GetCasterPose(PlayerBattleController controller, out Vector2Int originCoord, out LookDirection facing)
     {
         originCoord = Vector2Int.zero;
-        facing = LookDirection.Down;
+        facing = LookDirection.East;
 
         if (controller != null && controller.controlledCharacter != null && controller.controlledCharacter.characterMove != null)
         {

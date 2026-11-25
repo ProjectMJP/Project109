@@ -231,10 +231,10 @@ public class CharacterIntentUI : MonoBehaviour, IWorldFollowUI, IPointerEnterHan
                 ? GameMap.current.GetCharacterCoordinate(_currentIntent.targetCharacter)
                 : originCoord;
 
-            LookDirection facing = LookDirection.Down;
+            LookDirection facing = LookDirection.East;
             if (originCoord != targetCoord)
             {
-                facing = EffectAreaShapeGenerator.GetDirectionFromCoords(originCoord, targetCoord, LookDirection.Down);
+                facing = EffectAreaShapeGenerator.GetDirectionFromCoords(originCoord, targetCoord, LookDirection.East);
             }
             else if (ownerChar != null && ownerChar.characterMove != null)
             {
