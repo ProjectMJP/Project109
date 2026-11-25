@@ -374,12 +374,11 @@ public class MapPainterEditor : EditorWindow
             int gridX = gridCoord.x;
             int gridY = gridCoord.y;
 
-            // 하이라이트 박스 크기 cellSize에 맞게 조절
+            // 하이라이트 육각 프리즘 크기 cellSize에 맞게 그리기
             Vector3 snappedPos = targetMapData.CellToWorld(gridCoord);
 
-            // 마우스 커서 위치에 하이라이트 박스 그리기
-            Handles.color = new Color(1, 1, 0, 0.5f); // 반투명 노란색
-            Handles.DrawWireCube(snappedPos + Vector3.up * 0.5f, new Vector3(targetMapData.cellSize, 1, targetMapData.cellSize));
+            // 마우스 커서 위치에 Pointy-Top 육각 하이라이트 그리기
+            DrawHexHighlightPrism(snappedPos, targetMapData.cellSize, 1.0f);
 
             // 마우스 드래그나 클릭 시 색칠
             if ((e.type == EventType.MouseDrag || e.type == EventType.MouseDown) && e.button == 0)
@@ -451,46 +450,74 @@ public class MapPainterEditor : EditorWindow
         }
     }
 
+    private static void DrawHexHighlightPrism(Vector3 centerPos, float cellSize, float height)
+    {
+        if (cellSize <= 0f) return;
+
+        Handles.color = new Color(1f, 1f, 0f, 0.75f);
+        Vector3 baseOffset = new Vector3(0f, 0.01f, 0f);
+        Vector3 topOffset = new Vector3(0f, height, 0f);
+
+        for (int i = 0; i < HexMath.DirectionCount; i++)
+        {
+            Vector3 c0 = centerPos + HexMath.GetHexCornerOffset(i, cellSize) + baseOffset;
+            Vector3 c1 = centerPos + HexMath.GetHexCornerOffset((i + 1) % HexMath.DirectionCount, cellSize) + baseOffset;
+
+            Handles.DrawLine(c0, c1);
+            Handles.DrawLine(c0 + topOffset, c1 + topOffset);
+            Handles.DrawLine(c0, c0 + topOffset);
+        }
+    }
+
     /// <summary>
-    /// 편집 모드 시 전체 맵의 너비와 높이, 셀 크기 및 오프셋을 반영한 격자선(그리드)을 렌더링합니다.
+    /// 편집 모드 시 전체 맵의 너비와 높이, 셀 크기 및 오프셋을 반영한 Pointy-Top Odd-R 육각 격자선을 렌더링합니다.
     /// </summary>
     private void DrawGridLines()
     {
         if (!showGridLines || targetMapData == null) return;
-        if (targetMapData.width <= 0 || targetMapData.height <= 0 || targetMapData.cellSize <= 0) return;
+        if (targetMapData.width <= 0 || targetMapData.height <= 0 || targetMapData.cellSize <= 0f) return;
 
         float cellSize = targetMapData.cellSize;
         Vector3 offset = targetMapData.gridOffset;
         float y = offset.y + 0.01f; // 바닥 메쉬와 겹쳐 깜빡이는(Z-fighting) 현상 방지
 
-        float minX = -0.5f * cellSize + offset.x;
-        float maxX = (targetMapData.width - 0.5f) * cellSize + offset.x;
-        float minZ = -0.5f * cellSize + offset.z;
-        float maxZ = (targetMapData.height - 0.5f) * cellSize + offset.z;
+        Color innerColor = new Color(0.9f, 0.9f, 0.9f, 0.35f);
+        Color outerColor = new Color(0.2f, 0.9f, 1.0f, 0.85f);
 
-        // 1. 내부 격자선 렌더링 (반투명 밝은 회색)
-        Handles.color = new Color(0.9f, 0.9f, 0.9f, 0.35f);
-
-        // 가로선 (Z축 기준, X축으로 뻗는 선들)
-        for (int yIdx = 1; yIdx < targetMapData.height; yIdx++)
+        Vector3[] cornerOffsets = new Vector3[HexMath.DirectionCount];
+        for (int i = 0; i < HexMath.DirectionCount; i++)
         {
-            float z = (yIdx - 0.5f) * cellSize + offset.z;
-            Handles.DrawLine(new Vector3(minX, y, z), new Vector3(maxX, y, z));
+            cornerOffsets[i] = HexMath.GetHexCornerOffset(i, cellSize);
         }
 
-        // 세로선 (X축 기준, Z축으로 뻗는 선들)
-        for (int xIdx = 1; xIdx < targetMapData.width; xIdx++)
+        for (int col = 0; col < targetMapData.width; col++)
         {
-            float x = (xIdx - 0.5f) * cellSize + offset.x;
-            Handles.DrawLine(new Vector3(x, y, minZ), new Vector3(x, y, maxZ));
-        }
+            for (int row = 0; row < targetMapData.height; row++)
+            {
+                Vector3 center = HexMath.CellToWorld(col, row, offset, cellSize);
+                center.y = y;
 
-        // 2. 외곽 경계선 렌더링 (시인성 높은 밝은 청록색)
-        Handles.color = new Color(0.2f, 0.9f, 1.0f, 0.85f);
-        Handles.DrawLine(new Vector3(minX, y, minZ), new Vector3(maxX, y, minZ));
-        Handles.DrawLine(new Vector3(minX, y, maxZ), new Vector3(maxX, y, maxZ));
-        Handles.DrawLine(new Vector3(minX, y, minZ), new Vector3(minX, y, maxZ));
-        Handles.DrawLine(new Vector3(maxX, y, minZ), new Vector3(maxX, y, maxZ));
+                for (int edge = 0; edge < HexMath.DirectionCount; edge++)
+                {
+                    // 코너 edge -> (edge+1)%6 변은 방향 (edge+1)%6 이웃과 접함
+                    int neighborDir = (edge + 1) % HexMath.DirectionCount;
+                    HexMath.GetOddRNeighbor(col, row, neighborDir, out int nCol, out int nRow);
+                    bool isBoundaryEdge = nCol < 0 || nCol >= targetMapData.width || nRow < 0 || nRow >= targetMapData.height;
+
+                    if (isBoundaryEdge)
+                    {
+                        Handles.color = outerColor;
+                        Handles.DrawLine(center + cornerOffsets[edge], center + cornerOffsets[(edge + 1) % HexMath.DirectionCount]);
+                    }
+                    else if (edge == 0 || edge == 1 || edge == 5)
+                    {
+                        // 내부 공유 변은 East(5)/NorthEast(0)/NorthWest(1) 방향에서만 1회 렌더링
+                        Handles.color = innerColor;
+                        Handles.DrawLine(center + cornerOffsets[edge], center + cornerOffsets[(edge + 1) % HexMath.DirectionCount]);
+                    }
+                }
+            }
+        }
     }
 
     public class RootPaletteData
