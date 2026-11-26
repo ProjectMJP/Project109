@@ -16,6 +16,10 @@ public static class HotkeyHintSettings
     public static readonly Color BadgeTextColor = Color.white;
     public const float BadgeFontSize = 14f;
     public static readonly Vector2 ButtonTopLeftBadgeOffset = new Vector2(-6f, 8f);
+    public static readonly Vector2 CardHotkeyBadgeAnchor = new Vector2(0f, 1f);
+    public static readonly Vector2 CardHotkeyBadgePivot = new Vector2(0f, 1f);
+    public static readonly Vector2 CardCostCornerBadgeOffset = new Vector2(-17f, 13f);
+    public static readonly Vector2 CardFallbackTopLeftBadgeOffset = ButtonTopLeftBadgeOffset;
 
     private static bool _showHotkeyHints = true;
     private static bool _isInitialized = false;
@@ -143,6 +147,35 @@ public static class HotkeyHintSettings
             badgeText.alignment = TextAlignmentOptions.Center;
             badgeText.color = BadgeTextColor;
             badgeText.raycastTarget = false;
+        }
+    }
+
+    /// <summary>
+    /// 손패 카드 단축키 배지(1~9)를 코스트(StaminaBackground) 좌상단 모서리에 살짝 걸치도록 앵커·피벗·오프셋을 배치합니다.
+    /// 코스트 박스가 없는 폴백 카드에서는 카드 좌상단 기준으로 배치합니다.
+    /// </summary>
+    public static void ApplyCardHotkeyBadgeLayout(RectTransform badgeRect, RectTransform staminaBackgroundRect)
+    {
+        if (badgeRect == null)
+        {
+            return;
+        }
+
+        badgeRect.anchorMin = CardHotkeyBadgeAnchor;
+        badgeRect.anchorMax = CardHotkeyBadgeAnchor;
+        badgeRect.pivot = CardHotkeyBadgePivot;
+        badgeRect.sizeDelta = BadgeSize;
+
+        if (staminaBackgroundRect != null)
+        {
+            Vector2 costTopLeft = new Vector2(
+                staminaBackgroundRect.anchoredPosition.x - staminaBackgroundRect.sizeDelta.x * staminaBackgroundRect.pivot.x,
+                staminaBackgroundRect.anchoredPosition.y + staminaBackgroundRect.sizeDelta.y * (1f - staminaBackgroundRect.pivot.y));
+            badgeRect.anchoredPosition = costTopLeft + CardCostCornerBadgeOffset;
+        }
+        else
+        {
+            badgeRect.anchoredPosition = CardFallbackTopLeftBadgeOffset;
         }
     }
 

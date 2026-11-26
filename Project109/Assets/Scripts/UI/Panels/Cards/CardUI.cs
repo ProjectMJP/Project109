@@ -93,6 +93,7 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
     private Color _defaultStaminaTextColor = Color.white;
     private bool _hasDefaultStaminaTextColor = false;
     private bool _isKeyboardSelected = false;
+    private bool _hasAppliedHotkeyBadgeLayout = false;
 
     public CardPlayabilityVisualState CurrentPlayabilityVisualState => _playabilityVisualState;
     public bool IsPlayableGlowActive => selectHighlightObject != null && selectHighlightObject.activeSelf;
@@ -1116,11 +1117,6 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
 
     private void EnsureHotkeyHintUI()
     {
-        if (hotkeyHintBadgeObject != null && hotkeyHintText != null)
-        {
-            return;
-        }
-
         if (hotkeyHintBadgeObject == null)
         {
             Transform existing = transform.Find("HotkeyHintBadge");
@@ -1130,24 +1126,28 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             }
         }
 
+        bool createdBadge = false;
         if (hotkeyHintBadgeObject == null)
         {
             GameObject badgeObj = new GameObject("HotkeyHintBadge", typeof(RectTransform), typeof(Image));
             badgeObj.layer = gameObject.layer != 0 ? gameObject.layer : 5;
             badgeObj.transform.SetParent(transform, false);
 
-            RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
-            badgeRect.anchorMin = new Vector2(0f, 1f);
-            badgeRect.anchorMax = new Vector2(0f, 1f);
-            badgeRect.pivot = new Vector2(1f, 1f);
-            badgeRect.anchoredPosition = new Vector2(-12f, 10f);
-            badgeRect.sizeDelta = HotkeyHintSettings.BadgeSize;
-
             Image badgeBg = badgeObj.GetComponent<Image>();
             badgeBg.color = HotkeyHintSettings.BadgeBackgroundColor;
             badgeBg.raycastTarget = false;
 
             hotkeyHintBadgeObject = badgeObj;
+            createdBadge = true;
+            _hasAppliedHotkeyBadgeLayout = false;
+        }
+
+        if (!_hasAppliedHotkeyBadgeLayout)
+        {
+            RectTransform badgeRect = hotkeyHintBadgeObject.GetComponent<RectTransform>();
+            RectTransform staminaBgRect = transform.Find("StaminaBackground") as RectTransform;
+            HotkeyHintSettings.ApplyCardHotkeyBadgeLayout(badgeRect, staminaBgRect);
+            _hasAppliedHotkeyBadgeLayout = true;
         }
 
         if (hotkeyHintText == null)
@@ -1180,7 +1180,10 @@ public class CardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, 
             hotkeyHintText.raycastTarget = false;
         }
 
-        hotkeyHintBadgeObject.SetActive(false);
+        if (createdBadge)
+        {
+            hotkeyHintBadgeObject.SetActive(false);
+        }
     }
 
     private void ShowCardKeywordTooltips()

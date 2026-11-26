@@ -108,6 +108,7 @@ public class CardPlayabilityAndBattleHotkeysTests
         }
         SetStaticField<PlayerInputController>("_instance", null);
         SetStaticField<PlayerInputController>("_isShuttingDown", false);
+        SetStaticField<TooltipManager>("instance", null);
 
         SetStaticAutoProperty<RunManager>("instance", null);
         SetStaticAutoProperty<GameSceneManager>("instance", null);
@@ -723,5 +724,87 @@ public class CardPlayabilityAndBattleHotkeysTests
         Assert.AreEqual("2", cardUI2.CurrentHotkeyHintText);
 
         pausePanel.OnClose();
+    }
+
+    [Test]
+    public void CardUI_ActionCardPrefab_HotkeyBadge_OverlapsCostCornerWithoutCoveringCostNumber_AcrossSlots1To9AndHover()
+    {
+        GameObject actionCardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Card/ActionCard.prefab");
+        Assert.IsNotNull(actionCardPrefab, "ActionCard.prefab을 찾을 수 없습니다.");
+
+        var (canvas, contentRect) = CreateTestCanvas("CostCornerBadgeCanvas");
+        EventSystem es = canvas.GetComponentInChildren<EventSystem>();
+        if (es == null)
+        {
+            es = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+        }
+
+        GameObject tooltipTemplate = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/TooltipPanel.prefab");
+        Assert.IsNotNull(tooltipTemplate, "TooltipPanel.prefab을 찾을 수 없습니다.");
+        GameObject ttGo = Track(new GameObject("TooltipManager", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter)));
+        ttGo.transform.SetParent(canvas.transform, false);
+        TooltipManager tooltipManager = ttGo.AddComponent<TooltipManager>();
+        SetPrivateField(tooltipManager, "panelTemplatePrefab", tooltipTemplate.GetComponent<TooltipPanel>());
+        InvokePrivateMethod(tooltipManager, "Awake");
+
+        GameObject cardGo = Track(UnityEngine.Object.Instantiate(actionCardPrefab, contentRect, false));
+        CardUI cardUI = cardGo.GetComponent<CardUI>();
+        Assert.IsNotNull(cardUI);
+        InvokePrivateMethod(cardUI, "Awake");
+        cardUI.enableZoom = true;
+
+        RectTransform staminaBgRect = cardGo.transform.Find("StaminaBackground") as RectTransform;
+        Assert.IsNotNull(staminaBgRect, "ActionCard.prefab에 StaminaBackground가 있어야 합니다.");
+
+        Vector2 staminaCenter = staminaBgRect.anchoredPosition;
+        float staminaMinX = staminaCenter.x - staminaBgRect.sizeDelta.x * staminaBgRect.pivot.x;
+        float staminaMaxY = staminaCenter.y + staminaBgRect.sizeDelta.y * (1f - staminaBgRect.pivot.y);
+
+        for (int i = 1; i <= 9; i++)
+        {
+            cardUI.SetHotkeyHint(i.ToString());
+            Assert.AreEqual(i.ToString(), cardUI.CurrentHotkeyHintText);
+
+            GameObject badgeObj = GetPrivateField<GameObject>(cardUI, "hotkeyHintBadgeObject");
+            Assert.IsNotNull(badgeObj);
+            Assert.IsTrue(badgeObj.activeSelf);
+            Assert.AreEqual(cardGo.transform.childCount - 1, badgeObj.transform.GetSiblingIndex(), "단축키 배지는 최상단 Sibling 순서를 유지해야 합니다.");
+
+            RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+            Assert.AreEqual(HotkeyHintSettings.BadgeSize, badgeRect.sizeDelta);
+            Assert.AreEqual(new Vector2(0f, 1f), badgeRect.anchorMin);
+            Assert.AreEqual(new Vector2(0f, 1f), badgeRect.anchorMax);
+            Assert.AreEqual(new Vector2(0f, 1f), badgeRect.pivot);
+
+            float badgeMinX = badgeRect.anchoredPosition.x;
+            float badgeMaxX = badgeMinX + badgeRect.sizeDelta.x;
+            float badgeMaxY = badgeRect.anchoredPosition.y;
+            float badgeMinY = badgeMaxY - badgeRect.sizeDelta.y;
+
+            float overlapX = badgeMaxX - staminaMinX;
+            float overlapY = staminaMaxY - badgeMinY;
+            Assert.GreaterOrEqual(overlapX, 6f, "배지가 코스트 박스 좌측 모서리에 살짝 걸쳐야 합니다.");
+            Assert.LessOrEqual(overlapX, 14f, "배지가 코스트 박스 중앙까지 과도하게 침범하면 안 됩니다.");
+            Assert.GreaterOrEqual(overlapY, 6f, "배지가 코스트 박스 상단 모서리에 살짝 걸쳐야 합니다.");
+            Assert.LessOrEqual(overlapY, 14f, "배지가 코스트 박스 중앙까지 과도하게 침범하면 안 됩니다.");
+
+            Assert.Less(badgeMaxX, staminaCenter.x - 6f, "배지가 중앙 코스트 숫자를 가리지 않아야 합니다.");
+            Assert.Greater(badgeMinY, staminaCenter.y + 6f, "배지가 중앙 코스트 숫자를 가리지 않아야 합니다.");
+        }
+
+        // 호버 확대/복귀 중에도 배지 부모, 로컬 오프셋 및 최상단 순서 유지 검증
+        GameObject persistedBadge = GetPrivateField<GameObject>(cardUI, "hotkeyHintBadgeObject");
+        Vector2 restingBadgePos = persistedBadge.GetComponent<RectTransform>().anchoredPosition;
+
+        PointerEventData pointerData = new PointerEventData(es);
+        cardUI.OnPointerEnter(pointerData);
+        Assert.IsTrue(cardUI.IsZoomed);
+        Assert.AreSame(cardGo.transform, persistedBadge.transform.parent);
+        Assert.AreEqual(restingBadgePos, persistedBadge.GetComponent<RectTransform>().anchoredPosition);
+        Assert.AreEqual(cardGo.transform.childCount - 1, persistedBadge.transform.GetSiblingIndex());
+
+        cardUI.OnPointerExit(pointerData);
+        Assert.IsFalse(cardUI.IsZoomed);
+        Assert.AreEqual(restingBadgePos, persistedBadge.GetComponent<RectTransform>().anchoredPosition);
     }
 }
