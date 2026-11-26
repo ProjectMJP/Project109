@@ -115,6 +115,16 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         return fallback;
     }
 
+    private static TMP_FontAsset ResolveBoldFont()
+    {
+        TMP_FontAsset boldFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/NEXON Lv2 Gothic OTF Bold SDF.asset");
+        if (boldFont != null)
+        {
+            return boldFont;
+        }
+        return ResolveBaseFont();
+    }
+
     private static Sprite ResolveSquareSprite()
     {
         GameObject statusBar = AssetDatabase.LoadAssetAtPath<GameObject>(StatusBarPrefabPath);
@@ -211,6 +221,26 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         }
     }
 
+    [MenuItem("Tools/UI/Update Damage Preview And Side Card Prefabs")]
+    public static void UpdateDamagePreviewAndSideCardPrefabs()
+    {
+        int uiLayer = LayerMask.NameToLayer("UI");
+        if (uiLayer < 0) uiLayer = 5;
+
+        int worldUiLayer = LayerMask.NameToLayer("WorldUI");
+        if (worldUiLayer < 0) worldUiLayer = 11;
+
+        TMP_FontAsset baseFont = ResolveBaseFont();
+        Sprite squareSprite = ResolveSquareSprite();
+
+        UpdateCompactStatusBarPrefab(worldUiLayer, baseFont, squareSprite);
+        CreateOrUpdateSideUnitCardPrefab(uiLayer, baseFont, squareSprite);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("[SetupBattleSideUnitHUDAndCompactWorldUI] CharacterStatusBarUI 및 BattleSideUnitCardUI 프리팹 갱신 완료");
+    }
+
     [MenuItem("Tools/UI/Update StatusBar Damage Preview Prefab")]
     public static void UpdateStatusBarDamagePreviewPrefab()
     {
@@ -220,35 +250,10 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         TMP_FontAsset baseFont = ResolveBaseFont();
         Sprite squareSprite = ResolveSquareSprite();
 
-        GameObject root = PrefabUtility.LoadPrefabContents(StatusBarPrefabPath);
-        if (root == null)
-        {
-            Debug.LogError($"[SetupBattleSideUnitHUDAndCompactWorldUI] 프리팹 로드 실패: {StatusBarPrefabPath}");
-            return;
-        }
-
-        try
-        {
-            ConfigureStatusBarDamagePreviewChildren(root, worldUiLayer, baseFont, squareSprite);
-            SetLayerRecursively(root, worldUiLayer);
-
-            bool saved;
-            PrefabUtility.SaveAsPrefabAsset(root, StatusBarPrefabPath, out saved);
-            if (!saved)
-            {
-                Debug.LogError($"[SetupBattleSideUnitHUDAndCompactWorldUI] 저장 실패: {StatusBarPrefabPath}");
-            }
-            else
-            {
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-                Debug.Log("[SetupBattleSideUnitHUDAndCompactWorldUI] CharacterStatusBarUI 예상 피해 미리보기 UI 프리팹 갱신 완료");
-            }
-        }
-        finally
-        {
-            PrefabUtility.UnloadPrefabContents(root);
-        }
+        UpdateCompactStatusBarPrefab(worldUiLayer, baseFont, squareSprite);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("[SetupBattleSideUnitHUDAndCompactWorldUI] CharacterStatusBarUI 예상 피해 미리보기 UI 프리팹 갱신 완료");
     }
 
     private static void UpdateCompactStatusBarPrefab(int worldUiLayer, TMP_FontAsset baseFont, Sprite squareSprite)
@@ -338,40 +343,55 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
     {
         if (root == null) return;
 
-        Transform dmgContainerTr = EnsurePreviewPillChild(
+        TMP_FontAsset boldFont = ResolveBoldFont();
+        if (boldFont == null)
+        {
+            boldFont = baseFont;
+        }
+
+        Transform dmgContainerTr = EnsurePreviewTextChild(
             root.transform,
             containerName: "DamagePreviewContainer",
-            bgName: "DamagePreviewBackground",
+            legacyBgName: "DamagePreviewBackground",
             textName: "DamagePreviewText",
-            anchoredPos: new Vector2(0f, 16f),
-            sizeDelta: new Vector2(86f, 16f),
-            bgColor: new Color(0.08f, 0.08f, 0.12f, 0.90f),
-            textColor: new Color(1f, 0.88f, 0.85f, 1f),
-            fontSize: 11f,
+            anchoredPos: new Vector2(0f, 82f),
+            sizeDelta: new Vector2(120f, 32f),
+            textColor: new Color(1f, 0.94f, 0.88f, 1f),
+            fontSize: 24f,
             defaultText: "-10",
             worldUiLayer: worldUiLayer,
-            baseFont: baseFont,
-            squareSprite: squareSprite,
-            out Image dmgBgImg,
+            fontAsset: boldFont,
             out TextMeshProUGUI dmgTmp);
 
-        Transform badgeContainerTr = EnsurePreviewPillChild(
+        Transform lethalContainerTr = EnsurePreviewTextChild(
+            dmgContainerTr,
+            containerName: "LethalIndicatorContainer",
+            legacyBgName: null,
+            textName: "LethalIndicatorText",
+            anchoredPos: new Vector2(0f, -18f),
+            sizeDelta: new Vector2(64f, 14f),
+            textColor: new Color(1f, 0.30f, 0.24f, 1f),
+            fontSize: 11f,
+            defaultText: "KILL",
+            worldUiLayer: worldUiLayer,
+            fontAsset: boldFont,
+            out TextMeshProUGUI lethalTmp);
+
+        Transform badgeContainerTr = EnsurePreviewTextChild(
             root.transform,
             containerName: "FacingBadgeContainer",
-            bgName: "FacingBadgeBackground",
+            legacyBgName: "FacingBadgeBackground",
             textName: "FacingBadgeText",
-            anchoredPos: new Vector2(0f, 31f),
-            sizeDelta: new Vector2(86f, 13f),
-            bgColor: new Color(0.95f, 0.52f, 0.08f, 0.96f),
-            textColor: new Color(1f, 0.98f, 0.92f, 1f),
-            fontSize: 9f,
-            defaultText: "정후면 1.5x",
+            anchoredPos: new Vector2(0f, 126f),
+            sizeDelta: new Vector2(140f, 22f),
+            textColor: new Color(1f, 0.72f, 0.14f, 1f),
+            fontSize: 15f,
+            defaultText: "BACK ATTACK",
             worldUiLayer: worldUiLayer,
-            baseFont: baseFont,
-            squareSprite: squareSprite,
-            out Image badgeBgImg,
+            fontAsset: boldFont,
             out TextMeshProUGUI badgeTmp);
 
+        lethalContainerTr.gameObject.SetActive(false);
         dmgContainerTr.gameObject.SetActive(false);
         badgeContainerTr.gameObject.SetActive(false);
 
@@ -380,30 +400,27 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         {
             SerializedObject serializedStatus = new SerializedObject(statusBar);
             serializedStatus.FindProperty("damagePreviewContainer").objectReferenceValue = dmgContainerTr.gameObject;
-            serializedStatus.FindProperty("damagePreviewBackground").objectReferenceValue = dmgBgImg;
             serializedStatus.FindProperty("damagePreviewText").objectReferenceValue = dmgTmp;
+            serializedStatus.FindProperty("lethalIndicatorContainer").objectReferenceValue = lethalContainerTr.gameObject;
+            serializedStatus.FindProperty("lethalIndicatorText").objectReferenceValue = lethalTmp;
             serializedStatus.FindProperty("facingBadgeContainer").objectReferenceValue = badgeContainerTr.gameObject;
-            serializedStatus.FindProperty("facingBadgeBackground").objectReferenceValue = badgeBgImg;
             serializedStatus.FindProperty("facingBadgeText").objectReferenceValue = badgeTmp;
             serializedStatus.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 
-    private static Transform EnsurePreviewPillChild(
+    private static Transform EnsurePreviewTextChild(
         Transform parent,
         string containerName,
-        string bgName,
+        string legacyBgName,
         string textName,
         Vector2 anchoredPos,
         Vector2 sizeDelta,
-        Color bgColor,
         Color textColor,
         float fontSize,
         string defaultText,
         int worldUiLayer,
-        TMP_FontAsset baseFont,
-        Sprite squareSprite,
-        out Image bgImage,
+        TMP_FontAsset fontAsset,
         out TextMeshProUGUI textComp)
     {
         Transform containerTr = parent.Find(containerName);
@@ -422,27 +439,14 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         containerRect.anchoredPosition = anchoredPos;
         containerRect.sizeDelta = sizeDelta;
 
-        Transform bgTr = containerTr.Find(bgName);
-        if (bgTr == null)
+        if (!string.IsNullOrEmpty(legacyBgName))
         {
-            GameObject bgGo = new GameObject(bgName, typeof(RectTransform), typeof(Image));
-            bgGo.transform.SetParent(containerTr, false);
-            bgTr = bgGo.transform;
+            Transform legacyBgTr = containerTr.Find(legacyBgName);
+            if (legacyBgTr != null)
+            {
+                Object.DestroyImmediate(legacyBgTr.gameObject);
+            }
         }
-        bgTr.gameObject.layer = worldUiLayer;
-        RectTransform bgRect = bgTr.GetComponent<RectTransform>();
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.pivot = new Vector2(0.5f, 0.5f);
-        bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
-
-        bgImage = bgTr.GetComponent<Image>();
-        if (bgImage == null) bgImage = bgTr.gameObject.AddComponent<Image>();
-        if (squareSprite != null) bgImage.sprite = squareSprite;
-        bgImage.type = Image.Type.Simple;
-        bgImage.color = bgColor;
-        bgImage.raycastTarget = false;
 
         Transform textTr = containerTr.Find(textName);
         if (textTr == null)
@@ -456,21 +460,56 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
         textRect.pivot = new Vector2(0.5f, 0.5f);
-        textRect.offsetMin = new Vector2(2f, 0f);
-        textRect.offsetMax = new Vector2(-2f, 0f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
 
         textComp = textTr.GetComponent<TextMeshProUGUI>();
         if (textComp == null) textComp = textTr.gameObject.AddComponent<TextMeshProUGUI>();
-        if (baseFont != null) textComp.font = baseFont;
+        if (fontAsset != null) textComp.font = fontAsset;
         textComp.fontSize = fontSize;
         textComp.fontStyle = FontStyles.Bold;
         textComp.alignment = TextAlignmentOptions.Center;
         textComp.textWrappingMode = TextWrappingModes.NoWrap;
+        textComp.overflowMode = TextOverflowModes.Overflow;
         textComp.color = textColor;
         textComp.raycastTarget = false;
         textComp.text = defaultText;
 
         return containerTr;
+    }
+
+    private static Image EnsureDamagePreviewOverlayChild(Transform fillTransform, Sprite squareSprite, int layer)
+    {
+        if (fillTransform == null)
+        {
+            return null;
+        }
+
+        Transform overlayTr = fillTransform.Find("DamagePreviewFill");
+        if (overlayTr == null)
+        {
+            GameObject overlayObj = new GameObject("DamagePreviewFill", typeof(RectTransform), typeof(Image));
+            overlayObj.transform.SetParent(fillTransform, false);
+            overlayTr = overlayObj.transform;
+        }
+
+        overlayTr.gameObject.layer = layer;
+        RectTransform rt = overlayTr.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        Image img = overlayTr.GetComponent<Image>();
+        if (img == null) img = overlayTr.gameObject.AddComponent<Image>();
+        if (squareSprite != null) img.sprite = squareSprite;
+        img.type = Image.Type.Simple;
+        img.color = new Color(1f, 0.88f, 0.28f, 0.92f);
+        img.raycastTarget = false;
+
+        overlayTr.gameObject.SetActive(false);
+        return img;
     }
 
     private static GaugeUI ConfigureCompactGaugeGroup(
@@ -544,9 +583,14 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             gauge = fillTr.gameObject.AddComponent<GaugeUI>();
         }
 
+        Image previewOverlay = groupName == "HealthGroup"
+            ? EnsureDamagePreviewOverlayChild(fillTr, squareSprite, fillTr.gameObject.layer)
+            : null;
+
         SerializedObject serializedGauge = new SerializedObject(gauge);
         serializedGauge.FindProperty("gaugeImageFilled").objectReferenceValue = fillImg;
         serializedGauge.FindProperty("gaugeText").objectReferenceValue = valueTmp;
+        serializedGauge.FindProperty("damagePreviewOverlayImage").objectReferenceValue = previewOverlay;
         serializedGauge.ApplyModifiedPropertiesWithoutUndo();
 
         return gauge;
@@ -978,7 +1022,7 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             intentValTmp.raycastTarget = false;
             intentBadgeObj.SetActive(false);
 
-            // 우측 정보 컬럼 (NameText + HealthGauge + StaminaGauge)
+            // 우측 정보 컬럼 (NameRow + HealthGauge + StaminaGauge)
             GameObject infoCol = new GameObject("InfoColumn", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
             infoCol.transform.SetParent(topBox.transform, false);
             LayoutElement infoLayoutElem = infoCol.GetComponent<LayoutElement>();
@@ -993,11 +1037,27 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             infoVlg.childForceExpandWidth = true;
             infoVlg.childForceExpandHeight = false;
 
+            GameObject nameRowObj = new GameObject("NameRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            nameRowObj.transform.SetParent(infoCol.transform, false);
+            nameRowObj.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 18f);
+            nameRowObj.GetComponent<LayoutElement>().preferredHeight = 18f;
+
+            HorizontalLayoutGroup nameRowHlg = nameRowObj.GetComponent<HorizontalLayoutGroup>();
+            nameRowHlg.spacing = 4f;
+            nameRowHlg.childAlignment = TextAnchor.MiddleLeft;
+            nameRowHlg.childControlWidth = true;
+            nameRowHlg.childControlHeight = true;
+            nameRowHlg.childForceExpandWidth = false;
+            nameRowHlg.childForceExpandHeight = true;
+
             GameObject nameObj = new GameObject("NameText", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
-            nameObj.transform.SetParent(infoCol.transform, false);
+            nameObj.transform.SetParent(nameRowObj.transform, false);
             RectTransform nameRect = nameObj.GetComponent<RectTransform>();
             nameRect.sizeDelta = new Vector2(0f, 18f);
-            nameObj.GetComponent<LayoutElement>().preferredHeight = 18f;
+            LayoutElement nameLayoutElem = nameObj.GetComponent<LayoutElement>();
+            nameLayoutElem.flexibleWidth = 1f;
+            nameLayoutElem.minWidth = 40f;
+            nameLayoutElem.preferredHeight = 18f;
 
             TextMeshProUGUI nameTmp = nameObj.GetComponent<TextMeshProUGUI>();
             if (baseFont != null) nameTmp.font = baseFont;
@@ -1010,8 +1070,42 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             nameTmp.overflowMode = TextOverflowModes.Ellipsis;
             nameTmp.raycastTarget = false;
 
-            GaugeUI healthGauge = CreateSideCardGauge(infoCol.transform, "HealthGauge", 16f, 11f, UIConstants.COLOR_HEALTH, baseFont, squareSprite);
-            GaugeUI staminaGauge = CreateSideCardGauge(infoCol.transform, "StaminaGauge", 14f, 10f, UIConstants.COLOR_STAMINA, baseFont, squareSprite);
+            TMP_FontAsset boldFont = ResolveBoldFont();
+        if (boldFont == null)
+        {
+            boldFont = baseFont;
+        }
+            GameObject backAttackTagObj = new GameObject("BackAttackTag", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            backAttackTagObj.transform.SetParent(nameRowObj.transform, false);
+            LayoutElement backTagLayout = backAttackTagObj.GetComponent<LayoutElement>();
+            backTagLayout.minWidth = 78f;
+            backTagLayout.preferredWidth = 78f;
+            backTagLayout.preferredHeight = 16f;
+            backTagLayout.flexibleWidth = 0f;
+
+            Image backTagBg = backAttackTagObj.GetComponent<Image>();
+            backTagBg.sprite = squareSprite;
+            backTagBg.color = new Color(0.45f, 0.14f, 0.06f, 0.96f);
+            backTagBg.raycastTarget = false;
+
+            GameObject backAttackTextObj = new GameObject("BackAttackTagText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            backAttackTextObj.transform.SetParent(backAttackTagObj.transform, false);
+            SetStretchRect(backAttackTextObj.GetComponent<RectTransform>(), 0f);
+
+            TextMeshProUGUI backAttackTagTmp = backAttackTextObj.GetComponent<TextMeshProUGUI>();
+            if (boldFont != null) backAttackTagTmp.font = boldFont;
+            backAttackTagTmp.text = "BACK ATTACK";
+            backAttackTagTmp.fontSize = 9.5f;
+            backAttackTagTmp.fontStyle = FontStyles.Bold;
+            backAttackTagTmp.color = new Color(1f, 0.86f, 0.26f, 1f);
+            backAttackTagTmp.alignment = TextAlignmentOptions.Center;
+            backAttackTagTmp.textWrappingMode = TextWrappingModes.NoWrap;
+            backAttackTagTmp.overflowMode = TextOverflowModes.Overflow;
+            backAttackTagTmp.raycastTarget = false;
+            backAttackTagObj.SetActive(false);
+
+            GaugeUI healthGauge = CreateSideCardGauge(infoCol.transform, "HealthGauge", 16f, 11f, UIConstants.COLOR_HEALTH, baseFont, squareSprite, uiLayer);
+            GaugeUI staminaGauge = CreateSideCardGauge(infoCol.transform, "StaminaGauge", 14f, 10f, UIConstants.COLOR_STAMINA, baseFont, squareSprite, uiLayer);
 
             // 하단 이펙트 아이콘 행 (높이 26, 좌측 정렬)
             GameObject effectRowObj = new GameObject("EffectRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
@@ -1048,6 +1142,8 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
             serializedCard.FindProperty("staminaGaugeUI").objectReferenceValue = staminaGauge;
             serializedCard.FindProperty("effectRowContainer").objectReferenceValue = effectRowObj.transform;
             serializedCard.FindProperty("effectItemPrefab").objectReferenceValue = effectItemPrefabAsset;
+            serializedCard.FindProperty("backAttackTagObj").objectReferenceValue = backAttackTagObj;
+            serializedCard.FindProperty("backAttackTagText").objectReferenceValue = backAttackTagTmp;
             serializedCard.ApplyModifiedPropertiesWithoutUndo();
 
             SetLayerRecursively(root, uiLayer);
@@ -1075,7 +1171,8 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         float fontSize,
         Color fillColor,
         TMP_FontAsset baseFont,
-        Sprite squareSprite)
+        Sprite squareSprite,
+        int uiLayer)
     {
         GameObject gaugeRoot = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         gaugeRoot.transform.SetParent(parent, false);
@@ -1103,6 +1200,10 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         fillImg.color = fillColor;
         fillImg.raycastTarget = false;
 
+        Image previewOverlay = name == "HealthGauge"
+            ? EnsureDamagePreviewOverlayChild(fillObj.transform, squareSprite, uiLayer)
+            : null;
+
         GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         textObj.transform.SetParent(gaugeRoot.transform, false);
         SetStretchRect(textObj.GetComponent<RectTransform>(), 0f);
@@ -1121,6 +1222,7 @@ public static class SetupBattleSideUnitHUDAndCompactWorldUI
         SerializedObject serializedGauge = new SerializedObject(gauge);
         serializedGauge.FindProperty("gaugeImageFilled").objectReferenceValue = fillImg;
         serializedGauge.FindProperty("gaugeText").objectReferenceValue = tmp;
+        serializedGauge.FindProperty("damagePreviewOverlayImage").objectReferenceValue = previewOverlay;
         serializedGauge.ApplyModifiedPropertiesWithoutUndo();
 
         return gauge;

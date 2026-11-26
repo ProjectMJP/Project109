@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using EventStructs;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -48,6 +49,10 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
     [SerializeField] private Transform effectRowContainer;
     [SerializeField] private CharacterEffectItemUI effectItemPrefab;
 
+    [Header("Damage Preview References")]
+    [SerializeField] private GameObject backAttackTagObj;
+    [SerializeField] private TMP_Text backAttackTagText;
+
     private readonly List<CharacterEffectItemUI> _activeEffectItems = new List<CharacterEffectItemUI>(8);
     private readonly List<CharacterEffectItemUI> _pooledEffectItems = new List<CharacterEffectItemUI>(8);
 
@@ -65,6 +70,10 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
     public bool IsCurrentTurn => _isCurrentTurn;
     public bool IsHighlighted => _isHighlighted;
     public IReadOnlyList<CharacterEffectItemUI> ActiveEffectItems => _activeEffectItems;
+    public bool IsDamagePreviewActive => healthGaugeUI != null && healthGaugeUI.IsDamagePreviewActive;
+    public bool IsBackAttackTagVisible => backAttackTagObj != null && backAttackTagObj.activeSelf;
+    public string HealthDisplayText => healthGaugeUI != null ? healthGaugeUI.CurrentDisplayText : string.Empty;
+    public string BackAttackTagDisplayText => backAttackTagText != null ? backAttackTagText.text : string.Empty;
 
     private void Awake()
     {
@@ -78,9 +87,15 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
             intentBadgeObj.SetActive(false);
         }
 
+        if (backAttackTagObj != null)
+        {
+            backAttackTagObj.SetActive(false);
+        }
+
         if (healthGaugeUI != null)
         {
             healthGaugeUI.SetTextVisible(true);
+            healthGaugeUI.ClearDamagePreview();
         }
 
         if (staminaGaugeUI != null)
@@ -153,6 +168,16 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
         if (intentBadgeObj != null)
         {
             intentBadgeObj.SetActive(false);
+        }
+
+        if (backAttackTagObj != null)
+        {
+            backAttackTagObj.SetActive(false);
+        }
+
+        if (healthGaugeUI != null)
+        {
+            healthGaugeUI.ClearDamagePreview();
         }
     }
 
@@ -260,6 +285,9 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
         _boundCharacter.OnIntentChanged -= HandleIntentChanged;
         _boundCharacter.OnIntentChanged += HandleIntentChanged;
 
+        _boundCharacter.OnDamagePreviewChanged -= HandleDamagePreviewChanged;
+        _boundCharacter.OnDamagePreviewChanged += HandleDamagePreviewChanged;
+
         if (_boundCharacter.effectManager != null)
         {
             _boundCharacter.effectManager.OnEffectAdded -= HandleEffectAdded;
@@ -287,6 +315,7 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
         _boundCharacter.OnCharacterShieldChanged -= HandleHealthOrShieldChanged;
         _boundCharacter.OnCharacterStaminaChanged -= HandleStaminaChanged;
         _boundCharacter.OnIntentChanged -= HandleIntentChanged;
+        _boundCharacter.OnDamagePreviewChanged -= HandleDamagePreviewChanged;
 
         if (_boundCharacter.effectManager != null)
         {
@@ -311,6 +340,12 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
     private void HandleIntentChanged(EnemyIntentInfo intent)
     {
         RefreshIntent();
+    }
+
+    private void HandleDamagePreviewChanged(DamagePreviewInfo preview)
+    {
+        RefreshHealth();
+        RefreshBackAttackTag(in preview);
     }
 
     private void HandleEffectAdded(Effect effect)
@@ -380,7 +415,59 @@ public class BattleSideUnitCardUI : MonoBehaviour, IPointerEnterHandler, IPointe
         int shieldVal = _boundCharacter.shield > 0f ? Mathf.CeilToInt(_boundCharacter.shield) : 0;
 
         healthGaugeUI.SetGaugeColor(_boundCharacter.shield > 0f ? UIConstants.COLOR_SHIELD : UIConstants.COLOR_HEALTH);
-        healthGaugeUI.RefreshNumeric(rate, curHp, maxHpInt, shieldVal);
+
+        DamagePreviewInfo preview = _boundCharacter.CurrentDamagePreview;
+        if (preview.isValid)
+        {
+            healthGaugeUI.Refresh(rate);
+            healthGaugeUI.SetDamagePreview(
+                _boundCharacter.curHealth,
+                maxHp,
+                _boundCharacter.shield,
+                preview.expectedDamage,
+                out int remainingHpInt,
+                out _,
+                out int shieldDamageInt,
+                out _);
+
+            string previewText;
+            if (shieldVal <= 0)
+            {
+                previewText = $"{curHp} → {remainingHpInt} (-{preview.expectedDamage})";
+            }
+            else if (shieldVal > shieldDamageInt)
+            {
+                previewText = $"({shieldVal}→{shieldVal - shieldDamageInt}) {curHp} (-{preview.expectedDamage})";
+            }
+            else
+            {
+                previewText = $"({shieldVal}→0) {curHp}→{remainingHpInt} (-{preview.expectedDamage})";
+            }
+
+            healthGaugeUI.SetText(previewText);
+            RefreshBackAttackTag(in preview);
+        }
+        else
+        {
+            healthGaugeUI.ClearDamagePreview();
+            healthGaugeUI.RefreshNumeric(rate, curHp, maxHpInt, shieldVal);
+            RefreshBackAttackTag(in preview);
+        }
+    }
+
+    private void RefreshBackAttackTag(in DamagePreviewInfo preview)
+    {
+        if (backAttackTagObj == null)
+        {
+            return;
+        }
+
+        bool show = preview.isValid && preview.IsBackstab;
+        backAttackTagObj.SetActive(show);
+        if (show && backAttackTagText != null)
+        {
+            backAttackTagText.text = "BACK ATTACK";
+        }
     }
 
     private void RefreshStamina()

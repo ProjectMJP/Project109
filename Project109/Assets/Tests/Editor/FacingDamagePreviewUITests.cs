@@ -422,13 +422,22 @@ public class FacingDamagePreviewUITests
         Assert.IsFalse(statusBar.ShowValueText);
 
         Assert.IsNotNull(GetPrivateField<GameObject>(statusBar, "damagePreviewContainer"));
-        Assert.IsNotNull(GetPrivateField<Image>(statusBar, "damagePreviewBackground"));
         Assert.IsNotNull(GetPrivateField<TextMeshProUGUI>(statusBar, "damagePreviewText"));
+        Assert.IsNotNull(GetPrivateField<GameObject>(statusBar, "lethalIndicatorContainer"));
+        Assert.IsNotNull(GetPrivateField<TextMeshProUGUI>(statusBar, "lethalIndicatorText"));
         Assert.IsNotNull(GetPrivateField<GameObject>(statusBar, "facingBadgeContainer"));
-        Assert.IsNotNull(GetPrivateField<Image>(statusBar, "facingBadgeBackground"));
         Assert.IsNotNull(GetPrivateField<TextMeshProUGUI>(statusBar, "facingBadgeText"));
 
+        Assert.IsNull(go.transform.Find("DamagePreviewContainer/DamagePreviewBackground"), "박스리스 개편 후 DamagePreviewBackground가 남아있지 않아야 합니다.");
+        Assert.IsNull(go.transform.Find("FacingBadgeContainer/FacingBadgeBackground"), "박스리스 개편 후 FacingBadgeBackground가 남아있지 않아야 합니다.");
+
+        GaugeUI healthGauge = GetPrivateField<GaugeUI>(statusBar, "healthGaugeUI");
+        Assert.IsNotNull(healthGauge);
+        Assert.IsNotNull(healthGauge.DamagePreviewOverlayImage, "HealthGauge에 DamagePreviewOverlayImage가 바인딩되어야 합니다.");
+        Assert.IsFalse(healthGauge.DamagePreviewOverlayImage.gameObject.activeSelf);
+
         Assert.IsFalse(statusBar.IsDamagePreviewVisible);
+        Assert.IsFalse(statusBar.IsLethalPreviewVisible);
         Assert.IsFalse(statusBar.IsFacingBadgeVisible);
     }
 
@@ -452,14 +461,14 @@ public class FacingDamagePreviewUITests
         controller.TryUseCard(card);
         Assert.AreEqual(PlayerControlState.TargetSelection, controller.controlState);
 
-        // 1. 정후면(플레이어 West -> East 보는 적) 타일 호버: -15 + 정후면 1.5x 배지 표시
+        // 1. 정후면(플레이어 West -> East 보는 적) 타일 호버: -15 + BACK ATTACK 표시
         Vector2 enemyScreenPos = cam.WorldToScreenPoint(enemyTile.transform.position);
         InvokePrivateMethod(controller, "HandlePointerHover", enemyScreenPos);
 
         Assert.IsTrue(enemyStatusBar.IsDamagePreviewVisible);
         Assert.AreEqual("-15", enemyStatusBar.DamagePreviewDisplayText);
         Assert.IsTrue(enemyStatusBar.IsFacingBadgeVisible);
-        Assert.AreEqual("정후면 1.5x", enemyStatusBar.FacingBadgeDisplayText);
+        Assert.AreEqual("BACK ATTACK", enemyStatusBar.FacingBadgeDisplayText);
 
         // 2. 빈 타일로 마우스 이탈 시 미리보기 및 배지 깔끔하게 숨김
         Vector2 emptyScreenPos = cam.WorldToScreenPoint(emptyTile.transform.position);
@@ -515,7 +524,7 @@ public class FacingDamagePreviewUITests
         Assert.IsTrue(enemyStatusBar.IsDamagePreviewVisible);
         Assert.AreEqual("-15", enemyStatusBar.DamagePreviewDisplayText);
         Assert.IsTrue(enemyStatusBar.IsFacingBadgeVisible);
-        Assert.AreEqual("정후면 1.5x", enemyStatusBar.FacingBadgeDisplayText);
+        Assert.AreEqual("BACK ATTACK", enemyStatusBar.FacingBadgeDisplayText);
 
         // 대상이 범위를 벗어난 타일로 이동 호버 시 미리보기 숨김
         Vector2 missScreenPos = cam.WorldToScreenPoint(missAoETile.transform.position);
@@ -562,7 +571,7 @@ public class FacingDamagePreviewUITests
         Assert.IsTrue(enemyStatusBar.IsDamagePreviewVisible);
         Assert.AreEqual("-27", enemyStatusBar.DamagePreviewDisplayText);
         Assert.IsTrue(enemyStatusBar.IsFacingBadgeVisible);
-        Assert.AreEqual("정후면 1.5x", enemyStatusBar.FacingBadgeDisplayText);
+        Assert.AreEqual("BACK ATTACK", enemyStatusBar.FacingBadgeDisplayText);
 
         // 실제 전투 시전(투사체 진행 방향 기준)과 오차 없이 일치하는지 검증
         int sessionId = CombatFacing.BeginCastSession(playerChar, projCard.cardData, playerTile.GetCoord(), LookDirection.East, playerTile.GetCoord());
@@ -573,5 +582,198 @@ public class FacingDamagePreviewUITests
         controller.ClearImmediateCardHoverPreview();
         Assert.IsFalse(enemyStatusBar.IsDamagePreviewVisible);
         Assert.IsFalse(enemyStatusBar.IsFacingBadgeVisible);
+    }
+
+    [Test]
+    public void GaugeUI_AndStatusBar_DamagePreviewGhostBar_ReflectsShieldAndLethalState()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/CharacterStatusBarUI.prefab");
+        Assert.IsNotNull(prefab);
+
+        Canvas canvas = CreateTestCanvas("GhostBarTestCanvas");
+        GameObject go = Track(UnityEngine.Object.Instantiate(prefab, canvas.transform, false));
+        CharacterStatusBarUI statusBar = go.GetComponent<CharacterStatusBarUI>();
+        InvokePrivateMethod(statusBar, "Awake");
+
+        GaugeUI healthGauge = GetPrivateField<GaugeUI>(statusBar, "healthGaugeUI");
+        Assert.IsNotNull(healthGauge);
+
+        // 1. 일반 체력 깎임 (100/100 에서 피해 30 -> [0.70, 1.00])
+        statusBar.UpdateHealth(100f, 100f, 0f);
+        statusBar.SetDamagePreview(new DamagePreviewInfo { isValid = true, expectedDamage = 30, facingRelation = FacingHitRelation.DirectFront, facingMultiplier = 1f });
+        Assert.IsTrue(healthGauge.IsDamagePreviewActive);
+        Assert.IsFalse(healthGauge.IsLethalPreview);
+        Assert.IsFalse(statusBar.IsLethalPreviewVisible);
+        Assert.AreEqual(0.70f, healthGauge.DamagePreviewStartRate, 0.001f);
+        Assert.AreEqual(1.00f, healthGauge.DamagePreviewEndRate, 0.001f);
+        Assert.IsTrue(healthGauge.DamagePreviewOverlayImage.gameObject.activeSelf);
+
+        // 2. 실드 일부 흡수 (HP 60/100, Shield 10, 피해 25 -> HP 15만 깎임: [0.45, 0.60])
+        statusBar.UpdateHealth(60f, 100f, 10f);
+        statusBar.SetDamagePreview(new DamagePreviewInfo { isValid = true, expectedDamage = 25, facingRelation = FacingHitRelation.DirectFront, facingMultiplier = 1f });
+        Assert.IsTrue(healthGauge.IsDamagePreviewActive);
+        Assert.AreEqual(0.45f, healthGauge.DamagePreviewStartRate, 0.001f);
+        Assert.AreEqual(0.60f, healthGauge.DamagePreviewEndRate, 0.001f);
+
+        // 3. 실드 완전 흡수 (HP 60/100, Shield 30, 피해 20 -> HP 손실 0 -> 깎임 바 비활성)
+        statusBar.UpdateHealth(60f, 100f, 30f);
+        statusBar.SetDamagePreview(new DamagePreviewInfo { isValid = true, expectedDamage = 20, facingRelation = FacingHitRelation.DirectFront, facingMultiplier = 1f });
+        Assert.IsFalse(healthGauge.IsDamagePreviewActive);
+        Assert.IsFalse(healthGauge.DamagePreviewOverlayImage.gameObject.activeSelf);
+
+        // 4. 처치 가능 (HP 20/100, Shield 5, 피해 25 -> HP 0 -> Lethal + KILL 표시)
+        statusBar.UpdateHealth(20f, 100f, 5f);
+        statusBar.SetDamagePreview(new DamagePreviewInfo { isValid = true, expectedDamage = 25, facingRelation = FacingHitRelation.DirectBack, facingMultiplier = 1.5f });
+        Assert.IsTrue(healthGauge.IsDamagePreviewActive);
+        Assert.IsTrue(healthGauge.IsLethalPreview);
+        Assert.IsTrue(statusBar.IsLethalPreviewVisible);
+        Assert.AreEqual("KILL", statusBar.LethalIndicatorDisplayText);
+        Assert.IsTrue(statusBar.IsFacingBadgeVisible);
+        Assert.AreEqual("BACK ATTACK", statusBar.FacingBadgeDisplayText);
+
+        // 5. 초기화
+        statusBar.ClearDamagePreview();
+        Assert.IsFalse(healthGauge.IsDamagePreviewActive);
+        Assert.IsFalse(statusBar.IsLethalPreviewVisible);
+        Assert.IsFalse(healthGauge.DamagePreviewOverlayImage.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void BattleSideUnitCardUI_DamagePreview_UpdatesGhostBarTextAndBackAttackTag_AndClearsCleanly()
+    {
+        GameObject sideCardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/UI/Battle/BattleSideUnitCardUI.prefab");
+        Assert.IsNotNull(sideCardPrefab, "BattleSideUnitCardUI.prefab을 찾을 수 없습니다.");
+
+        GameMap map = CreateTestGameMap(4, 4);
+        Canvas canvas = CreateTestCanvas("SideCardPreviewCanvas");
+
+        GameObject enemyGo = Track(new GameObject("PreviewSideEnemy"));
+        Character enemyChar = enemyGo.AddComponent<Character>();
+        InvokePrivateMethod(enemyChar, "Awake");
+        enemyChar.faction = CharacterFaction.Enemy;
+        enemyChar.InitializeStat(new CharacterStat { maxHealth = 100f, maxStamina = 100f, moveRange = 3 });
+        enemyChar.curHealth = 45f;
+        enemyChar.characterMove.SetCurrentTile(map.GetTile(1, 1), triggerTileHazards: false);
+        _createdCharacters.Add(enemyChar);
+
+        GameObject cardGo = Track(UnityEngine.Object.Instantiate(sideCardPrefab, canvas.transform, false));
+        BattleSideUnitCardUI sideCard = cardGo.GetComponent<BattleSideUnitCardUI>();
+        Assert.IsNotNull(sideCard);
+        InvokePrivateMethod(sideCard, "Awake");
+
+        sideCard.Bind(new StubEnemyController(enemyChar), isPlayerSide: false);
+        Assert.AreEqual("45 / 100", sideCard.HealthDisplayText);
+        Assert.IsFalse(sideCard.IsDamagePreviewActive);
+        Assert.IsFalse(sideCard.IsBackAttackTagVisible);
+
+        // 1. 정면 피해 15 -> "45 → 30 (-15)", Ghost Bar [0.30, 0.45], BACK ATTACK 태그 숨김
+        enemyChar.UpdateDamagePreview(new DamagePreviewInfo
+        {
+            isValid = true,
+            expectedDamage = 15,
+            facingRelation = FacingHitRelation.DirectFront,
+            facingMultiplier = 1.0f
+        });
+        Assert.IsTrue(sideCard.IsDamagePreviewActive);
+        Assert.AreEqual("45 → 30 (-15)", sideCard.HealthDisplayText);
+        Assert.IsFalse(sideCard.IsBackAttackTagVisible);
+
+        GaugeUI healthGauge = GetPrivateField<GaugeUI>(sideCard, "healthGaugeUI");
+        Assert.AreEqual(0.30f, healthGauge.DamagePreviewStartRate, 0.001f);
+        Assert.AreEqual(0.45f, healthGauge.DamagePreviewEndRate, 0.001f);
+
+        // 2. 백어택 피해 15 -> BACK ATTACK 태그 표시
+        enemyChar.UpdateDamagePreview(new DamagePreviewInfo
+        {
+            isValid = true,
+            expectedDamage = 15,
+            facingRelation = FacingHitRelation.DirectBack,
+            facingMultiplier = 1.5f
+        });
+        Assert.IsTrue(sideCard.IsBackAttackTagVisible);
+        Assert.AreEqual("BACK ATTACK", sideCard.BackAttackTagDisplayText);
+
+        // 3. 실드 10 보유 상태에서 피해 15 -> "(10→0) 45→40 (-15)"
+        enemyChar.shield = 10f;
+        Assert.AreEqual("(10→0) 45→40 (-15)", sideCard.HealthDisplayText);
+
+        // 4. 미리보기 해제 -> 원래 수치 텍스트 및 태그 숨김 복구
+        enemyChar.ClearDamagePreview();
+        Assert.IsFalse(sideCard.IsDamagePreviewActive);
+        Assert.IsFalse(sideCard.IsBackAttackTagVisible);
+        Assert.AreEqual("(10) 45 / 100", sideCard.HealthDisplayText);
+    }
+
+    [Test]
+    public void RendererPulseHighlighter_AndCharacterUIController_PulsesHostileRedAndFriendlyCyan_WithoutMaterialLeak()
+    {
+        GameMap map = CreateTestGameMap(4, 4);
+        Canvas canvas = CreateTestCanvas("PulseHighlightCanvas");
+
+        var (playerChar, playerCtrl, _) = CreateCharacterWithStatusBar("PulsePlayer", CharacterFaction.Player, map.GetTile(0, 0), LookDirection.East, canvas);
+        var (enemyChar, enemyCtrl, _) = CreateCharacterWithStatusBar("PulseEnemy", CharacterFaction.Enemy, map.GetTile(1, 0), LookDirection.West, canvas);
+        CreateBattleTurnContext(playerChar, enemyChar);
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+        {
+            shader = Shader.Find("Standard");
+        }
+        Material sharedMat = Track(new Material(shader));
+
+        GameObject enemyBody = Track(new GameObject("EnemyBody", typeof(MeshFilter), typeof(MeshRenderer)));
+        enemyBody.transform.SetParent(enemyChar.transform, false);
+        MeshRenderer enemyMesh = enemyBody.GetComponent<MeshRenderer>();
+        enemyMesh.sharedMaterial = sharedMat;
+
+        GameObject worldUiChild = Track(new GameObject("WorldUIChild", typeof(MeshFilter), typeof(MeshRenderer)));
+        worldUiChild.transform.SetParent(enemyChar.transform, false);
+        int worldUiLayer = LayerMask.NameToLayer("WorldUI");
+        if (worldUiLayer >= 0) worldUiChild.layer = worldUiLayer;
+        MeshRenderer worldUiMesh = worldUiChild.GetComponent<MeshRenderer>();
+        worldUiMesh.sharedMaterial = sharedMat;
+
+        GameObject playerBody = Track(new GameObject("PlayerBody", typeof(MeshFilter), typeof(MeshRenderer)));
+        playerBody.transform.SetParent(playerChar.transform, false);
+        MeshRenderer playerMesh = playerBody.GetComponent<MeshRenderer>();
+        playerMesh.sharedMaterial = sharedMat;
+
+        // 1. 적 타깃 지정 시 빨간색 계열 펄스 시작 및 시간 경과에 따른 색상 변화 검증
+        enemyCtrl.SetTargetingHighlight(true);
+        Assert.IsTrue(enemyCtrl.IsTargetingHighlighted);
+        Assert.IsTrue(enemyCtrl.TargetingHighlighter.IsActive);
+
+        MaterialPropertyBlock block0 = new MaterialPropertyBlock();
+        enemyMesh.GetPropertyBlock(block0);
+        Assert.IsFalse(block0.isEmpty);
+        Color initialTint = enemyCtrl.TargetingHighlighter.LastAppliedTint;
+        Color initialEmission = enemyCtrl.TargetingHighlighter.LastAppliedEmission;
+        Assert.Greater(initialTint.r, initialTint.g);
+        Assert.Greater(initialEmission.r, initialEmission.b);
+
+        enemyCtrl.TickTargetingHighlight(0.22f);
+        Color steppedTint = enemyCtrl.TargetingHighlighter.LastAppliedTint;
+        Assert.AreNotEqual(initialTint, steppedTint, "시간이 경과하면 점멸 하이라이트 색상이 주기적으로 변화해야 합니다.");
+        Assert.AreSame(sharedMat, enemyMesh.sharedMaterial, "MaterialPropertyBlock 사용 시 sharedMaterial 복제가 발생하지 않아야 합니다.");
+
+        MaterialPropertyBlock worldUiBlock = new MaterialPropertyBlock();
+        worldUiMesh.GetPropertyBlock(worldUiBlock);
+        Assert.IsTrue(worldUiBlock.isEmpty, "WorldUI 레이어 렌더러에는 점멸 하이라이트가 적용되지 않아야 합니다.");
+
+        // 2. 아군 타깃 지정 시 청록색 계열 펄스 검증
+        playerCtrl.SetTargetingHighlight(true);
+        Color allyTint = playerCtrl.TargetingHighlighter.LastAppliedTint;
+        Assert.Greater(allyTint.g, allyTint.r);
+        Assert.Greater(allyTint.b, allyTint.r);
+
+        // 3. 해제 시 MaterialPropertyBlock 완전 정리
+        enemyCtrl.SetTargetingHighlight(false);
+        playerCtrl.SetTargetingHighlight(false);
+
+        MaterialPropertyBlock clearedBlock = new MaterialPropertyBlock();
+        enemyMesh.GetPropertyBlock(clearedBlock);
+        Assert.IsTrue(clearedBlock.isEmpty);
+        playerMesh.GetPropertyBlock(clearedBlock);
+        Assert.IsTrue(clearedBlock.isEmpty);
     }
 }

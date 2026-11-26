@@ -1,13 +1,17 @@
+using System.Collections.Generic;
 using EventStructs;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// 캐릭터의 체력/방어막/스태미나 게이지(GaugeUI) 및 위치 추적을 전담하는 순수 상태바 View 컴포넌트입니다.
 /// </summary>
 public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
 {
+    private static readonly Vector2 DefaultDamagePreviewAnchoredPos = new Vector2(0f, 82f);
+    private static readonly Vector2 DefaultFacingBadgeAnchoredPos = new Vector2(0f, 126f);
+    private static readonly Dictionary<Material, Material> _sharedOutlineMaterials = new Dictionary<Material, Material>();
+
     [Header("Target & Position Settings")]
     [SerializeField] private Transform targetTransform;
     [SerializeField] private Vector3 worldOffset = UIConstants.DEFAULT_STATUS_BAR_OFFSET;
@@ -27,25 +31,34 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
 
     [Header("Damage Preview")]
     [SerializeField] private GameObject damagePreviewContainer;
-    [SerializeField] private Image damagePreviewBackground;
     [SerializeField] private TextMeshProUGUI damagePreviewText;
+    [SerializeField] private GameObject lethalIndicatorContainer;
+    [SerializeField] private TextMeshProUGUI lethalIndicatorText;
     [SerializeField] private GameObject facingBadgeContainer;
-    [SerializeField] private Image facingBadgeBackground;
     [SerializeField] private TextMeshProUGUI facingBadgeText;
-    [SerializeField] private Color normalDamagePreviewBgColor = new Color(0.08f, 0.08f, 0.12f, 0.90f);
-    [SerializeField] private Color normalDamagePreviewTextColor = new Color(1f, 0.88f, 0.85f, 1f);
-    [SerializeField] private Color backstabDamagePreviewBgColor = new Color(0.42f, 0.09f, 0.09f, 0.95f);
-    [SerializeField] private Color backstabDamagePreviewTextColor = new Color(1f, 0.86f, 0.30f, 1f);
-    [SerializeField] private Color backstabBadgeBgColor = new Color(0.95f, 0.52f, 0.08f, 0.96f);
-    [SerializeField] private Color backstabBadgeTextColor = new Color(1f, 0.98f, 0.92f, 1f);
+    [SerializeField] private Color normalDamagePreviewTextColor = new Color(1f, 0.94f, 0.88f, 1f);
+    [SerializeField] private Color backstabDamagePreviewTextColor = new Color(1f, 0.82f, 0.22f, 1f);
+    [SerializeField] private Color lethalDamagePreviewTextColor = new Color(1f, 0.30f, 0.24f, 1f);
+    [SerializeField] private Color backstabBadgeTextColor = new Color(1f, 0.72f, 0.14f, 1f);
+    [SerializeField] private Color32 worldOutlineColor = new Color32(14, 10, 18, 255);
+    [SerializeField] private float worldOutlineWidth = 0.26f;
+    [SerializeField] private Vector3 bodyCenterWorldOffset = new Vector3(0f, 0.92f, 0f);
+    [SerializeField] private Vector3 facingBadgeWorldOffset = new Vector3(0f, 1.43f, 0f);
 
     private Camera cachedCamera;
+    private float _lastCurHealth;
+    private float _lastMaxHealth;
+    private float _lastShield;
+    private bool _hasCachedHealth;
+    private DamagePreviewInfo _currentDamagePreview;
 
     public Transform TargetTransform => targetTransform;
     public bool ShowValueText => showValueText;
     public bool IsDamagePreviewVisible => damagePreviewContainer != null && damagePreviewContainer.activeSelf;
+    public bool IsLethalPreviewVisible => lethalIndicatorContainer != null && lethalIndicatorContainer.activeSelf;
     public bool IsFacingBadgeVisible => facingBadgeContainer != null && facingBadgeContainer.activeSelf;
     public string DamagePreviewDisplayText => damagePreviewText != null ? damagePreviewText.text : string.Empty;
+    public string LethalIndicatorDisplayText => lethalIndicatorText != null ? lethalIndicatorText.text : string.Empty;
     public string FacingBadgeDisplayText => facingBadgeText != null ? facingBadgeText.text : string.Empty;
     public Vector3 WorldOffset
     {
@@ -77,6 +90,10 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
             staminaGaugeUI.SetGaugeColor(staminaColor);
             staminaGaugeUI.SetTextVisible(showValueText);
         }
+
+        ApplyWorldOutline(damagePreviewText);
+        ApplyWorldOutline(lethalIndicatorText);
+        ApplyWorldOutline(facingBadgeText);
 
         ClearDamagePreview();
     }
@@ -116,6 +133,11 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
     /// </summary>
     public void UpdateHealth(float curHealth, float maxHealth, float shield)
     {
+        _lastCurHealth = curHealth;
+        _lastMaxHealth = maxHealth;
+        _lastShield = shield;
+        _hasCachedHealth = true;
+
         if (healthGaugeUI == null) return;
 
         float rate = (maxHealth > 0f) ? Mathf.Clamp01(curHealth / maxHealth) : 0f;
@@ -133,6 +155,11 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         else
         {
             healthGaugeUI.Refresh(rate);
+        }
+
+        if (_currentDamagePreview.isValid)
+        {
+            ApplyDamagePreviewVisuals();
         }
     }
 
@@ -212,20 +239,59 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
         {
             transform.rotation = cachedCamera.transform.rotation;
         }
+
+        if (IsDamagePreviewVisible || IsFacingBadgeVisible)
+        {
+            UpdatePreviewChildPositions();
+        }
     }
 
     /// <summary>
-    /// 방향 보정이 반영된 예상 피해 수치 및 정후면 강조 배지를 표시하거나 숨깁니다.
+    /// 캐릭터 높이에 맞춘 몸통 중앙 예상 피해 및 인텐트 하단 BACK ATTACK 월드 오프셋을 설정합니다.
+    /// </summary>
+    public void SetPreviewWorldOffsets(Vector3 bodyCenterOffset, Vector3 facingOffset)
+    {
+        bodyCenterWorldOffset = bodyCenterOffset;
+        facingBadgeWorldOffset = facingOffset;
+
+        if (IsDamagePreviewVisible || IsFacingBadgeVisible)
+        {
+            UpdatePreviewChildPositions();
+        }
+    }
+
+    /// <summary>
+    /// 방향 보정이 반영된 예상 피해 수치, 체력바 깎임 구간 및 BACK ATTACK 외곽선 텍스트를 표시하거나 숨깁니다.
     /// </summary>
     public void SetDamagePreview(in DamagePreviewInfo preview)
     {
+        _currentDamagePreview = preview;
         if (!preview.isValid)
         {
             ClearDamagePreview();
             return;
         }
 
-        bool isBackstab = preview.IsBackstab;
+        ApplyDamagePreviewVisuals();
+    }
+
+    private void ApplyDamagePreviewVisuals()
+    {
+        bool isBackstab = _currentDamagePreview.IsBackstab;
+        bool isLethal = false;
+
+        if (healthGaugeUI != null && _hasCachedHealth)
+        {
+            healthGaugeUI.SetDamagePreview(
+                _lastCurHealth,
+                _lastMaxHealth,
+                _lastShield,
+                _currentDamagePreview.expectedDamage,
+                out _,
+                out _,
+                out _,
+                out isLethal);
+        }
 
         if (damagePreviewContainer != null)
         {
@@ -233,15 +299,23 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
             damagePreviewContainer.transform.SetAsLastSibling();
         }
 
-        if (damagePreviewBackground != null)
-        {
-            damagePreviewBackground.color = isBackstab ? backstabDamagePreviewBgColor : normalDamagePreviewBgColor;
-        }
-
         if (damagePreviewText != null)
         {
-            damagePreviewText.color = isBackstab ? backstabDamagePreviewTextColor : normalDamagePreviewTextColor;
-            damagePreviewText.text = $"-{preview.expectedDamage}";
+            damagePreviewText.color = isLethal
+                ? lethalDamagePreviewTextColor
+                : (isBackstab ? backstabDamagePreviewTextColor : normalDamagePreviewTextColor);
+            damagePreviewText.text = $"-{_currentDamagePreview.expectedDamage}";
+        }
+
+        if (lethalIndicatorContainer != null)
+        {
+            lethalIndicatorContainer.SetActive(isLethal);
+        }
+
+        if (isLethal && lethalIndicatorText != null)
+        {
+            lethalIndicatorText.color = lethalDamagePreviewTextColor;
+            lethalIndicatorText.text = "KILL";
         }
 
         if (facingBadgeContainer != null)
@@ -253,34 +327,128 @@ public class CharacterStatusBarUI : MonoBehaviour, IWorldFollowUI
             }
         }
 
-        if (isBackstab)
+        if (isBackstab && facingBadgeText != null)
         {
-            if (facingBadgeBackground != null)
-            {
-                facingBadgeBackground.color = backstabBadgeBgColor;
-            }
-            if (facingBadgeText != null)
-            {
-                facingBadgeText.color = backstabBadgeTextColor;
-                facingBadgeText.text = $"정후면 {preview.facingMultiplier:0.#}x";
-            }
+            facingBadgeText.color = backstabBadgeTextColor;
+            facingBadgeText.text = "BACK ATTACK";
         }
+
+        UpdatePreviewChildPositions();
     }
 
     /// <summary>
-    /// 예상 피해 미리보기 수치와 방향 배지를 숨깁니다.
+    /// 예상 피해 미리보기 수치, 체력바 깎임 구간, 방향 텍스트를 모두 숨깁니다.
     /// </summary>
     public void ClearDamagePreview()
     {
+        _currentDamagePreview = default;
+
         if (damagePreviewContainer != null)
         {
             damagePreviewContainer.SetActive(false);
+        }
+
+        if (lethalIndicatorContainer != null)
+        {
+            lethalIndicatorContainer.SetActive(false);
         }
 
         if (facingBadgeContainer != null)
         {
             facingBadgeContainer.SetActive(false);
         }
+
+        if (healthGaugeUI != null)
+        {
+            healthGaugeUI.ClearDamagePreview();
+        }
+    }
+
+    private void UpdatePreviewChildPositions()
+    {
+        RectTransform dmgRect = damagePreviewContainer != null ? damagePreviewContainer.transform as RectTransform : null;
+        RectTransform badgeRect = facingBadgeContainer != null ? facingBadgeContainer.transform as RectTransform : null;
+        if (dmgRect == null && badgeRect == null)
+        {
+            return;
+        }
+
+        if (targetTransform != null && cachedCamera != null && Mathf.Abs(transform.up.y) >= 0.15f)
+        {
+            Vector3 lossyScale = transform.lossyScale;
+            float scaleX = Mathf.Abs(lossyScale.x) > 0.0001f ? lossyScale.x : 1f;
+            float scaleY = Mathf.Abs(lossyScale.y) > 0.0001f ? lossyScale.y : 1f;
+            Vector3 origin = transform.position;
+            Vector3 right = transform.right;
+            Vector3 up = transform.up;
+
+            if (dmgRect != null)
+            {
+                Vector3 delta = (targetTransform.position + bodyCenterWorldOffset) - origin;
+                dmgRect.anchoredPosition = new Vector2(
+                    Vector3.Dot(delta, right) / scaleX,
+                    Vector3.Dot(delta, up) / scaleY);
+            }
+
+            if (badgeRect != null)
+            {
+                Vector3 delta = (targetTransform.position + facingBadgeWorldOffset) - origin;
+                badgeRect.anchoredPosition = new Vector2(
+                    Vector3.Dot(delta, right) / scaleX,
+                    Vector3.Dot(delta, up) / scaleY);
+            }
+        }
+        else
+        {
+            if (dmgRect != null)
+            {
+                dmgRect.anchoredPosition = DefaultDamagePreviewAnchoredPos;
+            }
+            if (badgeRect != null)
+            {
+                badgeRect.anchoredPosition = DefaultFacingBadgeAnchoredPos;
+            }
+        }
+    }
+
+    private void ApplyWorldOutline(TextMeshProUGUI tmp)
+    {
+        if (tmp == null || tmp.font == null)
+        {
+            return;
+        }
+
+        Material baseMat = tmp.font.material;
+        if (baseMat == null)
+        {
+            return;
+        }
+
+        if (!_sharedOutlineMaterials.TryGetValue(baseMat, out Material outlineMat) || outlineMat == null)
+        {
+            outlineMat = new Material(baseMat)
+            {
+                name = baseMat.name + "_WorldPreviewOutline",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            outlineMat.EnableKeyword(ShaderUtilities.Keyword_Outline);
+            if (outlineMat.HasProperty(ShaderUtilities.ID_OutlineWidth))
+            {
+                outlineMat.SetFloat(ShaderUtilities.ID_OutlineWidth, worldOutlineWidth);
+            }
+            if (outlineMat.HasProperty(ShaderUtilities.ID_OutlineColor))
+            {
+                outlineMat.SetColor(ShaderUtilities.ID_OutlineColor, worldOutlineColor);
+            }
+            if (outlineMat.HasProperty(ShaderUtilities.ID_FaceDilate))
+            {
+                outlineMat.SetFloat(ShaderUtilities.ID_FaceDilate, 0.08f);
+            }
+
+            _sharedOutlineMaterials[baseMat] = outlineMat;
+        }
+
+        tmp.fontSharedMaterial = outlineMat;
     }
 
     public void Show()

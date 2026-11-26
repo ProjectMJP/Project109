@@ -12,6 +12,19 @@ public class GaugeUI : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI gaugeText;
 
+    [Header("Damage Preview Ghost Bar")]
+    [SerializeField]
+    private Image damagePreviewOverlayImage;
+
+    [SerializeField]
+    private Color damagePreviewColor = new Color(1f, 0.88f, 0.28f, 0.92f);
+
+    [SerializeField]
+    private Color lethalPreviewColor = new Color(1f, 0.26f, 0.22f, 0.96f);
+
+    [SerializeField]
+    private float previewPulseSpeed = 6.5f;
+
     private float _lastFillAmount = -1f;
     private const float UpdateThreshold = 0.01f;
 
@@ -20,10 +33,23 @@ public class GaugeUI : MonoBehaviour
     private int _lastMaxValue;
     private int _lastShieldValue;
 
+    private bool _isDamagePreviewActive;
+    private bool _isLethalPreview;
+    private float _previewStartRate;
+    private float _previewEndRate;
+    private Color _activePreviewBaseColor;
+
     /// <summary>
     /// RefreshNumeric 호출 중 실제 문자열 포맷팅이 수행된 누적 횟수입니다. (핫패스 GC 무할당 검증용)
     /// </summary>
     public int NumericTextFormatCount { get; private set; }
+
+    public bool IsDamagePreviewActive => _isDamagePreviewActive;
+    public bool IsLethalPreview => _isLethalPreview;
+    public float DamagePreviewStartRate => _previewStartRate;
+    public float DamagePreviewEndRate => _previewEndRate;
+    public Image DamagePreviewOverlayImage => damagePreviewOverlayImage;
+    public string CurrentDisplayText => gaugeText != null ? gaugeText.text : string.Empty;
 
     private void Awake()
     {
@@ -33,6 +59,33 @@ public class GaugeUI : MonoBehaviour
         }
 
         EnsureGaugeTextResolved();
+        EnsureDamagePreviewOverlayResolved();
+        ClearDamagePreview();
+    }
+
+    private void Update()
+    {
+        if (!_isDamagePreviewActive || damagePreviewOverlayImage == null || !damagePreviewOverlayImage.gameObject.activeSelf)
+        {
+            return;
+        }
+
+        float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * previewPulseSpeed);
+        Color c = _activePreviewBaseColor;
+        c.a = _activePreviewBaseColor.a * Mathf.Lerp(0.55f, 1.0f, pulse);
+        damagePreviewOverlayImage.color = c;
+    }
+
+    private void EnsureDamagePreviewOverlayResolved()
+    {
+        if (damagePreviewOverlayImage == null)
+        {
+            Transform tr = transform.Find("DamagePreviewFill");
+            if (tr != null)
+            {
+                damagePreviewOverlayImage = tr.GetComponent<Image>();
+            }
+        }
     }
 
     private void EnsureGaugeTextResolved()
@@ -142,6 +195,117 @@ public class GaugeUI : MonoBehaviour
         if (gaugeImageFilled != null)
         {
             gaugeImageFilled.color = color;
+        }
+    }
+
+    /// <summary>
+    /// 현재 체력/실드와 예상 피해를 바탕으로 게이지 깎임 비율과 잔여 수치·처치 여부를 계산합니다.
+    /// </summary>
+    public static void ComputeDamagePreviewMetrics(
+        float curHealth,
+        float maxHealth,
+        float shield,
+        int expectedDamage,
+        out float currentRate,
+        out float remainingRate,
+        out int remainingHpInt,
+        out int hpDamageInt,
+        out int shieldDamageInt,
+        out bool isLethal)
+    {
+        float safeMax = maxHealth > 0f ? maxHealth : Mathf.Max(1f, curHealth);
+        float safeCur = Mathf.Max(0f, curHealth);
+        float safeShield = Mathf.Max(0f, shield);
+        float dmg = Mathf.Max(0f, expectedDamage);
+
+        float absorbedByShield = Mathf.Min(safeShield, dmg);
+        float hpLoss = Mathf.Max(0f, dmg - absorbedByShield);
+        float remainingHp = Mathf.Max(0f, safeCur - hpLoss);
+
+        currentRate = Mathf.Clamp01(safeCur / safeMax);
+        remainingRate = Mathf.Clamp01(remainingHp / safeMax);
+
+        int curHpInt = (safeCur >= safeMax) ? Mathf.RoundToInt(safeCur) : Mathf.CeilToInt(safeCur);
+        int shieldInt = safeShield > 0f ? Mathf.CeilToInt(safeShield) : 0;
+        int clampedDmgInt = Mathf.Max(0, expectedDamage);
+
+        shieldDamageInt = Mathf.Min(shieldInt, clampedDmgInt);
+        hpDamageInt = Mathf.Max(0, clampedDmgInt - shieldDamageInt);
+        remainingHpInt = Mathf.Max(0, curHpInt - hpDamageInt);
+        isLethal = safeCur > 0f && remainingHp <= 0.0001f;
+    }
+
+    /// <summary>
+    /// 체력바 내부에 예상 피해로 깎일 구간(Ghost/Preview Bar)을 표시합니다.
+    /// </summary>
+    public void SetDamagePreview(
+        float curHealth,
+        float maxHealth,
+        float shield,
+        int expectedDamage,
+        out int remainingHpInt,
+        out int hpDamageInt,
+        out int shieldDamageInt,
+        out bool isLethal)
+    {
+        ComputeDamagePreviewMetrics(
+            curHealth,
+            maxHealth,
+            shield,
+            expectedDamage,
+            out float currentRate,
+            out float remainingRate,
+            out remainingHpInt,
+            out hpDamageInt,
+            out shieldDamageInt,
+            out isLethal);
+
+        EnsureDamagePreviewOverlayResolved();
+
+        _isLethalPreview = isLethal;
+        _previewStartRate = remainingRate;
+        _previewEndRate = currentRate;
+
+        if (currentRate > remainingRate + 0.0005f)
+        {
+            _isDamagePreviewActive = true;
+            _activePreviewBaseColor = isLethal ? lethalPreviewColor : damagePreviewColor;
+
+            if (damagePreviewOverlayImage != null)
+            {
+                RectTransform rt = damagePreviewOverlayImage.rectTransform;
+                rt.anchorMin = new Vector2(remainingRate, 0f);
+                rt.anchorMax = new Vector2(currentRate, 1f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                damagePreviewOverlayImage.color = _activePreviewBaseColor;
+                damagePreviewOverlayImage.gameObject.SetActive(true);
+            }
+        }
+        else
+        {
+            _isDamagePreviewActive = false;
+            if (damagePreviewOverlayImage != null)
+            {
+                damagePreviewOverlayImage.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 체력바 내부 예상 피해 깎임 구간 표시를 숨깁니다.
+    /// </summary>
+    public void ClearDamagePreview()
+    {
+        _isDamagePreviewActive = false;
+        _isLethalPreview = false;
+        _previewStartRate = 0f;
+        _previewEndRate = 0f;
+
+        EnsureDamagePreviewOverlayResolved();
+        if (damagePreviewOverlayImage != null)
+        {
+            damagePreviewOverlayImage.gameObject.SetActive(false);
         }
     }
 }

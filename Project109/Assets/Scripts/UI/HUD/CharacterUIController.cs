@@ -20,15 +20,6 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     [Header("Targeting Highlight")]
     [SerializeField] private GameObject targetingHighlightRingObj;
 
-    private static readonly int BaseColorShaderId = Shader.PropertyToID("_BaseColor");
-    private static readonly int ColorShaderId = Shader.PropertyToID("_Color");
-    private static readonly int EmissionColorShaderId = Shader.PropertyToID("_EmissionColor");
-
-    private static readonly Color TargetingTintHostile = new Color(1f, 0.45f, 0.30f, 1f);
-    private static readonly Color TargetingEmissionHostile = new Color(0.45f, 0.14f, 0.06f, 1f);
-    private static readonly Color TargetingTintFriendly = new Color(0.35f, 0.95f, 0.80f, 1f);
-    private static readonly Color TargetingEmissionFriendly = new Color(0.08f, 0.35f, 0.28f, 1f);
-
     private CharacterStatusBarUI statusBarUI;
     private CharacterEffectListUI effectListUI;
     private CharacterIntentUI intentUI;
@@ -37,9 +28,8 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     private bool _isTimelineHighlighted = false;
     private bool _isTargetingHighlighted = false;
     private bool _hasDamagePreview = false;
-    private bool _hasAppliedPropertyBlock = false;
     private Renderer[] _cachedRenderers;
-    private MaterialPropertyBlock _highlightPropertyBlock;
+    private readonly RendererPulseHighlighter _targetingHighlighter = new RendererPulseHighlighter();
 
     private static readonly Dictionary<Character, CharacterUIController> _controllersByCharacter = new Dictionary<Character, CharacterUIController>();
 
@@ -77,7 +67,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         foreach (KeyValuePair<Character, CharacterUIController> kvp in _controllersByCharacter)
         {
             CharacterUIController ctrl = kvp.Value;
-            if (ctrl != null && (ctrl._isTargetingHighlighted || ctrl._hasAppliedPropertyBlock))
+            if (ctrl != null && (ctrl._isTargetingHighlighted || ctrl._targetingHighlighter.HasAppliedBlock))
             {
                 ctrl.SetTargetingHighlight(false);
             }
@@ -89,6 +79,18 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     public CharacterEffectListUI EffectListUI => effectListUI;
     public CharacterIntentUI IntentUI => intentUI;
     public bool IsTargetingHighlighted => _isTargetingHighlighted;
+    public RendererPulseHighlighter TargetingHighlighter => _targetingHighlighter;
+
+    /// <summary>
+    /// 테스트 및 외부 수동 프레임 갱신에서 타깃팅 점멸 하이라이트를 지정한 시간만큼 진행합니다.
+    /// </summary>
+    public void TickTargetingHighlight(float unscaledDeltaTime)
+    {
+        if (_isTargetingHighlighted)
+        {
+            _targetingHighlighter.Tick(unscaledDeltaTime);
+        }
+    }
 
     private void Awake()
     {
@@ -193,6 +195,11 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         {
             effectListUI.RefreshDurations();
         }
+
+        if (_isTargetingHighlighted)
+        {
+            _targetingHighlighter.Tick(Time.unscaledDeltaTime);
+        }
     }
 
     /// <summary>
@@ -207,6 +214,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
             statusBarUI = UIManager.instance.CreateStatusBarUI(transform, statusBarOffset);
             if (statusBarUI != null)
             {
+                statusBarUI.SetPreviewWorldOffsets(new Vector3(0f, 0.92f, 0f), intentOffset + new Vector3(0f, -0.34f, 0f));
                 if (character != null && _isBattleActive)
                 {
                     _hasDamagePreview = character.CurrentDamagePreview.isValid;
@@ -466,6 +474,7 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
                 ? character.curCharacterStat.maxStamina
                 : Mathf.Max(1f, character.curStamina);
             statusBarUI.UpdateStamina(character.curStamina, maxStamina);
+            statusBarUI.SetPreviewWorldOffsets(new Vector3(0f, 0.92f, 0f), intentOffset + new Vector3(0f, -0.34f, 0f));
 
             _hasDamagePreview = _isBattleActive && character.CurrentDamagePreview.isValid;
             if (_isBattleActive)
@@ -568,39 +577,14 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
         if (highlighted)
         {
             EnsureHighlightCache();
-            bool isHostile = IsHostileAppearance();
-            Color tintColor = isHostile ? TargetingTintHostile : TargetingTintFriendly;
-            Color emissionColor = isHostile ? TargetingEmissionHostile : TargetingEmissionFriendly;
-
-            _highlightPropertyBlock.Clear();
-            _highlightPropertyBlock.SetColor(BaseColorShaderId, tintColor);
-            _highlightPropertyBlock.SetColor(ColorShaderId, tintColor);
-            _highlightPropertyBlock.SetColor(EmissionColorShaderId, emissionColor);
-
-            for (int i = 0; i < _cachedRenderers.Length; i++)
-            {
-                Renderer r = _cachedRenderers[i];
-                if (r != null)
-                {
-                    r.SetPropertyBlock(_highlightPropertyBlock);
-                }
-            }
-            _hasAppliedPropertyBlock = true;
+            _targetingHighlighter.SetRenderers(_cachedRenderers);
+            _targetingHighlighter.BeginPulse(IsHostileAppearance()
+                ? RendererPulseHighlighter.PulseColorProfile.HostileTarget
+                : RendererPulseHighlighter.PulseColorProfile.FriendlyTarget);
         }
-        else if (_hasAppliedPropertyBlock)
+        else
         {
-            if (_cachedRenderers != null)
-            {
-                for (int i = 0; i < _cachedRenderers.Length; i++)
-                {
-                    Renderer r = _cachedRenderers[i];
-                    if (r != null)
-                    {
-                        r.SetPropertyBlock(null);
-                    }
-                }
-            }
-            _hasAppliedPropertyBlock = false;
+            _targetingHighlighter.Clear();
         }
     }
 
@@ -658,15 +642,10 @@ public class CharacterUIController : MonoBehaviour, IOnBattleStart, IOnBattleEnd
     }
 
     /// <summary>
-    /// WorldUI 레이어 및 링 오브젝트를 제외한 캐릭터 3D 렌더러 배열과 MaterialPropertyBlock을 1회 캐싱합니다.
+    /// WorldUI 레이어 및 링 오브젝트를 제외한 캐릭터 3D 렌더러 배열을 1회 캐싱합니다.
     /// </summary>
     private void EnsureHighlightCache()
     {
-        if (_highlightPropertyBlock == null)
-        {
-            _highlightPropertyBlock = new MaterialPropertyBlock();
-        }
-
         if (_cachedRenderers != null)
         {
             return;
