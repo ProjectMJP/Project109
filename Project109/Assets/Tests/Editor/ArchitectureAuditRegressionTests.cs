@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -68,6 +69,9 @@ public class ArchitectureAuditRegressionTests
             InvokeStaticMethod<LuaManager>("ResetStaticState");
             InvokeStaticMethod<ModLoader>("ResetStaticState");
             InvokeStaticMethod(typeof(ModObjectFactory), "ResetStaticState");
+            InvokeStaticMethod<AssetCacheManager>("ResetStaticState");
+            LocalizationManager.Clear();
+            LocalizationManager.CurrentLanguage = LocalizationManager.DEFAULT_LANGUAGE;
 
             SetStaticAutoProperty<GameSceneManager>("instance", null);
             SetStaticAutoProperty<RunManager>("instance", null);
@@ -405,6 +409,118 @@ public class ArchitectureAuditRegressionTests
         gauge.RefreshNumeric(0.59f, 6, 10, shieldValue: 0);
         Assert.AreEqual(3, gauge.NumericTextFormatCount);
         Assert.AreEqual("6 / 10", tmp.text);
+    }
+
+    // =========================================================================
+    // 6. [66] AssetCacheManager ↔ ModBootOrchestrator 부팅 훅 분리 및 L1 Data 역참조 제거 검증
+    // =========================================================================
+    [Test]
+    public void AssetCacheManager_RunPostLoadStepsAndComplete_ExecutesHooksInOrderAndRaisesCompletionEvent()
+    {
+        AssetCacheManager.ClearPostLoadSteps();
+
+        GameObject cacheGo = Track(new GameObject("TestAssetCacheManager"));
+        AssetCacheManager cache = cacheGo.AddComponent<AssetCacheManager>();
+        InvokePrivateMethod(cache, "Awake");
+        Assert.IsFalse(cache.isLoadComplete);
+
+        List<string> executionOrder = new List<string>();
+        IEnumerator StepOne(AssetCacheManager cm)
+        {
+            executionOrder.Add("step1_begin:" + ReferenceEquals(cm, cache));
+            yield return null;
+            executionOrder.Add("step1_end");
+        }
+
+        IEnumerator StepTwo(AssetCacheManager cm)
+        {
+            executionOrder.Add("step2:" + ReferenceEquals(cm, cache));
+            yield break;
+        }
+
+        AssetCacheManager completedSender = null;
+        void HandleCompleted(AssetCacheManager cm) => completedSender = cm;
+
+        AssetCacheManager.RegisterPostLoadStep(StepOne);
+        AssetCacheManager.RegisterPostLoadStep(StepTwo);
+        AssetCacheManager.OnAllDataLoadComplete += HandleCompleted;
+        try
+        {
+            DrainEnumerator(cache.RunPostLoadStepsAndComplete());
+
+            CollectionAssert.AreEqual(
+                new[] { "step1_begin:True", "step1_end", "step2:True" },
+                executionOrder);
+            Assert.IsTrue(cache.isLoadComplete);
+            Assert.AreSame(cache, completedSender);
+        }
+        finally
+        {
+            AssetCacheManager.OnAllDataLoadComplete -= HandleCompleted;
+        }
+    }
+
+    [Test]
+    public void ModBootOrchestrator_RegisterBootHook_LoadsCoreModDatabasesAfterAssetCache()
+    {
+        CreateIsolatedLuaManager();
+        AssetCacheManager.ClearPostLoadSteps();
+
+        GameObject bootGo = Track(new GameObject("TestBootObject"));
+        AssetCacheManager cache = bootGo.AddComponent<AssetCacheManager>();
+        bootGo.AddComponent<ModManager>();
+        InvokePrivateMethod(cache, "Awake");
+        InvokePrivateMethod(bootGo.GetComponent<ModManager>(), "Awake");
+
+        ModBootOrchestrator.RegisterBootHook();
+        DrainEnumerator(cache.RunPostLoadStepsAndComplete());
+
+        Assert.IsTrue(cache.isLoadComplete);
+        Assert.Greater(ModLoader.Instance.CardDatabase.Count, 0, "Core 모드 카드 DB가 로드되어야 합니다.");
+        Assert.Greater(ModLoader.Instance.RelicDatabase.Count, 0, "Core 모드 유물 DB가 로드되어야 합니다.");
+    }
+
+    [Test]
+    public void L1DataLayer_HasNoReverseDependencyOnL3Modding_AndLocalizationFallbackWorks()
+    {
+        string l1LocalizationPath = Path.Combine(Application.dataPath, "Scripts", "Data", "Loaders", "LocalizationManager.cs");
+        string l3LocalizationPath = Path.Combine(Application.dataPath, "Scripts", "Managers", "Modding", "LocalizationManager.cs");
+        string assetCachePath = Path.Combine(Application.dataPath, "Scripts", "Data", "Loaders", "AssetCacheManager.cs");
+
+        Assert.IsTrue(File.Exists(l1LocalizationPath), "LocalizationManager.cs는 L1 Data/Loaders 계층에 위치해야 합니다.");
+        Assert.IsFalse(File.Exists(l3LocalizationPath), "구 L3 Managers/Modding/LocalizationManager.cs는 제거되어야 합니다.");
+
+        string assetCacheSource = File.ReadAllText(assetCachePath, System.Text.Encoding.UTF8);
+        StringAssert.DoesNotContain("ModLoader", assetCacheSource, "AssetCacheManager는 L3 ModLoader를 직접 참조하면 안 됩니다.");
+        StringAssert.DoesNotContain("ModManager", assetCacheSource, "AssetCacheManager는 L3 ModManager를 직접 참조하면 안 됩니다.");
+
+        LocalizationManager.Clear();
+        Assert.AreEqual("기본값", LocalizationManager.GetOrDefault("missing.key", "기본값"));
+
+        CardData cardData = new CardData { cardName = "FallbackCard", displayName = "폴백 카드" };
+        Assert.AreEqual("폴백 카드", cardData.LocalizedName);
+    }
+
+    private static void DrainEnumerator(IEnumerator routine)
+    {
+        if (routine == null)
+        {
+            return;
+        }
+
+        int guard = 0;
+        while (routine.MoveNext())
+        {
+            guard++;
+            if (guard > 1024)
+            {
+                Assert.Fail("코루틴 실행이 안전 반복 상한을 초과했습니다.");
+            }
+            if (routine.Current is IEnumerator nested)
+            {
+                DrainEnumerator(nested);
+            }
+        }
     }
 
     private static void InvokePrivateMethod(object target, string methodName, params object[] args)

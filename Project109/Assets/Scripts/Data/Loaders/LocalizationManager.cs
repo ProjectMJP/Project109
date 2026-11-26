@@ -39,6 +39,14 @@ public static class LocalizationManager
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        _currentLanguage = DEFAULT_LANGUAGE;
+        _languageTables.Clear();
+        OnLanguageChanged = null;
+    }
+
     /// <summary>
     /// 모든 번역 테이블을 초기화합니다. (ModLoader.LoadAllMods 시작 시 호출)
     /// </summary>

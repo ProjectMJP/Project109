@@ -5,7 +5,8 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using YamlDotNet.Serialization;
+
+public delegate IEnumerator AssetPostLoadStep(AssetCacheManager cacheManager);
 
 public struct StageMapDataBundle : IIdentifiable
 {
@@ -27,13 +28,63 @@ public class AssetCacheManager : MonoBehaviour
     public static AssetCacheManager instance { get; private set; }
     public bool isLoadComplete { get; private set; } = false;
 
+    private static readonly List<AssetPostLoadStep> _postLoadSteps = new List<AssetPostLoadStep>();
+
+    /// <summary>
+    /// Addressable 캐싱과 등록된 후속 부팅 단계가 모두 완료되었을 때 발생합니다.
+    /// </summary>
+    public static event Action<AssetCacheManager> OnAllDataLoadComplete;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        instance = null;
+        _postLoadSteps.Clear();
+        OnAllDataLoadComplete = null;
+    }
+
+    /// <summary>
+    /// 에셋 캐시 완료 직후 순차 실행할 후속 부팅 단계(예: 모드/YAML 로딩)를 등록합니다.
+    /// </summary>
+    public static void RegisterPostLoadStep(AssetPostLoadStep step)
+    {
+        if (step == null || _postLoadSteps.Contains(step))
+        {
+            return;
+        }
+        _postLoadSteps.Add(step);
+    }
+
+    /// <summary>
+    /// 등록된 후속 부팅 단계를 해제합니다.
+    /// </summary>
+    public static void UnregisterPostLoadStep(AssetPostLoadStep step)
+    {
+        if (step == null)
+        {
+            return;
+        }
+        _postLoadSteps.Remove(step);
+    }
+
+    /// <summary>
+    /// 등록된 모든 후속 부팅 단계를 비웁니다. (테스트 격리용)
+    /// </summary>
+    public static void ClearPostLoadSteps()
+    {
+        _postLoadSteps.Clear();
+    }
+
     private void Awake()
     {
         if (instance == null)
         {
             instance = this;
 
-            DontDestroyOnLoad(this.gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(this.gameObject);
+            }
         }
         else
         {
@@ -182,22 +233,46 @@ public class AssetCacheManager : MonoBehaviour
             yield return null;
         }
 
-        ModManager modManager = GetComponent<ModManager>();
-        if (modManager != null)
-        {
-            yield return StartCoroutine(modManager.StartModLoading());
-        }
-        else
-        {
-            Debug.LogWarning("Cannot find ModManager.");
-        }
+        yield return StartCoroutine(RunPostLoadStepsAndComplete());
+    }
 
-        // YAML 기반 모드 로드 (이펙트, 유물, 카드 데이터 데이터베이스 구축)
-        ModLoader.Instance.LoadAllMods();
+    /// <summary>
+    /// 등록된 후속 부팅 단계들을 순서대로 실행한 뒤 전체 데이터 로드 완료 상태로 전환합니다.
+    /// </summary>
+    public IEnumerator RunPostLoadStepsAndComplete()
+    {
+        AssetPostLoadStep[] stepsSnapshot = _postLoadSteps.ToArray();
+        for (int i = 0; i < stepsSnapshot.Length; i++)
+        {
+            AssetPostLoadStep step = stepsSnapshot[i];
+            if (step == null)
+            {
+                continue;
+            }
+
+            IEnumerator routine = step(this);
+            if (routine == null)
+            {
+                continue;
+            }
+
+            if (Application.isPlaying)
+            {
+                yield return StartCoroutine(routine);
+            }
+            else
+            {
+                while (routine.MoveNext())
+                {
+                    yield return routine.Current;
+                }
+            }
+        }
 
         // 데이터 로드가 정상 완료되었음을 상태 변수로 보존합니다.
         Debug.Log("All Data Load is Complete.");
         isLoadComplete = true;
+        OnAllDataLoadComplete?.Invoke(this);
     }
 
     public IEnumerator LoadAllAssetsFromBundle(string key, string bundlePath)
