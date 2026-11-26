@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -338,6 +339,46 @@ public class ExploreMapSerializationTests
         finally
         {
             Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void ReserializedAssets_IncountNodePrefabAndMapSOs_PreserveBindingsWithoutFormerlySerializedAs()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/ExploreMap/IncountNode.prefab");
+        Assert.IsNotNull(prefab, "IncountNode.prefab을 로드할 수 없습니다.");
+
+        ExploreNodeUI nodeUI = prefab.GetComponent<ExploreNodeUI>();
+        Assert.IsNotNull(nodeUI, "IncountNode.prefab에 ExploreNodeUI 컴포넌트가 없습니다.");
+        Assert.IsTrue(nodeUI.ExploreNodeUICoverObject != null, "ExploreNodeUICoverObject 직렬화 바인딩이 유실되었습니다.");
+        Assert.IsTrue(nodeUI.ExploreNodeUIHighlightCircleObject != null, "ExploreNodeUIHighlightCircleObject 직렬화 바인딩이 유실되었습니다.");
+        Assert.IsTrue(nodeUI.ExploreNodeUICurrentHighlightCircleObject != null, "ExploreNodeUICurrentHighlightCircleObject 직렬화 바인딩이 유실되었습니다.");
+        Assert.IsTrue(nodeUI.ExploreNodeUIExtraRewardObject != null, "ExploreNodeUIExtraRewardObject 직렬화 바인딩이 유실되었습니다.");
+
+        MapDataSO hideoutMap = AssetDatabase.LoadAssetAtPath<MapDataSO>("Assets/SO/Maps/Map_Hideout.asset");
+        Assert.IsNotNull(hideoutMap, "Map_Hideout.asset을 로드할 수 없습니다.");
+        Assert.AreEqual(EncountType.None, hideoutMap.EncountType);
+
+        string[] mapGuids = AssetDatabase.FindAssets("t:MapDataSO", new[] { "Assets/SO/Maps" });
+        Assert.GreaterOrEqual(mapGuids.Length, 9, "Assets/SO/Maps 하위에 최소 9개 이상의 MapDataSO 에셋이 존재해야 합니다.");
+        foreach (string guid in mapGuids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            MapDataSO mapAsset = AssetDatabase.LoadAssetAtPath<MapDataSO>(assetPath);
+            Assert.IsNotNull(mapAsset, $"MapDataSO 로드 실패: {assetPath}");
+        }
+
+        AssertNoFormerlySerializedAs(typeof(ExploreNodeUI));
+        AssertNoFormerlySerializedAs(typeof(MapDataSO));
+    }
+
+    private static void AssertNoFormerlySerializedAs(System.Type type)
+    {
+        FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        foreach (FieldInfo field in fields)
+        {
+            object[] attrs = field.GetCustomAttributes(typeof(UnityEngine.Serialization.FormerlySerializedAsAttribute), inherit: true);
+            Assert.AreEqual(0, attrs.Length, $"{type.Name}.{field.Name}에 FormerlySerializedAs 어트리뷰트가 남아 있습니다.");
         }
     }
 }

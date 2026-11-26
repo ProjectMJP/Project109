@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public enum ExploreNodeVisualState
@@ -24,17 +23,13 @@ public class ExploreNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     //화살표 기준 노드의 위치
     public Vector2 arrowRelativePos;
 
-    //가리기, 선택 등 노드의 추가적인 생김새 변경을 위한 오브젝트들 (기존 프리팹 직렬화 호환을 위해 FormerlySerializedAs 지정)
-    [FormerlySerializedAs("IncountNodeCoverObject")]
+    //가리기, 선택 등 노드의 추가적인 생김새 변경을 위한 오브젝트들
     public GameObject ExploreNodeUICoverObject;
 
-    [FormerlySerializedAs("IncountNodeHighlightCircleObject")]
     public GameObject ExploreNodeUIHighlightCircleObject;
 
-    [FormerlySerializedAs("IncountNodeCurrentHighlightCircleObject")]
     public GameObject ExploreNodeUICurrentHighlightCircleObject;
 
-    [FormerlySerializedAs("IncountNodeExtraRewardObject")]
     public GameObject ExploreNodeUIExtraRewardObject;
 
     private static readonly Color CurrentNodeColor = Color.white;

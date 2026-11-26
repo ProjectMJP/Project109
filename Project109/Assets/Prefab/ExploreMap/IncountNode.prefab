@@ -317,27 +317,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7b3061a7c6c3b04b839ab4f73f3a6b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  incountType: 0
-  extraIncountType: 0
-  nextIncountNode: []
-  exploreUI: {fileID: 0}
-  battleNodeData: {fileID: 0}
-  eventNodeData: {fileID: 0}
+  nextExploreNodeUI: []
+  ExploreMapUI: {fileID: 0}
   arrowRelativePos: {x: 0, y: 0}
-  IncountNodeCoverObject: {fileID: 2411440787485368310}
-  IncountNodeHighlightCircleObject: {fileID: 7628872274290089923}
-  IncountNodeCurrentHighlightCircleObject: {fileID: 3217153579562432332}
-  IncountNodeExtraRewardObject: {fileID: 5822411063113500089}
-  noneTexture: {fileID: -2071202546, guid: 543315b7c8d54ad47980f2113c5c06da, type: 3}
-  battleTexture: {fileID: -654042244, guid: 5b3383997f2c56347972974289835c38, type: 3}
-  eliteTexture: {fileID: 1110339266, guid: d07c51985be464649ac940ddbcbb1253, type: 3}
-  bossTexture: {fileID: 1451761759, guid: df857b777c921a044adcb5a3aff5a48d, type: 3}
-  restoreTexture: {fileID: 1791983625, guid: 3ff6ed5f184b0d645b24c6748144865e, type: 3}
-  storeTexture: {fileID: -1196066342, guid: d5bc786523c44fb42b19de16a9e50869, type: 3}
-  secretBoxTexture: {fileID: -1571652664, guid: 3cc2f15ef7335a3409f012136908f0d7, type: 3}
-  secretTexture: {fileID: 32832295, guid: e5d37234b8516c149b7f4ac7cd3d80f4, type: 3}
-  insightTexture: {fileID: 756687415, guid: d27d938f5b9900849b45589ee2089931, type: 3}
-  shiningWellTexture: {fileID: 756687415, guid: d27d938f5b9900849b45589ee2089931, type: 3}
+  ExploreNodeUICoverObject: {fileID: 2411440787485368310}
+  ExploreNodeUIHighlightCircleObject: {fileID: 7628872274290089923}
+  ExploreNodeUICurrentHighlightCircleObject: {fileID: 3217153579562432332}
+  ExploreNodeUIExtraRewardObject: {fileID: 5822411063113500089}
 --- !u!1 &7628872274290089923
 GameObject:
   m_ObjectHideFlags: 0
